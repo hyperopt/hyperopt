@@ -294,18 +294,18 @@ class DBN_SearchDomain(SearchDomain):
             n_hid_i = layer_config['n_hid']
             if layer_config['W_init_dist']=='uniform':
                 W = rng.uniform(low=-1,high=1,size=(n_hid_i, n_inputs_i)).T.astype('float32')
-            elif layer_config['W_init_dist']=='normal':
+            elif layer_config['W_init_dist'] == 'normal':
                 W = rng.randn(n_hid_i, n_inputs_i).T.astype('float32')
             else:
                 raise ValueError('W_init_dist', layer_config['W_init_dist'])
 
-            if layer_config['W_init_algo']=='old':
+            if layer_config['W_init_algo'] == 'old':
                 #N.B. the weights are transposed so that as the number of hidden units changes,
                 # the first hidden units are always the same vectors.
                 # this makes it easier to isolate the effect of random initialization
                 # from the other hyper-parameters under review
                 W *= layer_config['W_init_algo_old_multiplier'] / numpy.sqrt(n_inputs_i)
-            elif layer_config['W_init_algo']=='Xavier':
+            elif layer_config['W_init_algo'] == 'Xavier':
                 W *= numpy.sqrt(6.0 / (n_inputs_i + n_hid_i))
             else:
                 raise ValueError(layer_config['W_init_algo'])
@@ -429,8 +429,9 @@ class DBN_SearchDomain(SearchDomain):
             # copy best params back into place
             for p, bp in zip(params, best_params):
                 p.set_value(bp.get_value())
-            rval['best_epoch_test'] = 1-float(
+            rval['best_epoch_test'] = 1 - float(
                     numpy.mean(
                         [test_logreg_fn(i) for i in range(n_test_batches)]))
+        ctrl.info('rval: %s' % str(rval))
         return rval
 
