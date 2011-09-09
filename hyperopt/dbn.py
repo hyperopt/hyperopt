@@ -17,7 +17,6 @@ from theano import tensor
 
 # scikits.data
 from datasets.tasks import classification_train_valid_test
-from datasets import dataset_factory
 
 # XXX import source code into this project
 from pylearn.shared.layers.logreg import LogisticRegression
@@ -27,15 +26,15 @@ import pylearn.gd.sgd
 import pylearn.preprocessing.pca
 
 from base import SearchDomain
+from utils import json_call
 
 # XXX merge CURAND wrapper into Theano, use here.
 RandomStreams = tensor.shared_randomstreams.RandomStreams
 
 from ht_dist2 import rSON2, one_of, rlist, uniform, expon, geom, randint
 
-# XXX: use scikits.data for this
 def preprocess_data(argd, ctrl):
-    dataset = dataset_factory(argd['dataset_name'])
+    dataset = json_call(argd['dataset_name'])
     train, valid, test = classification_train_valid_test(dataset)
     X_train, y_train = numpy.asarray(train[0]), numpy.asarray(train[1])
     X_valid, y_valid = numpy.asarray(valid[0]), numpy.asarray(valid[1])
