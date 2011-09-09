@@ -17,10 +17,10 @@ Test: maps a sample -> score and incurs a certain amount of cost.
 
 
 """
+
 import copy, sys
 import numpy
 from bson import SON, BSON
-
 
 
 #

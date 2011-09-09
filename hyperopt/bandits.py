@@ -7,9 +7,9 @@ import theano
 from theano import tensor
 
 import base
+from ht_dist2 import rSON2, rlist2, one_of, uniform, randint, expon, geom
 
 class Base(base.Bandit):
-
     def __init__(self, template):
         self.rng = numpy.random.RandomState(55)
         base.Bandit.__init__(self, template)
@@ -22,13 +22,15 @@ class Base(base.Bandit):
                 loss = -self.score(argd),
                 status = 'ok')
 
-from ht_dist2 import rlist2, one_of, uniform, randint, expon, geom
 
 class Quadratic1(Base):
     """
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
+
+    loss_target = 0
+
     def __init__(self):
         Base.__init__(self, uniform(-5, 5))
 
@@ -42,17 +44,19 @@ class TwoArms(Base):
 
     How long does it take the algorithm to identify the best arm?
     """
+
+    loss_target = -1
+
     def __init__(self):
         Base.__init__(self, one_of(0, 1))
 
     def score(self, pt):
         arms = 2
-        reward_mus = [1] + [0]*(arms-1)
-        reward_sigmas = [1]*arms
+        reward_mus = [1] + [0] * (arms - 1)
+        reward_sigmas = [1] * arms
         return numpy.random.normal(size=(),
-                loc=self.reward_mus[pt],
-                scale=self.reward_sigmas[pt])
-
+                loc=reward_mus[pt],
+                scale=reward_sigmas[pt])
 
 class Distractor(Base):
     """
@@ -60,6 +64,9 @@ class Distractor(Base):
     asymptote that is easy to find, but guides hill-climbing approaches away
     from the true max.
     """
+
+    loss_target = -2
+
     def __init__(self):
         Base.__init__(self, uniform(-20, 20))
 
@@ -80,6 +87,9 @@ class EggCarton(Base):
     variables and one is discrete.
 
     """
+
+    loss_target = -1
+
     def __init__(self):
         Base.__init__(self, rSON2(
             'curve', one_of(0, 1),
@@ -106,6 +116,9 @@ class EggCarton2(Base):
     Better solution is to move x a bit to the side, turn on the neg cos and turn
     up the amp to 1.
     """
+
+    loss_target = -3
+
     def __init__(self):
         Base.__init__(self, rSON2(
             'x', uniform(-20, 20),
@@ -117,10 +130,11 @@ class EggCarton2(Base):
                     'amp', uniform(0, 1)))))
 
     def score(self, pt):
-        r = numpy.random.randn()
+        r = numpy.random.randn() * .1
         x = pt['x']
-        r += 2 * numpy.exp(-(x/5.0)**2)
+        r += 2 * numpy.exp(-(x/5.0)**2) # up to 2
         if pt['hf']['kind'] == 'negcos':
             r -= numpy.cos(x) * pt['hf']['amp']
+
         return r
 
