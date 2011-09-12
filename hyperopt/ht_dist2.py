@@ -20,7 +20,12 @@ Test: maps a sample -> score and incurs a certain amount of cost.
 
 import copy, sys
 import numpy
+import bson
 from bson import SON, BSON
+
+import theano
+from theano import tensor
+import montetheano as MT
 
 
 #
@@ -91,15 +96,6 @@ class rdist(SON):
         #print 'new', args, kwargs
         return SON.__new__(*args, **kwargs)
 
-    if 0:
-        def __getattr__(self, attr):
-            try:
-                return self.__getitem__(attr)
-            except KeyError:
-                raise AttributeError(attr)
-        def __setattr__(self, attr, value):
-            return self.__setitem__(attr, value)
-
     def flatten(self, rval=None):
         """Return all children recursively as list.
         """
@@ -109,6 +105,7 @@ class rdist(SON):
         for c in self.children():
             c.flatten(rval=rval)
         return rval
+
     def flatten_names(self, prefix='conf', rval=None):
         """
         Return the list of strings that indicate a path to a child node
@@ -125,38 +122,41 @@ class rdist(SON):
         super(rdist, self).__init__()
         self[distkey] = self.__class__.__name__
         self['choice'] = None
+
     def bless(self):
         """
         Replace any plain SON children with blessed ones.
         """
         pass
+
     def children(self):
         return []
+
     def children_names(self):
         return []
+
     def from_SON(self, son_template):
         raise NotImplementedError()
+
     def unsample(self):
         self['choice'] = None
         for child in self.children():
             child.unsample()
+
     def resample(self, rng):
         """Make random configuration choice for self.
         """
         for child in self.children():
             child.resample(rng)
+
     def render(self):
         """Return a sample from self (recursive).
         """
         raise NotImplementedError('override-me')
-    def render_sample(self, rng):
-        self.resample(rng)
-        rval = self.render()
-        self.unsample()
-        return rval
 
     def copy(self):
         raise Exception('are you sure you want to do a shallow copy?')
+
     def clone(self):
         return bless(copy.deepcopy(self))
 
@@ -171,6 +171,125 @@ class rdist(SON):
         prior.resample(rng)
         rval = prior.render()
         return rval
+
+    # ---------------------------------------------------------------
+    # --- TheanoBanditAlgo API
+    # ---------------------------------------------------------------
+
+    def theano_sampler(self, s_rng):
+        """ Return Theano idxs, vals to sample from this rdist tree"""
+        s_N = tensor.lscalar('s_N')
+        if isinstance(s_rng, int):
+            s_rng = MT.RandomStreams(s_rng)
+        s_N = tensor.lscalar()
+        s_elems = tensor.arange(s_N)
+        memo = {}
+        path = []
+        self.theano_sampler_helper(s_rng, s_elems, memo, path)
+        if len(memo) != len(self.flatten()):
+            print memo
+            print self
+            assert (len(memo) == len(self.flatten()))
+        idxs, vals = zip(*[memo[id(n_i)] for n_i in self.flatten()])
+        return idxs, vals, s_N
+
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        """
+        Return a theano program that can draw a samples named in elems
+        """
+        assert id(self) not in memo # son graphs are tree-structured for now
+
+        if 'geom' == self['_dist2_']:
+            # TODO: use ranges!
+            # TODO: cast to integer
+            # TODO: match NIPS by using loguniform
+            raise NotImplementedError('need a loguniform to match NIPS')
+            vals = s_rng.lognormal(draw_shape=(elems.shape[0],), dtype='int32')
+            memo[id(self)] = (elems, vals)
+
+        elif 'expon' == self['_dist2_']:
+            # TODO: use ranges!
+            # TODO: match NIPS by using loguniform
+            raise NotImplementedError('need a loguniform to match NIPS')
+            vals = s_rng.lognormal(draw_shape=(elems.shape[0],))
+            memo[id(self)] = (elems, vals)
+
+        elif 'uniform' == self['_dist2_']:
+            vals = s_rng.uniform(draw_shape=(elems.shape[0],),
+                low=self['low'],
+                high=self['high'])
+            memo[id(self)] = (elems, vals)
+
+        elif 'one_of' == self['_dist2_']:
+            n_options = len(self['options'])
+            #print 'n_options', n_options
+            casevar = s_rng.categorical(
+                        p=[1.0 / n_options] * n_options,
+                        draw_shape=(elems.shape[0],))
+            memo[id(self)] = (elems, casevar)
+            for i, child in enumerate(self['options']):
+                if child in self.children():
+                    elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
+                    child.theano_sampler_helper(s_rng, elems_i, memo,
+                            path+[self])
+
+        elif 'rSON' == self['_dist2_']:
+            memo[id(self)] = (None, None)
+            for child in self.children():
+                child.theano_sampler_helper(s_rng, elems, memo, path + [self])
+        else:
+            raise ValueError(self)
+
+    def idxs_vals_to_dict_list(self, idxs, vals):
+        """ convert idxs, vals -> list-of-dicts"""
+        nodes = self.flatten()
+        idxdict = {}
+        valdict = {}
+        assert len(idxs) == len(vals)
+        assert len(idxs) == len(nodes)
+        for i, node in enumerate(nodes):
+            idxdict[id(node)] = idxs[i]
+            valdict[id(node)] = vals[i]
+
+        # infer how many samples were drawn
+        iii = []
+        for idx_i in idxs:
+            if idx_i is not None:
+                try:
+                    iii.extend(idx_i)
+                except TypeError:
+                    raise TypeError(idxs)
+
+        rval = [self.nth_theano_sample(n, idxdict, valdict)
+                for n in sorted(set(iii))]
+        return rval
+
+    def nth_theano_sample(self, n, idxdict, valdict):
+        #XXX: move this into derived classes
+        if 'geom' == self['_dist2_']:
+            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+        elif 'expon' == self['_dist2_']:
+            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+        elif 'uniform' == self['_dist2_']:
+            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+        elif 'one_of' == self['_dist2_']:
+            case = valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+            if self['options'][case] in self.children():
+                return self['options'][case].nth_theano_sample(n, idxdict, valdict)
+            else:
+                return self['options'][case]
+        elif 'rSON' == self['_dist2_']:
+            rval = {}
+            for (k, t) in self.items():
+                if k not in self.special_keys:
+                    if rdistable(t):
+                        rval[k] = t.nth_theano_sample(n, idxdict, valdict)
+                    else:
+                        rval[k] = t
+            return rval
+        else:
+            raise ValueError('rdist type not recognized', node['_dist2_'])
+
 
 class rlist(rdist):
     def __init__(self, elements):
@@ -195,8 +314,10 @@ class rlist(rdist):
     def render(self):
         return [render(elem) for elem in self['elements']]
 
+
 def rlist2(*elements):
     return rlist(elements)
+
 
 class rSON(rdist):
     special_keys = (distkey, 'choice')
@@ -205,20 +326,10 @@ class rSON(rdist):
         super(rSON, self).__init__()
         self.update(SON(*args, **kwargs))
         assert self[distkey] == 'rSON' # check here that it hasn't been changed
-    if 0:
-        @classmethod
-        def new_from_SON(cls, son):
-            self = cls(son.items())
-            self.bless()
-            self['choice'] = son['choice']
-            return self
 
-        def bless(self):
-            for k, t in self.items():
-                if isinstance(t, SON) and distkey in t:
-                    self[k] = bless(t)
     def children(self):
         return [t for (k,t) in self.items() if rdistable(t)]
+
     def children_names(self):
         return ['.%s'%k for (k,t) in self.items() if rdistable(t)]
 
@@ -233,6 +344,7 @@ class rSON(rdist):
                 print >> sys.stderr, "rSON render failed", key
                 raise
         return rval
+
 
 def rSON2(*args, **kwargs):
     assert 'cls' not in kwargs
@@ -277,6 +389,7 @@ class one_of(rdist):
     def n_options(self):
         return len(self['options'])
 
+
 class LowHigh(rdist):
     def __init__(self, low, high):
         super(LowHigh, self).__init__()
@@ -291,13 +404,16 @@ class LowHigh(rdist):
     def render(self):
         return self['choice']
 
+
 class uniform(LowHigh):
     def resample(self, rng):
         self['choice'] = float(rng.uniform(low=self['low'], high=self['high']))
 
+
 class randint(LowHigh):
     def resample(self, rng):
         self['choice'] = int(rng.randint(low=self['low'], high=self['high']))
+
 
 class expon(LowHigh):
     def __init__(self, low, high, zero=0):
@@ -319,6 +435,7 @@ class expon(LowHigh):
     def render(self):
         return float(numpy.exp(self['choice']) + self['zero'])
 
+
 class geom(expon):
     def __init__(self, low, high, zero=0, round=1):
         super(geom, self).__init__(low, high, zero=zero)
@@ -334,89 +451,6 @@ class geom(expon):
         rval = super(geom, self).render()
         return (int(rval) // self['round']) * self['round']
 
-
-def theano_sampler_helper(node, s_rng, elems, memo, path):
-    """
-    Return a theano program that can draw a samples named in elems
-    """
-    assert id(node) not in memo # son graphs are tree-structured for now
-
-    if 'geom' == node['_dist2_']:
-        # TODO: use ranges!
-        # TODO: cast to integer
-        # TODO: match NIPS by using loguniform
-        vals = s_rng.lognormal(draw_shape=(elems.shape[0],), dtype='int32')
-        memo[id(node)] = (elems, vals)
-
-    elif 'expon' == node['_dist2_']:
-        # TODO: use ranges!
-        # TODO: match NIPS by using loguniform
-        vals = s_rng.lognormal(draw_shape=(elems.shape[0],))
-        memo[id(node)] = (elems, vals)
-
-    elif 'uniform' == node['_dist2_']:
-        # TODO: use ranges!
-        vals = s_rng.uniform(draw_shape=(elems.shape[0],))
-        memo[id(node)] = (elems, vals)
-
-    elif 'one_of' == node['_dist2_']:
-        n_options = len(node['options'])
-        #print 'n_options', n_options
-        casevar = s_rng.categorical(
-                    p=[1.0 / n_options] * n_options,
-                    draw_shape=(elems.shape[0],))
-        memo[id(node)] = (elems, casevar)
-        for i, child in enumerate(node['options']):
-            if child in node.children():
-                elems_i = elems[where(tensor.eq(i, casevar))]
-                theano_sampler_helper(child, s_rng, elems_i, memo, path+[node])
-
-    elif 'rSON' == node['_dist2_']:
-        for child in node.children():
-            theano_sampler_helper(child, s_rng, elems, memo, path+[node])
-    else:
-        raise ValueError(node)
-
-
-def theano_sampler(node, s_rng):
-    """Return stochastic theano program for rdist tree
-    return s_idsx, s_vals, s_N
-    """
-    if isinstance(s_rng, int):
-        s_rng = theano.tensor.shared_randomstreams.RandomStreams(s_rng)
-    s_N = tensor.lscalar()
-    s_elems = tensor.arange(s_N)
-    memo = {}
-    path = []
-    theano_sampler_helper(node, s_rng, s_elems, memo, path)
-    idxs, vals = zip(*[memo[id(n_i)] for n_i in node.flatten()])
-    return idxs, vals, s_N
-
-
-def sonify_theano_samples(node, idxdict, valdict, memo, idx):
-    """
-    """
-    if 'geom' == node['_dist2_']:
-        s_idx, s_val = memo[id(node)]
-        return valdict[s_val][numpy.where(idxdict[s_idx]==idx)[0][0]]
-    elif 'expon' == node['_dist2_']:
-        s_idx, s_val = memo[id(node)]
-        return valdict[s_val][numpy.where(idxdict[s_idx]==idx)[0][0]]
-    elif 'uniform' == node['_dist2_']:
-        s_idx, s_val = memo[id(node)]
-        return valdict[s_val][numpy.where(idxdict[s_idx]==idx)[0][0]]
-    elif 'one_of' == node['_dist2_']:
-        s_idx, s_val = memo[id(node)]
-        case = valdict[s_val][numpy.where(idxdict[s_idx]==idx)[0][0]]
-        if node['options'][case] in node.children():
-            return config_from_outputs(node['options'][case], idxdict, valdict, memo, idx)
-        else:
-            return node['options'][case]
-    elif 'rSON' == node['_dist2_']:
-        rval = {}
-        for child, name in zip(node.children(), node.children_names()):
-            rval[name[1:]] = config_from_outputs(child, idxdict, valdict, memo, idx)
-        return rval
 
 #
 #

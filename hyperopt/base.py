@@ -29,6 +29,8 @@ import cPickle
 import logging
 import sys
 
+import numpy
+
 import ht_dist2
 import utils
 
@@ -132,7 +134,7 @@ class BanditAlgo(object):
         raise NotImplementedError('override me')
 
 
-class TheanoBanditAlgo(object):
+class TheanoBanditAlgo(BanditAlgo):
     """
     Algorithm for solving Config-armed bandit (arms are from tree domain)
 
@@ -159,15 +161,92 @@ class TheanoBanditAlgo(object):
         the number of samples drawn from the prior
 
     """
+    def __init__(self):
+        self._next_id = 0
+
+    def next_id(self):
+        rval = self._next_id
+        self._next_id += 1
+        return rval
 
     def set_bandit(self, bandit):
+        seed = self.seed
         self.bandit = bandit
-        s_idxs, s_vals, s_N = ht_dist2.theano_sampler(bandit.template, self.seed)
-        self.s_idxs, self.s_vals, self.s_N = s_idxs, s_vals, s_N
+        all_s_idxs, all_s_vals, s_N = bandit.template.theano_sampler(seed)
+        all_s_locs = [i for i, s in enumerate(all_s_idxs) if s is not None]
+
+        self.all_s_idxs = all_s_idxs
+        self.all_s_vals = all_s_vals
+        self.all_s_locs = all_s_locs
+        self.s_N = s_N
+
+        self.s_idxs = list(numpy.asarray(all_s_idxs)[all_s_locs])
+        self.s_vals = list(numpy.asarray(all_s_vals)[all_s_locs])
+        self.db_idxs = [[] for s in self.s_idxs]
+        self.db_vals = [[] for s in self.s_idxs]
+
+    def recall(self, idlist):
+        """Return the elements of idlist numbered as 0,1,...len(idlist) """
+        if 0 < len(idlist):
+            iddict = dict([(orig, new) for (new, orig) in enumerate(idlist)])
+            if len(iddict) != len(idlist):
+                raise NotImplementedError('dups in idlist')
+            rval_idxs = []
+            rval_vals = []
+            for idxs, vals in zip(self.db_idxs, self.db_vals):
+                assert len(idxs) == len(vals)
+                ii_vv = [(iddict[ii], vv)
+                        for (ii, vv) in zip(idxs, vals) if ii in iddict]
+                if ii_vv:
+                    idxs, vals = zip(*ii_vv)
+                else:
+                    idxs, vals = [], []
+                rval_idxs.append(list(idxs))
+                rval_vals.append(list(vals))
+        else:
+            rval_idxs = [[] for s in self.s_idxs]
+            rval_vals = [[] for s in self.s_idxs]
+        return rval_idxs, rval_vals
+
+    def record(self, idxs, vals):
+        """Append idxs and vals to variable database, by numbering them
+        self._next_id to N, and returning the list of these ids."""
+        assert len(idxs) == len(self.db_idxs)
+        assert len(vals) == len(self.db_vals)
+        new_ids = []
+        N = 0
+        for i, (idxvec, valvec) in enumerate(zip(idxs, vals)):
+            for ii in idxvec:
+                N = max(N, ii+1)
+                new_ids.append(ii + self._next_id)
+                self.db_idxs[i].append(ii + self._next_id)
+            self.db_vals[i].extend(valvec)
+        self._next_id += N
+        new_ids = list(sorted(set(new_ids)))
+        return new_ids
 
     def suggest(self, X_list, Y_list, Y_status, N):
-        idxs, vals = ht_dist2.dict_list_to_idxs_vals(X_list)
-        return theano_suggest(idxs, vals, Y_list, Y_status, N)
+        template = self.bandit.template
+        # TODO: partition X_list and Y_list by Y_status
+        X_idxs, X_vals = self.recall([X['id'] for X in X_list])
+        r_idxs, r_vals = self.theano_suggest(X_idxs, X_vals, Y_list, Y_status, N)
+        ids = self.record(r_idxs, r_vals)
+        assert len(ids) == N
+        # now call idxs_vals_to_dict_list to rebuild a nested document
+        # suitable for returning
+        all_r_idxs = [None] * len(self.all_s_idxs)
+        all_r_vals = [None] * len(self.all_s_vals)
+        for i, j in enumerate(self.all_s_locs):
+            all_r_idxs[j] = r_idxs[i]
+            all_r_vals[j] = r_vals[i]
+        rval = template.idxs_vals_to_dict_list(
+                list(all_r_idxs),
+                list(all_r_vals))
+        assert len(rval) == N
+        for rid, r in zip(ids, rval):
+            assert 'id' not in r
+            r['id'] = rid
+        return rval
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
         """Return new points to try.
