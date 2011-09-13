@@ -193,53 +193,6 @@ class rdist(SON):
         idxs, vals = zip(*[memo[id(n_i)] for n_i in self.flatten()])
         return idxs, vals, s_N
 
-    def theano_sampler_helper(self, s_rng, elems, memo, path):
-        """
-        Return a theano program that can draw a samples named in elems
-        """
-        assert id(self) not in memo # son graphs are tree-structured for now
-
-        if 'geom' == self['_dist2_']:
-            # TODO: use ranges!
-            # TODO: cast to integer
-            # TODO: match NIPS by using loguniform
-            raise NotImplementedError('need a loguniform to match NIPS')
-            vals = s_rng.lognormal(draw_shape=(elems.shape[0],), dtype='int32')
-            memo[id(self)] = (elems, vals)
-
-        elif 'expon' == self['_dist2_']:
-            # TODO: use ranges!
-            # TODO: match NIPS by using loguniform
-            raise NotImplementedError('need a loguniform to match NIPS')
-            vals = s_rng.lognormal(draw_shape=(elems.shape[0],))
-            memo[id(self)] = (elems, vals)
-
-        elif 'uniform' == self['_dist2_']:
-            vals = s_rng.uniform(draw_shape=(elems.shape[0],),
-                low=self['low'],
-                high=self['high'])
-            memo[id(self)] = (elems, vals)
-
-        elif 'one_of' == self['_dist2_']:
-            n_options = len(self['options'])
-            #print 'n_options', n_options
-            casevar = s_rng.categorical(
-                        p=[1.0 / n_options] * n_options,
-                        draw_shape=(elems.shape[0],))
-            memo[id(self)] = (elems, casevar)
-            for i, child in enumerate(self['options']):
-                if child in self.children():
-                    elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
-                    child.theano_sampler_helper(s_rng, elems_i, memo,
-                            path+[self])
-
-        elif 'rSON' == self['_dist2_']:
-            memo[id(self)] = (None, None)
-            for child in self.children():
-                child.theano_sampler_helper(s_rng, elems, memo, path + [self])
-        else:
-            raise ValueError(self)
-
     def idxs_vals_to_dict_list(self, idxs, vals):
         """ convert idxs, vals -> list-of-dicts"""
         nodes = self.flatten()
@@ -295,18 +248,6 @@ class rlist(rdist):
     def __init__(self, elements):
         super(rlist, self).__init__()
         self['elements'] = list(elements)
-    if 0:
-        @classmethod
-        def new_from_SON(cls, son):
-            self = cls(son['elements'])
-            self.bless()
-            self['choice'] = son['choice']
-            return self
-
-        def bless(self):
-            for i, t in enumerate(self['elements']):
-                if isinstance(t, SON) and distkey in t:
-                    self['elements'][i] = bless(t)
     def children(self):
         return [t for t in self['elements'] if rdistable(t)]
     def children_names(self):
@@ -345,6 +286,11 @@ class rSON(rdist):
                 raise
         return rval
 
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        memo[id(self)] = (None, None)
+        for child in self.children():
+            child.theano_sampler_helper(s_rng, elems, memo, path + [self])
+
 
 def rSON2(*args, **kwargs):
     assert 'cls' not in kwargs
@@ -357,20 +303,9 @@ class one_of(rdist):
         super(one_of, self).__init__()
         self['options'] = list(options)
 
-    if 0:
-        @classmethod
-        def new_from_SON(cls, son):
-            self = cls(*son['options'])
-            self.bless()
-            self['choice'] = son['choice']
-            return self
-
-        def bless(self):
-            for i, t in enumerate(self['options']):
-                if isinstance(t, SON) and distkey in t:
-                    self['options'][i] = bless(t)
     def children(self):
         return [t for t in self['options'] if rdistable(t)]
+
     def children_names(self):
         return ['{%i}'%i for i in range(len(self.children()))]
 
@@ -389,18 +324,26 @@ class one_of(rdist):
     def n_options(self):
         return len(self['options'])
 
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        assert id(self) not in memo # son graphs are tree-structured for now
+        n_options = len(self['options'])
+        #print 'n_options', n_options
+        casevar = s_rng.categorical(
+                    p=[1.0 / n_options] * n_options,
+                    draw_shape=(elems.shape[0],))
+        memo[id(self)] = (elems, casevar)
+        for i, child in enumerate(self['options']):
+            if child in self.children():
+                elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
+                child.theano_sampler_helper(s_rng, elems_i, memo,
+                        path+[self])
+
 
 class LowHigh(rdist):
     def __init__(self, low, high):
         super(LowHigh, self).__init__()
         self['low'] = low
         self['high'] = high
-    @classmethod
-    def new_from_SON(cls, son):
-        self = cls(son['low'], son['high'])
-        self.bless()
-        self['choice'] = son['choice']
-        return self
     def render(self):
         return self['choice']
 
@@ -409,47 +352,49 @@ class uniform(LowHigh):
     def resample(self, rng):
         self['choice'] = float(rng.uniform(low=self['low'], high=self['high']))
 
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        assert id(self) not in memo # son graphs are tree-structured for now
+        vals = s_rng.uniform(draw_shape=(elems.shape[0],),
+            low=self['low'],
+            high=self['high'])
+        memo[id(self)] = (elems, vals)
 
 class randint(LowHigh):
     def resample(self, rng):
         self['choice'] = int(rng.randint(low=self['low'], high=self['high']))
 
 
-class expon(LowHigh):
-    def __init__(self, low, high, zero=0):
-        super(expon, self).__init__(low, high)
-        self['zero'] = zero
-        if low < zero or high < low:
-            raise ValueError('range err', (zero, low, high))
-    if 0:
-        @classmethod
-        def new_from_SON(cls, son):
-            self = cls(son['low'], son['high'], son['zero'])
-            self.bless()
-            self['choice'] = son['choice']
-            return self
+class normal(rdist):
+    def __init__(self, mu, sigma):
+        rdist.__init__(self)
+        self['mu'] = mu
+        self['sigma'] = sigma
+
+    def render(self):
+        return self['choice']
+
     def resample(self, rng):
-        low = self['low'] - self['zero']
-        high = self['high'] - self['zero']
-        self['choice'] = float(rng.uniform(low=numpy.log(low), high=numpy.log(high)))
-    def render(self):
-        return float(numpy.exp(self['choice']) + self['zero'])
+        self['choice'] = float(rng.normal(
+            loc=self['mu'],
+            scale=self['sigma']))
 
 
-class geom(expon):
-    def __init__(self, low, high, zero=0, round=1):
-        super(geom, self).__init__(low, high, zero=zero)
-        self['round'] = round
-    if 0:
-        @classmethod
-        def new_from_SON(cls, son):
-            self = cls(son['low'], son['high'], son['zero'], son['round'])
-            self.bless()
-            self['choice'] = son['choice']
-            return self
-    def render(self):
-        rval = super(geom, self).render()
-        return (int(rval) // self['round']) * self['round']
+class lognormal(normal):
+    def resample(self, rng):
+        normal.resample(self, rng)
+        self['choice'] = float(numpy.exp(self['choice']))
+
+
+class ceil_lognormal(lognormal):
+    def __init__(self, mu, sigma, round=1):
+        lognormal.__init__(self, mu, sigma)
+        self['round'] = int(round)
+
+    def resample(self, rng):
+        lognormal.resample(self, rng)
+        self['choice'] = int(
+                (numpy.ceil(self['choice']) // self['round'])
+                * self['round'])
 
 
 #

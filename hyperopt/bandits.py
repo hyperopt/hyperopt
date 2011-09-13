@@ -7,7 +7,7 @@ import theano
 from theano import tensor
 
 import base
-from ht_dist2 import rSON2, rlist2, one_of, uniform, randint, expon, geom
+from ht_dist2 import rSON2, rlist2, one_of, uniform, lognormal, ceil_lognormal
 
 class Base(base.Bandit):
     def __init__(self, template):
@@ -57,6 +57,7 @@ class TwoArms(Base):
         return numpy.random.normal(size=(),
                 loc=reward_mus[pt],
                 scale=reward_sigmas[pt])
+
 
 class Distractor(Base):
     """

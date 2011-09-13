@@ -1,4 +1,4 @@
-"""Deep Belief Network
+"""Deep Belief Netork as Bandit
 """
 import copy
 import cPickle
@@ -25,13 +25,18 @@ import pylearn.gd.sgd
 # XXX use scikits-learn?
 import pylearn.preprocessing.pca
 
-from base import SearchDomain
+from base import Bandit
 from utils import json_call
 
 # XXX merge CURAND wrapper into Theano, use here.
 RandomStreams = tensor.shared_randomstreams.RandomStreams
 
-from ht_dist2 import rSON2, one_of, rlist, uniform, expon, geom, randint
+from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
+def geom(lower, upper, round=1):
+    ll = numpy.log(lower)
+    lu = numpy.log(upper)
+    return ceil_lognormal(.5 * (ll + lu), .5 * (lu - ll), round)
+
 
 def preprocess_data(argd, ctrl):
     dataset = json_call(argd['dataset_name'])
@@ -161,59 +166,7 @@ def train_rbm(s_rng, s_idx, s_batchsize, s_features, W, vbias, hbias, n_in,
         return dict(final_recon_l1=float('nan'))
 
 
-class DBN_SearchDomain(SearchDomain):
-    def __init__(self, dataset_name='rectangles', sup_min_epochs=300, sup_max_epochs=4000):
-        template = rSON2(
-            'preprocessing', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'zca',
-                    'energy', uniform(0.5, 1.0))),
-            'dataset_name', dataset_name,
-            'sup_max_epochs', sup_max_epochs,
-            'sup_min_epochs', sup_min_epochs,
-            'iseed', one_of(5, 6, 7, 8),
-            'batchsize', one_of(20, 100),
-            'lr', expon(.001, 1),
-            'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, expon(1e-7, 1e-4)),
-            'next_layer', one_of(None,
-                rSON2(
-                    'n_hid', geom(2**7, 2**12, round=16),
-                    'W_init_dist', one_of('uniform', 'normal'),
-                    'W_init_algo', one_of('old', 'Xavier'),
-                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                    'cd_epochs', geom(1, 3000),
-                    'cd_batchsize', 100,
-                    'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', expon(.0001, 1.0),
-                    'cd_lr_anneal_start', geom(10, 10000),
-                    'next_layer', one_of(None,
-                        rSON2(
-                            'n_hid', geom(2**7, 2**12, round=16),
-                            'W_init_dist', one_of('uniform', 'normal'),
-                            'W_init_algo', one_of('old', 'Xavier'),
-                            'W_init_algo_old_multiplier', uniform(.2, 2),
-                            'cd_epochs', geom(1, 2000),
-                            'cd_batchsize', 100,
-                            'cd_sample_v0s', one_of(False, True),
-                            'cd_lr', expon(.0001, 1.0),
-                            'cd_lr_anneal_start', geom(10, 10000),
-                            'next_layer', one_of(None,
-                                rSON2(
-                                    'n_hid', geom(2**7, 2**12, round=16),
-                                    'W_init_dist', one_of('uniform', 'normal'),
-                                    'W_init_algo', one_of('old', 'Xavier'),
-                                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                                    'cd_epochs', geom(1, 1500),
-                                    'cd_batchsize', 100,
-                                    'cd_sample_v0s', one_of(False, True),
-                                    'cd_lr', expon(.0001, 1.0),
-                                    'cd_lr_anneal_start', geom(10, 10000),
-                                    'next_layer', None,
-                                    )))))))
-        SearchDomain.__init__(self, template)
+class DBN_Base(Bandit):
 
     def dryrun_argd(self, *args, **kwargs):
         return dict(
@@ -385,6 +338,7 @@ class DBN_SearchDomain(SearchDomain):
         rval['best_epoch_valid'] = -1
         rval['best_epoch_train'] = -1
         rval['best_epoch_test'] = -1
+        rval['status'] = 'ok'
         valid_rate=-1
         test_rate=-1
         train_rate=-1
@@ -412,8 +366,7 @@ class DBN_SearchDomain(SearchDomain):
                 epoch, rval['best_epoch'], rval['best_epoch_valid'], rval['best_epoch_test'],
                     rval['best_epoch_train'], train_rate))
             #ctrl.info('Epoch %i train nll: %f'%(epoch, train_rate))
-            ctrl.partial_result(rval)
-            ctrl.checkpoint()
+            ctrl.checkpoint(rval)
 
             if epoch > argd['sup_min_epochs'] and epoch > 2*rval['best_epoch']:
                 break
@@ -421,16 +374,110 @@ class DBN_SearchDomain(SearchDomain):
                 break
             train_rate = float(numpy.mean([train_logreg_fn(i,e_lr) for i in
                 range(n_train_batches)]))
+            if not numpy.isfinite(train_rate):
+                do_test = False
+                rval['status'] = 'fail'
+                rval['status_info'] = 'train_rate %f' % train_rate
+                break
             ++n_iters
 
-        do_test=1
-        if do_test:
+        do_test = 1
+        if do_test and rval['status'] == 'ok':
             # copy best params back into place
             for p, bp in zip(params, best_params):
                 p.set_value(bp.get_value())
             rval['best_epoch_test'] = 1 - float(
                     numpy.mean(
                         [test_logreg_fn(i) for i in range(n_test_batches)]))
+            rval['loss'] = 1.0 - rval['best_epoch_valid']
         ctrl.info('rval: %s' % str(rval))
         return rval
 
+
+class DBN_Bandit(DBN_Base):
+    def __init__(self, dataset_name='datasets.larochelle_etal_2007.Rectangles', sup_min_epochs=300, sup_max_epochs=4000):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(-6), 3)),
+            'next_layer', one_of(None,
+                rSON2(
+                    'n_hid', geom(2**7, 2**12, round=16),
+                    'W_init_dist', one_of('uniform', 'normal'),
+                    'W_init_algo', one_of('old', 'Xavier'),
+                    'W_init_algo_old_multiplier', uniform(.2, 2),
+                    'cd_epochs', geom(1, 3000),
+                    'cd_batchsize', 100,
+                    'cd_sample_v0s', one_of(False, True),
+                    'cd_lr', lognormal(numpy.log(.01), 3),
+                    'cd_lr_anneal_start', geom(10, 10000),
+                    'next_layer', one_of(None,
+                        rSON2(
+                            'n_hid', geom(2**7, 2**12, round=16),
+                            'W_init_dist', one_of('uniform', 'normal'),
+                            'W_init_algo', one_of('old', 'Xavier'),
+                            'W_init_algo_old_multiplier', uniform(.2, 2),
+                            'cd_epochs', geom(1, 2000),
+                            'cd_batchsize', 100,
+                            'cd_sample_v0s', one_of(False, True),
+                            'cd_lr', lognormal(numpy.log(.01), 3),
+                            'cd_lr_anneal_start', geom(10, 10000),
+                            'next_layer', one_of(None,
+                                rSON2(
+                                    'n_hid', geom(2**7, 2**12, round=16),
+                                    'W_init_dist', one_of('uniform', 'normal'),
+                                    'W_init_algo', one_of('old', 'Xavier'),
+                                    'W_init_algo_old_multiplier', uniform(.2, 2),
+                                    'cd_epochs', geom(1, 1500),
+                                    'cd_batchsize', 100,
+                                    'cd_sample_v0s', one_of(False, True),
+                                    'cd_lr', lognormal(numpy.log(.01), 3),
+                                    'cd_lr_anneal_start', geom(10, 10000),
+                                    'next_layer', None,
+                                    )))))))
+        DBN_Base.__init__(self, template)
+
+
+class NeuralNetworkBandit(DBN_Base):
+    def __init__(self, dataset_name='datasets.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
+            sup_max_epochs=400):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(-6), 3)),
+            'next_layer', rSON2(
+                    'n_hid', geom(2**4, 2**10, round=16),
+                    'W_init_dist', one_of('uniform', 'normal'),
+                    'W_init_algo', one_of('old', 'Xavier'),
+                    'W_init_algo_old_multiplier', uniform(.2, 2),
+                    'cd_epochs', 0,
+                    'cd_batchsize', 100,
+                    'cd_sample_v0s', one_of(False, True),
+                    'cd_lr', lognormal(numpy.log(.01), 3),
+                    'cd_lr_anneal_start', geom(10, 10000),
+                    'next_layer', None))
+
+        DBN_Base.__init__(self, template)

@@ -15,6 +15,16 @@ The design is that there are three components fitting together in this project:
          experiment is going to dispatch jobs in other threads, then an
          appropriate thread-aware Ctrl subclass should go with it.
 
+- Template - an rSON hierarchy (see ht_dist2.py)
+
+- TrialSpec - a JSON-encodable document used to specify the computation of a
+  Trial.
+
+- Result - a JSON-encodable document describing the results of a Trial.
+    'status' - a string describing what happened to this trial (see
+                STATUS_STRINGS)
+    'loss' - a scalar saying how bad this trial was.
+
 The modules communicate with trials in nested dictionary form.
 TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
 
@@ -35,6 +45,14 @@ import ht_dist2
 import utils
 
 logger = logging.getLogger(__name__)
+
+STATUS_STRINGS = (
+    'new',        # computations have not started
+    'running',    # computations are in prog
+    'suspended',  # computations have been suspended, job is not finished
+    'ok',         # computations are finished, terminated normally
+    'fail')       # computations are finished, terminated with error
+                  #     - see result['status_fail'] for more info
 
 
 class Ctrl(object):
@@ -85,9 +103,14 @@ class Bandit(object):
     def loss(cls, result):
         """Extract the scalar-valued loss from a result document
         """
-        return result['loss']
+        if result['status'] == 'ok':
+            return result['loss']
+        else:
+            return float('inf')
 
     # TODO: loss variance
+
+    # OPTIONAL BUT OFTEN MEANINGFUL
     # TODO: test set error
     # TODO: test set error variance
 
