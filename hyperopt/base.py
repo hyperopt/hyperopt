@@ -103,10 +103,7 @@ class Bandit(object):
     def loss(cls, result):
         """Extract the scalar-valued loss from a result document
         """
-        if result['status'] == 'ok':
-            return result['loss']
-        else:
-            return float('inf')
+        return result['loss']
 
     # TODO: loss variance
 
@@ -297,7 +294,6 @@ class TheanoBanditAlgo(BanditAlgo):
 
         """
         raise NotImplementedError('override me')
-
 
 
 class Experiment(object):

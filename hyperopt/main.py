@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Entry point for bin/* scripts
 """
@@ -6,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import datasets.main
-
+import mongoexp
 
 def main(cmd, fn_pos = 1):
     """

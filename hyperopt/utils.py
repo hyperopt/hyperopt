@@ -45,7 +45,7 @@ def json_call(json):
     lot. (XXX)
 
     """
-    if isinstance(json, str):
+    if isinstance(json, basestring):
         symbol = json_lookup(json)
         return symbol()
     elif isinstance(json, dict):
