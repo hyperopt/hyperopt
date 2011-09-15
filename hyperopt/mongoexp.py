@@ -661,6 +661,7 @@ class CtrlObj(object):
         self.__dict__.update(kwargs)
         self.read_only=read_only
         self.read_only_id=read_only_id
+        # self.jobs is a MongoJobs reference
 
     def debug(self, *args, **kwargs):
         return logger.debug(*args, **kwargs)
@@ -673,7 +674,7 @@ class CtrlObj(object):
     def checkpoint(self, result=None):
         if not self.read_only:
             self.jobs.refresh(self.current_job)
-            if rval is not None:
+            if result is not None:
                 return self.jobs.update(self.current_job, dict(result=result))
 
 
@@ -681,33 +682,52 @@ def exec_import(cmd_module, cmd):
     exec('import %s; worker_fn = %s' % (cmd_module, cmd))
     return worker_fn
 
+
+def as_mongo_str(s):
+    if s.startswith('mongo://'):
+        return s
+    else:
+        return 'mongo://%s' % s
+
+
 def main_worker():
-    # usage to launch worker:
-    #     hyperopt-worker mongo://...
-    # usage to launch worker loop:
-    #     hyperopt-worker mongo://... N
-    argv = sys.argv
+    from optparse import OptionParser
+    parser = OptionParser(usage="%prog [options]")
 
-    try:
-        script, mongo_str, N = argv
-    except:
-        try:
-            script, mongo_str = argv
-            N = 1
-        except:
-            raise Exception('TODO USAGE too many or too few arguments', argv)
+    parser.add_option("--max-consecutive-failures",
+            dest="max_consecutive_failures",
+            metavar='N',
+            default=4,
+            help="stop if N consecutive jobs fail (default: 4)",
+            )
+    parser.add_option("--poll-interval",
+            dest='poll_interval',
+            metavar='N',
+            default=5,
+            help="check work queue every 1 < T < N seconds (default: 5")
+    parser.add_option("--max-jobs",
+            dest='max_jobs',
+            default=sys.maxint,
+            help="stop after running this many jobs (default: inf)")
+    parser.add_option("--mongo",
+            dest='mongo',
+            default='localhost/hyperopt',
+            help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--workdir",
+            dest="workdir",
+            default=None,
+            help="root workdir (default: load from mongo)",
+            metavar="DIR")
 
-    assert 'hyperopt-mongo-worker' in script  # not essential, just debugging here
-    N = int(N)
+    (options, args) = parser.parse_args()
 
-    if N != 1:
-        if N < 0:
-            MAX_CONSECUTIVE_FAILURES = abs(N)
-            N = - 1
-        else:
-            MAX_CONSECUTIVE_FAILURES = 10
-            N = N
+    if args:
+        parser.print_usage()
+        return -1
 
+    N = int(options.max_jobs)
+
+    if N > 1:
         def sighandler_shutdown(signum, frame):
             logger.info('Caught signal %i, shutting down.' % signum)
             raise Shutdown(signum)
@@ -715,8 +735,8 @@ def main_worker():
         signal.signal(signal.SIGHUP, sighandler_shutdown)
         signal.signal(signal.SIGTERM, sighandler_shutdown)
         proc = None
-        consecutive_exceptions = 0
-        while N and consecutive_exceptions < MAX_CONSECUTIVE_FAILURES:
+        cons_errs = 0
+        while N and cons_errs < int(options.max_consecutive_failures):
             try:
                 # recursive Popen, dropping N from the argv
                 # By using another process to run this job
@@ -724,7 +744,13 @@ def main_worker():
                 # and other annoying details.
                 # The tradeoff is that a large dataset must be reloaded once for
                 # each subprocess.
-                proc = subprocess.Popen(sys.argv[:-1])
+                sub_argv = [sys.argv[0],
+                        '--poll-interval=%s' % options.poll_interval,
+                        '--max-jobs=1',
+                        '--mongo=%s' % options.mongo]
+                if options.workdir is not None:
+                    sub_argv.append('--workdir=%s' % options.workdir)
+                proc = subprocess.Popen(sub_argv)
                 retcode = proc.wait()
                 proc = None
             except Shutdown, e:
@@ -737,36 +763,42 @@ def main_worker():
                     return 0
 
             if retcode != 0:
-                consecutive_exceptions += 1
+                cons_errs += 1
             else:
-                consecutive_exceptions = 0
+                cons_errs = 0
             N -= 1
         logger.info("exiting with N=%i after %i consecutive exceptions" %(
-            N, consecutive_exceptions))
-    else:
-        mongojobs = MongoJobs.new_from_connection_str(mongo_str,
-                argd_name='spec')
+            N, cons_errs))
+    elif N == 1:
+        mj = MongoJobs.new_from_connection_str(
+                as_mongo_str(options.mongo) + '/jobs')
         job = None
         while job is None:
-            job = mongojobs.reserve(
+            job = mj.reserve(
                     host_id = '%s:%i'%(socket.gethostname(), os.getpid()),
                     )
             if not job:
-                logger.info('no job found, sleeping for up to 5 seconds')
-                time.sleep(1 + numpy.random.rand() * 4)
+                interval = (1 +
+                        numpy.random.rand()
+                        * (float(options.poll_interval) - 1.0))
+                logger.info('no job found, sleeping for %.1fs' % interval)
+                time.sleep(interval)
 
         logger.info('job found: %s' % str(job))
 
         spec = copy.deepcopy(job['spec']) # don't let the cmd mess up our trial object
 
         ctrl = CtrlObj(
-                jobs=mongojobs,
+                jobs=mj,
                 read_only=False,
                 read_only_id=None,
                 )
         ctrl.current_job = job
-        config = mongojobs.db.config.find_one()
-        workdir = os.path.join(config['workdir'], str(job['_id']))
+        if options.workdir is None:
+            config = mj.db.config.find_one()
+            workdir = os.path.join(config['workdir'], str(job['_id']))
+        else:
+            workdir = os.path.expanduser(options.workdir)
         os.makedirs(workdir)
         os.chdir(workdir)
         cmd_protocol = job['cmd'][0]
@@ -791,18 +823,18 @@ def main_worker():
         except Exception, e:
             #TODO: save exception to database, but if this fails, then at least raise the original
             # traceback properly
-            mongojobs.update(job,
+            ctrl.checkpoint()
+            mj.update(job,
                     {'state': 3,
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
-        mongojobs.update(job, {'state': 2, 'result': result}, safe=True)
-
-def as_mongo_str(s):
-    if s.startswith('mongo://'):
-        return s
+        ctrl.checkpoint(result)
+        mj.update(job, {'state': 2}, safe=True)
     else:
-        return 'mongo://%s' % s
+        parser.print_usage()
+        return -1
+
 
 def main_search():
     from optparse import OptionParser
@@ -831,7 +863,7 @@ def main_search():
             dest='poll_interval',
             metavar='N',
             default=None,
-            help="check work queue every N seconds (default: 10")
+            help="check work queue every N seconds (default: 5")
     parser.add_option("--no-save-on-exit",
             action="store_false",
             dest="save_on_exit",
@@ -848,7 +880,10 @@ def main_search():
             metavar="DIR")
 
     (options, args) = parser.parse_args()
-    print options, args
+
+    if len(args) > 2:
+        parser.print_usage()
+        return -1
 
     if None is options.exp_key:
         exp_key = args[0] + "/" + args[1]
@@ -907,7 +942,7 @@ def main_search():
                 workdir = options.workdir,
                 exp_key = exp_key,
                 poll_interval_secs = (int(options.poll_interval))
-                    if options.poll_interval else 10)
+                    if options.poll_interval else 5)
 
         self.run(options.steps)
     finally:
