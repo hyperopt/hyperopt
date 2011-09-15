@@ -156,29 +156,56 @@ class BanditAlgo(object):
 
 class TheanoBanditAlgo(BanditAlgo):
     """
-    Algorithm for solving Config-armed bandit (arms are from tree domain)
+    Base class for a BanditAlgorithm using the idxs,vals format for storing
+    configurations rather than the list-of-document format.
 
-    X-armed bandit problems, and N-armed bandit problems are special cases.
+    The idxs, vals format plays better with Theano implementations of GP models
+    and PBIL and stuff.
 
-    :type s_prior_idxs:
+    Instances deriving from this remember more information about suggested
+    points than they return via self.suggest().
+    That information is stored in the attributes self.db_idxs and self.db_vals.
+    When the suggest() method receives a list documents that should be used to
+    condition the suggestion, this class retrieves each document's 'TBA_id' key,
+    and uses that key to look up information in self.db_idxs and self.db_vals.
+
+    Consequently to storing this extra info in self.db_idxs and self.db_vals, it
+    is essential that instances of this class be pickled in order for them to
+    resume properly. It is not enough to pass a list of documents (X_list) to
+    the suggest method, for the algorithm to resume optimization.
+
+    :type s_idxs:
         list of symbolic integer vectors
 
-    :param s_prior_idxs:
+    :param s_idxs:
         the i'th int vector contains the positions in the sample (n < N) where
         the i'th configuration variable is defined
 
-    :type s_prior_vals:
+    :type s_vals:
         list of symbolic ndarrays
 
-    :param s_prior_vals:
+    :param s_vals:
         the i'th ndarray contains the values for the i'th variables at the
-        sample positions indicated in s_prior_idxs.
+        sample positions indicated in s_idxs.
 
     :type s_N:
         symbolic int
 
     :param s_N:
         the number of samples drawn from the prior
+
+    :type db_idxs:
+        list of integer lists
+
+    :param db_idxs:
+        positions where the corresponding element of s_idxs is
+        defined.
+
+    :type db_vals:
+        list of ndarrays or lists
+
+    :param db_vals:
+        values for corresponding elements of db_idxs
 
     """
     def __init__(self):
@@ -248,7 +275,7 @@ class TheanoBanditAlgo(BanditAlgo):
     def suggest(self, X_list, Y_list, Y_status, N):
         template = self.bandit.template
         # TODO: partition X_list and Y_list by Y_status
-        X_idxs, X_vals = self.recall([X['id'] for X in X_list])
+        X_idxs, X_vals = self.recall([X['TBA_id'] for X in X_list])
         r_idxs, r_vals = self.theano_suggest(X_idxs, X_vals, Y_list, Y_status, N)
         ids = self.record(r_idxs, r_vals)
         assert len(ids) == N
@@ -264,8 +291,8 @@ class TheanoBanditAlgo(BanditAlgo):
                 list(all_r_vals))
         assert len(rval) == N
         for rid, r in zip(ids, rval):
-            assert 'id' not in r
-            r['id'] = rid
+            assert 'TBA_id' not in r
+            r['TBA_id'] = int(rid)
         return rval
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):

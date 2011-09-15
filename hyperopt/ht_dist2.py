@@ -215,18 +215,20 @@ class rdist(SON):
 
         rval = [self.nth_theano_sample(n, idxdict, valdict)
                 for n in sorted(set(iii))]
+        BSON(rval) # make sure encoding is possible
         return rval
 
     def nth_theano_sample(self, n, idxdict, valdict):
         #XXX: move this into derived classes
         if 'geom' == self['_dist2_']:
-            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+            # usually this is an int, but the round can technically be < 1
+            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
         elif 'expon' == self['_dist2_']:
-            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
         elif 'uniform' == self['_dist2_']:
-            return valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
         elif 'one_of' == self['_dist2_']:
-            case = valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]]
+            case = int(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
             if self['options'][case] in self.children():
                 return self['options'][case].nth_theano_sample(n, idxdict, valdict)
             else:

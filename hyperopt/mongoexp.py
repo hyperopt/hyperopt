@@ -1,11 +1,134 @@
-"""
-Mongo-based Experiment driver
+""" Mongo-based Experiment driver and worker client
+
+Components involved:
+
+- mongo
+    e.g. mongod ...
+
+- driver
+    e.g. hyperopt-mongo-search mongo://address bandit_json bandit_algo_json
+
+- worker
+    e.g. hyperopt-mongo-worker --loop mongo://address
+
+
+Mongo
+=====
+
+Mongo (daemon process mongod) is used for IPC between the driver and worker.
+Configure it as you like, so that hyperopt-mongo-search can communicate with it.
+I think there is some support in this file for an ssh+mongo connection type.
+
+The experiment uses the following collections for IPC:
+
+* jobs - documents of a standard form used to store suggested trials and their
+    results.  These documents have keys:
+    * spec : subdocument returned by bandit_algo.suggest
+    * exp_key: an identifier of which driver suggested this trial
+    * cmd: a tuple (protocol, ...) identifying bandit.evaluate
+    * state: 0, 1, 2, 3 for job state (new, running, ok, fail)
+    * owner: None for new jobs, (hostname, pid) for started jobs
+    * book_time: time a job was reserved
+    * refresh_time: last time the process running the job checked in
+    * result: the subdocument returned by bandit.evaluate
+    * error: for jobs of state 3, a reason for failure.
+    * logs: a dict of sequences of strings received by ctrl object
+        * info: info messages
+        * warn: warning messages
+        * error: error messages
+
+* gfs - a gridfs storage collection (used for pickling)
+
+* config - a collection with a single document, telling workers in what folder
+    to work. TODO: have a document per exp_key instead.
+
+* drivers - documents describing drivers. These are used to prevent two drivers
+    from using the same exp_key simultaneously, and to attach saved states.
+
+The MongoJobs, MongoExperiment, and CtrlObj classes as well as the main_worker
+method form the abstraction barrier around this database layout.
+
+
+Driver
+======
+
+A driver directs an experiment, by calling a bandit_algo to suggest trial
+points, and queuing them in mongo so that a worker can evaluate that trial
+point.
+
+The hyperopt-mongo-search script creates a single MongoExperiment instance, and
+calls its run() method.
+
+
+Saving and Resuming
+-------------------
+
+The command
+"hyperopt-mongo-search bandit algo"
+creates a new experiment or resumes an existing experiment.
+
+The command
+"hyperopt-mongo-search --exp-key=<EXPKEY>"
+can only resume an existing experiment.
+
+The command
+"hyperopt-mongo-search --clear-existing bandit algo"
+can only create a new experiment, and potentially deletes an existing one.
+
+The command
+"hyperopt-mongo-search --clear-existing --exp-key=EXPKEY bandit algo"
+can only create a new experiment, and potentially deletes an existing one.
+
+
+By default, MongoExperiment.run will try to save itself before returning. It
+does so by pickling itself to a file called 'exp_key' in the gfs collection.
+Resuming means unpickling that file and calling run again.
+
+The MongoExperiment instance itself is minimal (a key, a bandit, a bandit algo,
+a workdir, a poll interval).  The only stateful element is the bandit algo.  The
+difference between resume and start is in the handling of the bandit algo.
+
+
+Worker
+======
+
+A worker looks up a job in a mongo database, maps that job document to a
+runnable python object, calls that object, and writes the return value back to
+the database.
+
+A worker *reserves* a job by atomically identifying a document in the jobs
+collection whose owner is None and whose state is 0, and setting the state to
+1.  If it fails to identify such a job, it loops with a random sleep interval
+of a few seconds and polls the database.
+
+If hyperopt-mongo-worker is called with a --loop argument then it goes back to
+the database after finishing a job to identify and perform another one.
+
+CtrlObj
+-------
+
+The worker allocates a CtrlObj and passes it to bandit.evaluate in addition to
+the subdocument found at job['spec'].  A bandit can use ctrl.info, ctrl.warn,
+ctrl.error and so on like logger methods, and those messages will be written
+to the mongo database (to job['logs']).  They are not written synchronously
+though, they are written when the bandit.evaluate function calls
+ctrl.checkpoint().
+
+Ctrl.checkpoint does several things:
+* flushes logging messages to the database
+* updates the refresh_time
+* optionally updates the result subdocument
+
+The main_worker routine calls Ctrl.checkpoint(rval) once after the
+bandit.evalute function has returned before setting the status to 2 or 3 to
+finalize the job in the database.
+
 """
 
 __authors__   = "James Bergstra"
-__copyright__ = "(c) 2010, Universite de Montreal"
+__copyright__ = "(c) 2011, Harvard University"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "hyperopt project at github.com"
 
 import copy
 import cPickle
@@ -22,7 +145,7 @@ import urlparse
 import numpy
 import pymongo
 import gridfs
-from bson.son import SON
+from bson import BSON, SON
 
 import base
 import utils
@@ -351,6 +474,13 @@ class MongoJobs(object):
     def add_attachment(self, job, blob, name):
         """Attach potentially large data string `blob` to `job` by name `name`
 
+        blob must be a string
+
+        job must have been saved in some collection (must have an _id), but not
+        necessarily the jobs collection.
+
+        name must be a string
+
         Returns None
         """
 
@@ -358,14 +488,14 @@ class MongoJobs(object):
         # after writing the new file
         attachments = job.get('_attachments', [])
         old_name_idx = -1
-        for i,a in enumerate(attachments):
+        for i, a in enumerate(attachments):
             if a[0] == name:
                 old_name_idx == i
                 old_file_id = a[1]
                 break
 
         # the filename is set to something so that fs.list() will display the file
-        new_file_id = self.gfs.put(blob, filename='%s_%s'%(job['_id'],name))
+        new_file_id = self.gfs.put(blob, filename='%s_%s' % (job['_id'], name))
         #print "stored blob", new_file_id
 
         if old_name_idx >= 0:
@@ -424,7 +554,7 @@ class MongoExperiment(base.Experiment):
 
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
-            exp_key=None, poll_interval_secs = 10):
+            exp_key, poll_interval_secs = 10):
         # don't call base Experiment because it tries to set trials = []
         # base.Experiment.__init__(self, bandit, bandit_algo)
         self.bandit_json = bandit_json
@@ -447,10 +577,7 @@ class MongoExperiment(base.Experiment):
             logger.info('found config document %s' % str(config))
         self.poll_interval_secs = poll_interval_secs
         self.min_queue_len = 1 # can be changed at any time
-        if exp_key is None:
-            self.exp_key = (bandit_json, bandit_algo_json)
-        else:
-            self.exp_key = exp_key
+        self.exp_key = exp_key
 
     def __get_trials(self):
         # TODO: this query can be done much more efficiently
@@ -517,15 +644,6 @@ class MongoExperiment(base.Experiment):
                 new_suggestions = self.queue_extend(new_suggestions)
                 n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
-
-    @classmethod
-    def main_search(cls, argv):
-        mongo_str = argv[0]
-        bandit_json = argv[1]
-        bandit_algo_json = argv[2]
-        workdir = argv[3]
-        self = cls(bandit_json, bandit_algo_json, mongo_str, workdir)
-        self.run(sys.maxint)
 
 
 class Shutdown(Exception):
@@ -630,7 +748,9 @@ def main_worker():
                     )
             if not job:
                 logger.info('no job found, sleeping for up to 5 seconds')
-                time.sleep(numpy.random.rand() * 5)
+                time.sleep(1 + numpy.random.rand() * 4)
+
+        logger.info('job found: %s' % str(job))
 
         spec = copy.deepcopy(job['spec']) # don't let the cmd mess up our trial object
 
@@ -672,3 +792,137 @@ def main_worker():
                     safe=True)
             raise
         mongojobs.update(job, {'state': 2, 'result': result}, safe=True)
+
+def as_mongo_str(s):
+    if s.startswith('mongo://'):
+        return s
+    else:
+        return 'mongo://%s' % s
+
+def main_search():
+    from optparse import OptionParser
+    parser = OptionParser(
+            usage="%prog [options] start|resume [bandit bandit_algo]")
+    parser.add_option("--clear-existing",
+            action="store_true",
+            dest="clear_existing",
+            default=False,
+            help="clear all jobs with the given exp_key")
+    parser.add_option("--exp-key",
+            dest='exp_key',
+            default = None,
+            metavar='str',
+            help="identifier for this driver's jobs")
+    parser.add_option('--force-lock',
+            action="store_true",
+            dest="force_lock",
+            default=False,
+            help="ignore concurrent experiments using same exp_key (only do this after a crash)")
+    parser.add_option("--mongo",
+            dest='mongo',
+            default='localhost/hyperopt',
+            help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--poll-interval",
+            dest='poll_interval',
+            metavar='N',
+            default=None,
+            help="check work queue every N seconds (default: 10")
+    parser.add_option("--no-save-on-exit",
+            action="store_false",
+            dest="save-on-exit",
+            default=True,
+            help="save driver state to mongo on exit")
+    parser.add_option("--steps",
+            dest='steps',
+            default=sys.maxint,
+            help="exit after queuing this many jobs (default: inf)")
+    parser.add_option("--workdir",
+            dest="workdir",
+            default=os.path.expanduser('~/.hyperopt.workdir'),
+            help="direct hyperopt-mongo-worker to chdir here",
+            metavar="DIR")
+
+    (options, args) = parser.parse_args()
+    print options, args
+
+    if None is options['exp_key']:
+        exp_key = args[1] + "/" + args[2]
+    else:
+        exp_key = options['exp_key']
+
+    mj = MongoJobs.new_from_connection_str(
+            as_mongo_str(options['mongo']))
+
+    driver = mj.db.drivers.find_one({'exp_key': exp_key})
+
+    if driver and driver['owner'] and not options['force_lock']:
+        logger.error('experiment in progress: %s' % str(driver['owner']))
+        logger.error('(hint: run with --force-lock to proceed anyway.)')
+
+    owner = '%s:%i' % (socket.gethostname(), os.getpid())
+    if driver is None:
+        driver = mj.db.drivers.insert(
+                dict(
+                    exp_key=exp_key,
+                    owner=owner,
+                    ),
+                safe=True)
+    else:
+        driver['owner'] = owner
+        mj.db.drivers.update(
+                {'_id': driver['_id']},
+                {'owner': {'$set': driver['owner']}},
+                safe=True)
+
+    # checkpoint: we have a driver document, and we are registered as owner
+    assert '_id' in driver
+    assert driver['owner'] == owner
+    assert driver['exp_key'] == exp_key
+
+    try:
+        if options['--clear-existing']:
+            # delete any saved driver
+            for name in mj.attachment_names(driver):
+                mj.delete_attachment(driver, name)
+
+            # delete any jobs from a previous driver
+            mj.delete_all(cond={'exp_key': exp_key})
+
+        if 'pkl' in mj.attachment_names(driver):
+            logger.info('loading from saved state')
+            blob = mj.get_attachment(driver, 'pkl')
+            self = cPickle.loads(blob)
+            assert self.exp_key == exp_key
+            self.mongo_handle = mj
+            if options['workdir'] is not None:
+                self.workdir = options['workdir']
+            if options['poll_interval'] is not None:
+                self.poll_interval = int(options['poll_interval'])
+        else:
+            logger.info('loading new MongoExperiment')
+            self = MongoExperiment(
+                bandit_json = args[0],
+                bandit_algo_json = args[1],
+                mongo_str = mj,
+                workdir = options['workdir'],
+                exp_key = exp_key,
+                poll_interval_secs = int(options.get('poll_interval', 10)))
+
+        self.run(options['steps'])
+        if options['save-on-exit']:
+            logger.info('saving state to mongo')
+            mj.add_attachment(driver, cPickle.dumps(self), name='pkl')
+
+    finally:
+        # if we still have a db connection, unregister ourselves as the active
+        # driver
+
+        # XXX: does this mess up the original exception traceback?
+        try:
+            mj.db.drivers.update(
+                    {'_id': driver['_id']},
+                    {'owner': {'$set': None}},
+                    safe=True)
+        except pymongo.errors.OperationFailure:
+            pass
+
