@@ -37,7 +37,7 @@ The experiment uses the following collections for IPC:
         * warn: warning messages
         * error: error messages
 
-* gfs - a gridfs storage collection (used for pickling)
+* fs - a gridfs storage collection (used for pickling)
 
 * config - a collection with a single document, telling workers in what folder
     to work. TODO: have a document per exp_key instead.
@@ -81,7 +81,7 @@ can only create a new experiment, and potentially deletes an existing one.
 
 
 By default, MongoExperiment.run will try to save itself before returning. It
-does so by pickling itself to a file called 'exp_key' in the gfs collection.
+does so by pickling itself to a file called 'exp_key' in the fs collection.
 Resuming means unpickling that file and calling run again.
 
 The MongoExperiment instance itself is minimal (a key, a bandit, a bandit algo,
@@ -156,11 +156,7 @@ logger = logging.getLogger(__name__)
 # if we also want to use CouchDB
 # and JobmanDB classes with this interface
 class OperationFailure (Exception):
-    def __init__(self, arg):
-        self.arg = arg
-
-    def __str__(self):
-        return str(self.arg)
+    pass
 
 
 def read_pw():
@@ -291,6 +287,9 @@ class MongoJobs(object):
         self.tunnel=tunnel
         self.argd_name = argd_name
 
+    # TODO: rename jobs -> coll throughout
+    coll = property(lambda s : s.jobs)
+
     @classmethod
     def alloc(cls, dbname, host='localhost',
             auth_dbname='admin', port=27017,
@@ -404,13 +403,14 @@ class MongoJobs(object):
         cond['book_time'] = now
         return self.jobs.find_one(cond)
 
-    def refresh(self, job, safe=False):
-        self.update(job, dict(refresh_time=coarse_utcnow()), safe=False)
+    def refresh(self, doc, safe=False):
+        self.update(doc, dict(refresh_time=coarse_utcnow()), safe=False)
 
-    def update(self, job, dct, safe=True):
-        """Return union of job and dct, after making sure that dct has been added to job in db.
+    def update(self, doc, dct, safe=True, collection=None):
+        """Return union of doc and dct, after making sure that dct has been
+        added to doc in `collection`.
 
-        This function does not modify either `job` or `dct`.
+        This function does not modify either `doc` or `dct`.
 
         safe=True means error-checking is done. safe=False means this function will succeed
         regardless of what happens with the db.
@@ -420,20 +420,20 @@ class MongoJobs(object):
             raise ValueError('cannot update the _id field')
         if 'version' in dct:
             raise ValueError('cannot update the version field')
-        if '_id' not in job:
-            raise ValueError('job must have an "_id" key to be updated')
+        if '_id' not in doc:
+            raise ValueError('doc must have an "_id" key to be updated')
 
-        if 'version' in job:
-            job_query = dict(_id=job['_id'], version=job['version'])
-            dct['version'] = job['version']+1
+        if 'version' in doc:
+            doc_query = dict(_id=doc['_id'], version=doc['version'])
+            dct['version'] = doc['version']+1
         else:
-            job_query = dict(_id=job['_id'])
+            doc_query = dict(_id=doc['_id'])
             dct['version'] = 1
         try:
-            # warning - if job matches nothing then this function succeeds
+            # warning - if doc matches nothing then this function succeeds
             # N.B. this matches *at most* one entry, and possibly zero
-            self.jobs.update( 
-                    job_query,
+            self.coll.update( 
+                    doc_query,
                     {'$set': dct},
                     safe=True,
                     upsert=False,
@@ -442,41 +442,43 @@ class MongoJobs(object):
             # translate pymongo failure into generic failure
             raise OperationFailure(e)
 
-        # update job in-place to match what happened on the server side
-        job.update(dct)
+        # update doc in-place to match what happened on the server side
+        doc.update(dct)
 
         if safe:
-            server_job = self.jobs.find_one(dict(_id=job['_id'], version=job['version']))
-            if server_job is None:
-                raise OperationFailure('updated job not found in collection: %s'%str(job))
-            elif server_job != job:
+            server_doc = self.coll.find_one(
+                    dict(_id=doc['_id'], version=doc['version']))
+            if server_doc is None:
+                raise OperationFailure('updated doc not found : %s'
+                        % str(doc))
+            elif server_doc != doc:
                 if 0:# This is all commented out because it is tripping on the fact that
                     # str('a') != unicode('a').
                     # TODO: eliminate false alarms and catch real ones
                     mismatching_keys = []
-                    for k,v in server_job.items():
-                        if k in job:
-                            if job[k] != v:
-                                mismatching_keys.append((k, v, job[k]))
+                    for k,v in server_doc.items():
+                        if k in doc:
+                            if doc[k] != v:
+                                mismatching_keys.append((k, v, doc[k]))
                         else:
                             mismatching_keys.append((k, v, '<missing>'))
-                    for k,v in job.items():
-                        if k not in server_job:
+                    for k,v in doc.items():
+                        if k not in server_doc:
                             mismatching_keys.append((k, '<missing>', v))
 
-                    raise OperationFailure('local and server job documents are out of sync: %s'%
-                            repr((job, server_job, mismatching_keys)))
-        return job
+                    raise OperationFailure('local and server doc documents are out of sync: %s'%
+                            repr((doc, server_doc, mismatching_keys)))
+        return doc
 
-    def attachment_names(self, job):
-        return [a[0] for a in job.get('_attachments', [])]
+    def attachment_names(self, doc):
+        return [a[0] for a in doc.get('_attachments', [])]
 
-    def add_attachment(self, job, blob, name):
-        """Attach potentially large data string `blob` to `job` by name `name`
+    def set_attachment(self, doc, blob, name):
+        """Attach potentially large data string `blob` to `doc` by name `name`
 
         blob must be a string
 
-        job must have been saved in some collection (must have an _id), but not
+        doc must have been saved in some collection (must have an _id), but not
         necessarily the jobs collection.
 
         name must be a string
@@ -484,55 +486,53 @@ class MongoJobs(object):
         Returns None
         """
 
-        # If there is already a file with the given name for this job, then we will delete it
+        # If there is already a file with the given name for this doc, then we will delete it
         # after writing the new file
-        attachments = job.get('_attachments', [])
-        old_name_idx = -1
-        for i, a in enumerate(attachments):
-            if a[0] == name:
-                old_name_idx == i
-                old_file_id = a[1]
-                break
+        attachments = doc.get('_attachments', [])
+        name_matches = [a for a in attachments if a[0] == name]
 
         # the filename is set to something so that fs.list() will display the file
-        new_file_id = self.gfs.put(blob, filename='%s_%s' % (job['_id'], name))
-        #print "stored blob", new_file_id
+        new_file_id = self.gfs.put(blob, filename='%s_%s' % (doc['_id'], name))
+        logger.info('stored blob of %i bytes with id=%s and filename %s_%s' % (
+            len(blob), str(new_file_id), doc['_id'], name))
 
-        if old_name_idx >= 0:
-            new_attachments = attachments
-            new_attachments[old_name_idx] = (name, new_file_id)
-        else:
-            new_attachments = attachments + [(name, new_file_id)]
+        new_attachments = ([a for a in attachments if a[0] != name]
+                + [(name, new_file_id)])
 
         try:
-            leak=False
-            job = self.update(job, {'_attachments':new_attachments})
-            if old_name_idx >= 0:
-                leak=True
-                self.gfs.delete(old_file_id)
-                leak=False
+            doc = self.update(doc, {'_attachments': new_attachments})
+            # there is a database leak until we actually delete the files that
+            # are no longer pointed to by new_attachments
+            ii = 0
+            while ii < len(name_matches):
+                self.gfs.delete(name_matches[ii][1])
+                ii += 1
         except:
-            if leak:
-                logger.warning("Leak during attach_blob: old_file_id=%s"% (old_file_id,))
+            while ii < len(name_matches):
+                logger.warning("Leak during set_attachment: old_file_id=%s" % (
+                    name_matches[ii][1]))
+                ii += 1
             raise
+        assert len([n for n in self.attachment_names(doc) if n == name]) == 1
         #return new_file_id
 
-    def get_attachment(self, job, name):
-        """Retrieve data attached to `job` by `attach_blob`.
+    def get_attachment(self, doc, name):
+        """Retrieve data attached to `doc` by `attach_blob`.
 
         Raises KeyError if `name` does not correspond to an attached blob.
 
         Returns the blob as a string.
         """
-        attachments = job.get('_attachments', [])
+        attachments = doc.get('_attachments', [])
         file_ids = [a[1] for a in attachments if a[0] == name]
         if not file_ids:
             raise OperationFailure('Attachment not found: %s' % name)
-        assert len(file_ids) < 2
+        if len(file_ids) > 1:
+            raise OperationFailure('multiple name matches', (name, file_ids))
         return self.gfs.get(file_ids[0]).read()
 
-    def delete_attachment(self, job, name):
-        attachments = job.get('_attachments', [])
+    def delete_attachment(self, doc, name):
+        attachments = doc.get('_attachments', [])
         file_id = None
         for i,a in enumerate(attachments):
             if a[0] == name:
@@ -542,7 +542,7 @@ class MongoJobs(object):
             raise OperationFailure('Attachment not found: %s' % name)
         #print "Deleting", file_id
         del attachments[i]
-        self.update(job, {'_attachments':attachments})
+        self.update(doc, {'_attachments':attachments})
         self.gfs.delete(file_id)
 
 
@@ -578,6 +578,11 @@ class MongoExperiment(base.Experiment):
         self.poll_interval_secs = poll_interval_secs
         self.min_queue_len = 1 # can be changed at any time
         self.exp_key = exp_key
+
+    def __getstate__(self):
+        rval = dict(self.__dict__)
+        del rval['mongo_handle']
+        return rval
 
     def __get_trials(self):
         # TODO: this query can be done much more efficiently
@@ -692,7 +697,7 @@ def main_worker():
         except:
             raise Exception('TODO USAGE too many or too few arguments', argv)
 
-    assert 'hyperopt-worker' in script  # not essential, just debugging here
+    assert 'hyperopt-mongo-worker' in script  # not essential, just debugging here
     N = int(N)
 
     if N != 1:
@@ -829,7 +834,7 @@ def main_search():
             help="check work queue every N seconds (default: 10")
     parser.add_option("--no-save-on-exit",
             action="store_false",
-            dest="save-on-exit",
+            dest="save_on_exit",
             default=True,
             help="save driver state to mongo on exit")
     parser.add_option("--steps",
@@ -845,34 +850,29 @@ def main_search():
     (options, args) = parser.parse_args()
     print options, args
 
-    if None is options['exp_key']:
-        exp_key = args[1] + "/" + args[2]
+    if None is options.exp_key:
+        exp_key = args[0] + "/" + args[1]
     else:
-        exp_key = options['exp_key']
+        exp_key = options.exp_key
 
     mj = MongoJobs.new_from_connection_str(
-            as_mongo_str(options['mongo']))
+            as_mongo_str(options.mongo) + '/jobs')
 
-    driver = mj.db.drivers.find_one({'exp_key': exp_key})
+    md = MongoJobs.new_from_connection_str(
+            as_mongo_str(options.mongo) + '/drivers')
 
-    if driver and driver['owner'] and not options['force_lock']:
+    driver = md.coll.find_one({'exp_key': exp_key})
+
+    if driver and driver['owner'] and not options.force_lock:
         logger.error('experiment in progress: %s' % str(driver['owner']))
         logger.error('(hint: run with --force-lock to proceed anyway.)')
+        return -1
 
     owner = '%s:%i' % (socket.gethostname(), os.getpid())
     if driver is None:
-        driver = mj.db.drivers.insert(
-                dict(
-                    exp_key=exp_key,
-                    owner=owner,
-                    ),
-                safe=True)
+        driver = md.insert(dict(exp_key=exp_key, owner=owner))
     else:
-        driver['owner'] = owner
-        mj.db.drivers.update(
-                {'_id': driver['_id']},
-                {'owner': {'$set': driver['owner']}},
-                safe=True)
+        driver = md.update(driver, dict(owner=owner))
 
     # checkpoint: we have a driver document, and we are registered as owner
     assert '_id' in driver
@@ -880,10 +880,10 @@ def main_search():
     assert driver['exp_key'] == exp_key
 
     try:
-        if options['--clear-existing']:
+        if options.clear_existing:
             # delete any saved driver
-            for name in mj.attachment_names(driver):
-                mj.delete_attachment(driver, name)
+            for name in md.attachment_names(driver):
+                md.delete_attachment(driver, name)
 
             # delete any jobs from a previous driver
             mj.delete_all(cond={'exp_key': exp_key})
@@ -894,35 +894,32 @@ def main_search():
             self = cPickle.loads(blob)
             assert self.exp_key == exp_key
             self.mongo_handle = mj
-            if options['workdir'] is not None:
-                self.workdir = options['workdir']
-            if options['poll_interval'] is not None:
-                self.poll_interval = int(options['poll_interval'])
+            if options.workdir is not None:
+                self.workdir = options.workdir
+            if options.poll_interval is not None:
+                self.poll_interval = int(options.poll_interval)
         else:
             logger.info('loading new MongoExperiment')
             self = MongoExperiment(
                 bandit_json = args[0],
                 bandit_algo_json = args[1],
-                mongo_str = mj,
-                workdir = options['workdir'],
+                mongo_handle = mj,
+                workdir = options.workdir,
                 exp_key = exp_key,
-                poll_interval_secs = int(options.get('poll_interval', 10)))
+                poll_interval_secs = (int(options.poll_interval))
+                    if options.poll_interval else 10)
 
-        self.run(options['steps'])
-        if options['save-on-exit']:
-            logger.info('saving state to mongo')
-            mj.add_attachment(driver, cPickle.dumps(self), name='pkl')
-
+        self.run(options.steps)
     finally:
         # if we still have a db connection, unregister ourselves as the active
         # driver
 
         # XXX: does this mess up the original exception traceback?
         try:
-            mj.db.drivers.update(
-                    {'_id': driver['_id']},
-                    {'owner': {'$set': None}},
-                    safe=True)
+            if 'self' in locals() and options.save_on_exit:
+                logger.info('saving state to mongo')
+                md.set_attachment(driver, cPickle.dumps(self), name='pkl')
+            md.update(driver, dict(owner=None))
         except pymongo.errors.OperationFailure:
             pass
 
