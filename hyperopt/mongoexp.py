@@ -722,7 +722,7 @@ def main_worker():
     (options, args) = parser.parse_args()
 
     if args:
-        parser.print_usage()
+        parser.print_help()
         return -1
 
     N = int(options.max_jobs)
@@ -832,14 +832,14 @@ def main_worker():
         ctrl.checkpoint(result)
         mj.update(job, {'state': 2}, safe=True)
     else:
-        parser.print_usage()
+        parser.print_help()
         return -1
 
 
 def main_search():
     from optparse import OptionParser
     parser = OptionParser(
-            usage="%prog [options] start|resume [bandit bandit_algo]")
+            usage="%prog [options] [bandit bandit_algo]")
     parser.add_option("--clear-existing",
             action="store_true",
             dest="clear_existing",
@@ -882,7 +882,7 @@ def main_search():
     (options, args) = parser.parse_args()
 
     if len(args) > 2:
-        parser.print_usage()
+        parser.print_help()
         return -1
 
     if None is options.exp_key:
@@ -923,9 +923,9 @@ def main_search():
             # delete any jobs from a previous driver
             mj.delete_all(cond={'exp_key': exp_key})
 
-        if 'pkl' in mj.attachment_names(driver):
+        if 'pkl' in md.attachment_names(driver):
             logger.info('loading from saved state')
-            blob = mj.get_attachment(driver, 'pkl')
+            blob = md.get_attachment(driver, 'pkl')
             self = cPickle.loads(blob)
             assert self.exp_key == exp_key
             self.mongo_handle = mj
@@ -958,3 +958,88 @@ def main_search():
         except pymongo.errors.OperationFailure:
             pass
 
+def main_show():
+    from optparse import OptionParser
+    parser = OptionParser(
+            usage="%prog [options] cmd [...]")
+    parser.add_option("--exp-key",
+            dest='exp_key',
+            default = None,
+            metavar='str',
+            help="identifier for this driver's jobs")
+    parser.add_option("--bandit",
+            dest='bandit',
+            default = None,
+            metavar='json',
+            help="identifier for the bandit solved by the experiment")
+    parser.add_option("--algo",
+            dest='bandit_algo',
+            default = None,
+            metavar='json',
+            help="identifier for the optimization algorithm for experiment")
+    parser.add_option("--mongo",
+            dest='mongo',
+            default='localhost/hyperopt',
+            help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--workdir",
+            dest="workdir",
+            default=os.path.expanduser('~/.hyperopt.workdir'),
+            help="check for worker files here",
+            metavar="DIR")
+
+    (options, args) = parser.parse_args()
+
+    if None is options.exp_key:
+        try:
+            exp_key = options.bandit + "/" + options.bandit_algo
+        except TypeError:
+            logger.error('exp_key or (bandit and algo) must be specified')
+            parser.print_help()
+            return -1
+    else:
+        exp_key = options.exp_key
+
+    mj = MongoJobs.new_from_connection_str(
+            as_mongo_str(options.mongo) + '/jobs')
+
+    md = MongoJobs.new_from_connection_str(
+            as_mongo_str(options.mongo) + '/drivers')
+
+    driver = md.coll.find_one({'exp_key': exp_key})
+
+    assert exp_key == str(exp_key)
+    if driver is None:
+        logger.error('Experiment with key %s not found' %
+                exp_key)
+        return -1
+
+    if 'pkl' in md.attachment_names(driver):
+        logger.info('loading from saved state')
+        blob = md.get_attachment(driver, 'pkl')
+        self = cPickle.loads(blob)
+        assert self.exp_key == exp_key
+        self.mongo_handle = mj
+    else:
+        self = MongoExperiment(
+            bandit_json = options.bandit,
+            bandit_algo_json = options.bandit_algo,
+            mongo_handle = mj,
+            workdir = options.workdir,
+            exp_key = exp_key,
+            poll_interval_secs = 5)
+
+    assert self is not None
+
+    try:
+        cmd = args[0]
+    except:
+        parser.print_help()
+        return -1
+
+    if cmd == 'history':
+        import plotting
+        return plotting.main_plot_history(self)
+    else:
+        logger.error("Invalid cmd %s" % cmd)
+        parser.print_help()
+        return -1

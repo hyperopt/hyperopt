@@ -17,22 +17,27 @@ import numpy
 
 import ht_dist2
 
-def main_plot_history(self, argv):
+def main_plot_history(self):
     # self is an Experiment
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
-    colors = [status_colors[s] for s in self.Ys_status()]
-    plt.scatter(range(len(self.Ys())), self.Ys(), c=colors)
+    Xs = self.trials
+
+    # XXX: show the un-finished or error trials
+    Ys, colors = zip(*[(y, status_colors[s])
+        for y, s in zip(self.Ys(), self.Ys_status()) if y is not None])
+    plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
     try:
         loss_target = self.bandit.loss_target
         have_losstarget = True
     except AttributeError:
+        loss_target = numpy.min(Ys)
         have_losstarget = False
     if have_losstarget:
         plt.axhline(loss_target)
-        ymin = min(numpy.min(self.Ys()), self.bandit.loss_target)
-        ymax = max(numpy.max(self.Ys()), self.bandit.loss_target)
+        ymin = min(numpy.min(Ys), self.bandit.loss_target)
+        ymax = max(numpy.max(Ys), self.bandit.loss_target)
         yrange = ymax - ymin
         ymean = (ymax + ymin) / 2.0
         plt.ylim(
@@ -50,7 +55,7 @@ if __name__ == '__main__':
     save_loc = sys.argv[2]
     self = cPickle.load(open(save_loc, 'rb'))
     fn = globals()['main_' + cmd]
-    sys.exit(fn(self, sys.argv[3:]))
+    sys.exit(fn(self, *sys.argv[3:]))
 
 
 if 0:

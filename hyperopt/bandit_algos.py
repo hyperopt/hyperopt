@@ -35,6 +35,7 @@ class TheanoRandom(base.TheanoBanditAlgo):
         rvals = self._sampler(N)
         return rvals[:len(rvals)/2], rvals[len(rvals)/2:]
 
+
 class GM_BanditAlgo(base.BanditAlgo):
     pass
 
