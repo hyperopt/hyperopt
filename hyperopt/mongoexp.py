@@ -669,7 +669,7 @@ class CtrlObj(object):
         return logger.info(*args, **kwargs)
     def warn(self, *args, **kwargs):
         return logger.warn(*args, **kwargs)
-    def error(self, *args, **kwargs): 
+    def error(self, *args, **kwargs):
         return logger.error(*args, **kwargs)
     def checkpoint(self, result=None):
         if not self.read_only:

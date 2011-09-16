@@ -103,7 +103,10 @@ class Bandit(object):
     def loss(cls, result):
         """Extract the scalar-valued loss from a result document
         """
-        return result['loss']
+        try:
+            return result['loss']
+        except KeyError:
+            return None
 
     # TODO: loss variance
 
@@ -115,7 +118,10 @@ class Bandit(object):
     def status(cls, result):
         """Extract the job status from a result document
         """
-        return result['status']
+        try:
+            return result['status']
+        except KeyError:
+            return None
 
 
     @classmethod

@@ -28,8 +28,10 @@ import pylearn.preprocessing.pca
 from base import Bandit
 from utils import json_call
 
-# XXX merge CURAND wrapper into Theano, use here.
-RandomStreams = tensor.shared_randomstreams.RandomStreams
+try:
+    RandomStreams = theano.sandbox.cuda.CURAND_RandomStreams
+except:
+    RandomStreams = tensor.shared_randomstreams.RandomStreams
 
 from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
 def geom(lower, upper, round=1):
@@ -289,7 +291,9 @@ class DBN_Base(Bandit):
                         n_epochs=layer_config['cd_epochs'],
                         n_batches_per_epoch=dataset.descr['n_train'] // layer_config['cd_batchsize'],
                         lr_anneal_start=layer_config['cd_lr_anneal_start'],
-                        givens = {s_inputs_all: train_Xy[0]},
+                        givens = {
+                            s_inputs_all: tensor.as_tensor_variable(train_Xy[0])
+                            },
                         time_limit=time_limit
                         )
             else:
@@ -321,17 +325,17 @@ class DBN_Base(Bandit):
                     grads=tensor.grad(traincost, params),
                     stepsizes=[s_lr] * len(params)),
                 givens={s_batchsize:argd['batchsize'],
-                    s_inputs_all: train_Xy[0],
+                    s_inputs_all: tensor.as_tensor_variable(train_Xy[0]),
                     s_labels_all: train_Xy[1]})
         valid_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
             givens={s_batchsize:argd['batchsize'],
-                s_inputs_all: valid_Xy[0],
+                s_inputs_all: tensor.as_tensor_variable(valid_Xy[0]),
                 s_labels_all: valid_Xy[1]})
         test_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
             givens={s_batchsize:argd['batchsize'],
-                s_inputs_all: test_Xy[0],
+                s_inputs_all: tensor.as_tensor_variable(test_Xy[0]),
                 s_labels_all: test_Xy[1]})
 
         rval['best_epoch'] = -1
@@ -395,7 +399,10 @@ class DBN_Base(Bandit):
 
 
 class DBN_Bandit(DBN_Base):
-    def __init__(self, dataset_name='datasets.larochelle_etal_2007.Rectangles', sup_min_epochs=300, sup_max_epochs=4000):
+    def __init__(self,
+            dataset_name='datasets.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=300,
+            sup_max_epochs=4000):
         template = rSON2(
             'preprocessing', one_of(
                 rSON2(
@@ -410,7 +417,7 @@ class DBN_Bandit(DBN_Base):
             'batchsize', one_of(20, 100),
             'lr', lognormal(numpy.log(.01), 3),
             'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(-6), 3)),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
             'next_layer', one_of(None,
                 rSON2(
                     'n_hid', geom(2**7, 2**12, round=16),
@@ -467,7 +474,7 @@ class NeuralNetworkBandit(DBN_Base):
             'batchsize', one_of(20, 100),
             'lr', lognormal(numpy.log(.01), 3),
             'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(-6), 3)),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
             'next_layer', rSON2(
                     'n_hid', geom(2**4, 2**10, round=16),
                     'W_init_dist', one_of('uniform', 'normal'),
@@ -481,3 +488,8 @@ class NeuralNetworkBandit(DBN_Base):
                     'next_layer', None))
 
         DBN_Base.__init__(self, template)
+
+def DBN_Convex():
+    return DBN_Bandit(
+            dataset_name='datasets.larochelle_etal_2007.Convex')
+
