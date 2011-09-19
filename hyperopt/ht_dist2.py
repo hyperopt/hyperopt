@@ -438,6 +438,8 @@ class ceil_lognormal(lognormal):
     def __init__(self, mu, sigma, round=1):
         lognormal.__init__(self, mu, sigma)
         self['round'] = int(round)
+        if self['round'] <= 0:
+            raise ValueError('int(round) must be positive', round)
 
     def resample(self, rng):
         lognormal.resample(self, rng)
@@ -458,7 +460,7 @@ class ceil_lognormal(lognormal):
         memo[id(self)] = (elems, rounded_vals)
 
     def nth_theano_sample(self, n, idxdict, valdict):
-        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
+        return int(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 
 #
