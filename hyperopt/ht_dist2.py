@@ -63,6 +63,7 @@ class rdist_meta(type):
         rdist_registry[name] = rval
         return rval
 
+
 def bless(son):
     """
     Modify the base types of a SON hierarchy in-place so that the SON nodes that
@@ -81,20 +82,32 @@ def bless(son):
         raise ValueError('what to do with this?', son)
     return son
 
+
 def render(obj):
     if isinstance(obj, rdist):
         return obj.render()
     else:
         return obj
 
+
 def rdistable(obj):
     return isinstance(obj, SON) and (distkey in obj)
 
+
 class rdist(SON):
+    """ Base class for random SON-tree nodes
+    """
     __metaclass__ = rdist_meta
+
     def __new__(*args, **kwargs):
         #print 'new', args, kwargs
         return SON.__new__(*args, **kwargs)
+
+    def __init__(self):
+        # no initial keys allowed because we're messing with the SON constructor
+        super(rdist, self).__init__()
+        self[distkey] = self.__class__.__name__
+        self['choice'] = None
 
     def flatten(self, rval=None):
         """Return all children recursively as list.
@@ -116,12 +129,6 @@ class rdist(SON):
         for c,cname in zip(self.children(), self.children_names()):
             c.flatten_names(prefix+cname, rval=rval)
         return rval
-
-    def __init__(self):
-        # no initial keys allowed because we're messing with the SON constructor
-        super(rdist, self).__init__()
-        self[distkey] = self.__class__.__name__
-        self['choice'] = None
 
     def bless(self):
         """
@@ -220,22 +227,30 @@ class rdist(SON):
 
 
 class rlist(rdist):
+    """List of elements that can be either constant or rdist
+    """
     def __init__(self, elements):
         super(rlist, self).__init__()
         self['elements'] = list(elements)
+
     def children(self):
         return [t for t in self['elements'] if rdistable(t)]
+
     def children_names(self):
         return ['[%i]'%i for i in range(len(self.children()))]
+
     def render(self):
         return [render(elem) for elem in self['elements']]
 
 
 def rlist2(*elements):
+    """convenient constructor for rlist"""
     return rlist(elements)
 
 
 class rSON(rdist):
+    """Dictionary mapping strings to either constant or rdist
+    """
     special_keys = (distkey, 'choice')
 
     def __init__(self, *args, **kwargs):
@@ -278,12 +293,15 @@ class rSON(rdist):
 
 
 def rSON2(*args, **kwargs):
+    """Convenient constructor for rSON"""
     assert 'cls' not in kwargs
     kwargs['cls'] = rSON
     return SON2(*((distkey, 'rSON') + args), **kwargs)
 
 
 class one_of(rdist):
+    """random choice of one option from a list
+    """
     def __init__(self, *options):
         super(one_of, self).__init__()
         self['options'] = list(options)
@@ -332,15 +350,19 @@ class one_of(rdist):
 
 
 class LowHigh(rdist):
+    """Base class for random numbers described by lower and upper bound"""
     def __init__(self, low, high):
         super(LowHigh, self).__init__()
         self['low'] = low
         self['high'] = high
+
     def render(self):
         return self['choice']
 
 
 class uniform(LowHigh):
+    """Random uniform scalar between a lower and upper bound"""
+
     def resample(self, rng):
         self['choice'] = float(rng.uniform(low=self['low'], high=self['high']))
 
@@ -350,15 +372,25 @@ class uniform(LowHigh):
             low=self['low'],
             high=self['high'])
         memo[id(self)] = (elems, vals)
+
     def nth_theano_sample(self, n, idxdict, valdict):
         return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
+
 class randint(LowHigh):
+    """Random uniform integer between a lower and upper bound
+
+    XXX what if bounds not integer?
+    XXX inclusive??
+    """
+
     def resample(self, rng):
         self['choice'] = int(rng.randint(low=self['low'], high=self['high']))
 
 
 class normal(rdist):
+    """Normally distributed scalar with mean mu, std.dev. sigma
+    """
     def __init__(self, mu, sigma):
         rdist.__init__(self)
         self['mu'] = mu
@@ -384,6 +416,7 @@ class normal(rdist):
 
 
 class lognormal(normal):
+    """A random number whose logarithm is normally-distributed"""
     def resample(self, rng):
         normal.resample(self, rng)
         self['choice'] = float(numpy.exp(self['choice']))
@@ -400,6 +433,8 @@ class lognormal(normal):
 
 
 class ceil_lognormal(lognormal):
+    """The ceiling of a number whose logarithm is normally-distributed"""
+
     def __init__(self, mu, sigma, round=1):
         lognormal.__init__(self, mu, sigma)
         self['round'] = int(round)
@@ -429,6 +464,7 @@ class ceil_lognormal(lognormal):
 #
 #
 # Testing
+# XXX Weak testing.
 #
 #
 
