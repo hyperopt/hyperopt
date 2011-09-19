@@ -169,7 +169,6 @@ def train_rbm(s_rng, s_idx, s_batchsize, s_features, W, vbias, hbias, n_in,
 
 
 class DBN_Base(Bandit):
-
     def dryrun_argd(self, *args, **kwargs):
         return dict(
                 lr=.01,
@@ -488,6 +487,7 @@ class NeuralNetworkBandit(DBN_Base):
                     'next_layer', None))
 
         DBN_Base.__init__(self, template)
+
 
 def DBN_Convex():
     return DBN_Bandit(
