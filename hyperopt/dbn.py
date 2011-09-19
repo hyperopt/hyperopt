@@ -37,7 +37,7 @@ from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
 def geom(lower, upper, round=1):
     ll = numpy.log(lower)
     lu = numpy.log(upper)
-    return ceil_lognormal(.5 * (ll + lu), .5 * (lu - ll), round)
+    return ceil_lognormal(.5 * (ll + lu), .4 * (lu - ll), round)
 
 
 def preprocess_data(argd, ctrl):
@@ -417,7 +417,7 @@ class DBN_Bandit(DBN_Base):
             'batchsize', one_of(20, 100),
             'lr', lognormal(numpy.log(.01), 3),
             'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
             'next_layer', one_of(None,
                 rSON2(
                     'n_hid', geom(2**7, 2**12, round=16),
@@ -427,7 +427,7 @@ class DBN_Bandit(DBN_Base):
                     'cd_epochs', geom(1, 3000),
                     'cd_batchsize', 100,
                     'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', lognormal(numpy.log(.01), 3),
+                    'cd_lr', lognormal(numpy.log(.01), 2),
                     'cd_lr_anneal_start', geom(10, 10000),
                     'next_layer', one_of(None,
                         rSON2(
@@ -438,7 +438,7 @@ class DBN_Bandit(DBN_Base):
                             'cd_epochs', geom(1, 2000),
                             'cd_batchsize', 100,
                             'cd_sample_v0s', one_of(False, True),
-                            'cd_lr', lognormal(numpy.log(.01), 3),
+                            'cd_lr', lognormal(numpy.log(.01), 2),
                             'cd_lr_anneal_start', geom(10, 10000),
                             'next_layer', one_of(None,
                                 rSON2(
@@ -449,7 +449,7 @@ class DBN_Bandit(DBN_Base):
                                     'cd_epochs', geom(1, 1500),
                                     'cd_batchsize', 100,
                                     'cd_sample_v0s', one_of(False, True),
-                                    'cd_lr', lognormal(numpy.log(.01), 3),
+                                    'cd_lr', lognormal(numpy.log(.01), 2),
                                     'cd_lr_anneal_start', geom(10, 10000),
                                     'next_layer', None,
                                     )))))))
