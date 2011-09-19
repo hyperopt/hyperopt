@@ -218,33 +218,6 @@ class rdist(SON):
         BSON(rval) # make sure encoding is possible
         return rval
 
-    def nth_theano_sample(self, n, idxdict, valdict):
-        #XXX: move this into derived classes
-        if 'geom' == self['_dist2_']:
-            # usually this is an int, but the round can technically be < 1
-            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-        elif 'expon' == self['_dist2_']:
-            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-        elif 'uniform' == self['_dist2_']:
-            return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-        elif 'one_of' == self['_dist2_']:
-            case = int(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-            if self['options'][case] in self.children():
-                return self['options'][case].nth_theano_sample(n, idxdict, valdict)
-            else:
-                return self['options'][case]
-        elif 'rSON' == self['_dist2_']:
-            rval = {}
-            for (k, t) in self.items():
-                if k not in self.special_keys:
-                    if rdistable(t):
-                        rval[k] = t.nth_theano_sample(n, idxdict, valdict)
-                    else:
-                        rval[k] = t
-            return rval
-        else:
-            raise ValueError('rdist type not recognized', node['_dist2_'])
-
 
 class rlist(rdist):
     def __init__(self, elements):
@@ -293,6 +266,16 @@ class rSON(rdist):
         for child in self.children():
             child.theano_sampler_helper(s_rng, elems, memo, path + [self])
 
+    def nth_theano_sample(self, n, idxdict, valdict):
+        rval = {}
+        for (k, t) in self.items():
+            if k not in self.special_keys:
+                if rdistable(t):
+                    rval[k] = t.nth_theano_sample(n, idxdict, valdict)
+                else:
+                    rval[k] = t
+        return rval
+
 
 def rSON2(*args, **kwargs):
     assert 'cls' not in kwargs
@@ -340,6 +323,13 @@ class one_of(rdist):
                 child.theano_sampler_helper(s_rng, elems_i, memo,
                         path+[self])
 
+    def nth_theano_sample(self, n, idxdict, valdict):
+        case = int(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
+        if self['options'][case] in self.children():
+            return self['options'][case].nth_theano_sample(n, idxdict, valdict)
+        else:
+            return self['options'][case]
+
 
 class LowHigh(rdist):
     def __init__(self, low, high):
@@ -360,6 +350,8 @@ class uniform(LowHigh):
             low=self['low'],
             high=self['high'])
         memo[id(self)] = (elems, vals)
+    def nth_theano_sample(self, n, idxdict, valdict):
+        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 class randint(LowHigh):
     def resample(self, rng):
@@ -380,11 +372,31 @@ class normal(rdist):
             loc=self['mu'],
             scale=self['sigma']))
 
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        assert id(self) not in memo # son graphs are tree-structured for now
+        vals = s_rng.normal(draw_shape=(elems.shape[0],),
+            mu=self['mu'],
+            sigma=self['sigma'])
+        memo[id(self)] = (elems, vals)
+
+    def nth_theano_sample(self, n, idxdict, valdict):
+        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
+
 
 class lognormal(normal):
     def resample(self, rng):
         normal.resample(self, rng)
         self['choice'] = float(numpy.exp(self['choice']))
+
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        assert id(self) not in memo # son graphs are tree-structured for now
+        vals = s_rng.normal(draw_shape=(elems.shape[0],),
+            mu=self['mu'],
+            sigma=self['sigma'])
+        memo[id(self)] = (elems, tensor.exp(vals))
+
+    def nth_theano_sample(self, n, idxdict, valdict):
+        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 
 class ceil_lognormal(lognormal):
@@ -397,6 +409,21 @@ class ceil_lognormal(lognormal):
         self['choice'] = int(
                 (numpy.ceil(self['choice']) // self['round'])
                 * self['round'])
+
+    def theano_sampler_helper(self, s_rng, elems, memo, path):
+        assert id(self) not in memo # son graphs are tree-structured for now
+        logvals = s_rng.normal(draw_shape=(elems.shape[0],),
+            mu=self['mu'],
+            sigma=self['sigma'])
+        vals = tensor.exp(logvals)
+        rounded_vals = tensor.cast(
+                ((tensor.ceil(vals) // self['round'])
+                * self['round']),
+                'int64')
+        memo[id(self)] = (elems, rounded_vals)
+
+    def nth_theano_sample(self, n, idxdict, valdict):
+        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 
 #
