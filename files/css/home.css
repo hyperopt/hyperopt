@@ -1,0 +1,53 @@
+/* screen.css
+ *
+ * A clean, simple stylesheet that aims for
+ * a consistent vertical rhythm.
+ *
+ * Base font height: 16px
+ * Base line length: 24px
+ *
+ * AUTHOR: Mark Reid <mark@reid.name>
+ * Modifications by James Bergstra
+ */
+
+/* Reset everything */
+* {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    font-size: 100%;
+    vertical-align: baseline;
+    background: none;
+}
+
+body{
+	background:#fff;
+	font:13px/20px Arial,Tahoma,Helvetica,sans-serif;
+	font-family: "Droid Sans", Helvetica, Arial, sans-serif;
+	color:#222;
+        font-size: 16px;
+}
+
+/* Hack via Joel Spolsky to make image rescaling nicer in IE */
+img { -ms-interpolation-mode:bicubic; }
+h1,h2,h3,h4 { 
+	line-height:1em; 
+	font-size:1.5em; 
+	font-weight: normal; 
+	clear: left; 	
+	font-family: 'lucida grande', sans-serif; 
+}
+
+#site {
+	max-width: 46em;
+	margin: 1.5em auto 3em auto;
+	line-height:1.5em;
+}
+
+#footer {
+    float: right;
+    text-align: right;
+    font-size: 75%;
+    padding-top: 2em;
+}
