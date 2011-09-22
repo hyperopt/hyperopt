@@ -34,6 +34,7 @@ except:
     RandomStreams = tensor.shared_randomstreams.RandomStreams
 
 from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
+
 def geom(lower, upper, round=1):
     ll = numpy.log(lower)
     lu = numpy.log(upper)
