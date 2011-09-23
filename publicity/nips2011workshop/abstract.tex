@@ -49,6 +49,11 @@ XXX Address \\
 \newcommand{\ass}{\vs{0.7}}
 \renewcommand{\citet}{\cite}
 
+\newcommand{\hyperopt}{{\tt hyperopt}}
+\newcommand{\mongo}{{\tt mongo}}
+\newcommand{\mongoworker}{{\tt mongo-worker}}
+\newcommand{\mongosearch}{{\tt mongo-search}}
+\newcommand{\mongoshow}{{\tt mongo-show}}
 
 \begin{document}
 \maketitle
@@ -69,10 +74,12 @@ XXX Address \\
     and two new greedy sequential methods based on an expected improvement criterion.
     Random search was shown to be sufficiently efficient for learning neural networks for several datasets,
     but unreliable for training DBNs.
-    The sequential algorithms were applied to the most difficult DBN learning problems from\cite{Larochelle+etal:2007}
-    and found significantly better results than the best previously reported.
-    In this workshop paper we review the findings of the NIPS paper, and
-    introduce the software that was used to run those experiments as a reusable platform for
+    The sequential algorithms were applied to the most difficult DBN learning problems from
+    \cite{Larochelle+etal:2007}
+    and found better results than the best previously reported.
+    This abstract serves as a companion to \cite{bergstra+bardenet+bengio+kegl:2011},
+    introducing the software (based on Python, MongoDB, and Theano)
+    that was used to run those experiments as a reusable platform for future work in
     asynchronous distributed hyper-parameter optimization.
 \vs{3}
 \end{abstract}
@@ -91,13 +98,21 @@ potential hyper-parameters the experimenter chooses to leave fixed to an {\it a 
 The difficulty of tuning these models makes published results difficult to
 reproduce, and turns the application of these methods into something more akin
 to an art than a science.
+At this years NIPS conference, \citet{bergstra+bardenet+bengio+kegl:2011} introduced
+two algorithms for hyper-parameter optimization, and showed that they were effective
+at optimizing DBN architectures.
+This abstract serves as a companion to \citet{bergstra+bardenet+bengio+kegl:2011}
+and introduces \hyperopt, a free open-source platform for
+asynchronous distributed hyper-parameter optimization.\footnote{
+\hyperopt\ web page: \url{http://www.github.com/jaberg/hyperopt}}
+The \hyperopt\ package provides reusable implementations of the algorithms in \citet{bergstra+bardenet+bengio+kegl:2011}, and an extensible platform for future work in hyper-parameter optimization algorithms.
 
-Recent results such as 
+Recent results such as
 \citet{Pinto-2009}, \citet{coates+lee+ng:2010}, and \citet{coates+ng:2011}
 demonstrate that the challenge of hyper-parameter optimization
 in large and multilayer models is a direct impediment to scientific progress.
 These works
-have advanced state of the art performance on image classification problems
+advanced the state of the art
 by more concerted hyper-parameter optimization in simple algorithms,
 rather than by innovative modeling or machine learning strategies.
 It would be wrong to conclude from a result such as \citet{Pinto-2009}
@@ -106,8 +121,8 @@ Instead, hyper-parameter optimization should be regarded as
 a formal outer loop in the learning process.
 A learning algorithm,
 as {\em a functional from data to classifier} (taking classification problems as an example),
-includes a budgeting choice of how many CPU cycles are to be spent on hyper-parameter exploration,
-and how many CPU cycles are to be spent evaluating each hyper-parameter choice (i.e. by
+includes a budgeting choice of how many CPU cycles to spend on hyper-parameter exploration,
+and how many CPU cycles to spend evaluating each hyper-parameter choice (i.e. by
 tuning the regular parameters).
 The results of \citet{Pinto-2009} and \citet{coates+ng:2011} suggest that
 with current generation hardware such as large computer clusters and GPUs,
@@ -115,11 +130,11 @@ the optimal allocation of CPU cycles includes more hyper-parameter exploration
 than has been typical in the machine learning literature.
 
 One reason why hyper-parameter optimization has not been formalized in common
-practice is that grid search is far less efficient than an experienced graduate
-student toying with hyper-parameters at the command line.
-More sophisticated algorithms for hyper-parameters have been proposed
-XXX,
-but it is technically challenging to use them, and they are often perceived as not being worth the trouble.
+practice is that grid search is far less efficient than an experienced researcher
+toying with hyper-parameters at the command line.
+Algorithms suitable for hyper-parameters have been proposed, such as
+\cite{kirkpatrick+gelatt+vecchi:1983,hanson+muller+koumoutsakos:2003,kleinman+spall+naiman:1999,drew+homem-de-mello:2006,hutter+hoos+leyton+brown:2011,bubeck+munos+stoltz+szepesvari:2009,srinivasan+ramakrishnan:2011},
+but it is technically challenging to use them, and they are sometimes perceived as not being worth the trouble.
 One recent step toward formalizing hyper-parameter optimization is in the use of random experiments.
 Recent work looking at random search suggests that actually random search is closer
 to grad student performance than to grid search performance~\citet{Bergstra+Bengio:2011snowbird}.
@@ -129,27 +144,72 @@ manual and grid search.
 In a follow-up study, \citet{bergstra+bengio:2011jmlrANON} looked at random trials
 for optimizing DBNs as in \citet{Larochelle+etal:2007}.
 Random experiments were competitive with the manual optimization of DBNs in the majority of tasks,
-even though a grid search would not have been feasible.
+whereas grid search was infeasible.
 
-Although random search is often a surprisingly efficient, formalizable hyper-parameter configuration algorithm, there are settings in which sequential search methods are far more efficient.
+Although random search is often a surprisingly efficient, formalizable hyper-parameter configuration algorithm,
+there are settings in which sequential search methods are far more efficient.
 Brute force searches will always suffer from the curse of dimensionality in high-dimensional spaces~\citep{bellman:1961}.
-This paper introduces two practical, scalable sequential optimization methods
-that improve on the brute force methods of random search and grid search
-when brute force is insufficient.
-The algorithms presented here are moderately parallelizable,
-in the sense that sequential optimization can be projected a few steps into the future
-in order to run those steps in parallel and improve speed with respect to wall time.
-The more they are parallelized in this way, the less CPU-efficient they will tend to be, although the exact tradeoff will be problem-dependent.
-These methods scale gracefully to take advantage of as many machines as are available,
-and try be as efficient as possible about drawing on what has been discovered about the search problem by
-completed and on-going trials.
-The methods are tested on the difficult problem of DBN hyper-parameter optimization,
-but they are not DBN-specific; they apply to a broad range of configuration problems involving
+\citet{bergstra+bardenet+bengio+kegl:2011} show that moderately parallelized implementations
+of sequential model-based optimization (SMBO) algorithms can be effective in high-dimensional spaces
+(up to 32 dimensions).
+They introduce two algorithms (GP, based on Gaussian process regression; GM, based on a graphical model derived from the search space)
+and test them on the difficult problem of DBN hyper-parameter optimization.
+The algorithms are not DBN-specific; they apply to a broad range of configuration problems involving
 fixed or variable numbers of parameters that each might be discrete, ordinal, or continuous.
+The GM and GP algorithms both outperform manual and random search on the datasets studied (see Figure~\ref{fig:boston},
+Table~\ref{tbl:testerr}).
+
+\begin{table}[t]
+\vs{2}
+\begin{center}
+\begin{tabular}{c@{}c}
+%\fbox{
+\begin{minipage}{0.43\linewidth}
+\begin{center}
+\includegraphics[scale=.39]{../nips2011paper/figures/bostonHousing.pdf}
+\vs{3}
+\captionof{figure}{\label{fig:boston}
+  GP optimizing neural network hyper-parameters on the Boston
+  Housing regression task. Shown: best minimum found so far
+  every 5 iterations, against time. Red = GP, Blue = Random. Shaded
+  areas = one-sigma error bars.
+  }
+\end{center}
+\end{minipage}
+%}
+&
+%\fbox{
+\hspace*{6mm}\begin{minipage}{0.45\linewidth}
+    \begin{center}
+    \begin{tabular}{lll}
+                & {\bf convex} & {\bf MRBI} \\
+        \hline
+        GM & {\bf 14.13} $ \pm 0.30$ \% & {\bf 44.55} $ \pm 0.44$\%   \\
+        GP & $ 16.70 \pm 0.32$\% &  $ 47.08\pm 0.44 $\% \\
+        Manual & $18.63 \pm 0.34$\%  &  $47.39 \pm 0.44$\%  \\
+        Random &  $ 18.97\pm 0.34$ \%  & $46.22 \pm 0.44$\% \\
+        \hline
+    \end{tabular}
+    \end{center}
+    \caption{The test set classification error of the best model
+    found by each search algorithm on each problem.
+    Each search algorithm was allowed up to 200 trials.
+    The manual searches used 82 trials for {\bf convex}
+    and 27 trials ``MNIST rotated background images'' ({\bf MRBI}).
+    \label{tbl:testerr}
+    }
+\end{minipage}
+%}
+\end{tabular}
+\end{center}
+\vs{6}
+\end{table}
+
+
 
 
 \Bs
-\section{Sequential Model-based Global Optimization}
+\section{Parallelized Sequential Model-based Global Optimization}
 \as
 \label{sec:smbo}
 
@@ -197,16 +257,140 @@ our surrogates to propose the $x^*$ in the SMBO template.
 
 \subsection{Parallelizing Sequential Optimization}
 
-SMBO algorithms are by their very definition {\em sequential} rather than parallel.
-However researchers in machine learning are accustomed to using a compute cluster
-for hyper-parameter optimization.
-Indeed, the difficult problems for which we have enough data to warrant algorithms complex enough
-to need automatic configuration typically take a long time to evaluate (e.g. tens or hundreds of minutes).
-To be practical for hyper-parameter optimization,
-we need the optimization algorithm to parellelize the evaluations on line 4 of
+SMBO algorithms are fundamentally {\em sequential} rather than parallel.
+However, when there is enough data to warrant a complex algorithm (requiring automatic configuration)
+it also typically takes a lot of CPU time (tens or hundreds of minutes) to use all of that data in testing that algorithm.
+Researchers in machine learning are accustomed to using a compute cluster
+to optimize hyper-parameters because they can parallelize those calculations.
+It is of little practical use to use a sequential algorithm that cannot outperform a cluster
+in terms of quality of solution as a function of wall time.
+We need the optimization algorithm to parellelize the evaluations on line 4 of
 Figure~\ref{f:genericAlgo}.
 
-We deal with this by track
+We parallelize sequential optimization by running the evaluations of line 4 asynchronously,
+and updating the database of results ($\cH$) asynchronously as those evaluation jobs complete.
+In the meantime, while a process is evaluating the $t^{th}$ proposal,
+we put a placeholder score into $\cH$ at position $t$ to prevent subsequent proposals $t+\tau$
+from exploring the same point again.
+We used the {\em constant liar} approach in which the placeholder score was the mean score of the earliest jobs,
+proposed when the optimization process was no different from random guessing~\cite{ginsbourger+leriche+carraro:2010}.
+
+
+\subsection{Implementing Parallel Sequential Optimization}
+
+Our implementation of parallelized sequential optimization employs a client-server architecture.
+The server is a standard MongoDB.
+The server is used both to track the state of the experiment $\cH$ and as a
+``message board'' for more general inter-process communication between the clients.
+
+The clients are Python programs implemented in the \hyperopt\ package, which is
+free open-source software, currently released under a BSD license. Three scripts are used
+to conduct a distributed asynchronous optimization: \mongoworker and \mongosearch.
+
+\begin{description}
+\item[\mongoworker] - worker loop\\
+    Called from the command-line with options to connect to a particular mongo server,
+    it polls the server for elements of $\cH$ that need to be run, and runs them.
+\item[\mongosearch] - server loop\\
+    Called from the command-line with options to connect to a particular mongo server,
+    it polls the server and inserts new candidates into $\cH$ whenever the existing ones have all been started.
+\end{description}
+
+
+The \mongoworker\ script polls the mongo server and
+atomically fetches an un-started candidate $h$ from $\cH$, which is a JSON (JavaScript Object Notation) document.
+It uses a field in $h$ to identify the python function $f$ that is to be used to evaluate the candidate.
+It extracts the candidate configuration subdocument ($C$).
+It constructs a control object via which the evaluation function can communicate with mongo and other processes ($R$).
+Finally it executes a sub-process that calls $f(C, R)$.
+When $f$ returns, the subprocess marks $h$ as being complete (or failed with an error).
+The \mongoworker\ script is meant to be launched using existing cluster dispatching software such as Torque, PBS, or SGE.
+A single experiment can draw on \mongoworker\ scripts running on multiple networks and clusters,
+the bandwidth requirement for communication between \mongoworker\ and \mongo\ can be very low.
+
+The \mongosearch\ script requires command-line arguments specifying the optimization algorithm, and the evaluation function.
+The script polls the mongo server
+and when there are no more un-started jobs in $\cH$ it appeals to a plug-in (indicated by the command-line arguments)
+to suggest a new candidate given the current state of the database $\cH$.
+Each entries $h$ in the database is in one of four states (new, running, finished successfully, finished unsuccessfully)
+and that information is passed to the plug-in.
+The \mongosearch\ script inserts that candidate into $\cH$, where it will be picked up by an idle \mongoworker.
+
+\subsection{Using hyperopt to optimize a new function}
+
+To optimize a new function with \hyperopt, implement the evaluation function $f$ as a {\tt Bandit} subclass.
+In \hyperopt, a Bandit carries two pieces of information:
+\begin{itemize}
+    \item a callable function (corresponding to $f$ in Figure~\ref{f:genericAlgo})
+    \item a prior over the configuration argument to $f$ (see Figure~\ref{f:htdict}).
+\end{itemize}
+The callable function is simply a class method or static method of your bandit subclass.
+The prior over configuration arguments can be specified with the stochastic expression
+language defined within \hyperopt\ (see Figure~\ref{f:htdict} for an example).
+This language is makes it easy to express broad, simple priors.
+To be more precise about a prior distribution over the configuration space,
+users can use stochastic Theano programs.\footnote{
+Stochastic Theano programs implemented with MonteTheano:
+\url{http://www.github.com/jaberg/MonteTheano}}
+
+\begin{figure}
+\begin{minipage}{\textwidth}
+\small
+\begin{verbatim}
+    rdict(
+        "preprocessing", one_of(
+            rdict(
+                "kind", "raw"),
+            rdict(
+                "kind", "zca",
+                "energy", uniform(low=0.5, high=1.0))),
+        "dataset_name", "MNIST",
+        "seed", one_of(5, 6, 7, 8),
+        "batchsize", one_of(1, 20, 100),
+        "lr", lognormal(mu=log(.01), sigma=3),
+        "lr_anneal_start", ceil_lognormal(mu=log(1000), sigma=2),
+        "l2_penalty", one_of(0, lognormal(mu=log(1.0e-6), sigma=3)),
+        "n_hid", ceil_lognormal(mu=log(512), sigma=3, round=16))
+\end{verbatim}
+\end{minipage}
+\caption{Specification of a search space using random dictionaries
+({\tt \small rdict}), random choices ({\tt \small one\_of}), and random numbers ({\tt \small uniform},
+{\tt \small lognormal}, {\tt \small ceil\_lognormal}).
+Optimization algorithms in \hyperopt\ inspect this data structure to
+draw random samples, infer posteriors, and define kernel functions in the configuration space.
+}
+\label{f:htdict}
+\end{figure}
+
+\subsection{Optimization Algorithms}
+
+At the time of writing, the \hyperopt\ package
+implements three optimization algorithms:
+random search,
+the GM algorithm from~\cite{bergstra+bardenet+bengio+kegl:2011},
+and the GP algorithm from~\cite{bergstra+bardenet+bengio+kegl:2011}.
+More algorithms are planned by the authors,
+and contributions from other researchers are welcome.
+This abstract is too short to document how to use a new optimization algorithm.
+It is quite easy, and does not require editing the source code of the
+\hyperopt\ package itself.  API documentation can be found at the project
+website, and of course the code of optimization algorithms in the package can
+serve as a starting point for new algorithms.
+
+\section{Conclusion}
+This paper has introduced \hyperopt, an open source package for
+distributed hyper-parameter
+optimization. It implements the algorithms of \cite{bergstra+bardenet+bengio+kegl:2011},
+and provides extensible platform for future work.
+For more information, please follow the development of \hyperopt\ online at
+\url{http://www.github.com/jaberg/hyperopt}.
+
+\newpage
+\small
+\bibliographystyle{unsrt}
+\bibliography{strings,strings-short,strings-shorter,jb,hyperoptim}
+
+\end{document}
 
 
 \Bs
@@ -530,52 +714,6 @@ the surrogate modelling approach finds noticeably better points than
 random, which justifies trying to apply our two SMBO approaches on
 more ambitious tasks and datasets. 
 
-\begin{table}[t]
-\vs{2}
-\begin{center}
-\begin{tabular}{c@{}c}
-%\fbox{
-\begin{minipage}{0.43\linewidth}
-\begin{center}
-\includegraphics[scale=.39]{../nips2011paper/figures/bostonHousing.pdf}
-\vs{3}
-\captionof{figure}{\label{fig:boston}
-  GP optimizing the MLP hyper-parameters on the Boston
-  Housing regression task. Best minimum found so far
-  every 5 iterations, against time. Red = GP, Blue = Random. Shaded
-  areas = one-sigma error bars.}
-\end{center}
-\end{minipage}
-%}
-&
-%\fbox{
-\hspace*{6mm}\begin{minipage}{0.45\linewidth}
-    \begin{center}
-    \begin{tabular}{lll}
-                & {\bf convex} & {\bf MRBI} \\
-        \hline
-        GM & {\bf 14.13} $ \pm 0.30$ \% & {\bf 44.55} $ \pm 0.44$\%   \\
-        GP & $ 16.70 \pm 0.32$\% &  $ 47.08\pm 0.44 $\% \\
-        Manual & $18.63 \pm 0.34$\%  &  $47.39 \pm 0.44$\%  \\
-        Random &  $ 18.97\pm 0.34$ \%  & $46.22 \pm 0.44$\% \\
-        \hline
-    \end{tabular}
-    \end{center}
-    \caption{The test set classification error of the best model
-    found by each search algorithm on each problem.
-    Each search algorithm was allowed up to 200 trials.
-    The manual searches used 82 trials for {\bf convex}
-    and 27 trials {\bf MRBI}.
-    \label{tbl:testerr}
-    }
-\end{minipage}
-%}
-\end{tabular}
-\end{center}
-\vs{6}
-\end{table}
-
-
 The GP and GM algorithms were applied to the problem of optimizing DBN performance on the {\bf convex} and {\bf MRBI} datasets.
 For the GP-based algorithm, we allowed 3 random restarts to the CMA+ES algorithm per proposal $x^*$,
 and up to 500 iterations of conjugate gradient method in fitting the
@@ -704,12 +842,6 @@ Finally, powerful hyper-parameter optimization algorithms broaden the horizon of
 
 
 
-\newpage
-\small
-\bibliographystyle{unsrt}
-\bibliography{strings,strings-short,strings-shorter,jb,hyperoptim}
-
-\end{document}
 
 \iffalse
 Vincent+etal:2010 used it. They found the SDA3 model superior to DBN3 on both datasets.
