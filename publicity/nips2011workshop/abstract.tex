@@ -62,25 +62,18 @@ XXX Address \\
     Several recent advances to the state of the art in image classification benchmarks have come
     from better configurations of existing techniques rather than novel approaches to
     feature learning.
-    %Only by making hyper-parameter optimization a formal component of
-    %learning algorithms can we systematically investigate how CPU resources should be
-    %allocated between hyper-parameter exploration and hyper-parameter evaluation.
     Traditionally,
     hyper-parameter optimization has been the job of humans because they can be very efficient in regimes where only a few trials are possible.
     Presently, computer clusters and GPU processors make it possible to run more trials
     and we show that algorithmic approaches can find better results.
-    At the main NIPS conference this year, we presented hyper-parameter optimization results on tasks of training neural networks and deep belief networks (DBNs).
-    We optimized hyper-parameters using random search
-    and two new greedy sequential methods based on an expected improvement criterion.
-    Random search was shown to be sufficiently efficient for learning neural networks for several datasets,
-    but unreliable for training DBNs.
-    The sequential algorithms were applied to the most difficult DBN learning problems from
-    \cite{Larochelle+etal:2007}
-    and found better results than the best previously reported.
-    This abstract serves as a companion to \cite{bergstra+bardenet+bengio+kegl:2011},
-    introducing the software (based on Python, MongoDB, and Theano)
-    that was used to run those experiments as a reusable platform for future work in
-    asynchronous distributed hyper-parameter optimization.
+    Recently, \cite{nipspaper} showed that
+    two sequential model-based optimization algorithms
+    could outperform domain experts in the tuning of 
+    Deep Belief Networks (DBNs).
+    This abstract serves as a companion to \cite{nipspaper},
+    introducing \hyperopt, the software
+    that was used to run those experiments.
+    \hyperopt is a reusable engine for hyper-parameter optimization, and a platform for research in distributed asychronous hyper-parameter optimization algorithms.
 \vs{3}
 \end{abstract}
 
@@ -93,71 +86,37 @@ stacked denoising autoencoders~\citep{vincent+larochelle+lajoie+bengio+manzagol:
 convolutional networks~\citep{lecun+bottou+bengio+haffner:1998},
 as well as classifiers based on sophisticated feature extraction techniques such as
 mcRBMs~\citep{ranzato+hinton:2010}
-have upwards of a dozen and up to fifty hyper-parameters depending on how many
+can have dozens of hyper-parameters depending on how many
 potential hyper-parameters the experimenter chooses to leave fixed to an {\it a priori} reasonable default.
 The difficulty of tuning these models makes published results difficult to
 reproduce, and turns the application of these methods into something more akin
 to an art than a science.
-At this years NIPS conference, \citet{bergstra+bardenet+bengio+kegl:2011} introduced
+At the NIPS 2011 conference, \citet{nipspaper} introduced
 two algorithms for hyper-parameter optimization, and showed that they were effective
 at optimizing DBN architectures.
-This abstract serves as a companion to \citet{bergstra+bardenet+bengio+kegl:2011}
-and introduces \hyperopt, a free open-source platform for
+This abstract serves as a companion to \citet{nipspaper}
+and introduces \hyperopt, a free open-source platform (BSD license) for
 asynchronous distributed hyper-parameter optimization.\footnote{
-\hyperopt\ web page: \url{http://www.github.com/jaberg/hyperopt}}
-The \hyperopt\ package provides reusable implementations of the algorithms in \citet{bergstra+bardenet+bengio+kegl:2011}, and an extensible platform for future work in hyper-parameter optimization algorithms.
+\hyperopt\ web page: \url{http://www.github.com/jaberg/hyperopt}\\
+Note to reviewers: the complete implementations of the GP and GM algorithms will be
+uploaded to the hyperopt repository by mid-October.
+The website for that project and API documentation will also be uploaded around that time.
+If you would like a draft of \citet{nipspaper} please contact me.
+}
+The \hyperopt\ package provides reusable implementations of the algorithms in \citet{nipspaper}, and an extensible platform for future work in hyper-parameter optimization algorithms.
 
-Recent results such as
-\citet{Pinto-2009}, \citet{coates+lee+ng:2010}, and \citet{coates+ng:2011}
-demonstrate that the challenge of hyper-parameter optimization
-in large and multilayer models is a direct impediment to scientific progress.
-These works
-advanced the state of the art
-by more concerted hyper-parameter optimization in simple algorithms,
-rather than by innovative modeling or machine learning strategies.
-It would be wrong to conclude from a result such as \citet{Pinto-2009}
-that feature learning is useless.
-Instead, hyper-parameter optimization should be regarded as
-a formal outer loop in the learning process.
-A learning algorithm,
-as {\em a functional from data to classifier} (taking classification problems as an example),
-includes a budgeting choice of how many CPU cycles to spend on hyper-parameter exploration,
-and how many CPU cycles to spend evaluating each hyper-parameter choice (i.e. by
-tuning the regular parameters).
-The results of \citet{Pinto-2009} and \citet{coates+ng:2011} suggest that
-with current generation hardware such as large computer clusters and GPUs,
-the optimal allocation of CPU cycles includes more hyper-parameter exploration
-than has been typical in the machine learning literature.
 
-One reason why hyper-parameter optimization has not been formalized in common
-practice is that grid search is far less efficient than an experienced researcher
-toying with hyper-parameters at the command line.
-Algorithms suitable for hyper-parameters have been proposed, such as
-\cite{kirkpatrick+gelatt+vecchi:1983,hanson+muller+koumoutsakos:2003,kleinman+spall+naiman:1999,drew+homem-de-mello:2006,hutter+hoos+leyton+brown:2011,bubeck+munos+stoltz+szepesvari:2009,srinivasan+ramakrishnan:2011},
-but it is technically challenging to use them, and they are sometimes perceived as not being worth the trouble.
-One recent step toward formalizing hyper-parameter optimization is in the use of random experiments.
-Recent work looking at random search suggests that actually random search is closer
-to grad student performance than to grid search performance~\citet{Bergstra+Bengio:2011snowbird}.
-Repeating experiments from \citet{Larochelle+etal:2007}, they show that
-random trials were consistently able to find better neural network models than those found by
-manual and grid search.
-In a follow-up study, \citet{bergstra+bengio:2011jmlrANON} looked at random trials
-for optimizing DBNs as in \citet{Larochelle+etal:2007}.
-Random experiments were competitive with the manual optimization of DBNs in the majority of tasks,
-whereas grid search was infeasible.
-
-Although random search is often a surprisingly efficient, formalizable hyper-parameter configuration algorithm,
-there are settings in which sequential search methods are far more efficient.
-Brute force searches will always suffer from the curse of dimensionality in high-dimensional spaces~\citep{bellman:1961}.
-\citet{bergstra+bardenet+bengio+kegl:2011} show that moderately parallelized implementations
+\citet{nipspaper} show that moderately parallelized implementations
 of sequential model-based optimization (SMBO) algorithms can be effective in high-dimensional spaces
 (up to 32 dimensions).
-They introduce two algorithms (GP, based on Gaussian process regression; GM, based on a graphical model derived from the search space)
-and test them on the difficult problem of DBN hyper-parameter optimization.
-The algorithms are not DBN-specific; they apply to a broad range of configuration problems involving
-fixed or variable numbers of parameters that each might be discrete, ordinal, or continuous.
-The GM and GP algorithms both outperform manual and random search on the datasets studied (see Figure~\ref{fig:boston},
-Table~\ref{tbl:testerr}).
+They introduce two algorithms: GP, based on Gaussian process regression; GM, based on a graphical model derived from the search space.
+GM and GP are evaluated on the tasks of neural network and DBN hyper-parameter optimization.
+Some of the results from \citet{nipspaper} are summarized in
+Figure~\ref{fig:boston} and Table~\ref{tbl:testerr}.
+The GM and GP algorithms both outperform manual and random search on the datasets studied.
+On the tasks of convex shape classification and digit recognition in the MNIST rotated background images
+dataset (both introduced in \citet{larochelle+etal:2007}) the DBN model optimized by the GM algorithm achieves
+the best scores to our knowlege.
 
 \begin{table}[t]
 \vs{2}
@@ -206,14 +165,22 @@ Table~\ref{tbl:testerr}).
 \end{table}
 
 
+The GP and GM algorithms are quite general, not DBN-specific.
+They apply to a broad range of configuration problems involving
+fixed or variable numbers of parameters that each might be discrete, ordinal, or continuous.
+This paper describes how the \hyperopt\ software package allows them to be used in new optimization problems,
+and how to try new optimization strategies on problems such as DBN configuation..
+
 
 
 \Bs
-\section{Parallelized Sequential Model-based Global Optimization}
+\section{Sequential Model-based Global Optimization}
 \as
 \label{sec:smbo}
 
-Sequential Model-Based Global Optimization (SMBO) algorithms have been used in many applications
+The GM and GP algorithms presented in \cite{nipspaper} fit into the framework
+of Sequential Model-Based Global Optimization (SMBO).
+SMBO algorithms have been used in many applications
 where evaluation of the fitness function is expensive~\citep{hutter:2009,hutter+hoos+leyton+brown:2011}.
 In an application where the true fitness function
 $f:\cX\rightarrow \mathbb{R}$ is costly to evaluate,
@@ -241,7 +208,7 @@ criterion $S$ on model $M_{t-1}$,
 \end{algorithm}
 }
 \vs{2}
-\caption{The pseudo-code of the generic Sequential Model-Based
+\caption{The pseudo-code of a generic Sequential Model-Based
   Optimization algorithm.}
 \label{f:genericAlgo}
 \vs{0}
@@ -249,11 +216,12 @@ criterion $S$ on model $M_{t-1}$,
 
 SMBO algorithms are differentiated in how they approximate $f$,
 and in the criterion that they optimize to get $x^*$.
-In this work we will look at two SMBO algorithms for optimizing hyper-parameters:
-one based on Gaussian Process regression (GP) for modeling $P(y=f(x)|x)$ and one based on a simple non-parametric graphical model (GM) of the
+\citet{nipspaper} looked at two SMBO algorithms for optimizing hyper-parameters:
+one based on Gaussian Process regression (GP) for modeling $P(y=f(x)|x)$
+and one based on a simple non-parametric graphical model (GM) of the
 joint distribution $P(x,y=f(x))$.
-In both cases we will optimize the criterion of expected improvement (EI) in
-our surrogates to propose the $x^*$ in the SMBO template.
+Both algorithms optimized the criterion of expected improvement (EI) in
+some surrogate to identify the proposal $x^*$ in the SMBO template.
 
 \subsection{Parallelizing Sequential Optimization}
 
@@ -267,33 +235,32 @@ in terms of quality of solution as a function of wall time.
 We need the optimization algorithm to parellelize the evaluations on line 4 of
 Figure~\ref{f:genericAlgo}.
 
-We parallelize sequential optimization by running the evaluations of line 4 asynchronously,
+\hyperopt\ parallelizes sequential optimization by running the evaluations of line 4 asynchronously,
 and updating the database of results ($\cH$) asynchronously as those evaluation jobs complete.
-In the meantime, while a process is evaluating the $t^{th}$ proposal,
-we put a placeholder score into $\cH$ at position $t$ to prevent subsequent proposals $t+\tau$
-from exploring the same point again.
-We used the {\em constant liar} approach in which the placeholder score was the mean score of the earliest jobs,
-proposed when the optimization process was no different from random guessing~\cite{ginsbourger+leriche+carraro:2010}.
+While the evaluation of the $t^{\mathrm{th}}$ proposal is in progress,
+it is marked temporarily as having a constant, disappointing score (the {\em constant liar} approach, \cite{ginsbourger+leriche+carraro:2010}).
+A disapponting score prevents subsequent proposals $t+\tau$ from exploring nearby locations redundantly.
 
 
-\subsection{Implementing Parallel Sequential Optimization}
+\subsection{Major Implementation Components}
 
-Our implementation of parallelized sequential optimization employs a client-server architecture.
+Our implementation of asynchronous SMBO employs a client-server architecture.
 The server is a standard MongoDB.
-The server is used both to track the state of the experiment $\cH$ and as a
-``message board'' for more general inter-process communication between the clients.
+MongoDB is used both to track the state of the experiment $\cH$ and as a
+message board for more general inter-process communication between the clients.
+The clients are Python programs implemented in the \hyperopt\ package.
+Two scripts are used
+to conduct a distributed asynchronous optimization: \mongoworker\ and \mongosearch.
 
-The clients are Python programs implemented in the \hyperopt\ package, which is
-free open-source software, currently released under a BSD license. Three scripts are used
-to conduct a distributed asynchronous optimization: \mongoworker and \mongosearch.
 
 \begin{description}
 \item[\mongoworker] - worker loop\\
     Called from the command-line with options to connect to a particular mongo server,
-    it polls the server for elements of $\cH$ that need to be run, and runs them.
+    it polls the server for a new candidate $h$ in $\cH$ and evaluates it.
 \item[\mongosearch] - server loop\\
     Called from the command-line with options to connect to a particular mongo server,
-    it polls the server and inserts new candidates into $\cH$ whenever the existing ones have all been started.
+    it polls the server and inserts a new candidate into $\cH$ whenever the existing ones
+    have all been taken by worker clients.
 \end{description}
 
 
@@ -308,13 +275,18 @@ The \mongoworker\ script is meant to be launched using existing cluster dispatch
 A single experiment can draw on \mongoworker\ scripts running on multiple networks and clusters,
 the bandwidth requirement for communication between \mongoworker\ and \mongo\ can be very low.
 
-The \mongosearch\ script requires command-line arguments specifying the optimization algorithm, and the evaluation function.
+The \mongosearch\ script requires command-line arguments specifying
+(a) the optimization algorithm and
+(b) the evaluation function.
 The script polls the mongo server
-and when there are no more un-started jobs in $\cH$ it appeals to a plug-in (indicated by the command-line arguments)
-to suggest a new candidate given the current state of the database $\cH$.
-Each entries $h$ in the database is in one of four states (new, running, finished successfully, finished unsuccessfully)
-and that information is passed to the plug-in.
+and when there are zero new candidates in $\cH$ it appeals to a plug-in (indicated by the command-line arguments)
+to suggest a new candidate.
+The plug-in makes a suggestion based on the state, the configuration, and the evaluation result of each $h \in \cH$.
+The state of each $h$ is either ``new'', ``running'', ``finished successfully'', or ``finished in error''.
 The \mongosearch\ script inserts that candidate into $\cH$, where it will be picked up by an idle \mongoworker.
+The \mongoworker\ and \mongosearch\ script are independent clients from the operating system's perspective:
+either one can be killed and restarted without disrupting the other.
+\mongosearch saves its state to the MongoDB if it is killed with CTRL-C, so that it can be resumed later.
 
 \subsection{Using hyperopt to optimize a new function}
 
@@ -328,10 +300,12 @@ The callable function is simply a class method or static method of your bandit s
 The prior over configuration arguments can be specified with the stochastic expression
 language defined within \hyperopt\ (see Figure~\ref{f:htdict} for an example).
 This language is makes it easy to express broad, simple priors.
-To be more precise about a prior distribution over the configuration space,
-users can use stochastic Theano programs.\footnote{
+it is possible to write a more complicated prior distributions over the configuration space
+by writing a stochastic Theano program.\footnote{
 Stochastic Theano programs implemented with MonteTheano:
 \url{http://www.github.com/jaberg/MonteTheano}}
+Both of these methods provide a graphical description of the
+configuration space to an optimization algorithm.
 
 \begin{figure}
 \begin{minipage}{\textwidth}
@@ -362,25 +336,52 @@ draw random samples, infer posteriors, and define kernel functions in the config
 \label{f:htdict}
 \end{figure}
 
+The structure of the configuration description can have an impact on search algorithms.
+For example, Figure~\ref{f:htdict} uses a nested random variable to define the energy of the ZCA preprocessing option.
+We could express exactly the same prior if preprocessing were defined as
+{\tt one\_of("raw", "zca")} and {\tt "energy"} were promoted to a top-level configuration field.
+However, these two expressions of the prior would lead to different kernels in the GP optimization algorithm.
+In the former case energy would not enter into the distance between trials with "raw" preprocessing.
+In the latter case, it would.
+It is our hope that a single description of a configuration space suffices to get the best performance from all optimization algorithms.
+
+
 \subsection{Optimization Algorithms}
 
-At the time of writing, the \hyperopt\ package
-implements three optimization algorithms:
+\hyperopt\ provides three optimization algorithms:
 random search,
-the GM algorithm from~\cite{bergstra+bardenet+bengio+kegl:2011},
-and the GP algorithm from~\cite{bergstra+bardenet+bengio+kegl:2011}.
+the GM algorithm from~\cite{nipspaper},
+and the GP algorithm from~\cite{nipspaper}.
 More algorithms are planned by the authors,
 and contributions from other researchers are welcome.
-This abstract is too short to document how to use a new optimization algorithm.
-It is quite easy, and does not require editing the source code of the
-\hyperopt\ package itself.  API documentation can be found at the project
-website, and of course the code of optimization algorithms in the package can
-serve as a starting point for new algorithms.
+
+Optimization algorithms should inherit from the {\tt BanditAlgo} (or {\tt TheanoBanditAlgo}) base classes.
+Those classes have a virtual method {\tt suggest} (or {\tt theano\_suggest} that derived classes must implement.
+The details of how those functions should be implemented are provided in the code and documentation online.
+Essentially those functions accept the current state of $\cH$ as an argument
+and return some number of promising candidates
+$x^*$ for \mongosearch\ to insert in the database.
+
+\subsection{Other notable resources}
+
+\hyperopt\ also includes:
+\begin{itemize}
+\item \mongoshow\ - a script for rapid visualization of the state of an experiment.
+It can display a scatterplot of scores against time,
+or against the various hyper-parameters of the configuration space.
+It serves additionally as a starting point for custom visualization code.
+\item {\tt search} - a script for serial-mode evaluation that works without MongoDB.
+\item Simple inexpensive bandits for testing optimization algorithms.
+\end{itemize}
+
 
 \section{Conclusion}
+
+Bayesian optimization and sequential model-based optimization represent
+promising approaches to hyper-parameter optimization.
 This paper has introduced \hyperopt, an open source package for
 distributed hyper-parameter
-optimization. It implements the algorithms of \cite{bergstra+bardenet+bengio+kegl:2011},
+optimization. It implements the algorithms of \cite{nipspaper},
 and provides extensible platform for future work.
 For more information, please follow the development of \hyperopt\ online at
 \url{http://www.github.com/jaberg/hyperopt}.
