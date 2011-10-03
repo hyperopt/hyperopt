@@ -7,6 +7,9 @@ import theano
 import base
 import ht_dist2
 
+import montetheano as MT
+from montetheano.for_theano import ancestors, as_variable
+
 class Random(base.BanditAlgo):
     """Random search director
     """
@@ -47,6 +50,75 @@ def idxs_vals_take(idxs, vals, elements):
     return idxs[tf], vals[tf]
 
 
+def as_variables(*args):
+    return [theano.tensor.as_tensor_variable(a) for a in args]
+
+
+class AdaptiveParzen(theano.Op):
+    """
+    A heuristic estimator for the mu and sigma values of a GMM
+    TODO: try to find this heuristic in the literature, and cite it - Yoshua
+    mentioned the term 'elastic' I think?
+
+    """
+    def __eq__(self, other):
+        return type(self) == type(other)
+
+    def __hash__(self):
+        return hash(type(self))
+
+    def make_node(self, mu, low, high, minsigma):
+        mu, low, high, minsigma = as_variables(mu, low, high, minsigma)
+        if mu.ndim == 0:
+            raise TypeError()
+        if mu.ndim > 1:
+            raise NotImplementedError()
+        if low.ndim:
+            raise TypeError(low)
+        if high.ndim:
+            raise TypeError(high)
+        return theano.gof.Apply(self,
+                [mu, low, high, minsigma],
+                [mu.type(), mu.type()])
+
+    def perform(self, node, inputs, outstorage):
+        mu, low, high, minsigma = inputs
+        mu_orig = mu.copy()
+        mu = mu.copy()
+        if len(mu) == 0:
+            mu = numpy.asarray([0.5 * (low + high)])
+            sigma = numpy.asarray([0.5 * (high - low)])
+        elif len(mu) == 1:
+            sigma = numpy.maximum(abs(mu-high), abs(mu-low))
+        elif len(mu) >= 2:
+            order = numpy.argsort(mu)
+            mu = mu[order]
+            sigma = numpy.zeros_like(mu)
+            sigma[1:-1] = numpy.maximum(
+                    mu[1:-1] - mu[0:-2],
+                    mu[2:] - mu[1:-1])
+            if len(mu)>2:
+                lsigma = mu[2] - mu[0]
+                usigma = mu[-1] - mu[-3]
+            else:
+                lsigma = mu[1] - mu[0]
+                usigma = mu[-1] - mu[-2]
+
+            sigma[0] = max(mu[0]-low, lsigma)
+            sigma[-1] = max(high - mu[-1], usigma)
+
+            # un-sort the mu and sigma
+            mu[order] = mu.copy()
+            sigma[order] = sigma.copy()
+
+            print mu, sigma
+
+            assert numpy.all(mu_orig == mu)
+
+        outstorage[0][0] = mu
+        outstorage[1][0] = numpy.maximum(sigma, minsigma)
+
+
 class GM_BanditAlgo(base.TheanoBanditAlgo):
     """
     Graphical Model (GM) algo described in NIPS2011 paper.
@@ -74,16 +146,20 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
                 self.s_test_idxs, self.s_test_vals)
         self.s_post_ld_idx, self.s_post_ld_val = post_ld
 
-    # XXX: factor this out of the GM_BanditAlgo so that the density
-    # modeling strategy is not interwoven with the optimization strategy.
-    def s_posterior_helper(self, rv, obs):
+    def s_posterior_helper(self, rv, obs, s_rng):
+        """
+        Return a posterior RV for rv having observed obs
+        """
+        # XXX: factor this out of the GM_BanditAlgo so that the density
+        # modeling strategy is not coupled to the optimization strategy.
         dist_name = MT.rstreams.rv_dist_name(rv)
         if dist_name == 'normal':
             # GMM
             raise NotImplementedError()
         elif dist_name == 'uniform':
-            # bounded GMM
-            raise NotImplementedError()
+            mus, sigmas = AdaptiveParzen()(obs, -5, 5, 1)
+            post_rv = s_rng.gmm(mus, sigmas, draw_shape=rv.shape, ndim=rv.ndim)
+            return post_rv
         elif dist_name == 'lognormal':
             # logGMM
             raise NotImplementedError()
@@ -93,11 +169,17 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         else:
             raise TypeError("unsupported distribution", dist_name)
 
-    def s_posterior(self, s_observed_idxs, s_observed_vals):
-        # return symbolic random variables representing the posterior sampling
-        # density
+    def s_posterior(self, s_observed_idxs, s_observed_vals, s_rng=None):
+        """Return symbolic RVs representing the posterior sampling density
+        """
         assert len(s_observed_idxs) == len(s_observed_vals)
-        assert len(s_observed_idxs) == len(s_idxs)
+        assert len(s_observed_idxs) == len(self.s_idxs)
+
+        if s_rng is None:
+            s_rng = self.seed + 12345
+
+        if isinstance(s_rng, int):
+            s_rng = MT.RandomStreams(s_rng)
 
         new_s_vals = []
         for s_idx, s_val, o_idxs, o_val  in zip(
@@ -111,14 +193,29 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
             # are for the purpose of density estimation.
             # So we ignore them for now.
 
-            new_s_val = self.s_posterior_helper(s_val, o_val)
-            new_s_vals.append((s_val, new_s_val))
+            new_s_val = self.s_posterior_helper(s_val, o_val, s_rng)
+            new_s_vals.append(new_s_val)
 
-        posterior_idxs_vals = MT.shallow_clone.clone_keep_replacements(
-                self.s_idxs + self.s_vals,
-                given=new_s_vals)
+        # At this point, each new_s_val is connected to the original graph
+        # formed of s_val nodes (i.e. of the prior).
+        #
+        # We want each new_s_val to be connected instead to the other new_s_val
+        # nodes we just created, corresponding to the posterior values of other
+        # random vars.
+        #
+        # The way to get all the new_s_val nodes hooked up to one another is to
+        # use the clone_keep_replacements function.
+
+        blockers = s_observed_idxs + s_observed_vals
+        rvs_anc = ancestors(self.s_idxs + self.s_vals, blockers=blockers)
+        frontier = [r for r in rvs_anc if r.owner is None or r in blockers]
+        _frontier, cloned_post_ivs = MT.shallow_clone.clone_keep_replacements(
+                i=frontier,
+                o=self.s_idxs + self.s_vals,
+                replacements=dict(zip(self.s_vals, new_s_vals)))
         T = len(self.s_idxs)
-        return posterior_idxs_vals[:T], posterior_idxs_vals[T:]
+        assert len(cloned_post_ivs) == 2 * T
+        return cloned_post_ivs[:T], cloned_post_ivs[T:]
 
     def log_density(self, data_X_idxs, data_X_vals, test_X_idxs, test_X_vals):
         """Return an (idx, log_density) such that idxs matches test_X_idxs.
@@ -139,7 +236,7 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         """Return an (idxs, vals) such that idxs accounts for samples 0 to N-1.
         """
         # TODO: factor this out of the GM_BanditAlgo so that the density
-        # modeling strategy is not interwoven with the optimization strategy.
+        # modeling strategy is not coupled to the optimization strategy.
 
         # define new symbolic posterior random variables
         # s_idxs_posterior, s_vals_posterior
@@ -156,7 +253,6 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         return r_idxs, r_vals
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
-        #filter
         ok_idxs = [i for i, s in enumerate(Y_status) if s == 'ok']
 
         ylist = list(Y[ok_idxs])
