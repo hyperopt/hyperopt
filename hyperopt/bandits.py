@@ -7,7 +7,7 @@ import theano
 from theano import tensor
 
 import base
-from ht_dist2 import rSON2, rlist2, one_of, uniform, lognormal, ceil_lognormal
+from ht_dist2 import rSON2, rlist2, one_of, uniform, normal, lognormal, ceil_lognormal
 
 class Base(base.Bandit):
     def __init__(self, template):
@@ -68,8 +68,12 @@ class Distractor(Base):
 
     loss_target = -2
 
-    def __init__(self):
-        Base.__init__(self, uniform(-20, 20))
+    def __init__(self, sigma=10):
+        """
+        The second peak is at x=-10.
+        The prior mean is 0.
+        """
+        Base.__init__(self, normal(0, sigma))
 
     def score(self, pt):
         f1 = 1.0 / (1.0 + numpy.exp(-pt))  # climbs rightward from 0.0 to 1.0

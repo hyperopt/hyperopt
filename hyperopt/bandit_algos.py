@@ -61,12 +61,14 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
                          # this is should in theory be bandit-dependent
 
     def __init__(self, good_estimator, bad_estimator):
+        base.TheanoBanditAlgo.__init__(self)
         self.good_estimator = good_estimator
         self.bad_estimator = bad_estimator
 
     def set_bandit(self, bandit):
         base.TheanoBanditAlgo.set_bandit(self, bandit)
 
+    def build_helpers(self, do_compile=True):
         s_prior = IdxsValsList([IdxsVals(i,v)
             for i, v in zip(self.s_idxs, self.s_vals)])
 
@@ -101,25 +103,35 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         log_EI = tensor.inc_subtensor(log_EI[G_ll.idxs], G_ll.vals)
         log_EI = tensor.inc_subtensor(log_EI[B_ll.idxs], -B_ll.vals)
 
-        keep_idxs = argsort(log_EI)[:-n_to_keep]
+        keep_idxs = argsort(log_EI)[-n_to_keep:]
 
-        self._helper = theano.function(
-            [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
-            (Gsamples.take(keep_idxs).flatten()
-                + [log_EI]
-                + Gsamples.flatten())
-            )
+        # store all these vars for the unittests
+        self.helper_locals = locals()
+        del self.helper_locals['self']
 
-        self._prior_sampler = theano.function(
-                [n_to_draw],
-                self.s_idxs + self.s_vals)
+        if do_compile:
+            self._helper = theano.function(
+                [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
+                (Gsamples.take(keep_idxs).flatten()
+                    + [log_EI]
+                    + Gsamples.flatten()),
+                allow_input_downcast=True,
+                )
+
+            self._prior_sampler = theano.function(
+                    [n_to_draw],
+                    self.s_idxs + self.s_vals)
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
+        if not hasattr(self, '_prior_sampler'):
+            self.build_helpers()
+            assert hasattr(self, '_prior_sampler')
+
         ok_idxs = [i for i, s in enumerate(Y_status) if s == 'ok']
 
         assert len(X_idxs) == len(X_vals)
 
-        ylist = list(Y[ok_idxs])
+        ylist = list(numpy.asarray(Y)[ok_idxs])
 
         # if there are not enough completed jobs to estimate EI
         # then we return draws from the bandit's prior
@@ -131,13 +143,14 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         ylist.sort()
         y_thresh_idx = int(self.gamma*.999 * len(ylist))
         y_thresh = .5 * ylist[y_thresh_idx] + .5 * ylist[y_thresh_idx+1]
+        del ylist
 
 
         X_iv_zip = []
         for i, v in zip(X_idxs, X_vals):
             X_iv_zip.extend([i, v])
 
-        helper_rval = self.helper(self.n_EI_candidates, N,
+        helper_rval = self._helper(self.n_EI_candidates, N,
             y_thresh, Y, *X_iv_zip)
 
         # rvals here are idx0, val0, idx1, val1, ...

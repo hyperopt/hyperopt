@@ -40,6 +40,10 @@ import logging
 import sys
 
 import numpy
+try:
+    from bson import SON
+except ImportError:
+    SON = dict
 
 import ht_dist2
 import utils
@@ -296,9 +300,9 @@ class TheanoBanditAlgo(BanditAlgo):
                 list(all_r_idxs),
                 list(all_r_vals))
         assert len(rval) == N
-        for rid, r in zip(ids, rval):
-            assert 'TBA_id' not in r
-            r['TBA_id'] = int(rid)
+        # tuck each suggested document into a dictionary with a TBA_id field
+        rval = [SON([('TBA_id', int(rid)), ('doc', r)])
+            for rid, r in zip(ids, rval)]
         return rval
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
@@ -337,6 +341,12 @@ class Experiment(object):
         self.bandit_algo = bandit_algo
         self.trials = []
         self.results = []
+
+    def set_bandit(self, bandit=None):
+        if bandit is None:
+            self.bandit_algo.set_bandit(self.bandit)
+        else:
+            raise NotImplementedError('consider not allowing this')
 
     def run(self, N):
         raise NotImplementedError('override-me')

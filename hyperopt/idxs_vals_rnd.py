@@ -4,13 +4,16 @@ Idxs-Vals reprepresentation of random samples
 XXX: What is Idxs-Vals representation?
 """
 import sys
+
+import numpy
+
 import theano
 from theano import tensor
 
 import montetheano
 from montetheano.for_theano import ancestors
 from montetheano.for_theano import as_variable
-from montetheano.for_theano import restrict
+from montetheano.for_theano import find
 from montetheano.for_theano import clone_keep_replacements
 
 def as_variables(*args):
@@ -25,7 +28,7 @@ class IdxsVals(object):
     def take(self, elements):
         """Advanced sparse vector indexing by int-list `elements`
         """
-        pos = restrict(elements, self.idxs)
+        pos = find(self.idxs, elements)
         return IdxsVals(self.idxs[pos], self.vals[pos])
 
 
@@ -41,7 +44,7 @@ class IdxsValsList(list):
 
     def take(self, subelements):
         """Return a new IdxsValsList of the same length as self, whose elements
-        are restricted to containing only the given `subelements`.
+        are restricted to contain only the given `subelements`.
         """
         # make a variable outside the loop to help theano's merge-optimizer
         subel = theano.tensor.as_tensor_variable(subelements)
@@ -98,7 +101,6 @@ class TreeEstimator(object):
 
 
 class IndependentNodeTreeEstimator(TreeEstimator):
-
     def posterior(self, priors, observations, s_rng):
         """
         priors - an IdxsValsList of random variables
@@ -163,6 +165,7 @@ class IndependentNodeTreeEstimator(TreeEstimator):
         idxs_of = {}
         for p, o in zip(posterior, observations):
             assignment[p.vals] = o.vals
+            print p.vals
             idxs_of[o.vals] = o.idxs
             idxs_of[p.vals] = p.idxs
 
@@ -171,13 +174,6 @@ class IndependentNodeTreeEstimator(TreeEstimator):
         # If this is not done this way, they get cloned
         RVs = [v for v in ancestors(posterior.flatten())
                 if montetheano.rv.is_raw_rv(v)]
-        for rv in RVs:
-            if rv not in assignment:
-                #assignment[rv] = rv
-                # TODO: Consider a protocol of adding a .idxs attribute
-                # to the .vals RV itself?  This might be better than
-                # the IdxsVals system currently implemented.
-                raise NotImplementedError('dont know idxs for RV', rv)
 
         # Cast assignment elements to the right kind of thing
         assignment = montetheano.rv.typed_items(assignment)
@@ -195,6 +191,11 @@ class IndependentNodeTreeEstimator(TreeEstimator):
                 [llik],
                 replacements=assignment)
         cloned_llik, = cloned_outputs
+
+        # XXX: what should we do if there are still random nodes in the graph
+        #      what might they mean?
+        #      - they can be used to get shape info, and will be cut from final
+        #      graph
         return IdxsVals(tensor.arange(N), cloned_llik)
 
 
@@ -212,58 +213,73 @@ class AdaptiveParzen(theano.Op):
     def __hash__(self):
         return hash(type(self))
 
-    def make_node(self, mus, low, high, minsigma):
-        mus, low, high, minsigma = as_variables(mus, low, high, minsigma)
+    def make_node(self, mus, prior_mu, prior_sigma):
+        mus, prior_mu, prior_sigma = as_variables(
+                mus, prior_mu, prior_sigma)
         if mus.ndim != 1:
             raise TypeError('mus must be vector', (mus, mus.type))
-        if low.ndim > 0:
-            raise TypeError('low', low)
-        if high.ndim > 0:
-            raise TypeError('high', high)
+        if prior_mu.ndim > 0:
+            raise TypeError('prior_mu', prior_mu)
+        if prior_sigma.ndim > 0:
+            raise TypeError('prior_sigma', prior_sigma)
         return theano.gof.Apply(self,
-                [mus, low, high, minsigma],
-                [tensor.vector(), mus.type(), mus.type()])
+                [mus, prior_mu, prior_sigma],
+                [mus.type(), mus.type(), mus.type()])
+
+    def infer_shape(self, node, ishapes):
+        mus_shape, prior_mu, prior_sigma = ishapes
+        return [
+                (tensor.maximum(1, mus_shape[0]),),
+                (tensor.maximum(1, mus_shape[0]),),
+                (tensor.maximum(1, mus_shape[0]),),
+                ]
 
     def perform(self, node, inputs, outstorage):
-        mus, low, high, minsigma = inputs
-        mu_orig = mu.copy()
-        mu = mu.copy()
-        if len(mu) == 0:
-            mu = numpy.asarray([0.5 * (low + high)])
-            sigma = numpy.asarray([0.5 * (high - low)])
-        elif len(mu) == 1:
-            sigma = numpy.maximum(abs(mu-high), abs(mu-low))
-        elif len(mu) >= 2:
-            order = numpy.argsort(mu)
-            mu = mu[order]
-            sigma = numpy.zeros_like(mu)
+        mus, prior_mu, prior_sigma = inputs
+        mus_orig = mus.copy()
+        mus = mus.copy()
+        if mus.ndim != 1:
+            raise TypeError('mus must be vector', mus)
+        if len(mus) == 0:
+            mus = numpy.asarray([prior_mu])
+            sigma = numpy.asarray([prior_sigma])
+        elif len(mus) == 1:
+            mus = numpy.asarray([prior_mu])
+            sigma = numpy.asarray([prior_sigma])
+        elif len(mus) >= 2:
+            low = prior_mu - 2 * prior_sigma
+            high = prior_mu + 2 * prior_sigma
+            order = numpy.argsort(mus)
+            mus = mus[order]
+            sigma = numpy.zeros_like(mus)
             sigma[1:-1] = numpy.maximum(
-                    mu[1:-1] - mu[0:-2],
-                    mu[2:] - mu[1:-1])
-            if len(mu)>2:
-                lsigma = mu[2] - mu[0]
-                usigma = mu[-1] - mu[-3]
+                    mus[1:-1] - mus[0:-2],
+                    mus[2:] - mus[1:-1])
+            if len(mus)>2:
+                lsigma = mus[2] - mus[0]
+                usigma = mus[-1] - mus[-3]
             else:
-                lsigma = mu[1] - mu[0]
-                usigma = mu[-1] - mu[-2]
+                lsigma = mus[1] - mus[0]
+                usigma = mus[-1] - mus[-2]
 
-            sigma[0] = max(mu[0]-low, lsigma)
-            sigma[-1] = max(high - mu[-1], usigma)
+            sigma[0] = max(mus[0]-low, lsigma)
+            sigma[-1] = max(high - mus[-1], usigma)
 
-            # un-sort the mu and sigma
-            mu[order] = mu.copy()
+            # un-sort the mus and sigma
+            mus[order] = mus.copy()
             sigma[order] = sigma.copy()
 
-            print mu, sigma
+            #print mus, sigma
 
-            assert numpy.all(mu_orig == mu)
+            assert numpy.all(mus_orig == mus)
 
+        minsigma = 3.0 * prior_sigma / len(mus)   # XXX: magic formula
 
         sigma = numpy.maximum(sigma, minsigma)
 
-        outstorage[0][0] = numpy.ones(len(mu)) / len(mu)
-        outstorage[1][0] = mu[numpy.newaxis, :]
-        outstorage[2][0] = sigma[numpy.newaxis, :]
+        outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
+        outstorage[1][0] = mus.astype(node.outputs[1].dtype)
+        outstorage[2][0] = sigma.astype(node.outputs[2].dtype)
 
 
 class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
@@ -282,20 +298,34 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
             print >> sys.stderr, 'problem with', rv
             raise
         if dist_name == 'normal':
-            raise NotImplementedError()
+            # XXX: should have a weight on the prior that's a parameter
+            if obs.vals.ndim == 1:
+                weights, mus, sigmas = AdaptiveParzen()(obs.vals,
+                        prior.vals.mu, prior.vals.sigma)
+                post_rv = s_rng.GMM1(weights, mus, sigmas,
+                        draw_shape=prior.vals.shape,
+                        ndim=prior.vals.ndim,
+                        dtype=prior.vals.dtype)
+                return post_rv
+            else:
+                raise NotImplementedError()
         elif dist_name == 'uniform':
-            # XXX: move this logic to the 'normal' case and
-            #      and replace it with bounded_gmm
-            weights, mus, sigmas = AdaptiveParzen()(obs.vals, -5, 5, 1)
-            post_rv = s_rng.GMM1(weights, mus, sigmas,
-                    draw_shape=prior.vals.shape,
-                    ndim=prior.vals.ndim)
-            return post_rv
+            raise NotImplementedError()
         elif dist_name == 'lognormal':
             raise NotImplementedError()
         elif dist_name == 'categorical':
-            # weighted categorical
-            raise NotImplementedError()
+            if obs.vals.ndim == 1:
+                prior_strength = 5  # XXX: should be passed to __init__
+                prior_counts = prior.vals.owner.inputs[1]  #XXX: name this?
+                pseudocounts = tensor.inc_subtensor(
+                        (prior_strength * prior_counts)[obs.vals],
+                        1)
+                post_rv = s_rng.categorical(
+                        p=pseudocounts / pseudocounts.sum(),
+                        draw_shape = prior.vals.shape)
+                return post_rv
+            else:
+                raise NotImplementedError()
         else:
             raise TypeError("unsupported distribution", dist_name)
 
