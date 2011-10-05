@@ -6,24 +6,17 @@ import montetheano
 from montetheano.for_theano import where
 
 import hyperopt
+import hyperopt.bandits
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
-from hyperopt.bandits import Quadratic1, Distractor
 from hyperopt.experiments import SerialExperiment
 import idxs_vals_rnd
 from idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 
-def test_random_distractor():
-
-    bandit = Distractor()
-    algo = TheanoRandom()
-    algo.set_bandit(bandit)
-    print algo.suggest([], [], [], 1)
-
 class TestGM_Distractor(unittest.TestCase):
-
+    # Tests normal
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=Distractor(),
+            bandit=hyperopt.bandits.Distractor(),
             bandit_algo=GM_BanditAlgo(
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
@@ -90,6 +83,7 @@ class TestGM_Distractor(unittest.TestCase):
 
 
 class TestGM_TwoArms(unittest.TestCase):
+    # Tests one_of
     def setUp(self):
         self.experiment = SerialExperiment(
             bandit=hyperopt.bandits.TwoArms(),
@@ -159,3 +153,152 @@ class TestGM_TwoArms(unittest.TestCase):
 
         plt.show()
 
+
+class TestGM_Quadratic1(unittest.TestCase):
+    # Tests uniform
+    def setUp(self):
+        self.experiment = SerialExperiment(
+            bandit=hyperopt.bandits.Quadratic1(),
+            bandit_algo=GM_BanditAlgo(
+                    good_estimator=IndependentAdaptiveParzenEstimator(),
+                    bad_estimator=IndependentAdaptiveParzenEstimator()))
+        self.experiment.set_bandit()
+
+    def test_op_counts(self):
+        # If everything is done right, there should be
+        # 2 adaptive parzen estimators in the algorithm
+        #  - one for fitting the good examples
+        #  - one for fitting the rest of the examples
+        # 1 GMM1 Op for drawing from the fit of good examples
+
+        def gmms(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, montetheano.distributions.BGMM1)]
+
+        def adaptive_parzens(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
+
+        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        HL = self.experiment.bandit_algo.helper_locals
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'].vals,
+                allow_input_downcast=True,
+                )
+            theano.printing.debugprint(f)
+            #theano.printing.pydotprint(f, 'f.png')
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 1
+
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'].vals + HL['B_ll'].vals,
+                allow_input_downcast=True,
+                )
+            #print gmms(f)
+            #print adaptive_parzens(f)
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 2
+
+        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        _helper = self.experiment.bandit_algo._helper
+        assert len(gmms(_helper)) == 1
+        assert len(adaptive_parzens(_helper)) == 2
+
+
+    def test_optimize_20(self):
+        self.experiment.run(50)
+
+        import matplotlib.pyplot as plt
+        plt.subplot(1,2,1)
+        plt.plot(self.experiment.Ys())
+        plt.subplot(1,2,2)
+        if 0:
+            plt.hist(
+                    [t['doc'] for t in self.experiment.trials],
+                    bins=20)
+        else:
+            plt.scatter(
+                    [t['doc'] for t in self.experiment.trials],
+                    range(len(self.experiment.trials)))
+        plt.show()
+
+
+class TestGM_Q1Lognormal(unittest.TestCase):
+    # Tests uniform
+    def setUp(self):
+        self.experiment = SerialExperiment(
+            bandit=hyperopt.bandits.Q1Lognormal(),
+            bandit_algo=GM_BanditAlgo(
+                    good_estimator=IndependentAdaptiveParzenEstimator(),
+                    bad_estimator=IndependentAdaptiveParzenEstimator()))
+        self.experiment.set_bandit()
+
+    def test_op_counts(self):
+        # If everything is done right, there should be
+        # 2 adaptive parzen estimators in the algorithm
+        #  - one for fitting the good examples
+        #  - one for fitting the rest of the examples
+        # 1 GMM1 Op for drawing from the fit of good examples
+
+        def gmms(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, montetheano.distributions.BGMM1)]
+
+        def adaptive_parzens(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
+
+        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        HL = self.experiment.bandit_algo.helper_locals
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'].vals,
+                allow_input_downcast=True,
+                )
+            theano.printing.debugprint(f)
+            #theano.printing.pydotprint(f, 'f.png')
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 1
+
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'].vals + HL['B_ll'].vals,
+                allow_input_downcast=True,
+                )
+            #print gmms(f)
+            #print adaptive_parzens(f)
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 2
+
+        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        _helper = self.experiment.bandit_algo._helper
+        assert len(gmms(_helper)) == 1
+        assert len(adaptive_parzens(_helper)) == 2
+
+
+    def test_optimize_20(self):
+        self.experiment.run(50)
+
+        import matplotlib.pyplot as plt
+        plt.subplot(1,2,1)
+        plt.plot(self.experiment.Ys())
+        plt.subplot(1,2,2)
+        if 0:
+            plt.hist(
+                    [t['doc'] for t in self.experiment.trials],
+                    bins=20)
+        else:
+            plt.scatter(
+                    [t['doc'] for t in self.experiment.trials],
+                    range(len(self.experiment.trials)))
+        plt.show()

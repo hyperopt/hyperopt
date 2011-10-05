@@ -295,13 +295,13 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
         try:
             dist_name = montetheano.rstreams.rv_dist_name(prior.vals)
         except:
-            print >> sys.stderr, 'problem with', rv
+            print >> sys.stderr, 'problem with', prior.vals
             raise
         if dist_name == 'normal':
-            # XXX: should have a weight on the prior that's a parameter
             if obs.vals.ndim == 1:
+                prior_mu, prior_sigma = prior.vals.owner.inputs[2:4]
                 weights, mus, sigmas = AdaptiveParzen()(obs.vals,
-                        prior.vals.mu, prior.vals.sigma)
+                        prior_mu, prior_sigma)
                 post_rv = s_rng.GMM1(weights, mus, sigmas,
                         draw_shape=prior.vals.shape,
                         ndim=prior.vals.ndim,
@@ -310,9 +310,32 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
             else:
                 raise NotImplementedError()
         elif dist_name == 'uniform':
-            raise NotImplementedError()
+            if obs.vals.ndim == 1:
+                low, high = prior.vals.owner.inputs[2:4]
+                prior_mu = 0.5 * (high + low)
+                prior_sigma = (high - low)
+                weights, mus, sigmas = AdaptiveParzen()(obs.vals,
+                        prior_mu, prior_sigma)
+                post_rv = s_rng.BGMM1(weights, mus, sigmas, low, high,
+                        draw_shape=prior.vals.shape,
+                        ndim=prior.vals.ndim,
+                        dtype=prior.vals.dtype)
+                return post_rv
+            else:
+                raise NotImplementedError()
         elif dist_name == 'lognormal':
-            raise NotImplementedError()
+            if obs.vals.ndim == 1:
+                prior_mu, prior_sigma = prior.vals.owner.inputs[2:4]
+                weights, mus, sigmas = AdaptiveParzen()(tensor.log(obs.vals),
+                        prior_mu, prior_sigma)
+                post_rv = s_rng.lognormal_mixture(weights, mus, sigmas,
+                        draw_shape=prior.vals.shape,
+                        ndim=prior.vals.ndim,
+                        dtype=prior.vals.dtype)
+                return post_rv
+            else:
+                raise NotImplementedError()
+
         elif dist_name == 'categorical':
             if obs.vals.ndim == 1:
                 prior_strength = 5  # XXX: should be passed to __init__

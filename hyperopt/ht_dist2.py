@@ -423,10 +423,10 @@ class lognormal(normal):
 
     def theano_sampler_helper(self, s_rng, elems, memo, path):
         assert id(self) not in memo # son graphs are tree-structured for now
-        vals = s_rng.normal(draw_shape=(elems.shape[0],),
+        vals = s_rng.lognormal(draw_shape=(elems.shape[0],),
             mu=self['mu'],
             sigma=self['sigma'])
-        memo[id(self)] = (elems, tensor.exp(vals))
+        memo[id(self)] = (elems, vals)
 
     def nth_theano_sample(self, n, idxdict, valdict):
         return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])

@@ -37,6 +37,20 @@ class Quadratic1(Base):
     def score(self, pt):
         return -(pt - 3)**2
 
+class Q1Lognormal(Base):
+    """
+    About the simplest problem you could ask for:
+    optimize a one-variable quadratic function.
+    """
+
+    loss_target = 0
+
+    def __init__(self):
+        Base.__init__(self, lognormal(0, 2))
+
+    def score(self, pt):
+        return max(-(pt - 3)**2, -100)
+
 
 class TwoArms(Base):
     """
