@@ -68,7 +68,7 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
     def set_bandit(self, bandit):
         base.TheanoBanditAlgo.set_bandit(self, bandit)
 
-    def build_helpers(self, do_compile=True):
+    def build_helpers(self, do_compile=True, mode=None):
         s_prior = IdxsValsList([IdxsVals(i,v)
             for i, v in zip(self.s_idxs, self.s_vals)])
 
@@ -95,14 +95,13 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         Gsamples = GE.posterior(s_prior, Gobs, s_rng)
         Bsamples = BE.posterior(s_prior, Bobs, s_rng)
 
-        G_ll = GE.log_likelihood(Gsamples, Gsamples, n_to_draw)
-        B_ll = BE.log_likelihood(Bsamples, Gsamples, n_to_draw)
+        G_ll = GE.log_likelihood(Gsamples, Gsamples,
+                llik = tensor.zeros((n_to_draw,)))
+        B_ll = BE.log_likelihood(Bsamples, Gsamples,
+                llik = tensor.zeros((n_to_draw,)))
 
         # subtract B_ll from G_ll
-        log_EI = tensor.zeros((n_to_draw,))
-        log_EI = tensor.inc_subtensor(log_EI[G_ll.idxs], G_ll.vals)
-        log_EI = tensor.inc_subtensor(log_EI[B_ll.idxs], -B_ll.vals)
-
+        log_EI = G_ll - B_ll
         keep_idxs = argsort(log_EI)[-n_to_keep:]
 
         # store all these vars for the unittests
@@ -116,11 +115,13 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
                     + [log_EI]
                     + Gsamples.flatten()),
                 allow_input_downcast=True,
+                mode=mode,
                 )
 
             self._prior_sampler = theano.function(
                     [n_to_draw],
-                    self.s_idxs + self.s_vals)
+                    self.s_idxs + self.s_vals,
+                    mode=mode)
 
     def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
         if not hasattr(self, '_prior_sampler'):
