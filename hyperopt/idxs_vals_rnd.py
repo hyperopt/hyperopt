@@ -14,7 +14,10 @@ import montetheano
 from montetheano.for_theano import ancestors
 from montetheano.for_theano import as_variable
 from montetheano.for_theano import find
+from montetheano.for_theano import clone_get_equiv
 from montetheano.for_theano import clone_keep_replacements
+
+import ienv
 
 def as_variables(*args):
     return [tensor.as_tensor_variable(a) for a in args]
@@ -128,75 +131,82 @@ class IndependentNodeTreeEstimator(TreeEstimator):
         # The way to get all the new_s_val nodes hooked up to one another is to
         # use the clone_keep_replacements function.
 
-        blockers = observations.flatten()
-        rvs_anc = ancestors(priors.flatten(), blockers=blockers)
-        frontier = [r for r in rvs_anc if r.owner is None or r in blockers]
-        _frontier, cloned_post_ivs = clone_keep_replacements(
-                i=frontier,
-                o=priors.idxslist() + post_vals,
-                replacements=dict(zip(priors.valslist(), post_vals)))
-        assert len(cloned_post_ivs) == 2 * len(priors)
-        return IdxsValsList.fromlists(
-                cloned_post_ivs[:len(priors)],
-                cloned_post_ivs[len(priors):])
+        # XXX: this clones everything. It should be possible to do a more
+        #      selective clone of just the pieces that change.
+        inputs = theano.gof.graph.inputs(priors.flatten() + post_vals)
+        env = ienv.std_interactive_env(inputs, priors.flatten() + post_vals,
+                clone_inputs_and_orphans=False)
+        env.prefer_replace(
+                zip(priors.valslist(), post_vals),
+                reason='IndependentNodeTreeEstimator.posterior')
+
+        # raise an exception if we created cycles
+        env.toposort()
+
+        # extract the cloned results from the env
+        rval = IdxsValsList.fromlists(
+                [env.newest(v) for v in priors.idxslist()],
+                [env.newest(v) for v in post_vals])
+
+        # remove all references in the variables to the env. Prepare them
+        # to be inserted into another env if necessary.
+        env.disown()
+        return rval
 
     def s_posterior_helper(self, rv, obs, s_rng):
         """Return a posterior variable to replace the prior `rv.vals`
         """
         raise NotImplementedError('override-me')
 
-    def log_likelihood(self, posterior, observations, N=None):
+    def log_likelihood(self, RVs, observations, llik):
         """
         The output from this function may be a random variable, if not all sources
         of randomness are observed.
+
+        llik - a vector to which observation log-likelihoods will be added.
         """
 
-        if len(posterior) != len(observations):
-            raise TypeError('posterior and observations must have same length')
+        if len(RVs) != len(observations):
+            raise TypeError('RVs and observations must have same length')
 
-        for iv in posterior:
+        for iv in RVs:
             if not montetheano.rv.is_rv(iv.vals):
-                raise ValueError('non-random var in posterior element', iv)
-
-        if N is None:
-            raise NotImplementedError('Need N for now')
+                raise ValueError('non-random var in RVs element', iv)
 
         assignment = {}
         idxs_of = {}
-        for p, o in zip(posterior, observations):
-            assignment[p.vals] = o.vals
-            print p.vals
+        for rv, o in zip(RVs, observations):
+            assignment[rv.vals] = o.vals
             idxs_of[o.vals] = o.idxs
-            idxs_of[p.vals] = p.idxs
 
         # All random variables that are not assigned should stay as the same
         # object so it can later be replaced
         # If this is not done this way, they get cloned
-        RVs = [v for v in ancestors(posterior.flatten())
-                if montetheano.rv.is_raw_rv(v)]
+        #raw_RVs = [v for v in ancestors(RVs.flatten())
+                #if montetheano.rv.is_raw_rv(v)]
 
         # Cast assignment elements to the right kind of thing
         assignment = montetheano.rv.typed_items(assignment)
 
-        llik = tensor.zeros((N,))
-        for rv, sample in assignment.items():
-            lpdf = montetheano.rv.lpdf(rv, sample)
-            llik = tensor.inc_subtensor(llik[idxs_of[sample]], lpdf)
+        for rv_vals, obs_vals in assignment.items():
+            lpdf = montetheano.rv.lpdf(rv_vals, obs_vals)
+            llik = tensor.inc_subtensor(llik[idxs_of[obs_vals]], lpdf)
 
-        dfs_variables = ancestors([llik], blockers=assignment.keys())
+        blockers = RVs.flatten()
+        dfs_variables = ancestors([llik], blockers=blockers)
         frontier = [r for r in dfs_variables
-                if r.owner is None or r in assignment.keys()]
+                if r.owner is None or r in blockers]
         cloned_inputs, cloned_outputs = clone_keep_replacements(
                 frontier,
                 [llik],
-                replacements=assignment)
+                replacements=dict(zip(blockers, observations.flatten())))
         cloned_llik, = cloned_outputs
 
         # XXX: what should we do if there are still random nodes in the graph
         #      what might they mean?
         #      - they can be used to get shape info, and will be cut from final
         #      graph
-        return IdxsVals(tensor.arange(N), cloned_llik)
+        return cloned_llik
 
 
 class AdaptiveParzen(theano.Op):
