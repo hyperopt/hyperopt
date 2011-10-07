@@ -268,8 +268,12 @@ class TheanoBanditAlgo(BanditAlgo):
     def record(self, idxs, vals):
         """Append idxs and vals to variable database, by numbering them
         self._next_id to N, and returning the list of these ids."""
-        assert len(idxs) == len(self.db_idxs)
-        assert len(vals) == len(self.db_vals)
+        if len(idxs) != len(self.db_idxs):
+            raise ValueError('number of idxs does not match db_idxs - '
+                    'are you sure you are recording to the right database?')
+        if len(vals) != len(self.db_vals):
+            raise ValueError('number of vals does not match db_vals - '
+                    'are you sure you are recording to the right database?')
         new_ids = []
         N = 0
         for i, (idxvec, valvec) in enumerate(zip(idxs, vals)):
