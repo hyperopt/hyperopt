@@ -14,8 +14,12 @@ import idxs_vals_rnd
 from idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 
 def ops(fn, OpCls):
-    return [ap for ap in fn.maker.env.toposort()
-        if isinstance(ap.op, OpCls)]
+    if isinstance(fn, list):
+        return [v.owner for v in montetheano.for_theano.ancestors(fn)
+                if v.owner and isinstance(v.owner.op, OpCls)]
+    else:
+        return [ap for ap in fn.maker.env.toposort()
+            if isinstance(ap.op, OpCls)]
 
 
 def gmms(fn):
@@ -286,33 +290,40 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
 
     def test_op_counts_in_llik(self):
         self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
-        _helper = self.experiment.bandit_algo._helper
-        try:
-            assert len(gmms(_helper)) == 0
-            assert len(bgmms(_helper)) == 2
-            assert len(categoricals(_helper)) == 1
-            assert len(adaptive_parzens(_helper)) == 2
-        except:
-            theano.printing.debugprint(_helper)
-            raise
-
-    def test_op_counts_in_Gsamples(self):
-        self.experiment.bandit_algo.build_helpers(do_compile=False)
         HL = self.experiment.bandit_algo.helper_locals
         f = theano.function(
-            [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-                + HL['s_obs'].flatten(),
-            HL['Gsamples'].flatten(),
-            allow_input_downcast=True,
-            mode='FAST_RUN',
-            )
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['log_EI'],
+                no_default_updates=True,
+                mode='FAST_RUN')                 # required for shape inference
         try:
-            assert len(bgmms(f)) == 2
-            assert len(categoricals(f)) == 1
-            assert len(adaptive_parzens(f)) == 2
+            assert len(gmms(f)) == 0
+            assert len(bgmms(f)) == 2            # sampling from good
+            assert len(categoricals(f)) == 1     # sampling from good
+            assert len(adaptive_parzens(f)) == 4 # fitting both good and bad
         except:
             theano.printing.debugprint(f)
             raise
+
+    def test_op_counts_in_Gsamples(self):
+        self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
+        HL = self.experiment.bandit_algo.helper_locals
+        f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['Gsamples'].flatten(),
+                no_default_updates=True,         # allow prune priors
+                mode='FAST_RUN')                 # required for shape inference
+        try:
+            assert len(gmms(f)) == 0
+            assert len(bgmms(f)) == 2            # sampling from good
+            assert len(categoricals(f)) == 1     # sampling from good
+            assert len(adaptive_parzens(f)) == 2 # fitting both good and bad
+        except:
+            theano.printing.debugprint(f)
+            raise
+
 
     def test_optimize_20(self):
         self.experiment.run(50)
@@ -321,14 +332,9 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
         plt.subplot(1,2,1)
         plt.plot(self.experiment.Ys())
         plt.subplot(1,2,2)
-        if 0:
-            plt.hist(
-                    [t['doc'] for t in self.experiment.trials],
-                    bins=20)
-        else:
-            plt.scatter(
-                    [t['doc'] for t in self.experiment.trials],
-                    range(len(self.experiment.trials)))
+        plt.scatter(
+                [t['doc']['x'] for t in self.experiment.trials],
+                range(len(self.experiment.trials)))
         plt.show()
 
 
