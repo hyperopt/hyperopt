@@ -75,3 +75,5 @@ def test_TheanoBanditAlgo_on_EggCarton2():
     assert algo.recall([2,3,4]) == (
             [[0,   1, 2 ], [0, 1, 2], [0, 1]],
             [[-15, 5, 10], [1, 1, 0], [.25, .5]])
+
+# XXX: test suggest()
