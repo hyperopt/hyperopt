@@ -204,7 +204,7 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
             f = theano.function(
                 [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
                     + HL['s_obs'].flatten(),
-                HL['G_ll'].vals,
+                HL['G_ll'],
                 allow_input_downcast=True,
                 )
             theano.printing.debugprint(f)
@@ -216,7 +216,7 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
             f = theano.function(
                 [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
                     + HL['s_obs'].flatten(),
-                HL['G_ll'].vals + HL['B_ll'].vals,
+                HL['G_ll'] - HL['B_ll'],
                 allow_input_downcast=True,
                 )
             #print gmms(f)
