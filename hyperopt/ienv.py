@@ -1,5 +1,7 @@
 """
 """
+import logging
+logger = logging.getLogger(__name__)
 import sys
 from copy import copy
 from theano.gof import graph, utils, toolbox, destroyhandler
@@ -223,17 +225,19 @@ class Env(utils.object2):
 
     def __add_clients__(self, r, new_clients):
         """ WRITEME
-        r -> variable
-        new_clients -> list of (node, i) pairs such that node.inputs[i] is r.
+        r - variable
+        new_clients - list of (node, i) pairs such that node.inputs[i] is r.
 
         Updates the list of clients of r with new_clients.
         """
         if set(r.clients).intersection(set(new_clients)):
             # XXX: logging
-            print >> sys.stderr, 'ERROR: clients intersect!'
-            print >> sys.stderr, '  RCLIENTS of', r, [(n,i, type(n), id(n)) for n,i in r.clients]
-            print >> sys.stderr, '  NCLIENTS of', r, [(n,i, type(n), id(n)) for n,i in new_clients]
-        assert not set(r.clients).intersection(set(new_clients))
+            logging.error('clients intersect')
+            for ii, (n, i) in enumerate(r.clients):
+                logging.error(' old client %i: %s, %i id=%i' % (ii, n, i, id(n)))
+            for ii, (n, i) in enumerate(new_clients):
+                logging.error(' new client %i: %s, %i id=%i' % (ii, n, i, id(n)))
+            assert 0, 'client intersection indicates bug elsewhere'
         r.clients += new_clients
 
     def __remove_clients__(self, r, clients_to_remove, prune = True):
@@ -313,6 +317,8 @@ class Env(utils.object2):
         for r in variables:
             if not r.clients and r in self.variables:
                 self.variables.remove(r)
+                del r.env
+                del r.clients
 
     def __prune__(self, node):
         if node not in self.nodes:
@@ -332,7 +338,9 @@ class Env(utils.object2):
 
         for i, input in enumerate(node.inputs):
             self.__remove_clients__(input, [(node, i)])
-        #self.__prune_r__(node.inputs)
+
+        del node.env
+        del node.deps
 
 
 
@@ -664,7 +672,11 @@ class InteractiveEnv(Env, TheanoMixin, TensorMixin, SparseMixin, RandomMixin):
     def replace_all_sorted(self, replace_pairs, validate=True, reason=None):
         replacements = sort_replacements(replace_pairs)
         replacements = [(self.equiv.get(r, r), self.equiv.get(new_r, new_r))
-                for (r, new_r) in replacements]
+                for (r, new_r) in replacements if r is not new_r]
+
+        for (r, new_r) in replacements:
+            if getattr(r, 'env', None) is not self:
+                raise ValueError('Cannot replace a variable not in the env', r)
         if validate:
             return self.replace_all_validate(replacements)
         else:
@@ -675,7 +687,7 @@ class InteractiveEnv(Env, TheanoMixin, TensorMixin, SparseMixin, RandomMixin):
         """
         replacements = sort_replacements(replace_pairs)
         replacements = [(self.equiv.get(r, r), self.equiv.get(new_r, new_r))
-                for (r, new_r) in replacements]
+                for (r, new_r) in replacements if r is not new_r]
         for r, new_r in replacements:
             new_ancestors = set(graph.ancestors([new_r]))
             for node, i in list(r.clients):
@@ -705,5 +717,7 @@ def std_interactive_env(inputs, outputs, clone_inputs_and_orphans=True):
             assert equiv[v] is v
         assert rval.inputs == inputs
     rval.add_outputs([equiv[v] for v in outputs])
+    for k, v in equiv.iteritems():
+        assert v.env is rval
     return rval
 

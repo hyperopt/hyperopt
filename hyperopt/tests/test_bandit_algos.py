@@ -1,3 +1,4 @@
+import logging
 import unittest
 import sys
 
@@ -313,7 +314,6 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
             theano.printing.debugprint(f)
             raise
 
-
     def test_optimize_20(self):
         self.experiment.run(50)
 
@@ -333,6 +333,7 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     class A: pass
     self = A()
     self.experiment = SerialExperiment(
@@ -370,7 +371,7 @@ if __name__ == '__main__':
         debug_rval[0] = debug(*args)
         return rval
     self.experiment.bandit_algo._helper = _helper
-    for i in xrange(50):
+    for i in xrange(500):
         try:
             self.experiment.run(1)
         except:
@@ -386,7 +387,7 @@ if __name__ == '__main__':
         plt.hist(
                 [t['doc'] for t in self.experiment.trials],
                 bins=20)
-    else:
+    elif 0:
         plt.scatter(
                 [t['doc'] for t in self.experiment.trials],
                 range(len(self.experiment.trials)))

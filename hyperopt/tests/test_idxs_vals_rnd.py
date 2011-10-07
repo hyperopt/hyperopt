@@ -1,3 +1,4 @@
+import logging
 import unittest
 import sys
 

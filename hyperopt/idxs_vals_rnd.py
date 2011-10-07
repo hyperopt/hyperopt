@@ -192,21 +192,25 @@ class IndependentNodeTreeEstimator(TreeEstimator):
             lpdf = montetheano.rv.lpdf(rv_vals, obs_vals)
             llik = tensor.inc_subtensor(llik[idxs_of[obs_vals]], lpdf)
 
-        blockers = RVs.flatten()
-        dfs_variables = ancestors([llik], blockers=blockers)
-        frontier = [r for r in dfs_variables
-                if r.owner is None or r in blockers]
-        cloned_inputs, cloned_outputs = clone_keep_replacements(
-                frontier,
-                [llik],
-                replacements=dict(zip(blockers, observations.flatten())))
-        cloned_llik, = cloned_outputs
+        # rewire the graph so that the posteriors depend on other
+        # observations instead of each other.
 
-        # XXX: what should we do if there are still random nodes in the graph
-        #      what might they mean?
-        #      - they can be used to get shape info, and will be cut from final
-        #      graph
-        return cloned_llik
+        involved = [llik] + RVs.flatten() + observations.flatten()
+
+        inputs = theano.gof.graph.inputs(involved)
+        env = ienv.std_interactive_env(inputs, involved,
+                clone_inputs_and_orphans=False)
+
+        env.replace_all_sorted(
+                zip(RVs.flatten(), observations.flatten()),
+                reason='IndependentNodeTreeEstimator.log_likelihood')
+
+        # raise an exception if we created cycles
+        env.toposort()
+
+        rval = env.newest(llik)
+        env.disown()
+        return rval
 
 
 class AdaptiveParzen(theano.Op):
