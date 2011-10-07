@@ -37,6 +37,7 @@ class Quadratic1(Base):
     def score(self, pt):
         return -(pt - 3)**2
 
+
 class Q1Lognormal(Base):
     """
     About the simplest problem you could ask for:
