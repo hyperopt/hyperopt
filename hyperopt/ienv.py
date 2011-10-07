@@ -229,6 +229,7 @@ class Env(utils.object2):
         Updates the list of clients of r with new_clients.
         """
         if set(r.clients).intersection(set(new_clients)):
+            # XXX: logging
             print >> sys.stderr, 'ERROR: clients intersect!'
             print >> sys.stderr, '  RCLIENTS of', r, [(n,i, type(n), id(n)) for n,i in r.clients]
             print >> sys.stderr, '  NCLIENTS of', r, [(n,i, type(n), id(n)) for n,i in new_clients]
@@ -245,6 +246,7 @@ class Env(utils.object2):
         for entry in clients_to_remove:
             r.clients.remove(entry)
             if entry in r.clients:
+                # XXX: logging
                 print >> sys.stderr, 'ERROR: DUPLICATE CLIENT ENTRY...'
                 print >> sys.stderr, '  ENTRY', repr(entry), type(entry[0])
                 print >> sys.stderr, '  CLIENTS', repr(r.clients)
