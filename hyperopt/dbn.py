@@ -15,8 +15,8 @@ from bson import SON, BSON
 import theano
 from theano import tensor
 
-# scikits.data
-from datasets.tasks import classification_train_valid_test
+# scikit-data
+from skdata.tasks import classification_train_valid_test
 
 # XXX import source code into this project
 from pylearn.shared.layers.logreg import LogisticRegression
