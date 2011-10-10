@@ -18,7 +18,9 @@ Test: maps a sample -> score and incurs a certain amount of cost.
 
 """
 
-import copy, sys
+import copy
+import logging
+import sys
 import numpy
 import bson
 from bson import SON, BSON
@@ -27,6 +29,7 @@ import theano
 from theano import tensor
 import montetheano as MT
 
+logger = logging.getLogger(__file__)
 
 #
 # Global methods
@@ -449,15 +452,16 @@ class ceil_lognormal(lognormal):
 
     def theano_sampler_helper(self, s_rng, elems, memo, path):
         assert id(self) not in memo # son graphs are tree-structured for now
-        logvals = s_rng.normal(draw_shape=(elems.shape[0],),
+        rval = s_rng.lognormal(draw_shape=(elems.shape[0],),
             mu=self['mu'],
             sigma=self['sigma'])
-        vals = tensor.exp(logvals)
-        rounded_vals = tensor.cast(
-                ((tensor.ceil(vals) // self['round'])
-                * self['round']),
-                'int64')
-        memo[id(self)] = (elems, rounded_vals)
+        logger.warn('ceil_lognormal: Ignoring round parameter')
+        #vals = tensor.exp(logvals)
+        #rounded_vals = tensor.cast(
+                #((tensor.ceil(vals) // self['round'])
+                #* self['round']),
+                #'int64')
+        memo[id(self)] = (elems, rval)
 
     def nth_theano_sample(self, n, idxdict, valdict):
         return int(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
