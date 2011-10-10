@@ -1,7 +1,23 @@
 
-safe: true
+#safe: true
 #source: .
 #destination: _site
-lsi: false
+#lsi: false
+#pygments: true
+
+auto: true
+server: true
+destination: _site
+source: .
 pygments: true
+
+permalink   : none   # is this good?
+markdown    : maruku
+
+maruku:
+    use_divs: true
+    use_tex: true
+    #png_engine : blahtex
+    png_dir    : images/latex/
+    png_url    : /images/latex/
 
