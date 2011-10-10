@@ -287,9 +287,10 @@ class AdaptiveParzen(theano.Op):
 
             assert numpy.all(mus_orig == mus)
 
+        maxsigma = prior_sigma
         minsigma = 3.0 * prior_sigma / len(mus)   # XXX: magic formula
 
-        sigma = numpy.maximum(sigma, minsigma)
+        sigma = numpy.clip(sigma, minsigma, maxsigma)
 
         outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
         outstorage[1][0] = mus.astype(node.outputs[1].dtype)
@@ -298,6 +299,7 @@ class AdaptiveParzen(theano.Op):
 
 class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
     """
+    XXX
     """
 
     def s_posterior_helper(self, prior, obs, s_rng):
@@ -340,7 +342,8 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
         elif dist_name == 'lognormal':
             if obs.vals.ndim == 1:
                 prior_mu, prior_sigma = prior.vals.owner.inputs[2:4]
-                weights, mus, sigmas = AdaptiveParzen()(tensor.log(obs.vals),
+                weights, mus, sigmas = AdaptiveParzen()(
+                        tensor.log(tensor.maximum(obs.vals, 1.0e-8)),
                         prior_mu, prior_sigma)
                 post_rv = s_rng.lognormal_mixture(weights, mus, sigmas,
                         draw_shape=prior.vals.shape,
