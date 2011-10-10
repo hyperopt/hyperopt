@@ -41,6 +41,94 @@ def geom(lower, upper, round=1):
     return ceil_lognormal(.5 * (ll + lu), .4 * (lu - ll), round)
 
 
+def dbn_template(dataset_name='datasets.larochelle_etal_2007.Rectangles',
+        sup_min_epochs=300,
+        sup_max_epochs=4000):
+    template = rSON2(
+        'preprocessing', one_of(
+            rSON2(
+                'kind', 'raw'),
+            rSON2(
+                'kind', 'zca',
+                'energy', uniform(0.5, 1.0))),
+        'dataset_name', dataset_name,
+        'sup_max_epochs', sup_max_epochs,
+        'sup_min_epochs', sup_min_epochs,
+        'iseed', one_of(5, 6, 7, 8),
+        'batchsize', one_of(20, 100),
+        'lr', lognormal(numpy.log(.01), 3),
+        'lr_anneal_start', geom(100, 10000),
+        'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+        'next_layer', one_of(None,
+            rSON2(
+                'n_hid', geom(2**7, 2**12, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                'cd_epochs', geom(1, 3000),
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 2),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', one_of(None,
+                    rSON2(
+                        'n_hid', geom(2**7, 2**12, round=16),
+                        'W_init_dist', one_of('uniform', 'normal'),
+                        'W_init_algo', one_of('old', 'Xavier'),
+                        'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                        'cd_epochs', geom(1, 2000),
+                        'cd_batchsize', 100,
+                        'cd_sample_v0s', one_of(False, True),
+                        'cd_lr', lognormal(numpy.log(.01), 2),
+                        'cd_lr_anneal_start', geom(10, 10000),
+                        'next_layer', one_of(None,
+                            rSON2(
+                                'n_hid', geom(2**7, 2**12, round=16),
+                                'W_init_dist', one_of('uniform', 'normal'),
+                                'W_init_algo', one_of('old', 'Xavier'),
+                                'W_init_algo_old_multiplier', lognormal(0., 1.),
+                                'cd_epochs', geom(1, 1500),
+                                'cd_batchsize', 100,
+                                'cd_sample_v0s', one_of(False, True),
+                                'cd_lr', lognormal(numpy.log(.01), 2),
+                                'cd_lr_anneal_start', geom(10, 10000),
+                                'next_layer', None,
+                                )))))))
+    return template
+
+
+def nnet1_template(dataset_name='datasets.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
+            sup_max_epochs=400):
+    template = rSON2(
+        'preprocessing', one_of(
+            rSON2(
+                'kind', 'raw'),
+            rSON2(
+                'kind', 'zca',
+                'energy', uniform(0.5, 1.0))),
+        'dataset_name', dataset_name,
+        'sup_max_epochs', sup_max_epochs,
+        'sup_min_epochs', sup_min_epochs,
+        'iseed', one_of(5, 6, 7, 8),
+        'batchsize', one_of(20, 100),
+        'lr', lognormal(numpy.log(.01), 3),
+        'lr_anneal_start', geom(100, 10000),
+        'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
+        'next_layer', rSON2(
+                'n_hid', geom(2**4, 2**10, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', uniform(.2, 2),
+                'cd_epochs', 0,
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 3),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', None))
+    return template
+
+
 def preprocess_data(argd, ctrl):
     dataset = json_call(argd['dataset_name'])
     train, valid, test = classification_train_valid_test(dataset)
@@ -398,99 +486,7 @@ class DBN_Base(Bandit):
         return rval
 
 
-class DBN_Bandit(DBN_Base):
-    def __init__(self,
-            dataset_name='datasets.larochelle_etal_2007.Rectangles',
-            sup_min_epochs=300,
-            sup_max_epochs=4000):
-        template = rSON2(
-            'preprocessing', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'zca',
-                    'energy', uniform(0.5, 1.0))),
-            'dataset_name', dataset_name,
-            'sup_max_epochs', sup_max_epochs,
-            'sup_min_epochs', sup_min_epochs,
-            'iseed', one_of(5, 6, 7, 8),
-            'batchsize', one_of(20, 100),
-            'lr', lognormal(numpy.log(.01), 3),
-            'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
-            'next_layer', one_of(None,
-                rSON2(
-                    'n_hid', geom(2**7, 2**12, round=16),
-                    'W_init_dist', one_of('uniform', 'normal'),
-                    'W_init_algo', one_of('old', 'Xavier'),
-                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                    'cd_epochs', geom(1, 3000),
-                    'cd_batchsize', 100,
-                    'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', lognormal(numpy.log(.01), 2),
-                    'cd_lr_anneal_start', geom(10, 10000),
-                    'next_layer', one_of(None,
-                        rSON2(
-                            'n_hid', geom(2**7, 2**12, round=16),
-                            'W_init_dist', one_of('uniform', 'normal'),
-                            'W_init_algo', one_of('old', 'Xavier'),
-                            'W_init_algo_old_multiplier', uniform(.2, 2),
-                            'cd_epochs', geom(1, 2000),
-                            'cd_batchsize', 100,
-                            'cd_sample_v0s', one_of(False, True),
-                            'cd_lr', lognormal(numpy.log(.01), 2),
-                            'cd_lr_anneal_start', geom(10, 10000),
-                            'next_layer', one_of(None,
-                                rSON2(
-                                    'n_hid', geom(2**7, 2**12, round=16),
-                                    'W_init_dist', one_of('uniform', 'normal'),
-                                    'W_init_algo', one_of('old', 'Xavier'),
-                                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                                    'cd_epochs', geom(1, 1500),
-                                    'cd_batchsize', 100,
-                                    'cd_sample_v0s', one_of(False, True),
-                                    'cd_lr', lognormal(numpy.log(.01), 2),
-                                    'cd_lr_anneal_start', geom(10, 10000),
-                                    'next_layer', None,
-                                    )))))))
-        DBN_Base.__init__(self, template)
-
-
-class NeuralNetworkBandit(DBN_Base):
-    def __init__(self, dataset_name='datasets.larochelle_etal_2007.Rectangles',
-            sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
-            sup_max_epochs=400):
-        template = rSON2(
-            'preprocessing', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'zca',
-                    'energy', uniform(0.5, 1.0))),
-            'dataset_name', dataset_name,
-            'sup_max_epochs', sup_max_epochs,
-            'sup_min_epochs', sup_min_epochs,
-            'iseed', one_of(5, 6, 7, 8),
-            'batchsize', one_of(20, 100),
-            'lr', lognormal(numpy.log(.01), 3),
-            'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
-            'next_layer', rSON2(
-                    'n_hid', geom(2**4, 2**10, round=16),
-                    'W_init_dist', one_of('uniform', 'normal'),
-                    'W_init_algo', one_of('old', 'Xavier'),
-                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                    'cd_epochs', 0,
-                    'cd_batchsize', 100,
-                    'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', lognormal(numpy.log(.01), 3),
-                    'cd_lr_anneal_start', geom(10, 10000),
-                    'next_layer', None))
-
-        DBN_Base.__init__(self, template)
-
-
 def DBN_Convex():
-    return DBN_Bandit(
-            dataset_name='datasets.larochelle_etal_2007.Convex')
-
+    return DBN_Base(
+            dbn_template(
+                dataset_name='datasets.larochelle_etal_2007.Convex'))
