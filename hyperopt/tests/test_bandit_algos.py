@@ -2,12 +2,14 @@ import logging
 import unittest
 import sys
 
+import numpy
 import theano
 import montetheano
 from montetheano.for_theano import where
 
 import hyperopt
 import hyperopt.bandits
+import hyperopt.dbn
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
 from hyperopt.experiments import SerialExperiment
 import idxs_vals_rnd
@@ -327,6 +329,69 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
 
     def test_optimize_20(self):
         self.experiment.run(50)
+
+        import matplotlib.pyplot as plt
+        plt.subplot(1,2,1)
+        plt.plot(self.experiment.Ys())
+        plt.subplot(1,2,2)
+        plt.scatter(
+                [t['doc']['x'] for t in self.experiment.trials],
+                range(len(self.experiment.trials)))
+        plt.show()
+
+
+class Dummy_DBN_Base(hyperopt.Bandit):
+    """
+    A DBN_Base stub.
+
+    This class is used in unittests of optimization algorithms to ensure they
+    can deal with large nested specifications that include lots of distribution
+    types.
+    """
+    def __init__(self):
+        hyperopt.Bandit.__init__(self, template=hyperopt.dbn.dbn_template())
+        self.rng = numpy.random.RandomState(234)
+
+    def evaluate(self, argd, ctrl):
+        rval = dict(dbn_train_fn_version=-1)
+        # XXX: TODO: make up a loss function that depends on argd.
+        rval['status'] = 'ok'
+        rval['best_epoch_valid'] = float(self.rng.rand())
+        rval['loss'] = 1.0 - rval['best_epoch_valid']
+        return rval
+
+
+class TestGM_DummyDBN(unittest.TestCase):
+    def setUp(self):
+        self.experiment = SerialExperiment(
+            bandit=Dummy_DBN_Base(),
+            bandit_algo=GM_BanditAlgo(
+                    good_estimator=IndependentAdaptiveParzenEstimator(),
+                    bad_estimator=IndependentAdaptiveParzenEstimator()))
+        self.experiment.set_bandit()
+
+    def test_optimize_20(self):
+        def callback(node, thunk, storage_map, compute_map):
+            numeric_outputs = [storage_map[v][0]
+                    for v in node.outputs
+                    if isinstance(v.type, theano.tensor.TensorType)]
+
+            if not all([numpy.all(numpy.isfinite(n)) for n in numeric_outputs]):
+                raise ValueError('Non-Infinite', node)
+
+        mode = theano.Mode(
+                optimizer='fast_compile',
+                linker=theano.gof.vm.VM_Linker(callback=callback))
+        self.experiment.bandit_algo.build_helpers(mode=mode)
+        _helper = self.experiment.bandit_algo._helper
+        theano.printing.debugprint(_helper)
+        for i in range(500):
+            print 'ITER', i
+            try:
+                self.experiment.run(1)
+            except:
+
+                raise
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
