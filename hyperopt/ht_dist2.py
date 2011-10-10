@@ -452,15 +452,11 @@ class ceil_lognormal(lognormal):
 
     def theano_sampler_helper(self, s_rng, elems, memo, path):
         assert id(self) not in memo # son graphs are tree-structured for now
-        rval = s_rng.lognormal(draw_shape=(elems.shape[0],),
+        rval = s_rng.quantized_lognormal(draw_shape=(elems.shape[0],),
             mu=self['mu'],
-            sigma=self['sigma'])
-        logger.warn('ceil_lognormal: Ignoring round parameter')
-        #vals = tensor.exp(logvals)
-        #rounded_vals = tensor.cast(
-                #((tensor.ceil(vals) // self['round'])
-                #* self['round']),
-                #'int64')
+            sigma=self['sigma'],
+            step=self['round'],
+            dtype='int64')
         memo[id(self)] = (elems, rval)
 
     def nth_theano_sample(self, n, idxdict, valdict):
