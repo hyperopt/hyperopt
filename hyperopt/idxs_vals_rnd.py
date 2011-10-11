@@ -284,6 +284,10 @@ class AdaptiveParzen(theano.Op):
             sigma[order] = sigma.copy()
 
             #print mus, sigma
+            if not numpy.all(mus_orig == mus):
+                print 'orig', mus_orig
+                print 'mus', mus
+
 
             assert numpy.all(mus_orig == mus)
 

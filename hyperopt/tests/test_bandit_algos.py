@@ -380,11 +380,17 @@ class TestGM_DummyDBN(unittest.TestCase):
             numeric_outputs = [storage_map[v][0]
                     for v in node.outputs
                     if isinstance(v.type, theano.tensor.TensorType)]
+            numeric_inputs = [storage_map[v][0]
+                    for v in node.inputs
+                    if isinstance(v.type, theano.tensor.TensorType)]
 
             if not all([numpy.all(numpy.isfinite(n)) for n in numeric_outputs]):
-                #theano.printing.debugprint(node, depth=8)
-                #raise ValueError('non-finite created in', node)
-                pass
+                theano.printing.debugprint(node, depth=8)
+                print 'inputs'
+                print numeric_inputs
+                print 'outputs'
+                print numeric_outputs
+                raise ValueError('non-finite created in', node)
 
         mode = theano.Mode(
                 optimizer='fast_compile',
@@ -392,7 +398,7 @@ class TestGM_DummyDBN(unittest.TestCase):
         self.experiment.bandit_algo.build_helpers(mode=mode)
         _helper = self.experiment.bandit_algo._helper
         theano.printing.debugprint(_helper)
-        for i in range(500):
+        for i in range(50):
             print 'ITER', i
             try:
                 self.experiment.run(1)
@@ -400,12 +406,13 @@ class TestGM_DummyDBN(unittest.TestCase):
 
                 raise
 
-        import matplotlib.pyplot as plt
-        plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
-        plt.subplot(1,2,2)
-        plt.scatter(
-                [t['doc']['x'] for t in self.experiment.trials],
-                range(len(self.experiment.trials)))
-        plt.show()
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.subplot(1,2,1)
+            plt.plot(self.experiment.Ys())
+            plt.subplot(1,2,2)
+            plt.scatter(
+                    [t['doc']['x'] for t in self.experiment.trials],
+                    range(len(self.experiment.trials)))
+            plt.show()
 
