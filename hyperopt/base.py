@@ -360,22 +360,3 @@ class Experiment(object):
 
     def Ys_status(self):
         return map(self.bandit.status, self.results)
-
-    @classmethod
-    def main_search(cls, argv):
-        save_loc = argv[0]
-        assert save_loc.endswith('.pkl')
-        try:
-            handle = open(save_loc, 'rb')
-            self = cPickle.load(handle)
-            handle.close()
-        except IOError:
-            bandit = utils.json_call(argv[1])
-            bandit_algo = utils.json_call(argv[2])
-            bandit_algo.set_bandit(bandit)
-            self = cls(bandit, bandit_algo)
-        try:
-            self.run(100)
-        finally:
-            cPickle.dump(self, open(save_loc, 'wb'))
-
