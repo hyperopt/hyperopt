@@ -839,7 +839,7 @@ def main_worker():
 def main_search():
     from optparse import OptionParser
     parser = OptionParser(
-            usage="%prog [options] [bandit bandit_algo]")
+            usage="%prog [options] [<bandit> <bandit_algo>]")
     parser.add_option("--clear-existing",
             action="store_true",
             dest="clear_existing",
@@ -957,6 +957,7 @@ def main_search():
             md.update(driver, dict(owner=None))
         except pymongo.errors.OperationFailure:
             pass
+
 
 def main_show():
     from optparse import OptionParser
