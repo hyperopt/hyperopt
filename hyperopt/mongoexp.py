@@ -805,7 +805,6 @@ def main_worker():
         try:
             if cmd_protocol == 'cpickled fn':
                 worker_fn = cPickle.loads(job['cmd'][1])
-                result = worker_fn(spec, ctrl)
             elif cmd_protocol == 'call evaluate':
                 bandit = cPickle.loads(job['cmd'][1])
                 worker_fn = bandit.evaluate
@@ -813,13 +812,17 @@ def main_worker():
                 cmd_toks = cmd.split('.')
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
-                result = worker_fn(spec, ctrl)
             elif cmd_protocol == 'bandit_json evaluate':
                 bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
-                result = worker_fn(spec, ctrl)
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
+
+            # this is a hack for compatibility with TheanoBanditAlgo (TBA)
+            if 'TBA_id' in spec:
+                result = worker_fn(spec['doc'], ctrl)
+            else:
+                result = worker_fn(spec, ctrl)
         except Exception, e:
             #TODO: save exception to database, but if this fails, then at least raise the original
             # traceback properly
