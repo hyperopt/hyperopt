@@ -159,5 +159,13 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
                 helper_rval[1:2 * len(X_idxs):2])
 
 
+def AdaptiveParzenGM():
+    GE = idxs_vals_rnd.IndependentAdaptiveParzenEstimator()
+    BE = idxs_vals_rnd.IndependentAdaptiveParzenEstimator()
+    rval = GM_BanditAlgo(
+            good_estimator=GE,
+            bad_estimator=BE)
+    return rval
+
 class GP_BanditAlgo(base.BanditAlgo):
     pass
