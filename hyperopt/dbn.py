@@ -41,7 +41,7 @@ def geom(lower, upper, round=1):
     return ceil_lognormal(.5 * (ll + lu), .4 * (lu - ll), round)
 
 
-def dbn_template(dataset_name='datasets.larochelle_etal_2007.Rectangles',
+def dbn_template(dataset_name='skdata.larochelle_etal_2007.Rectangles',
         sup_min_epochs=300,
         sup_max_epochs=4000):
     template = rSON2(
@@ -97,7 +97,7 @@ def dbn_template(dataset_name='datasets.larochelle_etal_2007.Rectangles',
     return template
 
 
-def nnet1_template(dataset_name='datasets.larochelle_etal_2007.Rectangles',
+def nnet1_template(dataset_name='skdata.larochelle_etal_2007.Rectangles',
             sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
             sup_max_epochs=400):
     template = rSON2(
@@ -290,7 +290,7 @@ class DBN_Base(Bandit):
                     ),
                 l2_penalty=0.1,
                 lr_anneal_start=20,
-                dataset_name='datasets.larochelle_etal_2007.Rectangles',
+                dataset_name='skdata.larochelle_etal_2007.Rectangles',
                 )
 
     @classmethod
@@ -489,4 +489,4 @@ class DBN_Base(Bandit):
 def DBN_Convex():
     return DBN_Base(
             dbn_template(
-                dataset_name='datasets.larochelle_etal_2007.Convex'))
+                dataset_name='skdata.larochelle_etal_2007.Convex'))
