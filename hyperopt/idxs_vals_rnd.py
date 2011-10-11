@@ -352,7 +352,20 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
                 return post_rv
             else:
                 raise NotImplementedError()
-
+        elif dist_name == 'quantized_lognormal':
+            if obs.vals.ndim == 1:
+                prior_mu, prior_sigma, step = prior.vals.owner.inputs[2:5]
+                weights, mus, sigmas = AdaptiveParzen()(
+                        tensor.log(obs.vals),
+                        prior_mu, prior_sigma)
+                post_rv = s_rng.quantized_lognormal_mixture(
+                        weights, mus, sigmas, step,
+                        draw_shape=prior.vals.shape,
+                        ndim=prior.vals.ndim,
+                        dtype=prior.vals.dtype)
+                return post_rv
+            else:
+                raise NotImplementedError()
         elif dist_name == 'categorical':
             if obs.vals.ndim == 1:
                 prior_strength = 5  # XXX: should be passed to __init__
