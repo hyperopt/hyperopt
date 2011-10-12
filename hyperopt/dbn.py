@@ -37,12 +37,12 @@ class LogisticRegression(object):
         if params is None:
             params = []
         self.input = x
-        self.output = tensor.nnet.softmax(tensor.dot(input, w) + b)
+        self.output = tensor.nnet.softmax(tensor.dot(x, w) + b)
         self.l1 = abs(w).sum()
         self.l2_sqr = (w**2).sum()
         self.argmax = tensor.argmax(
-                tensor.dot(input, w) + b,
-                axis=input.ndim - 1)
+                tensor.dot(x, w) + b,
+                axis=x.ndim - 1)
         self.w = w
         self.b = b
         self.params = params
