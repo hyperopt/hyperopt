@@ -329,70 +329,78 @@ class DBN_Base(Bandit):
 
         rval['cd_reports'] = []
 
-        layer_config = argd['next_layer']
-        # allocate model parameters
-        while layer_config:
-            i = len(rval['cd_reports'])
-            n_hid_i = layer_config['n_hid']
-            if layer_config['W_init_dist']=='uniform':
-                W = rng.uniform(low=-1,high=1,size=(n_hid_i, n_inputs_i)).T.astype('float32')
-            elif layer_config['W_init_dist'] == 'normal':
-                W = rng.randn(n_hid_i, n_inputs_i).T.astype('float32')
-            else:
-                raise ValueError('W_init_dist', layer_config['W_init_dist'])
+        try:
+            layer_config = argd['next_layer']
+            # allocate model parameters
+            while layer_config:
+                i = len(rval['cd_reports'])
+                n_hid_i = layer_config['n_hid']
+                if layer_config['W_init_dist']=='uniform':
+                    W = rng.uniform(low=-1,high=1,size=(n_hid_i, n_inputs_i)).T.astype('float32')
+                elif layer_config['W_init_dist'] == 'normal':
+                    W = rng.randn(n_hid_i, n_inputs_i).T.astype('float32')
+                else:
+                    raise ValueError('W_init_dist', layer_config['W_init_dist'])
 
-            if layer_config['W_init_algo'] == 'old':
-                #N.B. the weights are transposed so that as the number of hidden units changes,
-                # the first hidden units are always the same vectors.
-                # this makes it easier to isolate the effect of random initialization
-                # from the other hyper-parameters under review
-                W *= layer_config['W_init_algo_old_multiplier'] / numpy.sqrt(n_inputs_i)
-            elif layer_config['W_init_algo'] == 'Xavier':
-                W *= numpy.sqrt(6.0 / (n_inputs_i + n_hid_i))
-            else:
-                raise ValueError(layer_config['W_init_algo'])
+                if layer_config['W_init_algo'] == 'old':
+                    #N.B. the weights are transposed so that as the number of hidden units changes,
+                    # the first hidden units are always the same vectors.
+                    # this makes it easier to isolate the effect of random initialization
+                    # from the other hyper-parameters under review
+                    W *= layer_config['W_init_algo_old_multiplier'] / numpy.sqrt(n_inputs_i)
+                elif layer_config['W_init_algo'] == 'Xavier':
+                    W *= numpy.sqrt(6.0 / (n_inputs_i + n_hid_i))
+                else:
+                    raise ValueError(layer_config['W_init_algo'])
 
-            layer_idx = len(rval['cd_reports'])
-            weights.append(theano.shared(W, 'W_%i' % layer_idx))
-            hbiases.append(theano.shared(numpy.zeros(n_hid_i, dtype='float32'),
-                'h_%i' % layer_idx))
-            vbiases.append(theano.shared(numpy.zeros(n_inputs_i, dtype='float32'),
-                'v_%i' % layer_idx))
-            del W
+                layer_idx = len(rval['cd_reports'])
+                weights.append(theano.shared(W, 'W_%i' % layer_idx))
+                hbiases.append(theano.shared(numpy.zeros(n_hid_i, dtype='float32'),
+                    'h_%i' % layer_idx))
+                vbiases.append(theano.shared(numpy.zeros(n_inputs_i, dtype='float32'),
+                    'v_%i' % layer_idx))
+                del W
 
-            # allocate RBM training function for this layer
-            # this version re-calculates the training set every time
-            # TODO: cache the training set for each layer
-            # TODO: consider sparsity?
-            # TODO: consider momentum?
-            if layer_config['cd_epochs']:
-                cd_report = train_rbm(
-                        s_rng, s_idx, s_batchsize, s_features,
-                        W=weights[-1],
-                        vbias=vbiases[-1],
-                        hbias=hbiases[-1],
-                        n_in=n_inputs_i,
-                        n_hid=n_hid_i,
-                        batchsize=layer_config['cd_batchsize'],
-                        sample_v0s=layer_config['cd_sample_v0s'],
-                        cdlr=layer_config['cd_lr'] / float(layer_config['cd_batchsize']),
-                        n_epochs=layer_config['cd_epochs'],
-                        n_batches_per_epoch=dataset.descr['n_train'] // layer_config['cd_batchsize'],
-                        lr_anneal_start=layer_config['cd_lr_anneal_start'],
-                        givens = {
-                            s_inputs_all: tensor.as_tensor_variable(train_Xy[0])
-                            },
-                        time_limit=time_limit
-                        )
-            else:
-                cd_report = None
-            rval['cd_reports'].append(cd_report)
+                # allocate RBM training function for this layer
+                # this version re-calculates the training set every time
+                # TODO: cache the training set for each layer
+                # TODO: consider sparsity?
+                # TODO: consider momentum?
+                if layer_config['cd_epochs']:
+                    cd_report = train_rbm(
+                            s_rng, s_idx, s_batchsize, s_features,
+                            W=weights[-1],
+                            vbias=vbiases[-1],
+                            hbias=hbiases[-1],
+                            n_in=n_inputs_i,
+                            n_hid=n_hid_i,
+                            batchsize=layer_config['cd_batchsize'],
+                            sample_v0s=layer_config['cd_sample_v0s'],
+                            cdlr=layer_config['cd_lr'] / float(layer_config['cd_batchsize']),
+                            n_epochs=layer_config['cd_epochs'],
+                            n_batches_per_epoch=dataset.descr['n_train'] // layer_config['cd_batchsize'],
+                            lr_anneal_start=layer_config['cd_lr_anneal_start'],
+                            givens = {
+                                s_inputs_all: tensor.as_tensor_variable(train_Xy[0])
+                                },
+                            time_limit=time_limit
+                            )
+                else:
+                    cd_report = None
+                rval['cd_reports'].append(cd_report)
 
-            # update s_features to point to top layer
-            s_features = tensor.nnet.sigmoid(
-                    tensor.dot(s_features, weights[-1]) + hbiases[-1])
-            n_inputs_i = n_hid_i
-            layer_config = layer_config.get('next_layer', None)
+                # update s_features to point to top layer
+                s_features = tensor.nnet.sigmoid(
+                        tensor.dot(s_features, weights[-1]) + hbiases[-1])
+                n_inputs_i = n_hid_i
+                layer_config = layer_config.get('next_layer', None)
+
+        except (MemoryError,):
+            rval['abort'] = 'MemoryError'
+            rval['status'] = 'ok'
+            rval['loss'] = 1.0
+            rval['best_epoch_valid'] = 0.0
+            return rval
 
         # allocate model
 
