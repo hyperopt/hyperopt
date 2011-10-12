@@ -18,12 +18,8 @@ from theano import tensor
 # scikit-data
 from skdata.tasks import classification_train_valid_test
 
-# XXX import source code into this project
-from pylearn.shared.layers.logreg import LogisticRegression
-import pylearn.gd.sgd
-
-# XXX use scikits-learn?
-import pylearn.preprocessing.pca
+# XXX use scikits-learn for PCA
+import pylearn_pca
 
 from base import Bandit
 from utils import json_call
@@ -34,6 +30,78 @@ except:
     RandomStreams = tensor.shared_randomstreams.RandomStreams
 
 from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
+
+
+class LogisticRegression(object):
+    def __init__(self, x, w, b, params=None):
+        if params is None:
+            params = []
+        self.input = x
+        self.output = nnet.softmax(theano.dot(input, w) + b)
+        self.l1 = abs(w).sum()
+        self.l2_sqr = (w**2).sum()
+        self.argmax = theano.tensor.argmax(
+                theano.dot(input, w) + b,
+                axis=input.ndim - 1)
+        self.w = w
+        self.b = b
+        self.params = params
+
+    @classmethod
+    def new(cls, input, n_in, n_out, dtype=None, name=None):
+        if dtype is None:
+            dtype = input.dtype
+        if name is None:
+            name = cls.__name__
+        logger.debug('allocating params w, b: %s' % str((n_in, n_out, dtype)))
+        w = shared(
+                numpy.zeros((n_in, n_out), dtype=dtype),
+                name='%s.w' % name)
+        b = shared(
+                numpy.zeros((n_out,), dtype=dtype),
+                name='%s.b' % name)
+        return cls(input, w, b, params=[w, b])
+
+
+    def nll(self, target):
+        """Return the negative log-likelihood of the prediction of this model under a given
+        target distribution.  Passing symbolic integers here means 1-hot.
+        WRITEME
+        """
+        return nnet.categorical_crossentropy(self.output, target)
+
+    def errors(self, target):
+        """Return a vector of 0s and 1s, with 1s on every line that was mis-classified.
+        """
+        if target.ndim != self.argmax.ndim:
+            raise TypeError('target should have the same shape as self.argmax',
+                    ('target', target.type, 'argmax', self.argmax.type))
+        if target.dtype.startswith('int'):
+            return theano.tensor.neq(self.argmax, target)
+        else:
+            raise NotImplementedError()
+
+
+def sgd_updates(params, grads, stepsizes):
+    """Return a list of (pairs) that can be used as updates in theano.function to implement
+    stochastic gradient descent.
+
+    :param params: variables to adjust in order to minimize some cost
+    :type params: a list of variables (theano.function will require shared variables)
+    :param grads: the gradient on each param (with respect to some cost)
+    :type grads: list of theano expressions
+    :param stepsizes: step by this amount times the negative gradient on each iteration
+    :type stepsizes: [symbolic] scalar or list of one [symbolic] scalar per param
+    """
+    try:
+        iter(stepsizes)
+    except Exception:
+        stepsizes = [stepsizes for p in params]
+    if len(params) != len(grads):
+        raise ValueError('params and grads have different lens')
+    updates = [(p, p - step * gp) for (step, p, gp) in zip(stepsizes, params, grads)]
+    return updates
+
 
 def geom(lower, upper, round=1):
     ll = numpy.log(lower)
@@ -416,7 +484,7 @@ class DBN_Base(Bandit):
         params = weights + hbiases + logreg.params
         train_logreg_fn = theano.function([s_idx, s_lr],
                 [logreg.nll(s_labels).mean()],
-                updates=pylearn.gd.sgd.sgd_updates(
+                updates=sgd_updates(
                     params=params,
                     grads=tensor.grad(traincost, params),
                     stepsizes=[s_lr] * len(params)),
