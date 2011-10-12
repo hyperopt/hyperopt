@@ -207,25 +207,25 @@ def preprocess_data(argd, ctrl):
     if argd['preprocessing']['kind'] == 'pca':
         # compute pca of input (TODO: retrieve only pca_whitened input)
         raise NotImplementedError('rewrite since cut and paste')
-        (eigvals,eigvecs), centered_trainset = pylearn.preprocessing.pca.pca_from_examples(
+        (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=dataset['inputs'][:dataset['n_train']],
                 max_energy_fraction=argd['pca_energy'])
         eigmean = dataset['inputs'][0] - centered_trainset[0]
 
-        whitened_inputs = pylearn.preprocessing.pca.pca_whiten((eigvals,eigvecs),
+        whitened_inputs = pylearn_pca.pca_whiten((eigvals,eigvecs),
                 dataset['inputs']-eigmean)
         ctrl.info('PCA kept %i of %i components'%(whitened_inputs.shape[1],
             dataset['n_inputs']))
     elif argd['preprocessing']['kind'] == 'zca':
-        (eigvals,eigvecs), centered_trainset = pylearn.preprocessing.pca.pca_from_examples(
+        (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=X_train,
                 max_energy_fraction=argd['preprocessing']['energy'])
         eigmean = X_train[0] - centered_trainset[0]
 
         def whiten(X):
-            X = pylearn.preprocessing.pca.pca_whiten((eigvals,eigvecs),
+            X = pylearn_pca.pca_whiten((eigvals,eigvecs),
                     X - eigmean)
-            X = pylearn.preprocessing.pca.pca_whiten_inverse((eigvals, eigvecs),
+            X = pylearn_pca.pca_whiten_inverse((eigvals, eigvecs),
                     X) + eigmean
             X = X.astype('float32')
             X_min = X.min()
