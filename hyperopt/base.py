@@ -47,6 +47,7 @@ except ImportError:
 
 import ht_dist2
 import utils
+import idxs_vals_rnd
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,6 @@ class Ctrl(object):
 
     def checkpoint(self, r=None):
         pass
-
 
 class Bandit(object):
     """Specification of bandit problem.
@@ -127,6 +127,11 @@ class Bandit(object):
         except KeyError:
             return None
 
+    def new_result(self):
+        """Return a JSON-encodable object
+        to serve as the 'result' for new jobs.
+        """
+        return {'status': 'new'}
 
     @classmethod
     def main_dryrun(cls):
@@ -243,7 +248,13 @@ class TheanoBanditAlgo(BanditAlgo):
         self.db_vals = [[] for s in self.s_idxs]
 
     def recall(self, idlist):
-        """Return the elements of idlist numbered as 0,1,...len(idlist) """
+        """Construct an IdxsValsList representation of the elements of idlist.
+
+        The result will be renumberd 0,1,...len(idlist).
+
+        Thus element 0 of the returned IdxValsList will correspond to the
+        database element whose id matches the 0th element of idlist.
+        """
         if 0 < len(idlist):
             iddict = dict([(orig, new) for (new, orig) in enumerate(idlist)])
             if len(iddict) != len(idlist):
@@ -265,45 +276,67 @@ class TheanoBanditAlgo(BanditAlgo):
             rval_vals = [[] for s in self.s_idxs]
         return rval_idxs, rval_vals
 
-    def record(self, idxs, vals):
+    def record(self, ivl):
         """Append idxs and vals to variable database, by numbering them
         self._next_id to N, and returning the list of these ids."""
-        if len(idxs) != len(self.db_idxs):
-            raise ValueError('number of idxs does not match db_idxs - '
-                    'are you sure you are recording to the right database?')
-        if len(vals) != len(self.db_vals):
-            raise ValueError('number of vals does not match db_vals - '
+        if len(ivl) != len(self.db_idxs):
+            raise ValueError('number of variables does not match db_idxs - '
                     'are you sure you are recording to the right database?')
         new_ids = []
         N = 0
-        for i, (idxvec, valvec) in enumerate(zip(idxs, vals)):
+        # the indexes in ivl cover integers from 0 to some number N-1
+        # (inclusive)
+        # these will be mapped onto the database ids
+        # self._next_id to self._next_id + N
+        #
+        # This function does not guarantee that all the db ids in these
+        # ranges are occupied.
+        for i, (idxvec, valvec) in enumerate(ivl):
             for ii in idxvec:
+                if ii < 0:
+                    raise ValueError('negative index encountered')
                 N = max(N, ii+1)
                 new_ids.append(ii + self._next_id)
                 self.db_idxs[i].append(ii + self._next_id)
             self.db_vals[i].extend(valvec)
-        self._next_id += N
+        self._next_id = numpy.max(new_ids) + 1
         new_ids = list(sorted(set(new_ids)))
         return new_ids
 
     def suggest(self, X_list, Y_list, Y_status, N):
-        template = self.bandit.template
-        # TODO: partition X_list and Y_list by Y_status
-        X_idxs, X_vals = self.recall([X['TBA_id'] for X in X_list])
-        r_idxs, r_vals = self.theano_suggest(X_idxs, X_vals, Y_list, Y_status, N)
-        ids = self.record(r_idxs, r_vals)
+        assert len(X_list) == len(Y_list) == len(Y_status)
+
+        positions = {}
+        ivs = {}
+        ys = {}
+        for status in STATUS_STRINGS:
+            positions[status] = [i
+                    for i, s in enumerate(Y_status) if s == status]
+            ivs[status] = self.recall([X_list[i]['TBA_id']
+                for i in positions[status])
+            ys[status] = [Y_list[i] for i in positions[status]]
+
+        assert sum(len(l) for l in positions.values()) == len(Y_status)
+
+        ivl = self.theano_suggest(ivs, ys, N)
+        assert isinstance(ivl, idxs_vals_rnd.IdxsValsList)
+
+        ids = self.record(ivl)
         assert len(ids) == N
+
         # now call idxs_vals_to_dict_list to rebuild a nested document
         # suitable for returning
         all_r_idxs = [None] * len(self.all_s_idxs)
         all_r_vals = [None] * len(self.all_s_vals)
         for i, j in enumerate(self.all_s_locs):
-            all_r_idxs[j] = r_idxs[i]
-            all_r_vals[j] = r_vals[i]
-        rval = template.idxs_vals_to_dict_list(
+            all_r_idxs[j] = ivl[i].idxs
+            all_r_vals[j] = ivl[i].vals
+        rval = self.bandit.template.idxs_vals_to_dict_list(
                 list(all_r_idxs),
                 list(all_r_vals))
         assert len(rval) == N
+
+        # HACK!
         # tuck each suggested document into a dictionary with a TBA_id field
         rval = [SON([('TBA_id', int(rid)), ('doc', r)])
             for rid, r in zip(ids, rval)]
@@ -322,7 +355,7 @@ class TheanoBanditAlgo(BanditAlgo):
             vector of results for X
 
         :param Y_status:
-            vector of status of results (elements: 'ok', 'fail', 'running')
+            vector of status of results (see `STATUS_STRINGS`)
 
         :param N:
             number of trials to suggest

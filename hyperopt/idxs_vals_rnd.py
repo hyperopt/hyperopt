@@ -305,6 +305,8 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
     """
     XXX
     """
+    # pseudocount is prior_strength / #choices
+    categorical_prior_strength = 2.0
 
     def s_posterior_helper(self, prior, obs, s_rng):
         """
@@ -372,7 +374,7 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
                 raise NotImplementedError()
         elif dist_name == 'categorical':
             if obs.vals.ndim == 1:
-                prior_strength = 5  # XXX: should be passed to __init__
+                prior_strength = self.categorical_prior_strength
                 prior_counts = prior.vals.owner.inputs[1]  #XXX: name this?
                 pseudocounts = tensor.inc_subtensor(
                         (prior_strength * prior_counts)[obs.vals],

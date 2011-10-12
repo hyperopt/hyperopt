@@ -1,6 +1,10 @@
 """
 XXX
 """
+import sys
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy
 import theano
 from theano import tensor
@@ -52,12 +56,12 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
     """
     Graphical Model (GM) algo described in NIPS2011 paper.
     """
-    n_startup_jobs = 10  # enough to estimate mean and variance in Y | prior(X)
+    n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
                          # should be bandit-agnostic
 
-    n_EI_candidates = 100
+    n_EI_candidates = 256
 
-    gamma = .2           # fraction of trials to consider as good
+    gamma = 0.15         # fraction of trials to consider as good
                          # this is should in theory be bandit-dependent
 
     def __init__(self, good_estimator, bad_estimator):
@@ -132,11 +136,13 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
 
         assert len(X_idxs) == len(X_vals)
 
-        ylist = list(numpy.asarray(Y)[ok_idxs])
+        ylist = [float(yi) for yi in numpy.asarray(Y)[ok_idxs]]
 
         # if there are not enough completed jobs to estimate EI
         # then we return draws from the bandit's prior
         if len(ylist) < self.n_startup_jobs:
+            logger.info('GM_BanditAlgo warming up %i/%i'
+                    % (len(ylist), self.n_startup_jobs))
             rvals = self._prior_sampler(N)
             # rvals here are idx0, idx1, ... val0, val1, ...
             return rvals[:len(rvals)/2], rvals[len(rvals)/2:]
@@ -144,12 +150,26 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         ylist.sort()
         y_thresh_idx = int(self.gamma*.999 * len(ylist))
         y_thresh = .5 * ylist[y_thresh_idx] + .5 * ylist[y_thresh_idx+1]
-        del ylist
 
+        logger.info('GM_BanditAlgo splitting results at y_thresh = %f'
+                % y_thresh)
+        logger.info('GM_BanditAlgo keeping %i results as good'
+                % y_thresh_idx)
+        logger.info('GM_BanditAlgo keeping %i results as bad'
+                % (len(ylist) - y_thresh_idx))
+        logger.info('GM_BanditAlgo good scores: %s'
+                % str(ylist[:y_thresh_idx]))
 
         X_iv_zip = []
         for i, v in zip(X_idxs, X_vals):
             X_iv_zip.extend([i, v])
+
+        logger.info('GM_BanditAlgo drawing %i candidates'
+                % self.n_EI_candidates)
+        logger.info('GM_BanditAlgo lens %i %i'
+                % (len(Y), len(ylist)))
+        print >> sys.stderr, zip(Y, Y_status)
+
 
         helper_rval = self._helper(self.n_EI_candidates, N,
             y_thresh, Y, *X_iv_zip)

@@ -120,7 +120,7 @@ Ctrl.checkpoint does several things:
 * optionally updates the result subdocument
 
 The main_worker routine calls Ctrl.checkpoint(rval) once after the
-bandit.evalute function has returned before setting the status to 2 or 3 to
+bandit.evalute function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
@@ -585,8 +585,7 @@ class MongoExperiment(base.Experiment):
         return rval
 
     def __get_trials(self):
-        # TODO: this query can be done much more efficiently
-        query = {'exp_key': self.exp_key, 'result': {'$ne': None}}
+        query = {'exp_key': self.exp_key}
         all_jobs = list(self.mongo_handle.jobs.find(query))
         id_jobs = [(j['_id'], j) for j in all_jobs]
         id_jobs.sort()
@@ -594,10 +593,8 @@ class MongoExperiment(base.Experiment):
     trials = property(__get_trials)
 
     def __get_results(self):
-        # TODO: this query can be done much more efficiently
-        query = {'exp_key': self.exp_key, 'result': {'$ne': None}}
+        query = {'exp_key': self.exp_key}
         all_jobs = list(self.mongo_handle.jobs.find(query))
-        #logger.info('all jobs: %s' % str(all_jobs))
         id_jobs = [(j['_id'], j) for j in all_jobs]
         id_jobs.sort()
         return [id_job[1]['result'] for id_job in id_jobs]
@@ -605,6 +602,7 @@ class MongoExperiment(base.Experiment):
 
     def queue_extend(self, trial_specs):
         rval = []
+        # this tells the mongo-worker how to evaluate the job
         cmd = ('bandit_json evaluate', self.bandit_json)
         for spec in trial_specs:
             to_insert = dict(
@@ -613,7 +611,7 @@ class MongoExperiment(base.Experiment):
                     cmd=cmd,
                     owner=None,
                     spec=spec,
-                    result=None,
+                    result=self.bandit.new_result(),
                     version=0,
                     )
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
@@ -623,7 +621,7 @@ class MongoExperiment(base.Experiment):
         # TODO: consider searching by SON rather than dict
         query = dict(state=0, exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
-        logger.info('Queue len: %i' % rval)
+        logger.debug('Queue len: %i' % rval)
         return rval
 
     def run(self, N):
