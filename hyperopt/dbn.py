@@ -37,11 +37,11 @@ class LogisticRegression(object):
         if params is None:
             params = []
         self.input = x
-        self.output = nnet.softmax(theano.dot(input, w) + b)
+        self.output = tensor.nnet.softmax(tensor.dot(input, w) + b)
         self.l1 = abs(w).sum()
         self.l2_sqr = (w**2).sum()
-        self.argmax = theano.tensor.argmax(
-                theano.dot(input, w) + b,
+        self.argmax = tensor.argmax(
+                tensor.dot(input, w) + b,
                 axis=input.ndim - 1)
         self.w = w
         self.b = b
@@ -54,10 +54,10 @@ class LogisticRegression(object):
         if name is None:
             name = cls.__name__
         logger.debug('allocating params w, b: %s' % str((n_in, n_out, dtype)))
-        w = shared(
+        w = theano.shared(
                 numpy.zeros((n_in, n_out), dtype=dtype),
                 name='%s.w' % name)
-        b = shared(
+        b = theano.shared(
                 numpy.zeros((n_out,), dtype=dtype),
                 name='%s.b' % name)
         return cls(input, w, b, params=[w, b])
@@ -68,7 +68,7 @@ class LogisticRegression(object):
         target distribution.  Passing symbolic integers here means 1-hot.
         WRITEME
         """
-        return nnet.categorical_crossentropy(self.output, target)
+        return tensor.nnet.categorical_crossentropy(self.output, target)
 
     def errors(self, target):
         """Return a vector of 0s and 1s, with 1s on every line that was mis-classified.
