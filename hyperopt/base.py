@@ -321,6 +321,8 @@ class TheanoBanditAlgo(BanditAlgo):
                 for i in positions[status]])
             ys[status] = [Y_list[i]
                 for i in positions[status]]
+            logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
+                    % (len(ys[status]), status))
 
         assert sum(len(l) for l in positions.values()) == len(Y_status)
 
