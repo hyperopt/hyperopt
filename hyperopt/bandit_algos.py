@@ -46,10 +46,12 @@ class TheanoRandom(base.TheanoBanditAlgo):
                 [self.s_N],
                 self.s_idxs + self.s_vals)
 
-    def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
+    def theano_suggest(self, X_IVLs, Ys, N):
         """Ignore X and Y, draw from prior"""
         rvals = self._sampler(N)
-        return rvals[:len(rvals)/2], rvals[len(rvals)/2:]
+        return IdxsValsList.fromlists(
+                rvals[:len(rvals)/2],
+                rvals[len(rvals)/2:])
 
 
 class GM_BanditAlgo(base.TheanoBanditAlgo):
@@ -69,13 +71,27 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         self.good_estimator = good_estimator
         self.bad_estimator = bad_estimator
 
+    def __getstate__(self):
+        rval = dict(self.__dict__)
+        for name in '_helper', 'helper_locals', '_prior_sampler':
+            if name in rval:
+                del rval[name]
+        return rval
+
+    def __setstate__(self, dct):
+        self.__dict__.update(dct)
+        # this allows loading of old pickles
+        # from before the current implementation
+        # of __getstate__
+        for name in '_helper', 'helper_locals', '_prior_sampler':
+            if hasattr(self, name):
+                delattr(self, name)
+
     def set_bandit(self, bandit):
         base.TheanoBanditAlgo.set_bandit(self, bandit)
 
     def build_helpers(self, do_compile=True, mode=None):
-        s_prior = IdxsValsList([IdxsVals(i,v)
-            for i, v in zip(self.s_idxs, self.s_vals)])
-
+        s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
         s_obs = s_prior.new_like_self()
 
         # y_thresh is the boundary between 'good' and 'bad' regions of the
@@ -116,6 +132,7 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
             self._helper = theano.function(
                 [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
                 (Gsamples.take(keep_idxs).flatten()
+                    + [yvals[where(yvals < y_thresh)]]
                     + [log_EI]
                     + Gsamples.flatten()),
                 allow_input_downcast=True,
@@ -124,32 +141,26 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
 
             self._prior_sampler = theano.function(
                     [n_to_draw],
-                    self.s_idxs + self.s_vals,
+                    s_prior.flatten(),
                     mode=mode)
 
-    def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
+    def theano_suggest_from_prior(self, N):
+        rvals = self._prior_sampler(N)
+        return IdxsValsList.fromflattened(rvals)
+
+    def theano_suggest(self, X_IVLs, Ys, N):
         if not hasattr(self, '_prior_sampler'):
             self.build_helpers()
             assert hasattr(self, '_prior_sampler')
 
-        ok_idxs = [i for i, s in enumerate(Y_status) if s == 'ok']
-
-        assert len(X_idxs) == len(X_vals)
-
-        ylist = [float(yi) for yi in numpy.asarray(Y)[ok_idxs]]
-
-        # if there are not enough completed jobs to estimate EI
-        # then we return draws from the bandit's prior
-        if len(ylist) < self.n_startup_jobs:
+        if len(Ys['ok']) < self.n_startup_jobs:
             logger.info('GM_BanditAlgo warming up %i/%i'
-                    % (len(ylist), self.n_startup_jobs))
-            rvals = self._prior_sampler(N)
-            # rvals here are idx0, idx1, ... val0, val1, ...
-            return rvals[:len(rvals)/2], rvals[len(rvals)/2:]
+                    % (len(Ys['ok']), self.n_startup_jobs))
+            return self.theano_suggest_from_prior(N)
 
-        ylist.sort()
-        y_thresh_idx = int(self.gamma*.999 * len(ylist))
-        y_thresh = .5 * ylist[y_thresh_idx] + .5 * ylist[y_thresh_idx+1]
+        ylist = numpy.asarray(sorted(Ys['ok']), dtype='float')
+        y_thresh_idx = int(self.gamma * len(ylist))
+        y_thresh = ylist[y_thresh_idx : y_thresh_idx + 2].mean()
 
         logger.info('GM_BanditAlgo splitting results at y_thresh = %f'
                 % y_thresh)
@@ -160,23 +171,23 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         logger.info('GM_BanditAlgo good scores: %s'
                 % str(ylist[:y_thresh_idx]))
 
-        X_iv_zip = []
-        for i, v in zip(X_idxs, X_vals):
-            X_iv_zip.extend([i, v])
+        #       This requires a function for extending IdxsValsList
+        #       objects, and returning the new ids, so that we
+        #       can also extend the corresponding Ys
+        logger.warn('ignoring running and new jobs - TODO: constant liar')
 
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
-        logger.info('GM_BanditAlgo lens %i %i'
-                % (len(Y), len(ylist)))
-        print >> sys.stderr, zip(Y, Y_status)
-
 
         helper_rval = self._helper(self.n_EI_candidates, N,
-            y_thresh, Y, *X_iv_zip)
+            y_thresh, Ys['ok'], *X_IVLs['ok'].flatten())
+
+        logger.info('Theano thinks best scores are %s' %
+                str(helper_rval[2 * len(X_IVLs['ok'])]))
 
         # rvals here are idx0, val0, idx1, val1, ...
-        return (helper_rval[:2 * len(X_idxs):2],
-                helper_rval[1:2 * len(X_idxs):2])
+        return IdxsValsList.fromflattened(
+                helper_rval[:2 * len(X_IVLs['ok'])])
 
 
 def AdaptiveParzenGM():

@@ -255,10 +255,15 @@ class TheanoBanditAlgo(BanditAlgo):
         Thus element 0 of the returned IdxValsList will correspond to the
         database element whose id matches the 0th element of idlist.
         """
-        if 0 < len(idlist):
+        if idlist:
+            # iddict maps idx in database -> idx in rval
             iddict = dict([(orig, new) for (new, orig) in enumerate(idlist)])
             if len(iddict) != len(idlist):
                 raise NotImplementedError('dups in idlist')
+
+            # for each variable in the bandit (each idxs, vals pair)
+            # extract the database elements and put them into a new (idxs, vals)
+            # pair that we can return.
             rval_idxs = []
             rval_vals = []
             for idxs, vals in zip(self.db_idxs, self.db_vals):
@@ -274,7 +279,7 @@ class TheanoBanditAlgo(BanditAlgo):
         else:
             rval_idxs = [[] for s in self.s_idxs]
             rval_vals = [[] for s in self.s_idxs]
-        return rval_idxs, rval_vals
+        return idxs_vals_rnd.IdxsValsList.fromlists(rval_idxs, rval_vals)
 
     def record(self, ivl):
         """Append idxs and vals to variable database, by numbering them
@@ -291,14 +296,14 @@ class TheanoBanditAlgo(BanditAlgo):
         #
         # This function does not guarantee that all the db ids in these
         # ranges are occupied.
-        for i, (idxvec, valvec) in enumerate(ivl):
-            for ii in idxvec:
+        for i, iv in enumerate(ivl):
+            for ii in iv.idxs:
                 if ii < 0:
                     raise ValueError('negative index encountered')
                 N = max(N, ii+1)
                 new_ids.append(ii + self._next_id)
                 self.db_idxs[i].append(ii + self._next_id)
-            self.db_vals[i].extend(valvec)
+            self.db_vals[i].extend(iv.vals)
         self._next_id = numpy.max(new_ids) + 1
         new_ids = list(sorted(set(new_ids)))
         return new_ids
@@ -313,8 +318,9 @@ class TheanoBanditAlgo(BanditAlgo):
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
             ivs[status] = self.recall([X_list[i]['TBA_id']
-                for i in positions[status])
-            ys[status] = [Y_list[i] for i in positions[status]]
+                for i in positions[status]])
+            ys[status] = [Y_list[i]
+                for i in positions[status]]
 
         assert sum(len(l) for l in positions.values()) == len(Y_status)
 
@@ -342,29 +348,29 @@ class TheanoBanditAlgo(BanditAlgo):
             for rid, r in zip(ids, rval)]
         return rval
 
-    def theano_suggest(self, X_idxs, X_vals, Y, Y_status, N):
+    def theano_suggest(self, X_IVLs, Ys, N):
         """Return new points to try.
 
-        :param X_idxs:
-            list of int vectors that could have come from s_prior_idxs
+        :type X_IVLs:
+            dictionary mapping status string -> IdxsValsList
 
-        :param X_vals:
-            list of ndarrays that could have come from s_prior_vals
+        :param X_IVLs:
+            experiment configurations at each status level
 
-        :param Y:
-            vector of results for X
+        :type Ys:
+            dictionary mapping status string -> list of losses
 
-        :param Y_status:
-            vector of status of results (see `STATUS_STRINGS`)
+        :param Ys:
+            losses for the corresponding configurations in X_IVLs
 
         :param N:
             number of trials to suggest
 
         :rtype:
-            list of int vectors, list of ndarrays
+            IdxsValsList
 
         :returns:
-            suggested new X points in same idxs, vals encoding.
+            new configurations to try
 
         """
         raise NotImplementedError('override me')

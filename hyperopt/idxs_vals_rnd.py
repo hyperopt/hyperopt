@@ -24,6 +24,13 @@ def as_variables(*args):
 
 
 class IdxsVals(object):
+    """Sparse compressed vector-like representation (idxs, vals).
+
+    N.B. This class is sometimes used to store symbolic variables, and
+    sometimes used to store numeric variables.  Not all operations work in
+    both cases, but many do.
+
+    """
     def __init__(self, i, v):
         self.idxs = i  # symbolic integer vector
         self.vals = v  # symbolic ndarray with same length as self.idxs
@@ -38,6 +45,11 @@ class IdxsVals(object):
 class IdxsValsList(list):
     """
     List of IdxsVals instances
+
+    N.B. This class is sometimes used to store symbolic variables, and
+    sometimes used to store numeric variables.  Not all operations work in
+    both cases, but many do.
+
     """
     def idxslist(self):
         return [e.idxs for e in self]
@@ -70,11 +82,24 @@ class IdxsValsList(list):
 
     def flatten(self):
         """Return self[0].idxs, self[0].vals, self[1].idxs, self[1].vals, ...
+
+        This is useful for passing arguments to a Theano function.
         """
         rval = []
         for e in self:
             rval.extend([e.idxs, e.vals])
         return rval
+
+    @classmethod
+    def fromflattened(cls, args):
+        """Construct an IdxsValsList from the idxs0, vals0, idxs1, vals1, ...
+
+        This constructor re-constructs from the flattened representation.
+        """
+        if len(args) % 2:
+            raise ValueError('expected args of form'
+                    ' idxs0, vals0, idxs1, vals1, ...')
+        return cls.fromlists(args[::2], args[1::2])
 
 
 class TreeEstimator(object):
