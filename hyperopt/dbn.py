@@ -561,6 +561,28 @@ class DBN_Base(Bandit):
         ctrl.info('rval: %s' % str(rval))
         return rval
 
+    @classmethod
+    def loss(cls, result):
+        """Extract the scalar-valued loss from a result document
+        """
+        try:
+            if numpy.isnan(float(result['loss'])):
+                return None
+            else:
+                return float(result['loss'])
+        except KeyError, TypeError:
+            return None
+
+    @classmethod
+    def status(cls, result):
+        """Extract the job status from a result document
+        """
+        if (result['status'] == 'ok' and cls.loss(result) is None):
+            return 'fail'
+        else:
+            return result['status']
+
+
 
 def DBN_Convex():
     return DBN_Base(

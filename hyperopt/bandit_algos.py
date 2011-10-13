@@ -132,9 +132,9 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
             self._helper = theano.function(
                 [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
                 (Gsamples.take(keep_idxs).flatten()
-                    + [yvals[where(yvals < y_thresh)]]
-                    + [log_EI]
-                    + Gsamples.flatten()),
+                    + Gobs.flatten()
+                    + Bobs.flatten()
+                    ),
                 allow_input_downcast=True,
                 mode=mode,
                 )
@@ -171,23 +171,35 @@ class GM_BanditAlgo(base.TheanoBanditAlgo):
         logger.info('GM_BanditAlgo good scores: %s'
                 % str(ylist[:y_thresh_idx]))
 
-        #       This requires a function for extending IdxsValsList
-        #       objects, and returning the new ids, so that we
-        #       can also extend the corresponding Ys
-        logger.warn('ignoring running and new jobs - TODO: constant liar')
+        x_all = X_IVLs['ok'].copy()
+        y_all = list(Ys['ok'])
+
+        logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
+                % len(Ys['new']))
+        idmap = x_all.stack(X_IVLs['new'])
+        assert range(len(idmap)) == list(sorted(idmap.keys()))
+        y_all.extend([y_thresh + 1 for y in Ys['new']])
 
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
 
         helper_rval = self._helper(self.n_EI_candidates, N,
-            y_thresh, Ys['ok'], *X_IVLs['ok'].flatten())
+            y_thresh, y_all, *x_all.flatten())
 
-        logger.info('Theano thinks best scores are %s' %
-                str(helper_rval[2 * len(X_IVLs['ok'])]))
+        keep_flat = helper_rval[:2 * len(x_all)]
+        Gobs_flat = helper_rval[2 * len(x_all): 4 * len(x_all)]
+        Bobs_flat = helper_rval[4 * len(x_all):]
+        Gobs = IdxsValsList.fromflattened(Gobs_flat)
+        Bobs = IdxsValsList.fromflattened(Bobs_flat)
+        # guard against book-keeping error
+        gis = Gobs.idxset()
+        bis = Bobs.idxset()
+        xis = x_all.idxset()
+        assert len(xis) == len(y_all)
+        assert gis.union(bis) == xis
+        assert gis.intersection(bis) == set()
 
-        # rvals here are idx0, val0, idx1, val1, ...
-        return IdxsValsList.fromflattened(
-                helper_rval[:2 * len(X_IVLs['ok'])])
+        return IdxsValsList.fromflattened(keep_flat)
 
 
 def AdaptiveParzenGM():

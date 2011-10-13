@@ -122,10 +122,7 @@ class Bandit(object):
     def status(cls, result):
         """Extract the job status from a result document
         """
-        try:
-            return result['status']
-        except KeyError:
-            return None
+        return result['status']
 
     def new_result(self):
         """Return a JSON-encodable object
@@ -304,12 +301,18 @@ class TheanoBanditAlgo(BanditAlgo):
                 new_ids.append(ii + self._next_id)
                 self.db_idxs[i].append(ii + self._next_id)
             self.db_vals[i].extend(iv.vals)
-        self._next_id = numpy.max(new_ids) + 1
+        if new_ids:
+            assert numpy.max(new_ids) >= self._next_id
+            self._next_id = numpy.max(new_ids) + 1
         new_ids = list(sorted(set(new_ids)))
         return new_ids
 
     def suggest(self, X_list, Y_list, Y_status, N):
         assert len(X_list) == len(Y_list) == len(Y_status)
+
+        for status in Y_status:
+            if status not in STATUS_STRINGS:
+                raise ValueError('un-recognized status', status)
 
         positions = {}
         ivs = {}
@@ -323,7 +326,22 @@ class TheanoBanditAlgo(BanditAlgo):
                 for i in positions[status]]
             logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
                     % (len(ys[status]), status))
+            if 'ok' == status:
+                for y in ys[status]:
+                    try:
+                        float(y)
+                    except TypeError:
+                        raise TypeError('invalid loss for status "ok": %s'
+                                % y)
+                    if float(y) != float(y):
+                        raise ValueError('invalid loss for status "ok":  %s'
+                                % y)
 
+        assert not numpy.any(
+                numpy.isnan(
+                    numpy.array(ys['ok'], dtype='float')))
+
+        # this is an assert because we validated Y_status above
         assert sum(len(l) for l in positions.values()) == len(Y_status)
 
         ivl = self.theano_suggest(ivs, ys, N)

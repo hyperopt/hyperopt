@@ -632,9 +632,14 @@ class MongoExperiment(base.Experiment):
 
         while n_queued < N:
             while self.queue_len() < self.min_queue_len:
+                Ys = self.Ys()
+                Ys_status = self.Ys_status()
+                t0 = time.time()
                 suggestions = algo.suggest(
-                        self.trials, self.Ys(), self.Ys_status(), 1)
-                logger.info('algo suggested trial: %s' % str(suggestions[0]))
+                        self.trials, Ys, Ys_status, 1)
+                t1 = time.time()
+                logger.info('algo suggested trial: %s (in %.2f seconds)'
+                        % (str(suggestions[0]), t1 - t0))
                 new_suggestions = []
                 for spec in suggestions:
                     spec_query = self.mongo_handle.jobs.find(dict(spec=spec))
@@ -1040,6 +1045,10 @@ def main_show():
 
     if cmd == 'history':
         import plotting
+        import matplotlib.pyplot as plt
+        plt.scatter(range(len(self.results)), 
+                [1 - r.get('best_epoch_test', .5) for r in self.results],
+                c='g')
         return plotting.main_plot_history(self)
     else:
         logger.error("Invalid cmd %s" % cmd)

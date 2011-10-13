@@ -33,11 +33,11 @@ def main_plot_history(self):
         have_losstarget = True
     except AttributeError:
         loss_target = numpy.min(Ys)
-        have_losstarget = False
+        have_losstarget = True
     if have_losstarget:
         plt.axhline(loss_target)
-        ymin = min(numpy.min(Ys), self.bandit.loss_target)
-        ymax = max(numpy.max(Ys), self.bandit.loss_target)
+        ymin = min(numpy.min(Ys), loss_target)
+        ymax = max(numpy.max(Ys), loss_target)
         yrange = ymax - ymin
         ymean = (ymax + ymin) / 2.0
         plt.ylim(

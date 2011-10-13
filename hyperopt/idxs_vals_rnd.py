@@ -3,6 +3,7 @@ Idxs-Vals reprepresentation of random samples
 
 XXX: What is Idxs-Vals representation?
 """
+import copy
 import sys
 
 import numpy
@@ -40,6 +41,9 @@ class IdxsVals(object):
         """
         pos = find(self.idxs, elements)
         return IdxsVals(self.idxs[pos], self.vals[pos])
+
+    def copy(self):
+        return self.__class__(copy.copy(self.idxs), copy.copy(self.vals))
 
 
 class IdxsValsList(list):
@@ -100,6 +104,45 @@ class IdxsValsList(list):
             raise ValueError('expected args of form'
                     ' idxs0, vals0, idxs1, vals1, ...')
         return cls.fromlists(args[::2], args[1::2])
+
+
+    def copy(self):
+        return self.__class__([iv.copy() for iv in self])
+
+    def stack(self, other):
+        """
+        Insert & append all the elements of other into self.
+
+        Return a dictionary mapping other idx -> self idx.
+        """
+        if len(self) != len(other):
+            raise ValueError('other is not compatible with self')
+
+        base_idx = max(max(idxs) for idxs in self.idxslist()) + 1
+
+        # build the mapping from other idx -> self idx
+        rval = {}
+        for idxs in other.idxslist():
+            for ii in idxs:
+                rval.setdefault(ii, base_idx + len(rval))
+
+        # append the other's elements to self
+        assert len(self) == len(other)
+        for self_iv, other_iv in zip(self, other):
+            self_iv.idxs.extend([rval[ii] for ii in other_iv.idxs])
+            self_iv.vals.extend(other_iv.vals)
+
+        return rval
+
+    def nnz(self):
+        return len(self.idxset())
+
+    def idxset(self):
+        """Return the set of active index positions"""
+        rval = set()
+        for idxs in self.idxslist():
+            rval.update(idxs)
+        return rval
 
 
 class TreeEstimator(object):
@@ -283,11 +326,9 @@ class AdaptiveParzen(theano.Op):
             mus = numpy.asarray([prior_mu])
             sigma = numpy.asarray([prior_sigma])
         elif len(mus) == 1:
-            mus = numpy.asarray([prior_mu])
-            sigma = numpy.asarray([prior_sigma])
+            mus = numpy.asarray([prior_mu] + [mus[0]])
+            sigma = numpy.asarray([prior_sigma, prior_sigma * .5])
         elif len(mus) >= 2:
-            low = prior_mu - 2 * prior_sigma
-            high = prior_mu + 2 * prior_sigma
             order = numpy.argsort(mus)
             mus = mus[order]
             sigma = numpy.zeros_like(mus)
@@ -301,26 +342,29 @@ class AdaptiveParzen(theano.Op):
                 lsigma = mus[1] - mus[0]
                 usigma = mus[-1] - mus[-2]
 
-            sigma[0] = max(mus[0]-low, lsigma)
-            sigma[-1] = max(high - mus[-1], usigma)
+            sigma[0] = lsigma
+            sigma[-1] = usigma
 
+            # XXX: is sorting them necessary anymore?
             # un-sort the mus and sigma
             mus[order] = mus.copy()
             sigma[order] = sigma.copy()
 
-            #print mus, sigma
             if not numpy.all(mus_orig == mus):
                 print 'orig', mus_orig
                 print 'mus', mus
-
-
             assert numpy.all(mus_orig == mus)
 
+            # put the prior back in
+            mus = numpy.asarray([prior_mu] + list(mus))
+            sigma = numpy.asarray([prior_sigma] + list(sigma))
+
         maxsigma = prior_sigma
-        minsigma = 3.0 * prior_sigma / len(mus)   # XXX: magic formula
+        minsigma = prior_sigma / float(len(mus))   # XXX: magic formula
 
         sigma = numpy.clip(sigma, minsigma, maxsigma)
 
+        # XXX: call asarray with dtype above to avoid re-copy here
         outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
         outstorage[1][0] = mus.astype(node.outputs[1].dtype)
         outstorage[2][0] = sigma.astype(node.outputs[2].dtype)
