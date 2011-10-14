@@ -922,6 +922,12 @@ def main_search():
 
     try:
         if options.clear_existing:
+            print >> sys.stdout, "Are you sure you want to delete",
+            print >> sys.stdout, "all jobs with exp_key: '%s' ?",
+            print >> sys.stdout, str(exp_key)
+            print >> sys.stdout, '(y/n)'
+            if input() != 'y':
+                return 1
             # delete any saved driver
             for name in md.attachment_names(driver):
                 md.delete_attachment(driver, name)
@@ -1046,9 +1052,9 @@ def main_show():
     if cmd == 'history':
         import plotting
         import matplotlib.pyplot as plt
-        plt.scatter(range(len(self.results)), 
-                [1 - r.get('best_epoch_test', .5) for r in self.results],
-                c='g')
+        yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
+            for y, r in zip(self.Ys(), self.results) if y is not None])
+        plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
     else:
         logger.error("Invalid cmd %s" % cmd)

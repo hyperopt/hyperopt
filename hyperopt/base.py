@@ -71,6 +71,7 @@ class Ctrl(object):
     def checkpoint(self, r=None):
         pass
 
+
 class Bandit(object):
     """Specification of bandit problem.
 

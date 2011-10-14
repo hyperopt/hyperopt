@@ -374,8 +374,7 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
     """
     XXX
     """
-    # pseudocount is prior_strength / #choices
-    categorical_prior_strength = 2.0
+    categorical_prior_strength = 1.0
 
     def s_posterior_helper(self, prior, obs, s_rng):
         """
@@ -444,7 +443,10 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
         elif dist_name == 'categorical':
             if obs.vals.ndim == 1:
                 prior_strength = self.categorical_prior_strength
-                prior_counts = prior.vals.owner.inputs[1]  #XXX: name this?
+                p = prior.vals.owner.inputs[1]
+                if p.ndim != 1:
+                    raise TypeError()
+                prior_counts = p * p.shape[0]
                 pseudocounts = tensor.inc_subtensor(
                         (prior_strength * prior_counts)[obs.vals],
                         1)
