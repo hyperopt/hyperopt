@@ -555,12 +555,11 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        # don't call base Experiment because it tries to set trials = []
-        # base.Experiment.__init__(self, bandit, bandit_algo)
-        self.bandit_json = bandit_json
-        self.bandit = utils.json_call(bandit_json)
-        self.bandit_algo = utils.json_call(bandit_algo_json)
+        base.Experiment.__init__(self,
+                bandit=utils.json_call(bandit_json),
+                bandit_algo=utils.json_call(bandit_algo_json))
         self.bandit_algo.set_bandit(self.bandit)
+        self.bandit_json = bandit_json
         self.workdir = workdir
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
@@ -584,21 +583,20 @@ class MongoExperiment(base.Experiment):
         del rval['mongo_handle']
         return rval
 
-    def __get_trials(self):
-        query = {'exp_key': self.exp_key}
-        all_jobs = list(self.mongo_handle.jobs.find(query))
-        id_jobs = [(j['_id'], j) for j in all_jobs]
-        id_jobs.sort()
-        return [id_job[1]['spec'] for id_job in id_jobs]
-    trials = property(__get_trials)
+    def __setstate__(self, dct):
+        self.__dict__.update(dct)
+        if 'trials' not in dct:
+            assert 'results' not in dct
+            self.trials = []
+            self.results = []
 
-    def __get_results(self):
+    def refresh_trials_results(self):
         query = {'exp_key': self.exp_key}
         all_jobs = list(self.mongo_handle.jobs.find(query))
         id_jobs = [(j['_id'], j) for j in all_jobs]
         id_jobs.sort()
-        return [id_job[1]['result'] for id_job in id_jobs]
-    results = property(__get_results)
+        self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
+        self.results[:] = [j['result'] for (_id, j) in id_jobs]
 
     def queue_extend(self, trial_specs):
         rval = []
@@ -632,6 +630,7 @@ class MongoExperiment(base.Experiment):
 
         while n_queued < N:
             while self.queue_len() < self.min_queue_len:
+                self.refresh_trials_results()
                 Ys = self.Ys()
                 Ys_status = self.Ys_status()
                 t0 = time.time()
@@ -1052,6 +1051,7 @@ def main_show():
     if cmd == 'history':
         import plotting
         import matplotlib.pyplot as plt
+        self.refresh_trials_results()
         yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
             for y, r in zip(self.Ys(), self.results) if y is not None])
         plt.scatter(range(len(yvals)), yvals, c=colors)
