@@ -166,13 +166,13 @@ class TheanoBanditAlgo(base.BanditAlgo):
         assert len(X_list) == len(Y_list) == len(Y_status)
 
         for status in Y_status:
-            if status not in STATUS_STRINGS:
+            if status not in base.STATUS_STRINGS:
                 raise ValueError('un-recognized status', status)
 
         positions = {}
         ivs = {}
         ys = {}
-        for status in STATUS_STRINGS:
+        for status in base.STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
             ivs[status] = self.recall([X_list[i]['TBA_id']
@@ -219,7 +219,7 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         # HACK!
         # tuck each suggested document into a dictionary with a TBA_id field
-        rval = [SON([('TBA_id', int(rid)), ('doc', r)])
+        rval = [base.SON([('TBA_id', int(rid)), ('doc', r)])
             for rid, r in zip(ids, rval)]
         return rval
 
