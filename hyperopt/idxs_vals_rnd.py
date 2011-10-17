@@ -360,7 +360,9 @@ class AdaptiveParzen(theano.Op):
             sigma = numpy.asarray([prior_sigma] + list(sigma))
 
         maxsigma = prior_sigma
-        minsigma = prior_sigma / float(len(mus))   # XXX: magic formula
+        minsigma = prior_sigma / numpy.sqrt(len(mus))   # XXX: magic formula
+
+        #print 'maxsigma, minsigma', maxsigma, minsigma
 
         sigma = numpy.clip(sigma, minsigma, maxsigma)
 
@@ -446,7 +448,7 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
                 p = prior.vals.owner.inputs[1]
                 if p.ndim != 1:
                     raise TypeError()
-                prior_counts = p * p.shape[0]
+                prior_counts = p * p.shape[0] * tensor.sqrt(obs.vals.shape[0])
                 pseudocounts = tensor.inc_subtensor(
                         (prior_strength * prior_counts)[obs.vals],
                         1)
