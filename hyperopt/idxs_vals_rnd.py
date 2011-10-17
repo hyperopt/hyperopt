@@ -366,8 +366,11 @@ class AdaptiveParzen(theano.Op):
 
         sigma = numpy.clip(sigma, minsigma, maxsigma)
 
+        weights = numpy.ones(len(mus), dtype=node.outputs[0].dtype)
+        weights[0] = numpy.sqrt(1 + len(mus))
+
         # XXX: call asarray with dtype above to avoid re-copy here
-        outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
+        outstorage[0][0] = weights / weights.sum()
         outstorage[1][0] = mus.astype(node.outputs[1].dtype)
         outstorage[2][0] = sigma.astype(node.outputs[2].dtype)
 
