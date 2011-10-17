@@ -18,6 +18,9 @@ import numpy
 import ht_dist2
 
 def main_plot_history(self):
+    """
+    self - experiment
+    """
     # self is an Experiment
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs = self.trials
@@ -29,11 +32,11 @@ def main_plot_history(self):
     plt.xlabel('time')
     plt.ylabel('loss')
     try:
-        loss_target = self.bandit.loss_target
+        loss_target = self.bandit.loss_target()
         have_losstarget = True
-    except AttributeError:
+    except NotImplementedError:
         loss_target = numpy.min(Ys)
-        have_losstarget = True
+        have_losstarget = False
     if have_losstarget:
         plt.axhline(loss_target)
         ymin = min(numpy.min(Ys), loss_target)
@@ -44,6 +47,8 @@ def main_plot_history(self):
                 ymean - 0.53 * yrange,
                 ymean + 0.53 * yrange,
                 )
+    if 1:
+        plt.axhline(self.average_best_error(), c='g')
     plt.title('bandit: %s algo: %s' % (
         self.bandit.short_str(),
         self.bandit_algo.short_str()))

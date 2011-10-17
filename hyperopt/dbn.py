@@ -562,7 +562,7 @@ class DBN_Base(Bandit):
         return rval
 
     @classmethod
-    def loss(cls, result):
+    def loss(cls, result, argd=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -572,6 +572,18 @@ class DBN_Base(Bandit):
                 return float(result['loss'])
         except KeyError, TypeError:
             return None
+
+    @classmethod
+    def loss_variance(cls, result, argd=None):
+        dataset = json_call(argd['dataset_name'])
+        n_valid = dataset.descr['n_valid']
+        p = cls.loss(result, argd)
+        return p * (1.0 - p) / (n_valid - 1)
+
+
+    @classmethod
+    def true_loss(cls, result, argd=None):
+        return 1 - result.get('best_epoch_test', None)
 
     @classmethod
     def status(cls, result):

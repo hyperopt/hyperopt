@@ -105,7 +105,7 @@ class Bandit(object):
         raise NotImplementedError('override me')
 
     @classmethod
-    def loss(cls, result):
+    def loss(cls, result, argd=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -113,11 +113,26 @@ class Bandit(object):
         except KeyError:
             return None
 
-    # TODO: loss variance
+    @classmethod
+    def loss_variance(cls, result, argd=None):
+        """Return the variance in the estimate of the loss"""
+        return 0
 
-    # OPTIONAL BUT OFTEN MEANINGFUL
-    # TODO: test set error
-    # TODO: test set error variance
+    @classmethod
+    def true_loss(cls, result, argd=None):
+        """Return a true loss, in the case that the `loss` is a surrogate"""
+        return cls.loss(result, argd=argd)
+
+    @classmethod
+    def true_loss_variance(cls, result, argd=None):
+        """Return the variance in  true loss,
+        in the case that the `loss` is a surrogate.
+        """
+        return 0
+
+    @classmethod
+    def loss_target(cls):
+        raise NotImplementedError('override-me')
 
     @classmethod
     def status(cls, result):
@@ -420,3 +435,52 @@ class Experiment(object):
 
     def Ys_status(self):
         return map(self.bandit.status, self.results)
+
+    def average_best_error(self):
+        """Return the average best error of the experiment
+
+        Average best error is defined as the average of bandit.true_loss,
+        weighted by the probability that the corresponding bandit.loss is best.
+
+        For bandits with loss measurement variance of 0, this function simply
+        returns the true_loss corresponding to the result with the lowest loss.
+        """
+        def doc(s):
+            if 'TBA_id' in s:
+                return s['doc']
+            else:
+                return s
+        def fmap(f):
+            rval = numpy.asarray([f(r, doc(s))
+                    for (r, s) in zip(self.results, self.trials)
+                    if r['status'] == 'ok' and self.bandit.loss(r, s) is not None
+                    ]).astype('float')
+            if not numpy.all(numpy.isfinite(rval)):
+                raise ValueError()
+            return rval
+        loss = fmap(self.bandit.loss)
+        loss_v = fmap(self.bandit.loss_variance)
+        if self.bandit.true_loss is not Bandit.true_loss:
+            true_loss = fmap(self.bandit.true_loss)
+            loss3 = zip(loss, loss_v, true_loss)
+        else:
+            loss3 = zip(loss, loss_v, loss)
+        loss3.sort()
+        loss3 = numpy.asarray(loss3)
+        if numpy.all(loss3[:, 1] == 0):
+            best_idx = numpy.argmin(loss3[:, 0])
+            return loss3[best_idx, 2]
+        else:
+            cutoff = 0
+            sigma = numpy.sqrt(loss3[0][1])
+            while (cutoff < len(loss3)
+                    and loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
+                cutoff += 1
+            pmin = utils.pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
+            #print pmin
+            #print loss3[:cutoff, 0]
+            #print loss3[:cutoff, 1]
+            #print loss3[:cutoff, 2]
+            avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
+            return avg_true_loss
+
