@@ -324,6 +324,7 @@ def train_rbm(s_rng, s_idx, s_batchsize, s_features, W, vbias, hbias, n_in,
     else:
         return dict(final_recon_l1=float('nan'))
 
+_dataset_cache = {}
 
 class DBN_Base(Bandit):
     def dryrun_argd(self, *args, **kwargs):
@@ -575,7 +576,10 @@ class DBN_Base(Bandit):
 
     @classmethod
     def loss_variance(cls, result, argd=None):
-        dataset = json_call(argd['dataset_name'])
+        if argd['dataset_name'] not in _dataset_cache:
+            _dataset_cache[argd['dataset_name']] = json_call(
+                argd['dataset_name'])
+        dataset = _dataset_cache[argd['dataset_name']]
         n_valid = dataset.descr['n_valid']
         p = cls.loss(result, argd)
         return p * (1.0 - p) / (n_valid - 1)
