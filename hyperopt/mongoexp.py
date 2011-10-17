@@ -1074,6 +1074,9 @@ def main_show():
     elif 'dump_pickle' == cmd:
         self.refresh_trials_results()
         cPickle.dump(self, sys.stdout)
+    elif 'vars' == cmd:
+        import plotting
+        return plotting.main_plot_vars(self)
     else:
         logger.error("Invalid cmd %s" % cmd)
         parser.print_help()
