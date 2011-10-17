@@ -55,6 +55,110 @@ def main_plot_history(self):
     plt.show()
 
 
+def main_plot_vars(self):
+    import montetheano.rstreams
+    # this requires a TheanoBanditAlgo, which has the sample history recorded as
+    # idxs and vals
+    flat_template = self.bandit.template.flatten()
+    flat_names = [n[1:] for n in self.bandit.template.flatten_names(prefix="")]
+
+
+    TBA_ids = set()
+    for db_idx in self.bandit_algo.db_idxs:
+        TBA_ids.update(db_idx)
+    trial_TBA_ids = set([t['TBA_id'] for t in self.trials])
+    print 'Skipping %i jobs not in the official trials:' % len(
+            [t for t in TBA_ids if t not in trial_TBA_ids])
+    print [t for t in TBA_ids if t not in trial_TBA_ids]
+
+    # at which point in `trials` was a given TBA_id inserted?
+    TBA_id_timestep = dict([(t['TBA_id'], i) for i, t in enumerate(self.trials)])
+
+    results_by_TBA_id = dict([
+        (t['TBA_id'], self.bandit.loss(r, argd=t))
+        for (t, r) in zip(self.trials, self.results)
+        ])
+
+    loss_min = min([y for y in self.Ys() if y is not None])
+    loss_max = max([y for y in self.Ys() if y is not None])
+
+    def color_fn(lossval):
+        if lossval is None:
+            return (1, 1, 1)
+        else:
+            t = 4 * (lossval - loss_min) / (loss_max - loss_min + .0001)
+            if t < 1:
+                return t, 0, 0
+            if t < 2:
+                return 2-t, t-1, 0
+            if t < 3:
+                return 0, 3-t, t-2
+            return 0, 0, 4-t
+
+    C = 5
+    R = int(numpy.ceil(len(self.bandit_algo.s_vals) / float(C)))
+
+    for ii, (s_val, db_idx, db_val, template_pos) in enumerate(zip(
+            self.bandit_algo.s_vals,
+            self.bandit_algo.db_idxs,
+            self.bandit_algo.db_vals,
+            self.bandit_algo.all_s_locs)):
+
+        plt.subplot(R, C, ii + 1)
+
+        # hide x ticks
+        ticks_num, ticks_txt = plt.xticks()
+        plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
+
+        try:
+            dist_name = montetheano.rstreams.rv_dist_name(s_val)
+        except:
+            print >> sys.stderr, 'problem with', s_val
+            raise
+        if dist_name in ('lognormal', 'quantized_lognormal'):
+            if 0:
+                print '-----------'
+                print flat_names[template_pos]
+                print flat_template[template_pos]
+                print s_val
+                print db_idx
+                print db_val
+
+            results_ii = [results_by_TBA_id[i] for i in db_idx
+                    if i in trial_TBA_ids]
+            coords_ii = numpy.log([v for i, v in zip(db_idx, db_val)
+                    if i in trial_TBA_ids])
+            time_ii = [TBA_id_timestep[i] for i in db_idx
+                    if i in trial_TBA_ids]
+
+            plt.title(flat_names[template_pos], fontsize=10)
+            plt.scatter(time_ii, coords_ii, c=map(color_fn, results_ii))
+        elif dist_name == 'categorical':
+            print '-----------'
+            print flat_names[template_pos]
+            print flat_template[template_pos]
+            print s_val
+            print db_idx
+            print db_val
+
+            results_ii = [results_by_TBA_id[i] for i in db_idx
+                    if i in trial_TBA_ids]
+            coords_ii = [v for i, v in zip(db_idx, db_val)
+                    if i in trial_TBA_ids]
+            time_ii = [TBA_id_timestep[i] for i in db_idx
+                    if i in trial_TBA_ids]
+            plt.title(flat_names[template_pos], fontsize=10)
+            plt.scatter(time_ii, coords_ii, c=map(color_fn, results_ii))
+
+        else:
+            print '-----------'
+            print flat_names[template_pos]
+            print flat_template[template_pos]
+            print s_val
+            print db_idx
+            print db_val
+    plt.show()
+
 if __name__ == '__main__':
     cmd = sys.argv[1]
     save_loc = sys.argv[2]
@@ -167,28 +271,6 @@ if 0:
 
 
 if 0:
-    def pbest_sampled(vscores, n_valid, n_samples=100,rng=None):
-        """
-        Return a vector with the probability that each model is the best.
-
-        vscores = validation mean for each model (Bernoulli means)
-        n_valid = the number of points used to compute the scores
-
-        This function works by sampling n_samples from every (gaussian) mean distribution, 
-        and counting up the number of times each model's sample is the best.
-
-        """
-        if rng is None:
-            rng = numpy.random.RandomState(232342)
-
-        mean = numpy.asarray(vscores)
-        var = mean * (1.0 - mean) / (n_valid-1)
-        samples = rng.randn(n_samples, len(mean)) * numpy.sqrt(var) + mean
-        winners = (samples.T == samples.max(axis=1)).T
-        wincounts = winners.sum(axis=0)
-        assert wincounts.shape == mean.shape
-        return wincounts.astype('float64') / wincounts.sum()
-
     def rexp_plot_acc(scores, n_valid, n_test, pbest_n_samples=100, rng=None):
         """
         Uses the current pyplot figure to show efficiency of random experiment.
