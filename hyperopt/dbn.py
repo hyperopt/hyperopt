@@ -588,3 +588,8 @@ def DBN_Convex():
     return DBN_Base(
             dbn_template(
                 dataset_name='skdata.larochelle_etal_2007.Convex'))
+
+
+def DBN_MRBI():
+    ds =  'skdata.larochelle_etal_2007.MNIST_RotatedBackgroundImages'
+    return DBN_Base(dbn_template(dataset_name=ds))
