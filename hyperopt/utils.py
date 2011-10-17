@@ -77,4 +77,3 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     assert wincounts.shape == mean.shape
     return wincounts.astype('float64') / wincounts.sum()
 
-

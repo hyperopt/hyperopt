@@ -152,6 +152,11 @@ import utils
 
 logger = logging.getLogger(__name__)
 
+STATE_NEW = 0
+STATE_RUNNING = 1
+STATE_DONE = 2
+STATE_ERROR = 3
+
 # Proxy that could be factored out
 # if we also want to use CouchDB
 # and JobmanDB classes with this interface
@@ -316,27 +321,27 @@ class MongoJobs(object):
             return 0
 
     def jobs_complete(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=2))
+        c = self.jobs.find(spec=dict(state=STATE_DONE))
         return c if cursor else list(c)
     def jobs_error(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=3))
+        c = self.jobs.find(spec=dict(state=STATE_ERROR))
         return c if cursor else list(c)
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=1)))
+        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=1)))
+        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
     def jobs_queued(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=0))
+        c = self.jobs.find(spec=dict(state=STATE_NEW))
         return c if cursor else list(c)
 
     def insert(self, job, safe=True):
@@ -369,7 +374,7 @@ class MongoJobs(object):
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
     def delete_all_error_jobs(self, safe=True):
-        return self.delete_all(cond={'state':3}, safe=safe)
+        return self.delete_all(cond={'state': STATE_ERROR}, safe=safe)
 
     def reserve(self, host_id, cond=None):
         now = coarse_utcnow()
@@ -384,13 +389,13 @@ class MongoJobs(object):
         if cond['owner'] is not None:
             raise ValueError('refusing to reserve owned job')
         try:
-            self.jobs.update( 
-                cond, 
-                {'$set': 
-                    {'owner':host_id,
-                     'book_time':now,
-                     'state':1,
-                     'refresh_time':now,
+            self.jobs.update(
+                cond,
+                {'$set':
+                    {'owner': host_id,
+                     'book_time': now,
+                     'state': STATE_RUNNING,
+                     'refresh_time': now,
                      }
                  },
                 safe=True,
@@ -593,7 +598,10 @@ class MongoExperiment(base.Experiment):
     def refresh_trials_results(self):
         query = {'exp_key': self.exp_key}
         all_jobs = list(self.mongo_handle.jobs.find(query))
-        id_jobs = [(j['_id'], j) for j in all_jobs]
+        logger.info('skipping %i error jobs'
+                % len([j for j in all_jobs if j['state'] == STATE_ERROR]))
+        id_jobs = [(j['_id'], j)
+            for j in all_jobs if j['state'] != STATE_ERROR]
         id_jobs.sort()
         self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
         self.results[:] = [j['result'] for (_id, j) in id_jobs]
@@ -604,7 +612,7 @@ class MongoExperiment(base.Experiment):
         cmd = ('bandit_json evaluate', self.bandit_json)
         for spec in trial_specs:
             to_insert = dict(
-                    state=0,
+                    state=STATE_NEW,
                     exp_key=self.exp_key,
                     cmd=cmd,
                     owner=None,
@@ -617,7 +625,7 @@ class MongoExperiment(base.Experiment):
 
     def queue_len(self):
         # TODO: consider searching by SON rather than dict
-        query = dict(state=0, exp_key=self.exp_key)
+        query = dict(state=STATE_NEW, exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
         logger.debug('Queue len: %i' % rval)
         return rval
@@ -772,6 +780,7 @@ def main_worker():
         logger.info("exiting with N=%i after %i consecutive exceptions" %(
             N, cons_errs))
     elif N == 1:
+        # XXX: the name of the jobs collection is a parameter elsewhere
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
         job = None
@@ -830,12 +839,12 @@ def main_worker():
             # traceback properly
             ctrl.checkpoint()
             mj.update(job,
-                    {'state': 3,
+                    {'state': STATE_ERROR,
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
         ctrl.checkpoint(result)
-        mj.update(job, {'state': 2}, safe=True)
+        mj.update(job, {'state': STATE_DONE}, safe=True)
     else:
         parser.print_help()
         return -1
@@ -922,10 +931,14 @@ def main_search():
     try:
         if options.clear_existing:
             print >> sys.stdout, "Are you sure you want to delete",
-            print >> sys.stdout, "all jobs with exp_key: '%s' ?",
-            print >> sys.stdout, str(exp_key)
+            print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
+                    % (mj.jobs.find({'exp_key':exp_key}).count(),
+                        str(exp_key)))
             print >> sys.stdout, '(y/n)'
+            y, n = 'y', 'n'
             if input() != 'y':
+                print >> sys.stdout, "aborting"
+                del self
                 return 1
             # delete any saved driver
             for name in md.attachment_names(driver):
@@ -1048,7 +1061,7 @@ def main_show():
         parser.print_help()
         return -1
 
-    if cmd == 'history':
+    if 'history' == cmd:
         import plotting
         import matplotlib.pyplot as plt
         self.refresh_trials_results()
@@ -1056,6 +1069,11 @@ def main_show():
             for y, r in zip(self.Ys(), self.results) if y is not None])
         plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
+    elif 'dump' == cmd:
+        raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
+    elif 'dump_pickle' == cmd:
+        self.refresh_trials_results()
+        cPickle.dump(self, sys.stdout)
     else:
         logger.error("Invalid cmd %s" % cmd)
         parser.print_help()
