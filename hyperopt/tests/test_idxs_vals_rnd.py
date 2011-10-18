@@ -12,9 +12,9 @@ import hyperopt
 import hyperopt.bandits
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
 from hyperopt.experiments import SerialExperiment
-import idxs_vals_rnd
-from idxs_vals_rnd import IdxsValsList
-from idxs_vals_rnd import IndependentAdaptiveParzenEstimator
+from hyperopt import idxs_vals_rnd
+from hyperopt.idxs_vals_rnd import IdxsValsList
+from hyperopt.idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 
 from hyperopt.ht_dist2 import one_of, rSON2, uniform
 
