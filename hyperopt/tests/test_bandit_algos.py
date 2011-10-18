@@ -12,8 +12,8 @@ import hyperopt.bandits
 import hyperopt.dbn
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
 from hyperopt.experiments import SerialExperiment
-import idxs_vals_rnd
-from idxs_vals_rnd import IndependentAdaptiveParzenEstimator
+from hyperopt import idxs_vals_rnd
+from hyperopt.idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 
 def ops(fn, OpCls):
     if isinstance(fn, list):
@@ -104,9 +104,15 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
         plt.plot(self.experiment.Ys())
         plt.subplot(1,2,2)
         plt.hist(
-                [t['doc'] for t in self.experiment.trials],
+                [t['x'] for t in self.experiment.trials],
                 bins=20)
-        plt.show()
+
+        print self.experiment.Ys()
+        print 'MIN', min(self.experiment.Ys())
+        assert min(self.experiment.Ys()) < -1.85
+
+        if 0:
+            plt.show()
 
 
 class TestGM_TwoArms(unittest.TestCase): # Tests one_of
@@ -125,12 +131,7 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         Gpseudocounts = HL['Gsamples'][0].vals.owner.inputs[1]
         Bpseudocounts = HL['Bsamples'][0].vals.owner.inputs[1]
 
-        f = theano.function(
-            [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-                + HL['s_obs'].flatten(),
-            HL['Gsamples'].take(HL['keep_idxs']).flatten(),
-            allow_input_downcast=True,
-            )
+        f = self.experiment.bandit_algo._helper
         debug = theano.function(
             [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
                 + HL['s_obs'].flatten(),
@@ -157,7 +158,7 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
 
         import matplotlib.pyplot as plt
         plt.subplot(1,4,1)
-        Xs = [t['doc'] for t in self.experiment.trials]
+        Xs = [t['x'] for t in self.experiment.trials]
         Ys = self.experiment.Ys()
         plt.plot(Ys)
         plt.xlabel('time')
@@ -177,7 +178,12 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         plt.hist(Gyvals, bins=20)
         plt.hist(Byvals, bins=20)
 
-        plt.show()
+        print self.experiment.Ys()
+        print 'MIN', min(self.experiment.Ys())
+        assert min(self.experiment.Ys()) < -3.00
+
+        if 0:
+            plt.show()
 
 
 class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
@@ -245,13 +251,18 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     bins=20)
         else:
             plt.scatter(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.Ys()
+        print 'MIN', min(self.experiment.Ys())
+        assert min(self.experiment.Ys()) < 0.01
+
+        if 0:
+            plt.show()
 
 
 class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
@@ -272,13 +283,17 @@ class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     bins=20)
         else:
             plt.scatter(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.Ys()
+        print 'MIN', min(self.experiment.Ys())
+        assert min(self.experiment.Ys()) < .01
+        if 0:
+            plt.show()
 
 
 class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
@@ -335,9 +350,13 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
         plt.plot(self.experiment.Ys())
         plt.subplot(1,2,2)
         plt.scatter(
-                [t['doc']['x'] for t in self.experiment.trials],
+                [t['x'] for t in self.experiment.trials],
                 range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.Ys()
+        print 'MIN', min(self.experiment.Ys())
+        assert min(self.experiment.Ys()) < -1.75
+        if 0:
+            plt.show()
 
 
 class Dummy_DBN_Base(hyperopt.Bandit):
@@ -412,7 +431,7 @@ class TestGM_DummyDBN(unittest.TestCase):
             plt.plot(self.experiment.Ys())
             plt.subplot(1,2,2)
             plt.scatter(
-                    [t['doc']['x'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
             plt.show()
 
