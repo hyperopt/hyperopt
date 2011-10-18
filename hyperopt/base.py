@@ -188,10 +188,17 @@ class Experiment(object):
     def __init__(self, bandit, bandit_algo):
         self.bandit = bandit
         self.bandit_algo = bandit_algo
+        self.bandit_algo.set_bandit(self.bandit)
         self.trials = []
         self.results = []
 
     def set_bandit(self, bandit=None):
+        # XXX: consider deleting this method
+        #      It is called now in the constructor.
+        #      a) why would you want to do it separately?
+        #      b) caller can do it directly, no problem.
+        logger.warn('Experiment.set_bandit is deprecated')
+
         if bandit is None:
             self.bandit_algo.set_bandit(self.bandit)
         else:

@@ -13,7 +13,8 @@ def test_MongoExperiment_calls_suggest():
     class Dummy(MongoExperiment):
         min_queue_len = 10
         poll_interval_secs = 1
-        def __init__(self):
+        def __init__(self, b, a):
+            Experiment.__init__(self, b, a)
             self.queue = []
             self.results = []
             self.trials = []
@@ -31,11 +32,12 @@ def test_MongoExperiment_calls_suggest():
         def queue_len(self):
             return len(self.queue)
 
-    d = Dummy()
+    d = Dummy(TwoArms(), bandit_algos.Random())
     d.bandit = TwoArms()
-    d.bandit_algo = bandit_algos.Random()
-    d.bandit_algo.set_bandit(d.bandit)
 
     d.run(3)
+    d.refresh_trials_results()
 
-    print d.queue
+    assert len(d.queue) == 0
+    assert len(d.trials) == 3
+    assert len(d.results) == 3
