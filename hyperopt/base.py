@@ -21,9 +21,10 @@ The design is that there are three components fitting together in this project:
   Trial.
 
 - Result - a JSON-encodable document describing the results of a Trial.
-    'status' - a string describing what happened to this trial (see
-                STATUS_STRINGS)
-    'loss' - a scalar saying how bad this trial was.
+    'status' - a string describing what happened to this trial
+                (BanditAlgo-dependent, see e.g.
+                theano_bandit_algos.STATUS_STRINGS)
+    'loss' - a scalar saying how bad this trial was, or None if unknown / NA.
 
 The modules communicate with trials in nested dictionary form.
 TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
@@ -50,14 +51,6 @@ import utils
 import idxs_vals_rnd
 
 logger = logging.getLogger(__name__)
-
-STATUS_STRINGS = (
-    'new',        # computations have not started
-    'running',    # computations are in prog
-    'suspended',  # computations have been suspended, job is not finished
-    'ok',         # computations are finished, terminated normally
-    'fail')       # computations are finished, terminated with error
-                  #     - see result['status_fail'] for more info
 
 
 class Ctrl(object):
@@ -197,7 +190,7 @@ class Experiment(object):
         #      It is called now in the constructor.
         #      a) why would you want to do it separately?
         #      b) caller can do it directly, no problem.
-        logger.warn('Experiment.set_bandit is deprecated')
+        logger.warn('XXX Experiment.set_bandit is deprecated')
 
         if bandit is None:
             self.bandit_algo.set_bandit(self.bandit)
@@ -208,9 +201,11 @@ class Experiment(object):
         raise NotImplementedError('override-me')
 
     def Ys(self):
+        logger.warn('XXX Experiment.Ys is deprecated')
         return map(self.bandit.loss, self.results)
 
     def Ys_status(self):
+        logger.warn('XXX Experiment.Ys_status is deprecated')
         return map(self.bandit.status, self.results)
 
     def average_best_error(self):

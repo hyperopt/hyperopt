@@ -21,6 +21,15 @@ from idxs_vals_rnd import IdxsVals
 from idxs_vals_rnd import IdxsValsList
 
 
+STATUS_STRINGS = (
+    'new',        # computations have not started
+    'running',    # computations are in prog
+    'suspended',  # computations have been suspended, job is not finished
+    'ok',         # computations are finished, terminated normally
+    'fail')       # computations are finished, terminated with error
+                  #     - see result['status_fail'] for more info
+
+
 class TheanoBanditAlgo(base.BanditAlgo):
     """
     Base class for a BanditAlgorithm using the idxs,vals format for storing
@@ -39,8 +48,8 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
     Consequently to storing this extra info in self.db_idxs and self.db_vals, it
     is essential that instances of this class be pickled in order for them to
-    resume properly. It is not enough to pass a list of documents (X_list) to
-    the suggest method, for the algorithm to resume optimization.
+    resume properly. It is not enough to pass a list of documents to the suggest
+    method, for the algorithm to resume optimization.
 
     :type s_idxs:
         list of symbolic integer vectors
@@ -163,22 +172,24 @@ class TheanoBanditAlgo(base.BanditAlgo):
         new_ids = list(sorted(set(new_ids)))
         return new_ids
 
-    def suggest(self, X_list, Y_list, Y_status, N):
-        assert len(X_list) == len(Y_list) == len(Y_status)
+    def suggest(self, trials, results, N):
+        assert len(trials) == len(results)
+
+        Y_status = map(self.bandit.status, results)
 
         for status in Y_status:
-            if status not in base.STATUS_STRINGS:
+            if status not in STATUS_STRINGS:
                 raise ValueError('un-recognized status', status)
 
         positions = {}
         ivs = {}
         ys = {}
-        for status in base.STATUS_STRINGS:
+        for status in STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
-            ivs[status] = self.recall([X_list[i]['_config_id']
+            ivs[status] = self.recall([trials[i]['_config_id']
                 for i in positions[status]])
-            ys[status] = [Y_list[i]
+            ys[status] = [self.bandit.loss(results[i], config=trials[i])
                 for i in positions[status]]
             logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
                     % (len(ys[status]), status))
@@ -433,6 +444,7 @@ def AdaptiveParzenGM():
             good_estimator=GE,
             bad_estimator=BE)
     return rval
+
 
 class GP_BanditAlgo(TheanoBanditAlgo):
     def build_helpers(self, do_compile=True, mode=None):
