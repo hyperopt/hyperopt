@@ -178,7 +178,7 @@ class BanditAlgo(object):
     def set_bandit(self, bandit):
         self.bandit = bandit
 
-    def suggest(self, X_list, Y_list, Y_status, N):
+    def suggest(self, trials, results, N):
         raise NotImplementedError('override me')
 
 

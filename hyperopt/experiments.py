@@ -26,7 +26,7 @@ class SerialExperiment(base.Experiment):
         algo = self.bandit_algo
 
         for n in xrange(N):
-            trial = algo.suggest(self.trials, self.Ys(), self.Ys_status(), 1)[0]
+            trial = algo.suggest(self.trials, self.results, 1)[0]
             result = bandit.evaluate(trial, base.Ctrl())
             logger.debug('trial: %s' % str(trial))
             logger.debug('result: %s' % str(result))
