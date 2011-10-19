@@ -36,6 +36,9 @@ class IdxsVals(object):
         self.idxs = i  # symbolic integer vector
         self.vals = v  # symbolic ndarray with same length as self.idxs
 
+    def __eq__(self, other):
+        return self.idxs == other.idxs and self.vals == other.vals
+
     def take(self, elements):
         """Advanced sparse vector indexing by int-list `elements`
         """
@@ -55,6 +58,10 @@ class IdxsValsList(list):
     both cases, but many do.
 
     """
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(s == o for (s, o) in zip(self, other)))
+
     def idxslist(self):
         return [e.idxs for e in self]
 

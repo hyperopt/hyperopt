@@ -10,6 +10,15 @@ import base
 from idxs_vals_rnd import IdxsValsList
 
 
+STATUS_STRINGS = (
+    'new',        # computations have not started
+    'running',    # computations are in prog
+    'suspended',  # computations have been suspended, job is not finished
+    'ok',         # computations are finished, terminated normally
+    'fail')       # computations are finished, terminated with error
+                  #     - see result['status_fail'] for more info
+
+
 class TheanoBanditAlgo(base.BanditAlgo):
     """
     Base class for a BanditAlgorithm using the idxs,vals format for storing
@@ -22,13 +31,14 @@ class TheanoBanditAlgo(base.BanditAlgo):
     points than they return via self.suggest().
     That information is stored in the attributes self.db_idxs and self.db_vals.
     When the suggest() method receives a list documents that should be used to
-    condition the suggestion, this class retrieves each document's 'TBA_id' key,
-    and uses that key to look up information in self.db_idxs and self.db_vals.
+    condition the suggestion, this class retrieves each document's '_config_id'
+    key, and uses that key to look up information in self.db_idxs and
+    self.db_vals.
 
     Consequently to storing this extra info in self.db_idxs and self.db_vals, it
     is essential that instances of this class be pickled in order for them to
-    resume properly. It is not enough to pass a list of documents (X_list) to
-    the suggest method, for the algorithm to resume optimization.
+    resume properly. It is not enough to pass a list of documents to the suggest
+    method, for the algorithm to resume optimization.
 
     :type s_idxs:
         list of symbolic integer vectors
@@ -64,17 +74,10 @@ class TheanoBanditAlgo(base.BanditAlgo):
         values for corresponding elements of db_idxs
 
     """
-    def __init__(self):
+    def __init__(self, bandit):
+        base.BanditAlgo.__init__(self, bandit)
         self._next_id = 0
-
-    def next_id(self):
-        rval = self._next_id
-        self._next_id += 1
-        return rval
-
-    def set_bandit(self, bandit):
         seed = self.seed
-        self.bandit = bandit
         all_s_idxs, all_s_vals, s_N = bandit.template.theano_sampler(seed)
         all_s_locs = [i for i, s in enumerate(all_s_idxs) if s is not None]
 
@@ -87,6 +90,11 @@ class TheanoBanditAlgo(base.BanditAlgo):
         self.s_vals = list(numpy.asarray(all_s_vals)[all_s_locs])
         self.db_idxs = [[] for s in self.s_idxs]
         self.db_vals = [[] for s in self.s_idxs]
+
+    def next_id(self):
+        rval = self._next_id
+        self._next_id += 1
+        return rval
 
     def recall(self, idlist):
         """Construct an IdxsValsList representation of the elements of idlist.
@@ -151,22 +159,24 @@ class TheanoBanditAlgo(base.BanditAlgo):
         new_ids = list(sorted(set(new_ids)))
         return new_ids
 
-    def suggest(self, X_list, Y_list, Y_status, N):
-        assert len(X_list) == len(Y_list) == len(Y_status)
+    def suggest(self, trials, results, N):
+        assert len(trials) == len(results)
+
+        Y_status = map(self.bandit.status, results)
 
         for status in Y_status:
-            if status not in base.STATUS_STRINGS:
+            if status not in STATUS_STRINGS:
                 raise ValueError('un-recognized status', status)
 
         positions = {}
         ivs = {}
         ys = {}
-        for status in base.STATUS_STRINGS:
+        for status in STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
-            ivs[status] = self.recall([X_list[i]['TBA_id']
+            ivs[status] = self.recall([trials[i]['_config_id']
                 for i in positions[status]])
-            ys[status] = [Y_list[i]
+            ys[status] = [self.bandit.loss(results[i], config=trials[i])
                 for i in positions[status]]
             logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
                     % (len(ys[status]), status))
@@ -206,10 +216,9 @@ class TheanoBanditAlgo(base.BanditAlgo):
                 list(all_r_vals))
         assert len(rval) == N
 
-        # HACK!
-        # tuck each suggested document into a dictionary with a TBA_id field
-        rval = [base.SON([('TBA_id', int(rid)), ('doc', r)])
-            for rid, r in zip(ids, rval)]
+        # mark each trial with a _config_id that connects it to self.db_idxs
+        for rid, r in zip(ids, rval):
+            r['_config_id'] = rid
         return rval
 
     def theano_suggest(self, X_IVLs, Ys, N):
@@ -244,8 +253,8 @@ class TheanoRandom(TheanoBanditAlgo):
     """Random search director, but testing the machinery that translates
     doctree configurations into sparse matrix configurations.
     """
-    def set_bandit(self, bandit):
-        TheanoBanditAlgo.set_bandit(self, bandit)
+    def __init__(self, bandit):
+        TheanoBanditAlgo.__init__(self, bandit)
         self._sampler = theano.function(
                 [self.s_N],
                 self.s_idxs + self.s_vals)

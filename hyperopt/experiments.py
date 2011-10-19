@@ -22,15 +22,12 @@ class SerialExperiment(base.Experiment):
     """
 
     def run(self, N):
-        bandit = self.bandit
         algo = self.bandit_algo
+        bandit = algo.bandit
 
         for n in xrange(N):
-            trial = algo.suggest(self.trials, self.Ys(), self.Ys_status(), 1)[0]
-            if 'TBA_id' in trial:
-                result = bandit.evaluate(trial['doc'], base.Ctrl())
-            else:
-                result = bandit.evaluate(trial, base.Ctrl())
+            trial = algo.suggest(self.trials, self.results, 1)[0]
+            result = bandit.evaluate(trial, base.Ctrl())
             logger.debug('trial: %s' % str(trial))
             logger.debug('result: %s' % str(result))
             self.trials.append(trial)
@@ -42,7 +39,7 @@ def main_search():
     parser = OptionParser(
             usage="%prog [options] [<bandit> <bandit_algo>]")
     parser.add_option('--load',
-            default='experiment.pkl',
+            default='',
             dest="load",
             metavar='FILE',
             help="unpickle experiment from here on startup")
@@ -77,9 +74,8 @@ def main_search():
         handle.close()
     except IOError:
         bandit = utils.json_call(bandit_json)
-        bandit_algo = utils.json_call(bandit_algo_json)
-        bandit_algo.set_bandit(bandit)
-        self = SerialExperiment(bandit, bandit_algo)
+        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        self = SerialExperiment(bandit_algo)
 
     try:
         self.run(options.steps)
