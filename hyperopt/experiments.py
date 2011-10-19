@@ -39,7 +39,7 @@ def main_search():
     parser = OptionParser(
             usage="%prog [options] [<bandit> <bandit_algo>]")
     parser.add_option('--load',
-            default='experiment.pkl',
+            default='',
             dest="load",
             metavar='FILE',
             help="unpickle experiment from here on startup")
