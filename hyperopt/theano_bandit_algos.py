@@ -33,8 +33,9 @@ class TheanoBanditAlgo(base.BanditAlgo):
     points than they return via self.suggest().
     That information is stored in the attributes self.db_idxs and self.db_vals.
     When the suggest() method receives a list documents that should be used to
-    condition the suggestion, this class retrieves each document's 'TBA_id' key,
-    and uses that key to look up information in self.db_idxs and self.db_vals.
+    condition the suggestion, this class retrieves each document's '_config_id'
+    key, and uses that key to look up information in self.db_idxs and
+    self.db_vals.
 
     Consequently to storing this extra info in self.db_idxs and self.db_vals, it
     is essential that instances of this class be pickled in order for them to
@@ -175,7 +176,7 @@ class TheanoBanditAlgo(base.BanditAlgo):
         for status in base.STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
-            ivs[status] = self.recall([X_list[i]['TBA_id']
+            ivs[status] = self.recall([X_list[i]['_config_id']
                 for i in positions[status]])
             ys[status] = [Y_list[i]
                 for i in positions[status]]
@@ -217,10 +218,9 @@ class TheanoBanditAlgo(base.BanditAlgo):
                 list(all_r_vals))
         assert len(rval) == N
 
-        # HACK!
-        # tuck each suggested document into a dictionary with a TBA_id field
-        rval = [base.SON([('TBA_id', int(rid)), ('doc', r)])
-            for rid, r in zip(ids, rval)]
+        # mark each trial with a _config_id that connects it to self.db_idxs
+        for rid, r in zip(ids, rval):
+            r['_config_id'] = rid
         return rval
 
     def theano_suggest(self, X_IVLs, Ys, N):
@@ -389,24 +389,33 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         x_all = X_IVLs['ok'].copy()
         y_all = list(Ys['ok'])
 
-        logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
-                % len(Ys['new']))
-        idmap = x_all.stack(X_IVLs['new'])
-        assert range(len(idmap)) == list(sorted(idmap.keys()))
-        y_all.extend([y_thresh + 1 for y in Ys['new']])
+        for pseudo_bad_status in 'new', 'running':
+            logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
+                    % len(Ys[pseudo_bad_status]))
+            idmap = x_all.stack(X_IVLs[pseudo_bad_status])
+            assert range(len(idmap)) == list(sorted(idmap.keys()))
+            y_all.extend([y_thresh + 1 for y in Ys[pseudo_bad_status]])
+
+        # assert that stack() isn't written badly
+        assert len(x_all) == len(X_IVLs['ok'])
 
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
 
         helper_rval = self._helper(self.n_EI_candidates, N,
             y_thresh, y_all, *x_all.flatten())
+        assert len(helper_rval) == 6 * len(x_all)
 
         keep_flat = helper_rval[:2 * len(x_all)]
         Gobs_flat = helper_rval[2 * len(x_all): 4 * len(x_all)]
         Bobs_flat = helper_rval[4 * len(x_all):]
+        assert len(keep_flat) == len(Gobs_flat) == len(Bobs_flat)
+
         Gobs = IdxsValsList.fromflattened(Gobs_flat)
         Bobs = IdxsValsList.fromflattened(Bobs_flat)
+
         # guard against book-keeping error
+        # ensure that all observations were counted as either good or bad
         gis = Gobs.idxset()
         bis = Bobs.idxset()
         xis = x_all.idxset()

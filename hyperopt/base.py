@@ -92,20 +92,20 @@ class Bandit(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def dryrun_argd(self):
+    def dryrun_config(self):
         """Return a point that could have been drawn from the template
         that is useful for small trial debugging.
         """
         raise NotImplementedError('override me')
 
     @classmethod
-    def evaluate(cls, argd, ctrl):
+    def evaluate(cls, config, ctrl):
         """Return a result document
         """
         raise NotImplementedError('override me')
 
     @classmethod
-    def loss(cls, result, argd=None):
+    def loss(cls, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -114,17 +114,17 @@ class Bandit(object):
             return None
 
     @classmethod
-    def loss_variance(cls, result, argd=None):
+    def loss_variance(cls, result, config=None):
         """Return the variance in the estimate of the loss"""
         return 0
 
     @classmethod
-    def true_loss(cls, result, argd=None):
+    def true_loss(cls, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
-        return cls.loss(result, argd=argd)
+        return cls.loss(result, config=config)
 
     @classmethod
-    def true_loss_variance(cls, result, argd=None):
+    def true_loss_variance(cls, result, config=None):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
@@ -150,8 +150,8 @@ class Bandit(object):
     def main_dryrun(cls):
         self = cls()
         ctrl = Ctrl()
-        argd = self.dryrun_argd()
-        self.evaluate(argd, ctrl)
+        config = self.dryrun_config()
+        self.evaluate(config, ctrl)
 
 
 class BanditAlgo(object):
@@ -215,13 +215,8 @@ class Experiment(object):
         For bandits with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
-        def doc(s):
-            if 'TBA_id' in s:
-                return s['doc']
-            else:
-                return s
         def fmap(f):
-            rval = numpy.asarray([f(r, doc(s))
+            rval = numpy.asarray([f(r, s)
                     for (r, s) in zip(self.results, self.trials)
                     if r['status'] == 'ok' and self.bandit.loss(r, s) is not None
                     ]).astype('float')

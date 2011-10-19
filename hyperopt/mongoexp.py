@@ -278,19 +278,19 @@ class MongoJobs(object):
     #
     # Collections:
     #
-    # db.jobs - structured {'argd', 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
+    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
     #                       'error', 'result'}
     #    This is the collection that the worker nodes write to
     #
     # db.gfs - file storage via gridFS for all collections
     #
-    def __init__(self, db, jobs, gfs, conn, tunnel, argd_name):
+    def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
         self.db = db
         self.jobs = jobs
         self.gfs = gfs
         self.conn=conn
         self.tunnel=tunnel
-        self.argd_name = argd_name
+        self.config_name = config_name
 
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
@@ -306,10 +306,10 @@ class MongoJobs(object):
         return cls(db, db[jobs_coll], gfs, connection, tunnel)
 
     @classmethod
-    def new_from_connection_str(cls, conn_str, gfs_coll='fs', argd_name='spec'):
+    def new_from_connection_str(cls, conn_str, gfs_coll='fs', config_name='spec'):
         connection, tunnel, db, coll = connection_from_string(conn_str)
         gfs = gridfs.GridFS(db, collection=gfs_coll)
-        return cls(db, coll, gfs, connection, tunnel, argd_name)
+        return cls(db, coll, gfs, connection, tunnel, config_name)
 
     def __iter__(self):
         return self.jobs.find()
@@ -569,7 +569,7 @@ class MongoExperiment(base.Experiment):
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
-                    argd_name='spec')
+                    config_name='spec')
         else:
             self.mongo_handle = mongo_handle
         config = self.mongo_handle.db.config.find_one()
@@ -829,11 +829,7 @@ def main_worker():
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
-            # this is a hack for compatibility with TheanoBanditAlgo (TBA)
-            if 'TBA_id' in spec:
-                result = worker_fn(spec['doc'], ctrl)
-            else:
-                result = worker_fn(spec, ctrl)
+            result = worker_fn(spec, ctrl)
         except Exception, e:
             #TODO: save exception to database, but if this fails, then at least raise the original
             # traceback properly

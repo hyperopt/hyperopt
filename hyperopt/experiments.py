@@ -27,10 +27,7 @@ class SerialExperiment(base.Experiment):
 
         for n in xrange(N):
             trial = algo.suggest(self.trials, self.Ys(), self.Ys_status(), 1)[0]
-            if 'TBA_id' in trial:
-                result = bandit.evaluate(trial['doc'], base.Ctrl())
-            else:
-                result = bandit.evaluate(trial, base.Ctrl())
+            result = bandit.evaluate(trial, base.Ctrl())
             logger.debug('trial: %s' % str(trial))
             logger.debug('result: %s' % str(result))
             self.trials.append(trial)
