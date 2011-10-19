@@ -31,9 +31,9 @@ TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
 """
 
 __authors__   = "James Bergstra"
-__copyright__ = "(c) 2010, Universite de Montreal"
+__copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "github.com/jaberg/hyperopt"
 
 import cPickle
 import logging

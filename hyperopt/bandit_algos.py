@@ -1,6 +1,13 @@
 """
-XXX
+Hyper-parameter optimization algorithms (BanditAlgo subclasses)
+
 """
+
+__authors__   = "James Bergstra"
+__copyright__ = "(c) 2011, James Bergstra"
+__license__   = "3-clause BSD License"
+__contact__   = "github.com/jaberg/hyperopt"
+
 import sys
 import logging
 logger = logging.getLogger(__name__)
@@ -21,20 +28,20 @@ class Random(base.BanditAlgo):
                 for n in range(N)]
 
 try:
-    # imports theano, montetheano
+    # imports theano
     from theano_bandit_algos import TheanoRandom
 except ImportError:
     pass
 
 try:
     # imports theano, montetheano
-    from theano_bandit_algos import AdaptiveParzenGM, GM_BanditAlgo
+    from theano_gm import AdaptiveParzenGM, GM_BanditAlgo
 except ImportError:
     pass
 
 try:
     # imports theano, montetheano
-    from theano_bandit_algos import GaussianGP, GP_BanditAlgo
+    from theano_gp import GaussianGP, GP_BanditAlgo
 except ImportError:
     pass
 
