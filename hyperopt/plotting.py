@@ -27,7 +27,7 @@ def main_plot_history(self):
 
     # XXX: show the un-finished or error trials
     Ys, colors = zip(*[(y, status_colors[s])
-        for y, s in zip(self.Ys(), self.Ys_status()) if y is not None])
+        for y, s in zip(self.losses(), self.statuses()) if y is not None])
     plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
@@ -79,8 +79,8 @@ def main_plot_vars(self):
         for (t, r) in zip(self.trials, self.results)
         ])
 
-    loss_min = min([y for y in self.Ys() if y is not None])
-    loss_max = max([y for y in self.Ys() if y is not None])
+    loss_min = min([y for y in self.losses() if y is not None])
+    loss_max = max([y for y in self.losses() if y is not None])
 
     def color_fn(lossval):
         if lossval is None:
@@ -571,7 +571,7 @@ if 0:
         scatter_by_conf = ScatterByConf(
                 self.bandit.template,
                 self.trials,
-                status = self.Ys_status(),
-                y = self.Ys())
+                status = self.statuses(),
+                y = self.losses())
         return scatter_by_conf.main_show_all(range(low_col, high_col))
 
