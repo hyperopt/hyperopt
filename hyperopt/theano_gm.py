@@ -42,8 +42,8 @@ class GM_BanditAlgo(TheanoBanditAlgo):
     gamma = 0.15         # fraction of trials to consider as good
                          # this is should in theory be bandit-dependent
 
-    def __init__(self, good_estimator, bad_estimator):
-        TheanoBanditAlgo.__init__(self)
+    def __init__(self, bandit, good_estimator, bad_estimator):
+        TheanoBanditAlgo.__init__(self, bandit)
         self.good_estimator = good_estimator
         self.bad_estimator = bad_estimator
 
@@ -62,9 +62,6 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         for name in '_helper', 'helper_locals', '_prior_sampler':
             if hasattr(self, name):
                 delattr(self, name)
-
-    def set_bandit(self, bandit):
-        TheanoBanditAlgo.set_bandit(self, bandit)
 
     def build_helpers(self, do_compile=True, mode=None):
         s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
@@ -92,9 +89,9 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         Bsamples = BE.posterior(s_prior, Bobs, s_rng)
 
         G_ll = GE.log_likelihood(Gsamples, Gsamples,
-                llik=tensor.zeros((n_to_draw,)))
+                llik = tensor.zeros((n_to_draw,)))
         B_ll = BE.log_likelihood(Bsamples, Gsamples,
-                llik=tensor.zeros((n_to_draw,)))
+                llik = tensor.zeros((n_to_draw,)))
 
         # subtract B_ll from G_ll
         log_EI = G_ll - B_ll
@@ -136,7 +133,7 @@ class GM_BanditAlgo(TheanoBanditAlgo):
 
         ylist = numpy.asarray(sorted(Ys['ok']), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))
-        y_thresh = ylist[y_thresh_idx: y_thresh_idx + 2].mean()
+        y_thresh = ylist[y_thresh_idx : y_thresh_idx + 2].mean()
 
         logger.info('GM_BanditAlgo splitting results at y_thresh = %f'
                 % y_thresh)
@@ -150,24 +147,33 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         x_all = X_IVLs['ok'].copy()
         y_all = list(Ys['ok'])
 
-        logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
-                % len(Ys['new']))
-        idmap = x_all.stack(X_IVLs['new'])
-        assert range(len(idmap)) == list(sorted(idmap.keys()))
-        y_all.extend([y_thresh + 1 for y in Ys['new']])
+        for pseudo_bad_status in 'new', 'running':
+            logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
+                    % len(Ys[pseudo_bad_status]))
+            idmap = x_all.stack(X_IVLs[pseudo_bad_status])
+            assert range(len(idmap)) == list(sorted(idmap.keys()))
+            y_all.extend([y_thresh + 1 for y in Ys[pseudo_bad_status]])
+
+        # assert that stack() isn't written badly
+        assert len(x_all) == len(X_IVLs['ok'])
 
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
 
         helper_rval = self._helper(self.n_EI_candidates, N,
             y_thresh, y_all, *x_all.flatten())
+        assert len(helper_rval) == 6 * len(x_all)
 
         keep_flat = helper_rval[:2 * len(x_all)]
         Gobs_flat = helper_rval[2 * len(x_all): 4 * len(x_all)]
         Bobs_flat = helper_rval[4 * len(x_all):]
+        assert len(keep_flat) == len(Gobs_flat) == len(Bobs_flat)
+
         Gobs = IdxsValsList.fromflattened(Gobs_flat)
         Bobs = IdxsValsList.fromflattened(Bobs_flat)
+
         # guard against book-keeping error
+        # ensure that all observations were counted as either good or bad
         gis = Gobs.idxset()
         bis = Bobs.idxset()
         xis = x_all.idxset()
