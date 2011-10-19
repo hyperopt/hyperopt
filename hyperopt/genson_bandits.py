@@ -43,7 +43,7 @@ class Union(theano.Op):
 
     def perform(self, node, inputs, outstorage):
         v1, v2 = inputs # numeric!
-        ans = np.array(sorted(list(set(v1).union(v2)))).astype(v1.dtype)
+        ans = numpy.array(sorted(list(set(v1).union(v2)))).astype(v1.dtype)
         outstorage[0][0] = ans
 
     #XXX: infer_shape
@@ -94,7 +94,7 @@ class gSON(SON):
     def make_contents(self):
         if hasattr(self,'params'):
             for k in self.params:
-                setattr(self,k,get_obj(getattr(self.genson_obj,k),self.path+[self]))
+                setattr(self,k,get_obj(getattr(self.genson_obj,k),self.path))
     
     def children(self):
         return [getattr(self,x) for x in self.params if gdistable(getattr(self,x))]
@@ -110,7 +110,8 @@ class gSON(SON):
         """
         if rval is None:
             rval = []
-        rval.append(self)
+        if isinstance(self,gRandom):
+            rval.append(self)
         for c in self.children():
             c.flatten(rval=rval)
         return rval
@@ -121,7 +122,8 @@ class gSON(SON):
         """
         if rval is None:
             rval = []
-        rval.append(prefix)
+        if isinstance(c,gRandom):
+            rval.append(prefix)
         for c,cname in zip(self.children, self.children_names):
             c.flatten_names(prefix+cname, rval=rval)
         return rval
@@ -141,7 +143,7 @@ class gSON(SON):
             elems = memo.pop(id(self))
             if elems is not None and hasattr(self,'referenced_by'):
                 for c in self.referenced_by:
-                    ec,ev = corrected_memo[id(c)]
+                    ec = corrected_memo[id(c)]
                     elems = union(elems,ec) 
             corrected_memo[id(self)] = elems
             
@@ -158,7 +160,7 @@ class gList(gSON):
     """
     
     def make_contents(self):
-        self['elements'] = [get_obj(t,self.path+[self]) for t in self.genson_obj]
+        self['elements'] = [get_obj(t,self.path) for t in self.genson_obj]
         
     def children(self):
         return [t for t in self['elements'] if gdistable(t)]
@@ -176,7 +178,7 @@ class gList(gSON):
         memo[id(self)] = (memo[id(self)],vals)
 
     def nth_theano_sample(self, n, idxdict, valdict):
-        return [self.nth_sample(t,n,idxdict,valict) for t in self['elements']]
+        return [self.nth_sample(t,n,idxdict,valdict) for t in self['elements']]
     
         
 class gDict(gSON):
@@ -201,7 +203,7 @@ class gDict(gSON):
         memo[id(self)] = (memo[id(self)],val_dict)
 
     def nth_theano_sample(self, n, idxdict, valdict):    
-        return dict([(k,self.nth_sample(t,n,idxdict,valict)) for (k,t) in self.items()])
+        return dict([(k,self.nth_sample(t,n,idxdict,valdict)) for (k,t) in self.items()])
 
     
 class gDist(gDict):
@@ -209,7 +211,6 @@ class gDist(gDict):
     def __init__(self,genson_string):
         parser = genson.parser.GENSONParser()
         genson_obj = parser.parse_string(genson_string)
-        print('genson obj',genson_obj)
         super(gDist,self).__init__(genson_obj) 
         self.genson_generator = genson.JSONGenerator(genson_obj)
     
@@ -222,8 +223,7 @@ class gDist(gDict):
                 return self.genson_generator.next()
             else:
                 raise StopIteration
-            
-            
+             
     def theano_sampler(self, s_rng):
         """ Return Theano idxs, vals to sample from this rdist tree"""
         s_N = tensor.lscalar('s_N')
@@ -237,29 +237,53 @@ class gDist(gDict):
         self.correct_elems(memo,corrected_memo)
         memo = corrected_memo
         self.theano_sampler_helper(memo, s_rng)
-        if len(memo) != len(self.flatten()):
-            print('memo',memo)
-            print('self',self)
-            assert (len(memo) == len(self.flatten()))        
+        #if len(memo) != len(self.flatten()):
+        #    print('memo',memo)
+        #    print('self',self)
+        #    assert (len(memo) == len(self.flatten()))        
         idxs, vals = zip(*[memo[id(n_i)] for n_i in self.flatten()])
         return idxs, vals, s_N
         
+    def idxs_vals_to_dict_list(self, idxs, vals):
+        """ convert idxs, vals -> list-of-dicts"""
+        nodes = self.flatten()
+        idxdict = {}
+        valdict = {}
+        assert len(idxs) == len(vals)
+        assert len(idxs) == len(nodes)
+        for i, node in enumerate(nodes):
+            idxdict[id(node)] = idxs[i]
+            valdict[id(node)] = vals[i]
+    
+        # infer how many samples were drawn
+        iii = []
+        for idx_i in idxs:
+            if idx_i is not None:
+                try:
+                    iii.extend(idx_i)
+                except TypeError:
+                    raise TypeError(idxs)
+
+        rval = [self.nth_theano_sample(n, idxdict, valdict)
+                for n in sorted(set(iii))]
+        BSON(rval) # make sure encoding is possible
+        return rval
 
 class gBinOp(gSON):
     params = ['a','b']
 
-    op_dict = [('+',tensor.add),
+    op_dict = dict([('+',tensor.add),
                ('-',tensor.sub),
                ('*',tensor.mul),
                ('/',tensor.div_proxy),
-               ('**',tensor.pow)]
+               ('**',tensor.pow)])
 
     def make_contents(self):
         super(gBinOp,self).make_contents()
         self.op = self.op_dict[self.genson_obj.op]
         
     def theano_sampler_helper(self, memo, s_rng):
-        for c in self.children():
+        for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         a = get_value(self.a,memo)
         b = get_value(self.b,memo)  
@@ -268,7 +292,7 @@ class gBinOp(gSON):
     def nth_theano_sample(self, n, idxdict, valdict):
         asample = self.nth_sample(self.a, n, idxdict, valdict)
         bsample = self.nth_sample(self.b, n, idxdict, valdict)
-        return self.op(asample,bsample)
+        return self.op.nfunc(asample,bsample)
         
 
 class gFunc(gSON):
@@ -279,7 +303,7 @@ class gFunc(gSON):
         self.func = getattr(tensor,self.genson_obj.name) 
             
     def theano_sampler_helper(self, memo, s_rng):
-        for c in self.children():
+        for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         args = tuple(get_value(self.args,memo))
         kwargs = get_value(self.kwargs,memo)   
@@ -288,7 +312,7 @@ class gFunc(gSON):
     def nth_theano_sample(self, n, idxdict, valdict):
         argsample = tuple(self.args.nth_theano_sample(n, idxdict, valdict))
         kwargsample = self.kwargs.nth_theano_sample(n, idxdict, valdict)
-        return self.func(*argsample,**kwargsample)
+        return self.func.nfunc(*argsample,**kwargsample)
         
         
 class gRef(gSON):
@@ -296,7 +320,7 @@ class gRef(gSON):
     params = []
     def make_contents(self):
         self.reference = resolve_scoped_reference(self.genson_obj.scope_list[:],
-                                                  self.path[:-1])
+                                                  self.path[:])
         self.propagate_up(self.reference)
         
     def propagate_up(self,reference):
@@ -359,13 +383,14 @@ def resolve_scoped_reference(ref, path):
 
     return resolved_element        
 
-
+class gRandom(gSON):
+    pass
                     
-class gGauss(gSON):
+class gGauss(gRandom):
     params = ['mean','stdev']
     
     def theano_sampler_helper(self, memo, s_rng):
-        for c in self.children():
+        for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         mu = get_value(self.mean,memo)
         stdev = get_value(self.stdev,memo)
@@ -378,7 +403,7 @@ class gGauss(gSON):
         return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 
-class gUniform(gSON):
+class gUniform(gRandom):
     params = ['min','max']
     
     def theano_sampler_helper(self, memo, s_rng):
@@ -394,7 +419,7 @@ class gUniform(gSON):
         return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 
-class gChoice(gSON):
+class gChoice(gRandom):
     params = ['vals']
     
     def get_elems(self, s_rng, elems, memo):
@@ -409,7 +434,7 @@ class gChoice(gSON):
             child.get_elems(s_rng,elems_i,memo)
             
     def theano_sampler_helper(self, memo, s_rng):
-        for c in self.children():
+        for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         n_options = len(self.vals['elements'])
         elems = memo[id(self)]
