@@ -12,8 +12,8 @@ class Random(base.BanditAlgo):
     """Random search algorithm
     """
 
-    def __init__(self, *args, **kwargs):
-        base.BanditAlgo.__init__(self, *args, **kwargs)
+    def __init__(self, bandit):
+        base.BanditAlgo.__init__(self, bandit)
         self.rng = numpy.random.RandomState(self.seed)
 
     def suggest(self, trials, results, N):

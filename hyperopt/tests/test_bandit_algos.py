@@ -43,11 +43,10 @@ def adaptive_parzens(fn):
 class TestGM_Distractor(unittest.TestCase): # Tests normal
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Distractor(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Distractor(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts(self):
         # If everything is done right, there should be
@@ -101,15 +100,15 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         plt.hist(
                 [t['x'] for t in self.experiment.trials],
                 bins=20)
 
-        print self.experiment.Ys()
-        print 'MIN', min(self.experiment.Ys())
-        assert min(self.experiment.Ys()) < -1.85
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -1.85
 
         if 0:
             plt.show()
@@ -118,11 +117,10 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
 class TestGM_TwoArms(unittest.TestCase): # Tests one_of
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.TwoArms(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.TwoArms(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_optimize_20(self):
         self.experiment.bandit_algo.build_helpers()
@@ -159,7 +157,7 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         import matplotlib.pyplot as plt
         plt.subplot(1,4,1)
         Xs = [t['x'] for t in self.experiment.trials]
-        Ys = self.experiment.Ys()
+        Ys = self.experiment.losses()
         plt.plot(Ys)
         plt.xlabel('time')
         plt.ylabel('loss')
@@ -178,9 +176,9 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         plt.hist(Gyvals, bins=20)
         plt.hist(Byvals, bins=20)
 
-        print self.experiment.Ys()
-        print 'MIN', min(self.experiment.Ys())
-        assert min(self.experiment.Ys()) < -3.00
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -3.00
 
         if 0:
             plt.show()
@@ -189,11 +187,10 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
 class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Quadratic1(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Quadratic1(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts(self):
         # If everything is done right, there should be
@@ -247,7 +244,7 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
@@ -257,9 +254,9 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
             plt.scatter(
                     [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        print self.experiment.Ys()
-        print 'MIN', min(self.experiment.Ys())
-        assert min(self.experiment.Ys()) < 0.01
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < 0.01
 
         if 0:
             plt.show()
@@ -268,18 +265,17 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
 class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Q1Lognormal(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Q1Lognormal(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_optimize_20(self):
         self.experiment.run(50)
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
@@ -289,9 +285,9 @@ class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
             plt.scatter(
                     [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        print self.experiment.Ys()
-        print 'MIN', min(self.experiment.Ys())
-        assert min(self.experiment.Ys()) < .01
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < .01
         if 0:
             plt.show()
 
@@ -299,11 +295,10 @@ class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
 class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.EggCarton2(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.EggCarton2(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts_in_llik(self):
         self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
@@ -347,14 +342,14 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         plt.scatter(
                 [t['x'] for t in self.experiment.trials],
                 range(len(self.experiment.trials)))
-        print self.experiment.Ys()
-        print 'MIN', min(self.experiment.Ys())
-        assert min(self.experiment.Ys()) < -1.75
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -1.75
         if 0:
             plt.show()
 
@@ -383,11 +378,10 @@ class Dummy_DBN_Base(hyperopt.Bandit):
 class TestGM_DummyDBN(unittest.TestCase):
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=Dummy_DBN_Base(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=Dummy_DBN_Base(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
         self._old = theano.gof.link.raise_with_op.print_thunk_trace
         theano.gof.link.raise_with_op.print_thunk_trace = True
 
@@ -428,7 +422,7 @@ class TestGM_DummyDBN(unittest.TestCase):
         if 0:
             import matplotlib.pyplot as plt
             plt.subplot(1,2,1)
-            plt.plot(self.experiment.Ys())
+            plt.plot(self.experiment.losses())
             plt.subplot(1,2,2)
             plt.scatter(
                     [t['x'] for t in self.experiment.trials],

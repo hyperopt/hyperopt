@@ -8,8 +8,7 @@ def ivl_fl(ilist, vlist):
 
 def test_TheanoBanditAlgo_on_TwoArms():
     bandit = bandits.TwoArms()
-    algo = TheanoBanditAlgo()
-    algo.set_bandit(bandit)
+    algo = TheanoBanditAlgo(bandit)
 
     assert algo.recall([]) == ivl_fl([[]], [[]])
 
@@ -29,8 +28,7 @@ def test_TheanoBanditAlgo_on_TwoArms():
 
 def test_TheanoBanditAlgo_on_EggCarton2():
     bandit = bandits.EggCarton2()
-    algo = TheanoBanditAlgo()
-    algo.set_bandit(bandit)
+    algo = TheanoBanditAlgo(bandit)
     assert len(algo.all_s_idxs) == 6
     assert len(algo.s_idxs) == 3
     assert len(algo.all_s_locs) == 3

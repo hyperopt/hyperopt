@@ -560,10 +560,9 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        base.Experiment.__init__(self,
-                bandit=utils.json_call(bandit_json),
-                bandit_algo=utils.json_call(bandit_algo_json))
-        self.bandit_algo.set_bandit(self.bandit)
+        bandit = utils.json_call(bandit_json)
+        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        base.Experiment.__init__(self, bandit_algo)
         self.bandit_json = bandit_json
         self.workdir = workdir
         if isinstance(mongo_handle, str):
@@ -1064,7 +1063,7 @@ def main_show():
         import matplotlib.pyplot as plt
         self.refresh_trials_results()
         yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
-            for y, r in zip(self.Ys(), self.results) if y is not None])
+            for y, r in zip(self.losses(), self.results) if y is not None])
         plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
     elif 'dump' == cmd:

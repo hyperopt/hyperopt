@@ -599,7 +599,6 @@ class DBN_Base(Bandit):
             return result['status']
 
 
-
 def DBN_Convex():
     return DBN_Base(
             dbn_template(

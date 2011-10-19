@@ -8,7 +8,7 @@ def test_SerialExperiment_calls_suggest():
     # This test verifies that MongoExperiment.run
     # calls it right.
 
-    d = SerialExperiment(TwoArms(), bandit_algos.Random())
+    d = SerialExperiment(bandit_algos.Random(TwoArms()))
 
     d.run(3)
 

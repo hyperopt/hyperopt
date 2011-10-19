@@ -22,8 +22,8 @@ class SerialExperiment(base.Experiment):
     """
 
     def run(self, N):
-        bandit = self.bandit
         algo = self.bandit_algo
+        bandit = algo.bandit
 
         for n in xrange(N):
             trial = algo.suggest(self.trials, self.results, 1)[0]
@@ -74,9 +74,8 @@ def main_search():
         handle.close()
     except IOError:
         bandit = utils.json_call(bandit_json)
-        bandit_algo = utils.json_call(bandit_algo_json)
-        bandit_algo.set_bandit(bandit)
-        self = SerialExperiment(bandit, bandit_algo)
+        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        self = SerialExperiment(bandit_algo)
 
     try:
         self.run(options.steps)

@@ -85,17 +85,10 @@ class TheanoBanditAlgo(base.BanditAlgo):
         values for corresponding elements of db_idxs
 
     """
-    def __init__(self):
+    def __init__(self, bandit):
+        base.BanditAlgo.__init__(self, bandit)
         self._next_id = 0
-
-    def next_id(self):
-        rval = self._next_id
-        self._next_id += 1
-        return rval
-
-    def set_bandit(self, bandit):
         seed = self.seed
-        self.bandit = bandit
         all_s_idxs, all_s_vals, s_N = bandit.template.theano_sampler(seed)
         all_s_locs = [i for i, s in enumerate(all_s_idxs) if s is not None]
 
@@ -108,6 +101,11 @@ class TheanoBanditAlgo(base.BanditAlgo):
         self.s_vals = list(numpy.asarray(all_s_vals)[all_s_locs])
         self.db_idxs = [[] for s in self.s_idxs]
         self.db_vals = [[] for s in self.s_idxs]
+
+    def next_id(self):
+        rval = self._next_id
+        self._next_id += 1
+        return rval
 
     def recall(self, idlist):
         """Construct an IdxsValsList representation of the elements of idlist.
@@ -266,8 +264,8 @@ class TheanoRandom(TheanoBanditAlgo):
     """Random search director, but testing the machinery that translates
     doctree configurations into sparse matrix configurations.
     """
-    def set_bandit(self, bandit):
-        TheanoBanditAlgo.set_bandit(self, bandit)
+    def __init__(self, bandit):
+        TheanoBanditAlgo.__init__(self, bandit)
         self._sampler = theano.function(
                 [self.s_N],
                 self.s_idxs + self.s_vals)
@@ -292,8 +290,8 @@ class GM_BanditAlgo(TheanoBanditAlgo):
     gamma = 0.15         # fraction of trials to consider as good
                          # this is should in theory be bandit-dependent
 
-    def __init__(self, good_estimator, bad_estimator):
-        TheanoBanditAlgo.__init__(self)
+    def __init__(self, bandit, good_estimator, bad_estimator):
+        TheanoBanditAlgo.__init__(self, bandit)
         self.good_estimator = good_estimator
         self.bad_estimator = bad_estimator
 
@@ -312,9 +310,6 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         for name in '_helper', 'helper_locals', '_prior_sampler':
             if hasattr(self, name):
                 delattr(self, name)
-
-    def set_bandit(self, bandit):
-        TheanoBanditAlgo.set_bandit(self, bandit)
 
     def build_helpers(self, do_compile=True, mode=None):
         s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)

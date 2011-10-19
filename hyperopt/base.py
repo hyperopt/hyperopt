@@ -159,6 +159,9 @@ class BanditAlgo(object):
     """
     seed = 123
 
+    def __init__(self, bandit):
+        self.bandit = bandit
+
     def __setstate__(self, dct):
         self.__dict__.update(dct)
         # recursively change type in-place
@@ -168,9 +171,6 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def set_bandit(self, bandit):
-        self.bandit = bandit
-
     def suggest(self, trials, results, N):
         raise NotImplementedError('override me')
 
@@ -178,35 +178,19 @@ class BanditAlgo(object):
 class Experiment(object):
     """Object for conducting search experiments.
     """
-    def __init__(self, bandit, bandit_algo):
-        self.bandit = bandit
+    def __init__(self, bandit_algo):
         self.bandit_algo = bandit_algo
-        self.bandit_algo.set_bandit(self.bandit)
         self.trials = []
         self.results = []
-
-    def set_bandit(self, bandit=None):
-        # XXX: consider deleting this method
-        #      It is called now in the constructor.
-        #      a) why would you want to do it separately?
-        #      b) caller can do it directly, no problem.
-        logger.warn('XXX Experiment.set_bandit is deprecated')
-
-        if bandit is None:
-            self.bandit_algo.set_bandit(self.bandit)
-        else:
-            raise NotImplementedError('consider not allowing this')
 
     def run(self, N):
         raise NotImplementedError('override-me')
 
-    def Ys(self):
-        logger.warn('XXX Experiment.Ys is deprecated')
-        return map(self.bandit.loss, self.results)
+    def losses(self):
+        return map(self.bandit_algo.bandit.loss, self.results, self.trials)
 
-    def Ys_status(self):
-        logger.warn('XXX Experiment.Ys_status is deprecated')
-        return map(self.bandit.status, self.results)
+    def statuses(self):
+        return map(self.bandit_algo.bandit.status, self.results, self.trials)
 
     def average_best_error(self):
         """Return the average best error of the experiment

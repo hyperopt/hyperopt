@@ -107,11 +107,9 @@ class TestIndependentNodeTreeEstimator(unittest.TestCase):
         self.TE = IndependentNullEstimator()
         self.bandit = NestedUniform()
         self.experiment = SerialExperiment(
-            bandit=self.bandit,
-            bandit_algo=GM_BanditAlgo(
+            GM_BanditAlgo(self.bandit,
                     good_estimator=IndependentNullEstimator(),
                     bad_estimator=IndependentNullEstimator()))
-        self.experiment.set_bandit()
 
         self.s_rng = montetheano.RandomStreams(123)
         prior_idxs, prior_vals, s_N = self.bandit.template.theano_sampler(self.s_rng)
