@@ -154,6 +154,8 @@ class gSON(SON):
         else:
             return k
 
+    def nth_theano_sample(self, n, idxdict, valdict):
+        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
 
 class gList(gSON):
     """List of elements that can be either constant or gdist
@@ -398,10 +400,7 @@ class gGauss(gRandom):
         elems = memo[id(self)]
         vals = s_rng.normal(draw_shape=(elems.shape[0],),mu=mu,sigma=sigma)
         memo[id(self)] = (elems,vals)
-                
-    def nth_theano_sample(self, n, idxdict, valdict):
-        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-
+        
 
 class gUniform(gRandom):
     params = ['min','max']
@@ -415,9 +414,6 @@ class gUniform(gRandom):
         vals = s_rng.uniform(draw_shape=(elems.shape[0],),low=low,high=high)
         memo[id(self)] = (elems,vals)
         
-    def nth_theano_sample(self, n, idxdict, valdict):
-        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
-
 
 class gChoice(gRandom):
 
