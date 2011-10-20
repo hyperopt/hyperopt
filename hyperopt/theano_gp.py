@@ -7,6 +7,9 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy
 import scipy.optimize
 import theano
@@ -143,12 +146,12 @@ class CategoryKernel(SquaredExponentialKernel):
     K(x,y) is 1 if x==y else exp(-1/l)
 
     The idea is that it's like a SquaredExponentialKernel
-    where every point is a distance of 1 from every other one, 
+    where every point is a distance of 1 from every other one,
     except itself.
 
     Attributes:
 
-        log_lenscale - 
+        log_lenscale -
 
     """
     def K(self, x, y):
@@ -160,138 +163,6 @@ class CategoryKernel(SquaredExponentialKernel):
         ll2 = tensor.exp(self.log_lenscale) #2l^2
         d = tensor.neq(xx,yy)
         K = tensor.exp(-d/ll2)
-        return K
-
-
-class ConvexMixtureKernel(object):
-    """
-
-    Attributes:
-    
-        kernels -
-        element_ranges - each kernel looks at these elements (default ALL)
-        feature_names - 
-        raw_coefs - 
-        coefs - 
-
-    """
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-    def __str__(self):
-        coefs = self.coefs_f()
-        ks = [str(k) for k in self.kernels]
-        return 'ConvexMixtureKernel{%s}'%(','.join(['%s*%s'%(str(c),s) for c,s in zip(coefs, ks)]))
-    def summary(self):
-        import StringIO
-        ss = StringIO.StringIO()
-        coefs = self.coefs_f()
-        print >> ss,  "ConvexMixtureKernel:"
-        for c, k,fname in zip(coefs,self.kernels, self.feature_names):
-            print >> ss,  "  %f * %s '%s'" %(c, str(k), fname)
-        return ss.getvalue()
-    @classmethod
-    def alloc(cls, kernels, coefs=None, element_ranges=None, feature_names=None):
-        if coefs is None:
-            raw_coefs = theano.shared(numpy.zeros(len(kernels)))
-            print "HAAACK"
-            raw_coefs.get_value(borrow=True)[0] += 1 
-        else:
-            raise NotImplementedError()
-        coefs=tensor.nnet.softmax(raw_coefs.dimshuffle('x',0))[0]
-        coefs_f = theano.function([], coefs)
-        return cls(
-                kernels=kernels,
-                coefs=coefs,
-                coefs_f = coefs_f, #DEBUG
-                raw_coefs = raw_coefs,
-                element_ranges=element_ranges,
-                feature_names = feature_names,
-                )
-
-    def params(self):
-        rval = [self.raw_coefs]
-        for k in self.kernels:
-            rval.extend(k.params())
-        return rval
-    def param_bounds(self):
-        rval = [(self.raw_coefs_min, self.raw_coefs_max)]
-        for k in self.kernels:
-            rval.extend(k.param_bounds())
-        return rval
-
-    def K(self, x, y):
-        # get the kernel matrix from each sub-kernel
-        if self.element_ranges is None:
-            Ks = [kernel.K(x,y) for kernel in  self.kernels]
-        else:
-            assert len(self.element_ranges) == len(self.kernels)
-            Ks = [kernel.K(x[:,er[0]:er[1]],y[:,er[0]:er[1]])
-                    for (kernel,er) in zip(self.kernels, self.element_ranges)]
-        # stack them up
-        Kstack = tensor.stack(*Ks)
-        # multiply by coefs
-        # and sum down to one kernel
-        K = tensor.sum(self.coefs.dimshuffle(0,'x','x') * Kstack,
-                axis=0)
-        return K
-
-
-class ProductKernel(object):
-    """
-
-    Attributes:
-    
-        kernels -
-        element_ranges - each kernel looks at these elements (default ALL)
-        feature_names - 
-        raw_coefs - 
-        coefs - 
-
-    """
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-    def __str__(self):
-        ks = [str(k) for k in self.kernels]
-        return 'ProductKernel{%s}'%(','.join(['%s*%s'%(str(c),s) for c,s in zip(coefs, ks)]))
-    def summary(self):
-        import StringIO
-        ss = StringIO.StringIO()
-        print >> ss,  "ProductKernel:"
-        for k,fname in zip(self.kernels, self.feature_names):
-            print >> ss,  "  %s '%s'" %(str(k), fname)
-        return ss.getvalue()
-    @classmethod
-    def alloc(cls, kernels, element_ranges=None, feature_names=None):
-        return cls(
-                kernels=kernels,
-                element_ranges=element_ranges,
-                feature_names = feature_names,
-                )
-
-    def params(self):
-        rval = []
-        for k in self.kernels:
-            rval.extend(k.params())
-        return rval
-    def param_bounds(self):
-        rval = []
-        for k in self.kernels:
-            rval.extend(k.param_bounds())
-        return rval
-
-    def K(self, x, y):
-        # get the kernel matrix from each sub-kernel
-        if self.element_ranges is None:
-            Ks = [kernel.K(x,y) for kernel in  self.kernels]
-        else:
-            assert len(self.element_ranges) == len(self.kernels)
-            Ks = [kernel.K(x[:,er[0]:er[1]],y[:,er[0]:er[1]])
-                    for (kernel,er) in zip(self.kernels, self.element_ranges)]
-        # stack them up
-        Kstack = tensor.stack(*Ks)
-        # multiply by coefs
-        # and sum down to one kernel
-        K = tensor.prod(Kstack, axis=0)
         return K
 
 
@@ -363,25 +234,52 @@ class GPR_math(object):
         dof = trace(tensor.dot(K, matrix_inverse(rK)))
         return dof
 
+
 class GP_BanditAlgo(TheanoBanditAlgo):
     multiplicative_kernels = True
+    constant_liar_global_mean = False
+    use_cg = False
+    params_l2_penalty = 0
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
         self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
+        self.n_train = tensor.lscalar('n_train')
+        self.y_obs = tensor.vector('y_obs')
+        self.y_obs_var = tensor.vector('y_obs_var')
         self.x_obs_IVL = self.s_prior.new_like_self()
-        self.y_obs = tensor.vector()
-        self.y_obs_var = tensor.vector()
 
+        self.kernels = []
         self.params = []  # to be populated by self.sparse_gram_matrix()
         self.param_bounds = []  # to be populated by self.sparse_gram_matrix()
+
+        for iv in self.s_prior:
+            dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
+            if dist_name == 'normal':
+                kern = SquaredExponentialKernel()
+                self.kernels.append(kern)
+                self.params.extend(kern.params())
+                self.param_bounds.extend(kern.param_bounds())
+            elif dist_name == 'uniform':
+                raise NotImplementedError()
+            elif dist_name == 'lognormal':
+                raise NotImplementedError()
+            elif dist_name == 'quantized_lognormal':
+                raise NotImplementedError()
+            elif dist_name == 'categorical':
+                raise NotImplementedError()
+            else:
+                raise TypeError("unsupported distribution", dist_name)
 
         self.gprmath = GPR_math(self.x_obs_IVL,
                 self.y_obs,
                 self.y_obs_var,
-                self.K_fn)
+                self.K_fn,
+                N=self.n_train)
+        self.kernels_sealed = True
 
         self.nll_obs = self.gprmath.s_nll()
+
 
         if 0:
             # fit the kernel parameters by gpr.minimize_nll
@@ -404,34 +302,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
             # optimize EI.sum() wrt the continuous-valued variables in candidates
 
-    def sparse_gram_matrix(self, rv, i0, v0, i1, v1, fill_value):
-
-        dist_name = montetheano.rstreams.rv_dist_name(rv)
-        if dist_name == 'normal':
-            if rv.ndim == 1:
-                kern = SquaredExponentialKernel()
-                rval = kern.K(
-                        v0.dimshuffle(0, 'x'),
-                        v1.dimshuffle(0, 'x'))
-                self.params.extend(kern.params())
-                self.param_bounds.extend(kern.param_bounds())
-            else:
-                raise NotImplementedError()
-        elif dist_name == 'uniform':
-            raise NotImplementedError()
-        elif dist_name == 'lognormal':
-            raise NotImplementedError()
-        elif dist_name == 'quantized_lognormal':
-            raise NotImplementedError()
-        elif dist_name == 'categorical':
-            raise NotImplementedError()
-        else:
-            raise TypeError("unsupported distribution", dist_name)
-
-        if rval.ndim != 2:
-            raise TypeError()
-        return rval
-
     def K_fn(self, x0, x1):
         # for each random variable in self.s_prior
         # choose a kernel to compare observations of that variable
@@ -441,18 +311,43 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         else:
             fill_value = 0
         gram_matrices = [
-                self.sparse_gram_matrix(iv_prior.vals,
-                    iv0.idxs, iv0.vals,
-                    iv1.idxs, iv1.vals,
-                    fill_value=fill_value)
-                for iv_prior, iv0, iv1 in zip(self.s_prior, x0, x1)]
+                kern.K(
+                    #iv0.idxs,
+                    iv0.vals.dimshuffle(0, 'x'),
+                    #iv1.idxs,
+                    iv1.vals.dimshuffle(0, 'x'),
+                    #fill_value=fill_value
+                    )
+                for kern, iv0, iv1 in zip(self.kernels, x0, x1)]
 
         if self.multiplicative_kernels:
             return tensor.mul(*gram_matrices)
         else:
             return tensor.add(*gram_matrices)
 
-    def minimize_nll(self, maxiter=None):
+    def prepare_GP_training_data(self, X_IVLs, Ys):
+        if self.constant_liar_global_mean:
+            y_mean = numpy.mean(Ys['ok'][:self.n_startup_jobs])
+        else:
+            y_mean = numpy.mean(Ys['ok'])
+
+        x_all = X_IVLs['ok'].copy()
+        y_all = list(Ys['ok'])
+
+        for pseudo_bad_status in 'new', 'running':
+            logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
+                    % len(Ys[pseudo_bad_status]))
+            idmap = x_all.stack(X_IVLs[pseudo_bad_status])
+            assert range(len(idmap)) == list(sorted(idmap.keys()))
+            y_all.extend([y_thresh + 1 for y in Ys[pseudo_bad_status]])
+
+        # assert that stack() isn't written badly
+        assert len(x_all) == len(X_IVLs['ok'])
+
+        y_all = numpy.asarray(y_all)
+        return x_all, y_all, y_mean
+
+    def fit_GP(self, x_all, y_all, y_mean, maxiter=None):
         """
         Fit GPR kernel parameters by minimizing magininal nll.
 
@@ -461,39 +356,57 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         Side effect: chooses optimal kernel parameters.
         """
 
+        if list(sorted(x_all.idxset())) != range(len(x_all.idxset())):
+            raise NotImplementedError('need contiguous 0-based indexes on x')
+        n_train = len(y_all)
+
+        y_all = y_all - y_mean
+        self._GP_n_train = n_train
+        self._GP_x_all = x_all
+        self._GP_y_all = y_all
+        self._GP_y_mean = y_mean
+        self._GP_y_all_var = numpy.zeros_like(y_all) + 1e-4  #XXX: fit the variance!
+
 
         if hasattr(self, 'nll_fn'):
             nll_fn = self.nll_fn
             dnll_dparams = self.dnll_dparams
         else:
-            print "COMPILING AGAIN"
-            cost = self.s_nll() + 0.1 * sum([(p**2).sum() for p in self.kernel.params()])
-            nll_fn = self.nll_fn = theano.function([], cost)
+            cost = (self.nll_obs
+                + self.params_l2_penalty * sum(
+                    [(p ** 2).sum() for p in self.params]))
+            nll_fn = self.nll_fn = theano.function(
+                    [self.n_train, self.y_obs, self.y_obs_var]
+                        + self.x_obs_IVL.flatten(),
+                    cost,
+                    allow_input_downcast=True)
+            #theano.printing.debugprint(nll_fn)
             dnll_dparams = self.dnll_dparams = theano.function(
-                    [], tensor.grad(cost, self.kernel.params()))
-        #theano.printing.debugprint(nll)
-        params = self.kernel.params()
-        param_bounds = self.kernel.param_bounds()
+                    [self.n_train, self.y_obs, self.y_obs_var]
+                        + self.x_obs_IVL.flatten(),
+                    tensor.grad(cost, self.params),
+                    allow_input_downcast=True)
+
         lbounds = []
         ubounds = []
-        for lb,ub in param_bounds:
+        for lb, ub in self.param_bounds:
             lbounds.extend(numpy.asarray(value(lb)).flatten())
             ubounds.extend(numpy.asarray(value(ub)).flatten())
         bounds = numpy.asarray([lbounds, ubounds]).T
 
         def get_pt():
-            #TODO: handle non-scalar parameters...
+            #XXX: handle non-scalar parameters...
             rval = []
-            for p in params:
+            for p in self.params:
                 v = p.get_value().flatten()
                 rval.extend(v)
-            return  numpy.asarray(rval)
+            return numpy.asarray(rval)
         def set_pt(pt):
             i = 0
-            for p in params:
+            for p in self.params:
                 shape = p.get_value(borrow=True).shape
                 size = numpy.prod(shape)
-                p.set_value(pt[i:i+size].reshape(shape))
+                p.set_value(pt[i:i + size].reshape(shape))
                 i += size
             assert i == len(pt)
             #print self.kernel.summary()
@@ -501,29 +414,84 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         def f(pt):
             #print 'f', pt
             set_pt(pt)
-            return nll_fn()
+            # XXX TODO: estimate y_obs_var
+            return nll_fn(self._GP_n_train,
+                    self._GP_y_all,
+                    self._GP_y_all_var,
+                    *self._GP_x_all.flatten())
         def df(pt):
             #print 'df', pt
             set_pt(pt)
-            dparams = dnll_dparams()
+            dparams = dnll_dparams(self._GP_n_train,
+                    self._GP_y_all,
+                    self._GP_y_all_var,
+                    *self._GP_x_all.flatten())
             rval = []
             for dp in dparams:
                 rval.extend(dp.flatten())
             rval =  numpy.asarray(rval)
             #print numpy.sqrt((rval**2).sum())
             return rval
-        start_pt = get_pt()
-        # WEIRD: I was using fmin_ncg here
-        #        until I used a low multiplier on the sum-squared-error regularizer
-        #        on the 'cost' above, which threw ncg into an inf loop!?
-        #best_pt = scipy.optimize.fmin_cg(f, start_pt, df, maxiter=maxiter, epsilon=.02)
-        best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f, start_pt, df, maxfun=3*maxiter, 
-                #bounds=[(-10, 10)]*len(start_pt))
-                bounds=bounds)
-        #print 'best_value', best_value
 
+        # XXX: re-initialize current point to a reasonable randomized default
+        #      Remi found warm-starting was a bad idea
+
+        start_pt = get_pt()
+        if self.use_cg:
+            # WEIRD: I was using fmin_ncg here until I used a low multiplier on
+            # the sum-squared-error regularizer on the 'cost' above, which threw
+            # ncg into an inf loop!?
+            best_pt = scipy.optimize.fmin_cg(f, start_pt, df,
+                    maxiter=maxiter,
+                    epsilon=.02)
+        else:
+            best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f,
+                    start_pt,
+                    df,
+                    maxfun=maxiter,
+                    bounds=bounds,
+                    iprint=1)
+        logger.info('fit_GP best value: %f' % best_value)
         set_pt(best_pt)
         return best_value
+
+    def GP_mean(self, x):
+        """
+        Compute mean at points in x_new
+        """
+        return self.GP_mean_variance(x)[0]
+
+    def GP_variance(self, x):
+        """
+        Compute variance at points in x_new
+        """
+        return self.GP_mean_variance(x)[1]
+
+    def GP_mean_variance(self, x):
+        """
+        Compute mean and variance at points in x_new
+        """
+        try:
+            self._mean_variance
+        except AttributeError:
+            s_x = self.s_prior.new_like_self()
+            self._mean_variance = theano.function(
+                    [self.n_train, self.y_obs, self.y_obs_var]
+                        + self.x_obs_IVL.flatten()
+                        + s_x.flatten(),
+                    [self.gprmath.s_mean(s_x), self.gprmath.s_variance(s_x)],
+                    allow_input_downcast=True)
+        if len(x) != len(self._GP_x_all):
+            raise ValueError('x has wrong len')
+        rval_mean, rval_var = self._mean_variance(
+                self._GP_n_train,
+                self._GP_y_all,
+                self._GP_y_all_var,
+                *(self._GP_x_all.flatten() + x.flatten()))
+        return rval_mean + self._GP_y_mean, rval_var
+
+    def theano_suggest_from_model(self, X_IVLs, Ys, N):
+        raise NotImplementedError()
 
     mode = None  # to use theano's default
 
@@ -548,40 +516,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
 
 class GPR_algos(object):
-
-    def mean(self, x):
-        """
-        Compute mean at points in x_new
-        """
-        try:
-            self._mean
-        except AttributeError:
-            s_x = tensor.matrix()
-            self._mean = theano.function([s_x], self.s_mean(s_x))
-        return self._mean(x)
-
-    def variance(self, x):
-        """
-        Compute variance at points in x_new
-        """
-        try:
-            self._variance
-        except AttributeError:
-            s_x = tensor.matrix()
-            self._variance = theano.function([s_x], self.s_variance(s_x))
-        return self._variance(x)
-
-    def mean_variance(self, x):
-        """
-        Compute mean and variance at points in x_new
-        """
-        try:
-            self._mean_variance
-        except AttributeError:
-            s_x = tensor.matrix()
-            self._mean_variance = theano.function([s_x],
-                    [self.s_mean(s_x), self.s_variance(s_x)])
-        return self._mean_variance(x)
 
     def deg_of_freedom(self):
         try:
