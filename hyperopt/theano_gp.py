@@ -234,12 +234,33 @@ class GPR_math(object):
         dof = trace(tensor.dot(K, matrix_inverse(rK)))
         return dof
 
+    def s_expectation_lt_thresh(self, x, thresh):
+        """
+        return \int_{-inf}^{thresh} y p(y|x) dy
+        """
+
+        mu = self.s_mean(x)
+        sigma = tensor.sqrt(self.s_variance(x))
+        rval = 0.5 + 0.5 * tensor.erf((thresh - mu) / sigma)
+        return rval
+
 
 class GP_BanditAlgo(TheanoBanditAlgo):
+
     multiplicative_kernels = True
+
     constant_liar_global_mean = False
+
     use_cg = False
+
     params_l2_penalty = 0
+
+    mode = None  # to use theano's default
+
+    n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
+                         # should be bandit-agnostic
+
+    y_minvar = 1e-4
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
@@ -280,27 +301,22 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         self.nll_obs = self.gprmath.s_nll()
 
+        self.cand_x = self.s_prior.new_like_self()
+
+        self.cand_EI_thresh = tensor.scalar()
+        self.cand_EI = self.gprmath.s_expectation_lt_thresh(
+                self.cand_x,
+                self.cand_EI_thresh)
 
         if 0:
-            # fit the kernel parameters by gpr.minimize_nll
-
-            # generate half the candidates randomly,
-            # and half the candidates from jobs (especially good ones?)
-            candidates = s_prior.new_like_self()
-
-            # EI is integral from -inf to thresh of the
-            # Gaussian-distributed prediction GP(x)
-            thresh = results.min()
-            EI = .5 - .5 * tensor.erf((gpr.mean(candidates) - thresh)
-                    / tensor.sqrt(gpr.variance(candidates)))
-
-            weighted_EI = EI * tensor.exp(
-                    lpdf(candidates)
-                    - lpdf(candidates).max())
-
-            g_candidate_vals = grad(weighted_EI.sum(), candidates.valslist())
-
             # optimize EI.sum() wrt the continuous-valued variables in candidates
+            ### XXX: identify which elements in cand_x we could optimize
+            #        and calculate gradients here.
+
+            ### XXX: Solve has no grad() atm.
+            g_candidate_vals = tensor.grad(
+                    self.cand_EI.sum(),
+                    self.cand_x.valslist())
 
     def K_fn(self, x0, x1):
         # for each random variable in self.s_prior
@@ -325,7 +341,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         else:
             return tensor.add(*gram_matrices)
 
-    def prepare_GP_training_data(self, X_IVLs, Ys):
+    def prepare_GP_training_data(self, X_IVLs, Ys, Ys_var):
         if self.constant_liar_global_mean:
             y_mean = numpy.mean(Ys['ok'][:self.n_startup_jobs])
         else:
@@ -333,21 +349,30 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         x_all = X_IVLs['ok'].copy()
         y_all = list(Ys['ok'])
+        y_all_var = list(Ys_var['ok'])
+
+        avg_var = numpy.mean(y_all_var)
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
                     % len(Ys[pseudo_bad_status]))
             idmap = x_all.stack(X_IVLs[pseudo_bad_status])
             assert range(len(idmap)) == list(sorted(idmap.keys()))
-            y_all.extend([y_thresh + 1 for y in Ys[pseudo_bad_status]])
+            y_all.extend([0 for y in Ys[pseudo_bad_status]])
+            y_all_var.extend([avg_var for y in Ys[pseudo_bad_status]])
 
         # assert that stack() isn't written badly
         assert len(x_all) == len(X_IVLs['ok'])
 
         y_all = numpy.asarray(y_all)
-        return x_all, y_all, y_mean
+        y_all_var = numpy.asarray(y_all_var)
+        assert y_all.shape == y_all_var.shape
+        if y_all_var.min() < -1e-6:
+            raise ValueError('negative variance encountered in results')
+        y_all_var = numpy.maximum(y_all_var, self.y_minvar)
+        return x_all, y_all, y_mean, y_all_var
 
-    def fit_GP(self, x_all, y_all, y_mean, maxiter=None):
+    def fit_GP(self, x_all, y_all, y_mean, y_all_var, maxiter=None):
         """
         Fit GPR kernel parameters by minimizing magininal nll.
 
@@ -365,8 +390,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self._GP_x_all = x_all
         self._GP_y_all = y_all
         self._GP_y_mean = y_mean
-        self._GP_y_all_var = numpy.zeros_like(y_all) + 1e-4  #XXX: fit the variance!
-
+        self._GP_y_all_var = y_all_var
 
         if hasattr(self, 'nll_fn'):
             nll_fn = self.nll_fn
@@ -457,19 +481,19 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def GP_mean(self, x):
         """
-        Compute mean at points in x_new
+        Compute mean at points in x
         """
         return self.GP_mean_variance(x)[0]
 
     def GP_variance(self, x):
         """
-        Compute variance at points in x_new
+        Compute variance at points in x
         """
         return self.GP_mean_variance(x)[1]
 
     def GP_mean_variance(self, x):
         """
-        Compute mean and variance at points in x_new
+        Compute mean and variance at points in x
         """
         try:
             self._mean_variance
@@ -490,15 +514,40 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 *(self._GP_x_all.flatten() + x.flatten()))
         return rval_mean + self._GP_y_mean, rval_var
 
-    def theano_suggest_from_model(self, X_IVLs, Ys, N):
-        raise NotImplementedError()
+    def GP_EI(self, x):
+        try:
+            self._EI_fn
+        except AttributeError:
+            self._EI_fn = theano.function(
+                    [self.n_train, self.y_obs, self.y_obs_var]
+                        + self.x_obs_IVL.flatten()
+                        + [self.cand_EI_thresh]
+                        + self.cand_x.flatten(),
+                    self.cand_EI,
+                    allow_input_downcast=True)
 
-    mode = None  # to use theano's default
+        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_all_var)).min()
 
-    n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
-                         # should be bandit-agnostic
+        rval = self._EI_fn(self._GP_n_train,
+                self._GP_y_all,
+                self._GP_y_all_var,
+                *(self._GP_x_all.flatten()
+                    + [thresh]
+                    + x.flatten()))
+        return rval
 
-    def theano_suggest_from_prior(self, N):
+    def suggest_from_model(self, ivls, N):
+        x_all, y_all, y_mean, y_all_var = self.prepare_GP_training_data(
+                ivls['X_IVLs'],
+                ivls['losses'],
+                ivls['losses_variance'])
+        self.fit_GP(x_all, y_all, y_mean, y_all_var)
+
+        candidates = self._prior_sampler(N * 10)
+        print GP_EI(candidates)
+
+
+    def suggest_from_prior(self, N):
         if not hasattr(self, '_prior_sampler'):
             self._prior_sampler = theano.function(
                     [self.s_N],
@@ -507,22 +556,12 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         rvals = self._prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
-    def theano_suggest(self, X_IVLs, Ys, N):
-        if len(Ys['ok']) < self.n_startup_jobs:
-            return self.theano_suggest_from_prior(N)
+    def suggest(self, trials, results, N):
+        ivls = self.idxs_vals_by_status(trials, results)
+        if len(ivls['losses']['ok']) < self.n_startup_jobs:
+            return self.suggest_ivl(
+                    self.suggest_from_prior(N))
         else:
-            return self.theano_suggest_from_model(X_IVLs, Ys, N)
-
-
-
-class GPR_algos(object):
-
-    def deg_of_freedom(self):
-        try:
-            self._dof_fn
-        except AttributeError:
-            self._dof_fn = theano.function([], self.s_deg_of_freedom())
-        return self._dof_fn()
-
-
+            return self.suggest_ivl(
+                    self.suggest_from_model(trials, results, N))
 

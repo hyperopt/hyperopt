@@ -170,7 +170,18 @@ class TheanoBanditAlgo(base.BanditAlgo):
         new_ids = list(sorted(set(new_ids)))
         return new_ids
 
-    def suggest(self, trials, results, N):
+    def idxs_vals_by_status(self, trials, results):
+        """
+        Build IdxsValsList representation of the trials, one for each status.
+        Also group the losses and loss variances by status.
+
+        returns dictionary with keys
+            'positions': status -> idx into trials, results
+            'x_IVLs': status -> IdxValsList of trials with that status
+            'losses': status -> list of losses matching x_IVLs[status]
+            'losses_variance': status -> list of matching x_IVLs[status]
+
+        """
         assert len(trials) == len(results)
 
         Y_status = map(self.bandit.status, results)
@@ -182,12 +193,16 @@ class TheanoBanditAlgo(base.BanditAlgo):
         positions = {}
         ivs = {}
         ys = {}
+        losses_variance = {}
         for status in STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
             ivs[status] = self.recall([trials[i]['_config_id']
                 for i in positions[status]])
             ys[status] = [self.bandit.loss(results[i], config=trials[i])
+                for i in positions[status]]
+            losses_variance[status] = [self.bandit.loss_variance(
+                    results[i], config=trials[i])
                 for i in positions[status]]
             logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
                     % (len(ys[status]), status))
@@ -208,12 +223,23 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         # this is an assert because we validated Y_status above
         assert sum(len(l) for l in positions.values()) == len(Y_status)
+        return dict(
+                positions=positions,
+                x_IVLs=ivs,
+                losses=ys,
+                losses_variance=losses_variance)
 
-        ivl = self.theano_suggest(ivs, ys, N)
+    def suggest_ivl(self, ivl):
+        """
+        ivl: IdxsValsList representation of suggestions
+
+        This method `record`s the suggestion and rebuilds the document
+        representation.
+        """
         assert isinstance(ivl, IdxsValsList)
 
         ids = self.record(ivl)
-        assert len(ids) == N
+        N = len(ids)
 
         # now call idxs_vals_to_dict_list to rebuild a nested document
         # suitable for returning
@@ -232,33 +258,6 @@ class TheanoBanditAlgo(base.BanditAlgo):
             r['_config_id'] = rid
         return rval
 
-    def theano_suggest(self, X_IVLs, Ys, N):
-        """Return new points to try.
-
-        :type X_IVLs:
-            dictionary mapping status string -> IdxsValsList
-
-        :param X_IVLs:
-            experiment configurations at each status level
-
-        :type Ys:
-            dictionary mapping status string -> list of losses
-
-        :param Ys:
-            losses for the corresponding configurations in X_IVLs
-
-        :param N:
-            number of trials to suggest
-
-        :rtype:
-            IdxsValsList
-
-        :returns:
-            new configurations to try
-
-        """
-        raise NotImplementedError('override me')
-
 
 class TheanoRandom(TheanoBanditAlgo):
     """Random search director, but testing the machinery that translates
@@ -270,9 +269,15 @@ class TheanoRandom(TheanoBanditAlgo):
                 [self.s_N],
                 self.s_idxs + self.s_vals)
 
-    def theano_suggest(self, X_IVLs, Ys, N):
-        """Ignore X and Y, draw from prior"""
+    def suggest(self, trials, results, N):
+        # normally a TheanoBanditAlto.suggest would start with this call:
+        ##  ivls = self.idxs_vals_by_status(trials, results)
         rvals = self._sampler(N)
-        return IdxsValsList.fromlists(
-                rvals[:len(rvals)/2],
-                rvals[len(rvals)/2:])
+
+        # A TheanoBanditAlgo.suggest implementation should usually
+        # return suggest_ivl(...).
+        return self.suggest_ivl(
+                IdxsValsList.fromlists(
+                    rvals[:len(rvals)/2],
+                    rvals[len(rvals)/2:]))
+

@@ -17,6 +17,14 @@ from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.experiments import SerialExperiment
 
+# test that it can fit a GP to each of the simple variable types:
+#  - normal
+#  - uniform
+#  - lognormal
+#  - quantized lognormal
+#  - categorical
+
+
 
 def test_fit_normal():
     class B(Bandit):
@@ -26,39 +34,55 @@ def test_fit_normal():
         def evaluate(cls, config, ctrl):
             return dict(loss=(config['x'] - 2)**2, status='ok')
 
+        @classmethod
+        def loss_variance(cls, result, config):
+            return .5
+
     class A(GP_BanditAlgo):
-        def theano_suggest_from_model(self, X_IVLs, Ys, N):
-            x_all, y_all, y_mean = self.prepare_GP_training_data(X_IVLs, Ys)
-            self.fit_GP(x_all, y_all, y_mean)
+        def suggest_from_model(self, trials, results, N):
+            ivls = self.idxs_vals_by_status(trials, results)
+            X_IVLs = ivls['x_IVLs']
+            Ys = ivls['losses']
+            Ys_var = ivls['losses_variance']
+            x_all, y_all, y_mean, y_var = self.prepare_GP_training_data(
+                    X_IVLs, Ys, Ys_var)
+            self.fit_GP(x_all, y_all, y_mean, y_var)
 
-            plt.scatter(x_all[0].vals, y_all)
-            plt.xlim([-5, 5])
-            xmesh = numpy.arange(-5, 5, .1)
-            gp_mean, gp_var = self.GP_mean_variance(
-                    IdxsValsList.fromlists([numpy.arange(len(xmesh))], [xmesh]))
-            plt.plot(xmesh, gp_mean)
-            plt.plot(xmesh, gp_mean + numpy.sqrt(gp_var))
-            plt.plot(xmesh, gp_mean - numpy.sqrt(gp_var))
+            if self.show:
 
-            plt.show()
+                plt.scatter(x_all[0].vals, y_all)
+                plt.xlim([-5, 5])
+                xmesh = numpy.arange(-5, 5, .1)
+                gp_mean, gp_var = self.GP_mean_variance(
+                        IdxsValsList.fromlists([numpy.arange(len(xmesh))], [xmesh]))
+                plt.plot(xmesh, gp_mean)
+                plt.plot(xmesh, gp_mean + numpy.sqrt(gp_var))
+                plt.plot(xmesh, gp_mean - numpy.sqrt(gp_var))
+                plt.show()
 
-            return self.theano_suggest_from_prior(N)
+            # draw a printable number of candidates
+            candidates = self._prior_sampler(5)
+            print candidates[0]
+            print candidates[1]
+            EI = self.GP_EI(IdxsValsList.fromflattened(candidates))
+            print EI
 
+            best_idx = numpy.argmax(EI)
+            return IdxsValsList.fromflattened((
+                    [candidates[0][best_idx]], [candidates[1][best_idx]]))
+
+    A.n_startup_jobs = 3
     se = SerialExperiment(A(B()))
     se.run(A.n_startup_jobs)
 
     assert len(se.trials) == len(se.results) == A.n_startup_jobs
 
     # now trigger the use of the GP, EI, etc.
-    se.run(1)
+    A.show = True; se.run(1)
 
-# test that it can fit a GP to each of the simple variable types:
-#  - normal
-#  - uniform
-#  - lognormal
-#  - quantized lognormal
-#  - categorical
+    A.show = False; se.run(5)
 
+    A.show = True; se.run(1)
 
 # for a Bandit of two variables, of which one doesn't do anything
 # test that the learned length scales are appropriate

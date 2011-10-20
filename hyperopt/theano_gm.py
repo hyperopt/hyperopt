@@ -29,6 +29,8 @@ import idxs_vals_rnd
 from idxs_vals_rnd import IdxsVals
 from idxs_vals_rnd import IdxsValsList
 
+from theano_bandit_algos import TheanoBanditAlgo
+
 
 class GM_BanditAlgo(TheanoBanditAlgo):
     """
@@ -117,20 +119,11 @@ class GM_BanditAlgo(TheanoBanditAlgo):
                     s_prior.flatten(),
                     mode=mode)
 
-    def theano_suggest_from_prior(self, N):
+    def suggest_from_prior(self, N):
         rvals = self._prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
-    def theano_suggest(self, X_IVLs, Ys, N):
-        if not hasattr(self, '_prior_sampler'):
-            self.build_helpers()
-            assert hasattr(self, '_prior_sampler')
-
-        if len(Ys['ok']) < self.n_startup_jobs:
-            logger.info('GM_BanditAlgo warming up %i/%i'
-                    % (len(Ys['ok']), self.n_startup_jobs))
-            return self.theano_suggest_from_prior(N)
-
+    def suggest_from_model(self, X_IVLs, Ys, N):
         ylist = numpy.asarray(sorted(Ys['ok']), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))
         y_thresh = ylist[y_thresh_idx : y_thresh_idx + 2].mean()
@@ -182,6 +175,24 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         assert gis.intersection(bis) == set()
 
         return IdxsValsList.fromflattened(keep_flat)
+
+    def suggest(self, trials, results, N):
+        if not hasattr(self, '_prior_sampler'):
+            self.build_helpers()
+            assert hasattr(self, '_prior_sampler')
+
+        ivls = self.idxs_vals_by_status(trials, results)
+        if len(ivls['losses']['ok']) < self.n_startup_jobs:
+            logger.info('GM_BanditAlgo warming up %i/%i'
+                    % (len(ivls['losses']['ok']), self.n_startup_jobs))
+            return self.suggest_ivl(
+                    self.suggest_from_prior(N))
+        else:
+            return self.suggest_ivl(
+                    self.suggest_from_model(
+                        ivls['x_IVLs'],
+                        ivls['losses'],
+                        N))
 
 
 def AdaptiveParzenGM():
