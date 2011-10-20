@@ -273,10 +273,10 @@ class gBinOp(gSON):
     params = ['a','b']
 
     op_dict = dict([('+',tensor.add),
-               ('-',tensor.sub),
-               ('*',tensor.mul),
-               ('/',tensor.div_proxy),
-               ('**',tensor.pow)])
+                    ('-',tensor.sub),
+                    ('*',tensor.mul),
+                    ('/',tensor.div_proxy),
+                    ('**',tensor.pow)])
 
     def make_contents(self):
         super(gBinOp,self).make_contents()
@@ -299,7 +299,7 @@ class gFunc(gSON):
     params = ['args','kwargs']
     
     def make_contents(self):
-        super(gBinOp,self).make_contents()
+        super(gFunc,self).make_contents()
         self.func = getattr(tensor,self.genson_obj.name) 
             
     def theano_sampler_helper(self, memo, s_rng):
@@ -420,8 +420,16 @@ class gUniform(gRandom):
 
 
 class gChoice(gRandom):
-    params = ['vals']
+
+    def make_contents(self):
+        self.vals = [get_obj(t,self.path) for t in self.genson_obj.vals]
     
+    def children(self):
+        return [x for x in self.vals if gdistable(x)]
+
+    def children_names(self):
+        return ['[%i]'%i for i in range(len(self.children()))]
+        
     def get_elems(self, s_rng, elems, memo):
         n_options = len(self.vals)
         #print 'n_options', n_options
@@ -430,13 +438,14 @@ class gChoice(gRandom):
                     draw_shape=(elems.shape[0],))
         memo[id(self)] = elems
         for i, child in enumerate(self.vals):
-            elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
-            child.get_elems(s_rng,elems_i,memo)
+            if child in self.children():
+                elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
+                child.get_elems(s_rng,elems_i,memo)
             
     def theano_sampler_helper(self, memo, s_rng):
         for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
-        n_options = len(self.vals['elements'])
+        n_options = len(self.vals)
         elems = memo[id(self)]
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
