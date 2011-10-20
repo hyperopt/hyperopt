@@ -69,6 +69,7 @@ class IdxsValsList(list):
         return [e.vals for e in self]
 
     def take(self, subelements):
+        # XXX This only works sensibly for symbolic values
         """Return a new IdxsValsList of the same length as self, whose elements
         are restricted to contain only the given `subelements`.
         """
