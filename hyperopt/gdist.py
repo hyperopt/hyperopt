@@ -1,6 +1,7 @@
 """
-Sample problems on which to test algorithms.
-
+Utilities for converting between genson descriptions to theano samplers.
+Basic idea is to create a gDist object from a genson string; and then pass
+the gDist object as a template to a (theano) bandit.
 """
 import copy
 import logging
@@ -21,7 +22,8 @@ import base
 
 class Union(theano.Op):
     """
-
+    Inputs: two lists of integers.
+    Returns: sorted union of the input lists.
     """
     def __eq__(self, other):
         return type(self) == type(other)
@@ -46,7 +48,6 @@ class Union(theano.Op):
         ans = numpy.array(sorted(list(set(v1).union(v2)))).astype(v1.dtype)
         outstorage[0][0] = ans
 
-    #XXX: infer_shape
 union = Union()
 
 
@@ -84,6 +85,11 @@ def get_obj(t, path):
 
 
 class gSON(SON):
+    """Base class for translation between genson objects and theano samplers.
+    The class is never directly called, all instances of it are instances of
+    subclasses defined below.   See class gDist below for main "entry point"
+    for creating gDist objects.
+    """
 
     def __new__(*args, **kwargs):
         #print 'new', args, kwargs
@@ -116,23 +122,23 @@ class gSON(SON):
         """
         if rval is None:
             rval = []
-        if isinstance(self, gRandom):
-            rval.append(self)
+        rval.append(self)
         for c in self.children():
             c.flatten(rval=rval)
         return rval
 
     def flatten_names(self, prefix='conf', rval=None):
-        """
-        Return the list of strings that indicate a path to a child node
+        """Return the list of strings that indicate a path to a child node
         """
         if rval is None:
             rval = []
-        if isinstance(c, gRandom):
-            rval.append(prefix)
+        rval.append(prefix)
         for c, cname in zip(self.children, self.children_names):
             c.flatten_names(prefix + cname, rval=rval)
         return rval
+
+    def random_nodes(self):
+        return [node for node in self.flatten() if isinstance(node, gRandom)]
 
     def get_elems(self, s_rng, elems, memo):
         for child in self.children():
@@ -216,6 +222,12 @@ class gDict(gSON):
 
 
 class gDist(gDict):
+    """Main entry point for creating theano bandit templates from genSON
+    objects.   Basically gDist objects are just gDict objects which have (1)
+    a facility for calling the GENSON object parser in the __init__ and
+    (2) support sampling methods, both for regular (non-theano) bandits as well
+    as theano-based sampling.
+    """
 
     def __init__(self, genson_string):
         parser = genson.parser.GENSONParser()
@@ -246,7 +258,8 @@ class gDist(gDict):
         self.correct_elems(memo, corrected_memo)
         memo = corrected_memo
         self.theano_sampler_helper(memo, s_rng)
-        idxs, vals = zip(*[memo[id(n_i)] for n_i in self.flatten()])
+        rnodes = self.random_nodes()
+        idxs, vals = zip(*[memo[id(n)] for n in rnodes])
         return idxs, vals, s_N
 
     def idxs_vals_to_dict_list(self, idxs, vals):
