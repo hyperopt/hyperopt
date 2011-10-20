@@ -36,6 +36,9 @@ class IdxsVals(object):
         self.idxs = i  # symbolic integer vector
         self.vals = v  # symbolic ndarray with same length as self.idxs
 
+    def __eq__(self, other):
+        return self.idxs == other.idxs and self.vals == other.vals
+
     def take(self, elements):
         """Advanced sparse vector indexing by int-list `elements`
         """
@@ -55,6 +58,10 @@ class IdxsValsList(list):
     both cases, but many do.
 
     """
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(s == o for (s, o) in zip(self, other)))
+
     def idxslist(self):
         return [e.idxs for e in self]
 
@@ -360,12 +367,17 @@ class AdaptiveParzen(theano.Op):
             sigma = numpy.asarray([prior_sigma] + list(sigma))
 
         maxsigma = prior_sigma
-        minsigma = prior_sigma / float(len(mus))   # XXX: magic formula
+        minsigma = prior_sigma / numpy.sqrt(len(mus))   # XXX: magic formula
+
+        #print 'maxsigma, minsigma', maxsigma, minsigma
 
         sigma = numpy.clip(sigma, minsigma, maxsigma)
 
+        weights = numpy.ones(len(mus), dtype=node.outputs[0].dtype)
+        weights[0] = numpy.sqrt(1 + len(mus))
+
         # XXX: call asarray with dtype above to avoid re-copy here
-        outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
+        outstorage[0][0] = weights / weights.sum()
         outstorage[1][0] = mus.astype(node.outputs[1].dtype)
         outstorage[2][0] = sigma.astype(node.outputs[2].dtype)
 
@@ -446,7 +458,7 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
                 p = prior.vals.owner.inputs[1]
                 if p.ndim != 1:
                     raise TypeError()
-                prior_counts = p * p.shape[0]
+                prior_counts = p * p.shape[0] * tensor.sqrt(obs.vals.shape[0])
                 pseudocounts = tensor.inc_subtensor(
                         (prior_strength * prior_counts)[obs.vals],
                         1)
