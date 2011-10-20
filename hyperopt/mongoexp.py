@@ -278,19 +278,19 @@ class MongoJobs(object):
     #
     # Collections:
     #
-    # db.jobs - structured {'argd', 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
+    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
     #                       'error', 'result'}
     #    This is the collection that the worker nodes write to
     #
     # db.gfs - file storage via gridFS for all collections
     #
-    def __init__(self, db, jobs, gfs, conn, tunnel, argd_name):
+    def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
         self.db = db
         self.jobs = jobs
         self.gfs = gfs
         self.conn=conn
         self.tunnel=tunnel
-        self.argd_name = argd_name
+        self.config_name = config_name
 
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
@@ -306,10 +306,10 @@ class MongoJobs(object):
         return cls(db, db[jobs_coll], gfs, connection, tunnel)
 
     @classmethod
-    def new_from_connection_str(cls, conn_str, gfs_coll='fs', argd_name='spec'):
+    def new_from_connection_str(cls, conn_str, gfs_coll='fs', config_name='spec'):
         connection, tunnel, db, coll = connection_from_string(conn_str)
         gfs = gridfs.GridFS(db, collection=gfs_coll)
-        return cls(db, coll, gfs, connection, tunnel, argd_name)
+        return cls(db, coll, gfs, connection, tunnel, config_name)
 
     def __iter__(self):
         return self.jobs.find()
@@ -560,16 +560,15 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        base.Experiment.__init__(self,
-                bandit=utils.json_call(bandit_json),
-                bandit_algo=utils.json_call(bandit_algo_json))
-        self.bandit_algo.set_bandit(self.bandit)
+        bandit = utils.json_call(bandit_json)
+        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        base.Experiment.__init__(self, bandit_algo)
         self.bandit_json = bandit_json
         self.workdir = workdir
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
-                    argd_name='spec')
+                    config_name='spec')
         else:
             self.mongo_handle = mongo_handle
         config = self.mongo_handle.db.config.find_one()
@@ -606,17 +605,31 @@ class MongoExperiment(base.Experiment):
         self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
         self.results[:] = [j['result'] for (_id, j) in id_jobs]
 
-    def queue_extend(self, trial_specs):
+    def queue_extend(self, trial_configs, skip_dups=True):
+        if skip_dups:
+            new_configs = []
+            for config in trial_configs:
+                #XXX: This will basically never work
+                #     now that TheanoBanditAlgo puts a _config_id into
+                #     each suggestion
+                query = self.mongo_handle.jobs.find(dict(spec=config))
+                if query.count():
+                    matches = list(query)
+                    assert len(matches) == 1
+                    logger.info('Skipping duplicate trial')
+                else:
+                    new_configs.append(config)
+            trial_configs = new_configs
         rval = []
         # this tells the mongo-worker how to evaluate the job
         cmd = ('bandit_json evaluate', self.bandit_json)
-        for spec in trial_specs:
+        for config in trial_configs:
             to_insert = dict(
                     state=STATE_NEW,
                     exp_key=self.exp_key,
                     cmd=cmd,
                     owner=None,
-                    spec=spec,
+                    spec=config,
                     result=self.bandit.new_result(),
                     version=0,
                     )
@@ -636,28 +649,16 @@ class MongoExperiment(base.Experiment):
 
         n_queued = 0
 
-        while n_queued < N:
-            while self.queue_len() < self.min_queue_len:
-                self.refresh_trials_results()
-                Ys = self.Ys()
-                Ys_status = self.Ys_status()
-                t0 = time.time()
-                suggestions = algo.suggest(
-                        self.trials, Ys, Ys_status, 1)
-                t1 = time.time()
-                logger.info('algo suggested trial: %s (in %.2f seconds)'
-                        % (str(suggestions[0]), t1 - t0))
-                new_suggestions = []
-                for spec in suggestions:
-                    spec_query = self.mongo_handle.jobs.find(dict(spec=spec))
-                    if spec_query.count():
-                        spec_matches = list(spec_query)
-                        assert len(spec_matches) == 1
-                        logger.info('Skipping duplicate trial')
-                    else:
-                        new_suggestions.append(spec)
-                new_suggestions = self.queue_extend(new_suggestions)
-                n_queued += len(new_suggestions)
+        while n_queued < N and self.queue_len() < self.min_queue_len:
+            self.refresh_trials_results()
+            t0 = time.time()
+            suggestions = algo.suggest(
+                    self.trials, self.results, 1)
+            t1 = time.time()
+            logger.info('algo suggested trial: %s (in %.2f seconds)'
+                    % (str(suggestions[0]), t1 - t0))
+            new_suggestions = self.queue_extend(suggestions)
+            n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
 
 
@@ -829,11 +830,7 @@ def main_worker():
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
-            # this is a hack for compatibility with TheanoBanditAlgo (TBA)
-            if 'TBA_id' in spec:
-                result = worker_fn(spec['doc'], ctrl)
-            else:
-                result = worker_fn(spec, ctrl)
+            result = worker_fn(spec, ctrl)
         except Exception, e:
             #TODO: save exception to database, but if this fails, then at least raise the original
             # traceback properly
@@ -1066,7 +1063,7 @@ def main_show():
         import matplotlib.pyplot as plt
         self.refresh_trials_results()
         yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
-            for y, r in zip(self.Ys(), self.results) if y is not None])
+            for y, r in zip(self.losses(), self.results) if y is not None])
         plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
     elif 'dump' == cmd:
