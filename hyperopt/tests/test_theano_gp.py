@@ -48,7 +48,7 @@ def test_fit_normal():
                     X_IVLs, Ys, Ys_var)
             self.fit_GP(x_all, y_all, y_mean, y_var)
 
-            if self.show:
+            if 1 and self.show:
 
                 plt.scatter(x_all[0].vals, y_all)
                 plt.xlim([-5, 5])
@@ -62,14 +62,23 @@ def test_fit_normal():
 
             # draw a printable number of candidates
             candidates = self._prior_sampler(5)
+            candidates[1] = numpy.array(x_all[0].vals)
             print candidates[0]
             print candidates[1]
             EI = self.GP_EI(IdxsValsList.fromflattened(candidates))
             print EI
+            print 'optimizing candidates'
+            candidates_opt = self.GP_EI_optimize(
+                    IdxsValsList.fromflattened(candidates))
+            EI_opt = self.GP_EI(candidates_opt)
+            print candidates_opt[0].idxs
+            print candidates_opt[0].vals
+            print 'EI_opt', EI_opt
 
-            best_idx = numpy.argmax(EI)
+            best_idx = numpy.argmax(EI_opt)
             return IdxsValsList.fromflattened((
-                    [candidates[0][best_idx]], [candidates[1][best_idx]]))
+                    [candidates_opt[0].idxs[best_idx]],
+                    [candidates_opt[0].vals[best_idx]]))
 
     A.n_startup_jobs = 3
     se = SerialExperiment(A(B()))
@@ -80,7 +89,7 @@ def test_fit_normal():
     # now trigger the use of the GP, EI, etc.
     A.show = True; se.run(1)
 
-    A.show = False; se.run(5)
+    A.show = False; se.run(2)
 
     A.show = True; se.run(1)
 

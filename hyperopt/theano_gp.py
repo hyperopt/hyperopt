@@ -14,8 +14,7 @@ import numpy
 import scipy.optimize
 import theano
 from theano import tensor
-from theano_linalg import (solve, cholesky, diag, matrix_inverse, det, PSD_hint,
-        trace)
+from theano_linalg import (diag, matrix_inverse, det, PSD_hint, trace)
 import montetheano
 
 from idxs_vals_rnd import IdxsValsList
@@ -216,9 +215,8 @@ class GPR_math(object):
         """Gaussian Process variance at points x"""
         K, y, var_y, N = self.kyn()
         rK = PSD_hint(K + var_y * tensor.eye(N))
-        L = cholesky(rK)
         K_x = self.K_fn(self.x, x)
-        v = solve(L, K_x)
+        v = tensor.dot(matrix_inverse(rK), K_x)
         var_x = 1 - (v**2).sum(axis=0)
         return var_x
 
@@ -259,7 +257,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
                          # should be bandit-agnostic
-
     y_minvar = 1e-4
 
     def __init__(self, bandit):
@@ -308,15 +305,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.cand_x,
                 self.cand_EI_thresh)
 
-        if 0:
-            # optimize EI.sum() wrt the continuous-valued variables in candidates
-            ### XXX: identify which elements in cand_x we could optimize
-            #        and calculate gradients here.
+        # optimize EI.sum() wrt the continuous-valued variables in candidates
+        ### XXX: identify which elements in cand_x we could optimize
+        #        and calculate gradients here.
 
-            ### XXX: Solve has no grad() atm.
-            g_candidate_vals = tensor.grad(
-                    self.cand_EI.sum(),
-                    self.cand_x.valslist())
+        self.g_candidate_vals = tensor.grad(
+                self.cand_EI.sum(),
+                self.cand_x.valslist())
 
     def K_fn(self, x0, x1):
         # for each random variable in self.s_prior
@@ -534,6 +529,57 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 *(self._GP_x_all.flatten()
                     + [thresh]
                     + x.flatten()))
+        return rval
+
+    def GP_EI_optimize(self, x, maxiter=None):
+        try:
+            self._EI_fn_g
+        except AttributeError:
+            self._EI_fn_g = theano.function(
+                    [self.n_train, self.y_obs, self.y_obs_var]
+                        + self.x_obs_IVL.flatten()
+                        + [self.cand_EI_thresh]
+                        + self.cand_x.flatten(),
+                    [self.cand_EI] + self.g_candidate_vals,
+                    allow_input_downcast=True)
+            if len(self.g_candidate_vals) != 1:
+                raise NotImplementedError()
+            if self.g_candidate_vals[0].ndim != 1:
+                raise NotImplementedError()
+
+        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_all_var)).min()
+
+        def f(pt):
+            print 'EI_optimize: f', pt
+            rval = self._EI_fn_g(self._GP_n_train,
+                    self._GP_y_all,
+                    self._GP_y_all_var,
+                    *(self._GP_x_all.flatten()
+                        + [thresh, x.flatten()[0], pt]))
+            assert len(rval) == 2
+            print 'EI_optimize: EIs', rval[0]
+            return -numpy.sum(rval[0])
+        def df(pt):
+            print 'EI_optimize: df', pt
+            rval = self._EI_fn_g(self._GP_n_train,
+                    self._GP_y_all,
+                    self._GP_y_all_var,
+                    *(self._GP_x_all.flatten()
+                        + [thresh, x.flatten()[0], pt]))
+            return -rval[1].astype('float64')
+
+        print 'EI_optimize: OPTIMIZING...'
+        best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f,
+                x.flatten()[1].astype('float64'),
+                df,
+                maxfun=maxiter,
+                #bounds=bounds, # XXX for uniform these count - how to get them?
+                iprint=-1)
+
+        print 'BEST_PT', best_pt
+        rval = x.copy()
+        assert len(x) == 1
+        rval[0].vals = best_pt
         return rval
 
     def suggest_from_model(self, ivls, N):
