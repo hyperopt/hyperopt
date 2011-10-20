@@ -133,7 +133,7 @@ class gSON(SON):
         if rval is None:
             rval = []
         rval.append(prefix)
-        for c, cname in zip(self.children, self.children_names):
+        for c, cname in zip(self.children(), self.children_names()):
             c.flatten_names(prefix + cname, rval=rval)
         return rval
 
@@ -264,7 +264,7 @@ class gDist(gDict):
 
     def idxs_vals_to_dict_list(self, idxs, vals):
         """ convert idxs, vals -> list-of-dicts"""
-        nodes = self.flatten()
+        nodes = self.random_nodes()
         idxdict = {}
         valdict = {}
         assert len(idxs) == len(vals)
