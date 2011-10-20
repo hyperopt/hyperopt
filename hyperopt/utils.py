@@ -35,7 +35,7 @@ def json_lookup(json):
     return symbol
 
 
-def json_call(json):
+def json_call(json, args=(), kwargs={}):
     """
     Return a dataset class instance based on a string, tuple or dictionary
 
@@ -49,7 +49,7 @@ def json_call(json):
     """
     if isinstance(json, basestring):
         symbol = json_lookup(json)
-        return symbol()
+        return symbol(*args, **kwargs)
     elif isinstance(json, dict):
         raise NotImplementedError('dict calling convention undefined', json)
     elif isinstance(json, (tuple, list)):

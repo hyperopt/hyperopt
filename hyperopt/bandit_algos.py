@@ -9,14 +9,14 @@ import numpy
 import base
 
 class Random(base.BanditAlgo):
-    """Random search director
+    """Random search algorithm
     """
 
-    def __init__(self, *args, **kwargs):
-        base.BanditAlgo.__init__(self, *args, **kwargs)
+    def __init__(self, bandit):
+        base.BanditAlgo.__init__(self, bandit)
         self.rng = numpy.random.RandomState(self.seed)
 
-    def suggest(self, X_list, Ys, Y_status, N):
+    def suggest(self, trials, results, N):
         return [self.bandit.template.sample(self.rng)
                 for n in range(N)]
 
