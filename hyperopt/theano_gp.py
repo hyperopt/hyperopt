@@ -35,6 +35,117 @@ def value(x):
         return x
 
 
+class SparseGramGet(theano.gof.Op):
+    """
+    Particular kind of advanced indexing for reading an irregularly sliced
+    subarray.
+
+    """
+    def __eq__(self, other):
+        return (type(self) == type(other))
+
+    def __hash__(self):
+        return hash((type(self)))
+
+    def make_node(self, base, i0, i1):
+        base, i0, i1 = map(tensor.as_tensor_variable, (base, i0, i1))
+        if base.ndim != 2:
+            raise TypeError('base not matrix', base)
+        if i0.ndim != 1:
+            raise TypeError('i0 not lvector', i0)
+        if 'int' not in str(i0.dtype):
+            raise TypeError('i0 not lvector', i0)
+        if i1.ndim != 1:
+            raise TypeError('i1 not lvector', i1)
+        if 'int' not in str(i1.dtype):
+            raise TypeError('i1 not lvector', i1)
+        return theano.gof.Apply(self,
+                [base, i0, i1],
+                [base.type()])
+
+    def perform(self, node, inputs, storage):
+        base, i0, i1 = inputs
+        storage[0][0] = base[i0[:,None], i1]
+
+    def grad(self, node, inputs, g_outputs):
+        base, i0, i1 = inputs
+        base0 = tensor.zeros_like(base)
+        gbase = sparse_gram_inc(base0, g_outputs[0], i0, i1)
+        return [gbase, None, None]
+
+sparse_gram_get = SparseGramGet()
+
+
+class SparseGramSet(theano.gof.Op):
+    """
+    Particular kind of advanced indexing for modifying an irregularly sliced
+    subarray.
+
+    """
+    def __init__(self, operation, destructive=False):
+        if operation not in ('set', 'inc', 'mul'):
+            raise ValueError('invalid operation', operation)
+        self.operation = operation
+        self.destructive = destructive
+        if self.destructive:
+            self.destroy_map = {0: [0]}
+        else:
+            self.destroy_map = {}
+
+    def __eq__(self, other):
+        return (type(self) == type(other)
+                and self.operation == other.operation
+                and self.destructive == other.destructive)
+
+    def __hash__(self):
+        return hash((type(self),
+            self.operation,
+            self.destructive))
+
+    def make_node(self, base, amt, i0, i1):
+        # XXX: type checking, conversion
+        return theano.gof.Apply(self,
+                [base, amt, i0, i1],
+                [base.type()])
+
+    def perform(self, node, inputs, storage):
+        base, amt, i0, i1 = inputs
+        rval = base.copy()
+        if 'set' == self.operation:
+            rval[i0[:,None], i1] = amt
+        elif 'inc' == self.operation:
+            rval[i0[:,None], i1] += amt
+        elif 'mul' == self.operation:
+            rval[i0[:,None], i1] *= amt
+        else:
+            assert 0, self.operation
+        storage[0][0] = rval
+
+    def grad(self, node, inputs, g_outputs):
+        base, amt, i0, i1 = inputs
+        z = self(*inputs)
+        gz, = g_outputs
+        if 'set' == self.operation:
+            gbase = sparse_gram_set(gz, tensor.zeros_like(amt), i0, i1)
+            gamt = sparse_gram_get(gz, i0, i1)
+        elif 'inc' == self.operation:
+            gbase = gz
+            gamt = sparse_gram_get(gz, i0, i1)
+        elif 'mul' == self.operation:
+            # XXX: This is an incorrect gradient when
+            #      any of the terms in the multiplication is 0
+            #      Since gram matrices can be pretty sparse
+            #      it might be important to address that case.
+            gbase = sparse_gram_mul(gz, amt, i0, i1)
+            ginc = (sparse_gram_get(gz, i0, i1)
+                    * sparse_gram_get(base, i0, i1))
+        return [gbase, gamt, None, None]
+
+sparse_gram_set = SparseGramSet('set')
+sparse_gram_inc = SparseGramSet('inc')
+sparse_gram_mul = SparseGramSet('mul')
+
+
 class SquaredExponentialKernel(object):
     """
 

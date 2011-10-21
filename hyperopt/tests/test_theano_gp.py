@@ -7,15 +7,102 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
+import unittest
+
 import numpy
 
 import matplotlib.pyplot as plt
+
+import theano
+from theano import tensor
 
 from hyperopt.idxs_vals_rnd import IdxsValsList
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.experiments import SerialExperiment
+
+from hyperopt.theano_gp import sparse_gram_get
+from hyperopt.theano_gp import sparse_gram_set
+from hyperopt.theano_gp import sparse_gram_inc
+from hyperopt.theano_gp import sparse_gram_mul
+
+class TestSparseUpdate(unittest.TestCase):
+    def setUp(self):
+        self.base = tensor.lmatrix()
+        self.amt = tensor.lmatrix()
+        self.i0 = tensor.lvector()
+        self.i1 = tensor.lvector()
+        self.zget = sparse_gram_get(self.base, self.i0, self.i1)
+        self.zset = sparse_gram_set(self.base, self.amt, self.i0, self.i1)
+        self.zinc = sparse_gram_inc(self.base, self.amt, self.i0, self.i1)
+        self.zmul = sparse_gram_mul(self.base, self.amt, self.i0, self.i1)
+
+        self.vbase0 = numpy.zeros((5, 6), dtype='int')
+        self.vbase1 = numpy.arange(30).reshape(5, 6).astype('int')
+        self.vamt = numpy.arange(6).reshape(2, 3).astype('int')
+        self.vi0 = numpy.asarray([0, 3])
+        self.vi1 = numpy.asarray([1, 2, 4])
+
+    def test_extract_works(self):
+        f = theano.function([self.base, self.amt, self.i0, self.i1],
+                self.zget)
+        r = f(self.vbase1, self.vamt, self.vi0, self.vi1)
+        assert r.shape == self.vamt.shape, r
+        assert numpy.all(r == [[1, 2, 4], [19, 20, 22]]), r
+
+    def test_extract_with_negative_idxs(self):
+        f = theano.function([self.base, self.amt, self.i0, self.i1],
+                self.zget)
+        r = f(self.vbase1, self.vamt, [-5, -2], self.vi1)
+        assert numpy.all(r == [[1, 2, 4], [19, 20, 22]]), r
+
+        r = f(self.vbase1, self.vamt, [-5, -2], [1, 2, -2])
+        assert numpy.all(r == [[1, 2, 4], [19, 20, 22]]), r
+
+    def test_extract_works_with_dups(self):
+        f = theano.function([self.base, self.amt, self.i0, self.i1],
+                self.zget)
+        r = f(self.vbase1, self.vamt, [-5, -5], self.vi1)
+        assert numpy.all(r == [[1, 2, 4], [1, 2, 4]]), r
+
+    def test_extract_with_IndexError(self):
+        f = theano.function([self.base, self.amt, self.i0, self.i1],
+                self.zget)
+        self.assertRaises(IndexError,
+                f, self.vbase1, self.vamt, [7], self.vi1)
+        self.assertRaises(IndexError,
+                f, self.vbase1, self.vamt, [-7], self.vi1)
+        self.assertRaises(IndexError,
+                f, self.vbase1, self.vamt, self.vi0, [7])
+        self.assertRaises(IndexError,
+                f, self.vbase1, self.vamt, self.vi0, [-7])
+
+    def test_extract_with_wrong_rank(self):
+        self.assertRaises(TypeError,
+                sparse_gram_get, self.base, self.i0, tensor.lmatrix())
+        self.assertRaises(TypeError,
+                sparse_gram_get, self.base, tensor.lscalar(), self.i1)
+        self.assertRaises(TypeError,
+                sparse_gram_get, tensor.vector(), self.i0, self.i1)
+
+    def test_extract_with_float_idxs(self):
+        self.assertRaises(TypeError,
+                sparse_gram_get, self.base, tensor.vector(), self.i1)
+        self.assertRaises(TypeError,
+                sparse_gram_get, self.base, self.i0, tensor.vector())
+
+    def test_set_works(self): pass
+    def test_mul_works(self): pass
+    def test_inc_works(self): pass
+    def test_inc_works_with_dups(self): pass
+    def test_inc_IndexError(self): pass
+    def test_inc_wrong_rank(self): pass
+    def test_grad_extract(self): pass
+    def test_grad_set(self): pass
+    def test_grad_inc(self): pass
+    def test_grad_mul(self): pass
+
 
 # test that it can fit a GP to each of the simple variable types:
 #  - normal
