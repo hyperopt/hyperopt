@@ -167,7 +167,7 @@ class gSON(SON):
 
     def nth_theano_sample(self, n, idxdict, valdict):
         v = numpy.where(idxdict[id(self)] == n)[0][0]
-        return float(valdict[id(self)][v])
+        return valdict[id(self)][v].tolist()
 
 
 class gList(gSON):
@@ -417,10 +417,15 @@ class gGauss(gRandom):
             child.theano_sampler_helper(memo, s_rng)
         mu = get_value(self.mean, memo)
         stdev = get_value(self.stdev, memo)
-        size = get_value(self.size, memo)
         sigma = stdev ** 2
         elems = memo[id(self)]
-        vals = s_rng.normal(draw_shape=(elems.shape[0], size),
+        size = get_value(self.size, memo)
+        if isinstance(size, int):
+            ds = (elems.shape[0], size)
+        else:
+            ds = (elems.shape[0],) + tuple(size)
+
+        vals = s_rng.normal(draw_shape=ds,
                             mu=mu, sigma=sigma)
         memo[id(self)] = (elems, vals)
 
@@ -435,7 +440,12 @@ class gUniform(gRandom):
         high = get_value(self.max, memo)
         size = get_value(self.size, memo)
         elems = memo[id(self)]
-        vals = s_rng.uniform(draw_shape=(elems.shape[0], size), 
+        if isinstance(size, int):
+            ds = (elems.shape[0], size)
+        else:
+            ds = (elems.shape[0],) + tuple(size)
+
+        vals = s_rng.uniform(draw_shape=ds,
                              low=low, high=high)
         memo[id(self)] = (elems, vals)
 
@@ -444,10 +454,10 @@ class gChoice(gRandom):
 
     def make_contents(self):
         self.vals = [get_obj(t, self.path) for t in self.genson_obj.vals]
-        self.size = get_obj(self.genson_obj.size,self.path)
+        self.size = get_obj(self.genson_obj.size, self.path)
 
     def children(self):
-        return [x for x in self.vals if gdistable(x)]
+        return [x for x in (self.vals + [self.size]) if gdistable(x)]
 
     def children_names(self):
         return ['[%i]' % i for i in range(len(self.children()))]
@@ -458,11 +468,11 @@ class gChoice(gRandom):
         s = tensor.lscalar()
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=(elems.shape[0],s))
+                    draw_shape=(elems.shape[0],))
         self.s_to_replace = s
         self.old_casevar = casevar
         memo[id(self)] = elems
-        for i, child in enumerate(self.vals):
+        for i, child in enumerate(self.vals + [self.size]):
             if child in self.children():
                 elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
                 child.get_elems(s_rng, elems_i, memo)
@@ -472,22 +482,34 @@ class gChoice(gRandom):
             child.theano_sampler_helper(memo, s_rng)
         n_options = len(self.vals)
         elems = memo[id(self)]
-        size = get_value(self.size,memo)
+        size = get_value(self.size, memo)
+        if isinstance(size, int):
+            ds = (elems.shape[0], size)
+        else:
+            ds = (elems.shape[0],) + tuple(size)
+
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=(elems.shape[0],size))
-        assert self.old_casevar.owner.inputs[2].owner.inputs[1] is \
-                                                     self.s_to_replace
-        self.old_casevar.owner.inputs[1] = size
+                    draw_shape=ds)
+
+        #assert self.old_casevar.owner.inputs[2].owner.inputs[1] is \
+        #                                             self.s_to_replace
+        #self.old_casevar.owner.inputs[2].owner.inputs[1] = size
         memo[id(self)] = (elems, casevar)
 
     def nth_theano_sample(self, n, idxdict, valdict):
         v = numpy.where(idxdict[id(self)] == n)[0][0]
-        case = int(valdict[id(self)][v])
-        if self.vals[case] in self.children():
-            return self.vals[case].nth_theano_sample(n, idxdict, valdict)
+        case = valdict[id(self)][v].tolist()
+        return self.unroll(case, n, idxdict, valdict)
+
+    def unroll(self, case, n, idxdict, valdict):
+        if not hasattr(case, '__iter__'):
+            if self.vals[case] in self.children():
+                return self.vals[case].nth_theano_sample(n, idxdict, valdict)
+            else:
+                return self.vals[case]
         else:
-            return self.vals[case]
+            return [self.unroll(c, n, idxdict, valdict) for c in case]
 
 
 def get_value(x, memo):
