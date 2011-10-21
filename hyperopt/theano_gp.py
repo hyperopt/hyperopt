@@ -21,6 +21,7 @@ from idxs_vals_rnd import IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
 
 def dots(*args):
+    """Computes matrix product of N matrices"""
     rval = args[0]
     for a in args[1:]:
         rval = theano.tensor.dot(rval, a)
@@ -174,12 +175,14 @@ class GPR_math(object):
     # var_y - the vector of training data variances
 
     """
-    def __init__(self, x, y, var_y, K_fn, N=None):
+
+    def __init__(self, x, y, var_y, K_fn, N=None, min_variance=1e-6):
         self.x = x
         self.y = tensor.as_tensor_variable(y)
         self.var_y = tensor.as_tensor_variable(var_y)
         self.K_fn = K_fn
         self.K = self.K_fn(x, x)
+        self.min_variance = min_variance
         if N is None:
             self.N = self.y.shape[0]
         else:
@@ -214,10 +217,20 @@ class GPR_math(object):
     def s_variance(self, x):
         """Gaussian Process variance at points x"""
         K, y, var_y, N = self.kyn()
-        rK = PSD_hint(K + var_y * tensor.eye(N))
         K_x = self.K_fn(self.x, x)
-        v = tensor.dot(matrix_inverse(rK), K_x)
-        var_x = 1 - (v**2).sum(axis=0)
+        rK = PSD_hint(K + var_y * tensor.eye(N))
+        if 0:
+            # Fast but not differentiable  because grads notimpl
+            L = cholesky(rK)
+            v = solve(L, K_x)
+            var_x = 1 - (v**2).sum(axis=0)
+        else:
+            # XXX: implement graph optimizations to clean this up
+            #      and make it look more like the form above
+            var_x = 1 - diag(dots(
+                K_x.T,
+                matrix_inverse(rK),
+                K_x))
         return var_x
 
     def s_deg_of_freedom(self):
@@ -238,26 +251,60 @@ class GPR_math(object):
         """
 
         mu = self.s_mean(x)
-        sigma = tensor.sqrt(self.s_variance(x))
+        sigma = tensor.sqrt(
+                tensor.maximum(self.s_variance(x),
+                    self.min_variance))
         rval = 0.5 + 0.5 * tensor.erf((thresh - mu) / sigma)
+        return rval
+
+    def softmax_hack(self, x, thresh):
+        """
+        return approximation of \log(\int_{-inf}^{thresh} y p(y|x) dy)
+        """
+
+        mu = self.s_mean(x)
+        sigma = tensor.sqrt(
+                tensor.maximum(self.s_variance(x),
+                    self.min_variance))
+        rval = tensor.log1p(tensor.exp((thresh - mu) / sigma))
         return rval
 
 
 class GP_BanditAlgo(TheanoBanditAlgo):
 
-    multiplicative_kernels = True
+    multiplicative_kernels = True  # False means add
+    #XXX: True/False is bad interface for this
 
     constant_liar_global_mean = False
+    #XXX: True/False is bad interface for this
+    # one scheme is to use running mean
+    # other scheme estimates mean from startup jobs
 
     use_cg = False
+    # what optimizer to use for fitting GP, optimizing candidates?
 
     params_l2_penalty = 0
+    # fitting penalty on the lengthscales of kernels
+    # might make sense to make this negative to blur out the ML solution.
 
     mode = None  # to use theano's default
 
     n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
                          # should be bandit-agnostic
-    y_minvar = 1e-4
+    y_minvar = 1e-6
+
+    # EI_criterion can be
+    #   EI - expected improvement (numerically bad)
+    #   log_EI - log(EI)
+    #          (mathematically correct,
+    #           numerically good,
+    #           is there an analytic form?)
+    #           Not currently implemented
+    #   softmax_hack - log(1 + sigmoid((mu-thresh)/sigma))
+    #       - mathematically incorrect
+    #       - numerically good
+    #       - analytic form, fast computation
+    EI_criterion = 'softmax_hack'
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
@@ -293,17 +340,26 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.y_obs,
                 self.y_obs_var,
                 self.K_fn,
-                N=self.n_train)
-        self.kernels_sealed = True
+                N=self.n_train,
+                min_variance = self.y_minvar)
+        self.kernels_sealed = True  #XXX: debugging - removeme
 
         self.nll_obs = self.gprmath.s_nll()
 
         self.cand_x = self.s_prior.new_like_self()
 
         self.cand_EI_thresh = tensor.scalar()
-        self.cand_EI = self.gprmath.s_expectation_lt_thresh(
-                self.cand_x,
-                self.cand_EI_thresh)
+
+        if self.EI_criterion == 'EI':
+            self.cand_EI = self.gprmath.s_expectation_lt_thresh(
+                    self.cand_x,
+                    self.cand_EI_thresh)
+        elif self.EI_criterion == 'softmax_hack':
+            self.cand_EI = self.gprmath.softmax_hack(
+                    self.cand_x,
+                    self.cand_EI_thresh)
+        else:
+            raise ValueError('EI_criterion', self.EI_criterion)
 
         # optimize EI.sum() wrt the continuous-valued variables in candidates
         ### XXX: identify which elements in cand_x we could optimize
@@ -339,8 +395,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     def prepare_GP_training_data(self, X_IVLs, Ys, Ys_var):
         if self.constant_liar_global_mean:
             y_mean = numpy.mean(Ys['ok'][:self.n_startup_jobs])
+            y_std = numpy.std(Ys['ok'][:self.n_startup_jobs])
         else:
             y_mean = numpy.mean(Ys['ok'])
+            y_std = numpy.std(Ys['ok'])
 
         x_all = X_IVLs['ok'].copy()
         y_all = list(Ys['ok'])
@@ -361,13 +419,17 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         y_all = numpy.asarray(y_all)
         y_all_var = numpy.asarray(y_all_var)
+
+        y_all = (y_all - y_mean) / (1e-8 + y_std)
+        y_all_var /= (1e-8 + y_std)**2
+
         assert y_all.shape == y_all_var.shape
         if y_all_var.min() < -1e-6:
             raise ValueError('negative variance encountered in results')
         y_all_var = numpy.maximum(y_all_var, self.y_minvar)
-        return x_all, y_all, y_mean, y_all_var
+        return x_all, y_all, y_mean, y_all_var, y_std
 
-    def fit_GP(self, x_all, y_all, y_mean, y_all_var, maxiter=None):
+    def fit_GP(self, x_all, y_all, y_mean, y_all_var, y_std, maxiter=100):
         """
         Fit GPR kernel parameters by minimizing magininal nll.
 
@@ -380,11 +442,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             raise NotImplementedError('need contiguous 0-based indexes on x')
         n_train = len(y_all)
 
-        y_all = y_all - y_mean
         self._GP_n_train = n_train
         self._GP_x_all = x_all
         self._GP_y_all = y_all
         self._GP_y_mean = y_mean
+        self._GP_y_std = y_std
         self._GP_y_all_var = y_all_var
 
         if hasattr(self, 'nll_fn'):
@@ -469,7 +531,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     df,
                     maxfun=maxiter,
                     bounds=bounds,
-                    iprint=1)
+                    iprint=-1)
         logger.info('fit_GP best value: %f' % best_value)
         set_pt(best_pt)
         return best_value
@@ -507,7 +569,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self._GP_y_all,
                 self._GP_y_all_var,
                 *(self._GP_x_all.flatten() + x.flatten()))
-        return rval_mean + self._GP_y_mean, rval_var
+        assert rval_var.min() > 0
+        assert self._GP_y_std > 0
+        return (rval_mean * self._GP_y_std + self._GP_y_mean,
+                rval_var * self._GP_y_std**2)
 
     def GP_EI(self, x):
         try:
@@ -531,7 +596,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     + x.flatten()))
         return rval
 
-    def GP_EI_optimize(self, x, maxiter=None):
+    def GP_EI_optimize(self, x, maxiter=100):
         try:
             self._EI_fn_g
         except AttributeError:
@@ -550,33 +615,36 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_all_var)).min()
 
         def f(pt):
-            print 'EI_optimize: f', pt
+            #print 'EI_optimize: f', pt
             rval = self._EI_fn_g(self._GP_n_train,
                     self._GP_y_all,
                     self._GP_y_all_var,
                     *(self._GP_x_all.flatten()
                         + [thresh, x.flatten()[0], pt]))
             assert len(rval) == 2
-            print 'EI_optimize: EIs', rval[0]
+            #print 'EI_optimize: EIs', rval[0]
             return -numpy.sum(rval[0])
         def df(pt):
-            print 'EI_optimize: df', pt
             rval = self._EI_fn_g(self._GP_n_train,
                     self._GP_y_all,
                     self._GP_y_all_var,
                     *(self._GP_x_all.flatten()
                         + [thresh, x.flatten()[0], pt]))
+            #print 'EI_optimize: df', pt, -rval[1]
             return -rval[1].astype('float64')
 
-        print 'EI_optimize: OPTIMIZING...'
+        #print 'EI_optimize: OPTIMIZING...'
+        start_pt = x.flatten()[1].astype('float64')
+
         best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f,
-                x.flatten()[1].astype('float64'),
+                start_pt,
                 df,
                 maxfun=maxiter,
-                #bounds=bounds, # XXX for uniform these count - how to get them?
+                #TODO: bounds from distributions
+                bounds=[(-5, 5) for p in start_pt],
                 iprint=-1)
 
-        print 'BEST_PT', best_pt
+        #print 'BEST_PT', best_pt
         rval = x.copy()
         assert len(x) == 1
         rval[0].vals = best_pt
@@ -590,7 +658,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.fit_GP(x_all, y_all, y_mean, y_all_var)
 
         candidates = self._prior_sampler(N * 10)
-        print GP_EI(candidates)
 
 
     def suggest_from_prior(self, N):

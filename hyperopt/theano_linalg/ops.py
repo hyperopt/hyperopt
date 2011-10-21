@@ -96,7 +96,7 @@ class HintsFeature(object):
 
     """
     def add_hint(self, r, k, v):
-        print 'adding hint', r, k, v
+        #print 'adding hint', r, k, v
         self.hints[r][k] = v
 
     def ensure_init_r(self, r):
@@ -172,9 +172,9 @@ def is_positive(v):
         return True
     #TODO: how to handle this - a registry?
     #      infer_hints on Ops?
-    print 'is_positive', v
+    #print 'is_positive', v
     if v.owner and v.owner.op == tensor.pow:
-        print 'try for pow', v, v.owner.inputs
+        #print 'try for pow', v, v.owner.inputs
         try: 
             exponent = tensor.get_constant_value(v.owner.inputs[1])
         except TypeError:
@@ -251,7 +251,6 @@ def local_log_prod_sqr(node):
             # we cannot always make this substitution because
             # the prod might include negative terms
             p = x.owner.inputs[0]
-            print "AAA", p
 
             # p is the matrix we're reducing with prod
             if is_positive(p):
@@ -316,7 +315,6 @@ class Cholesky(Op):
         x = as_tensor_variable(x)
         return Apply(self, [x], [x.type()])
     def perform(self, node, (x,), (z,)):
-        print x.shape
         z[0] = scipy.linalg.cholesky(x, lower=self.lower).astype(x.dtype)
     #def grad(self, (x, y), (gz,)):
         #return dot(gz, y), dot(x, gz) #no transposing necessary
