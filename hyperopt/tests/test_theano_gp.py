@@ -272,12 +272,15 @@ def test_fit_normal():
 
     class A(GP_BanditAlgo):
         def suggest_from_model(self, trials, results, N):
+            if self.use_base_suggest:
+                return GP_BanditAlgo.suggest_from_model(self,
+                        trials, results, N)
+
             ivls = self.idxs_vals_by_status(trials, results)
             X_IVLs = ivls['x_IVLs']
             Ys = ivls['losses']
             Ys_var = ivls['losses_variance']
-            prepared_data = self.prepare_GP_training_data(
-                    X_IVLs, Ys, Ys_var)
+            prepared_data = self.prepare_GP_training_data(ivls)
             x_all, y_all, y_mean, y_var, y_std = prepared_data
             self.fit_GP(*prepared_data)
 
@@ -326,17 +329,22 @@ def test_fit_normal():
                     [candidates_opt[0].vals[best_idx]]))
             return rval
 
-    A.n_startup_jobs = 10
+    A.n_startup_jobs = 7
     se = SerialExperiment(A(B()))
     se.run(A.n_startup_jobs)
 
     assert len(se.trials) == len(se.results) == A.n_startup_jobs
 
-    # now trigger the use of the GP, EI, etc.
-    #A.show = False; se.run(6)
-    A.show = True; se.run(4)
+    def run_then_show(N):
+        if N > 1:
+            A.show = False
+            A.use_base_suggest = True
+            se.run(N-1)
+        A.show = True
+        A.use_base_suggest = False
+        se.run(1)
 
-    #A.show = True; se.run(1)
+    run_then_show(40)
 
 # for a Bandit of two variables, of which one doesn't do anything
 # test that the learned length scales are appropriate

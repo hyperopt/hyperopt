@@ -17,8 +17,16 @@ from theano import tensor
 from theano.sandbox.linalg import (diag, matrix_inverse, det, PSD_hint, trace)
 import montetheano
 
-from idxs_vals_rnd import IdxsValsList
+from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
+
+if 0:
+    from scipy.optimize import fmin_l_bfgs_b
+else:
+    # in theory this is about twice as fast as scipy's because
+    # it permits passing a combination f and df implementation
+    # that theano has compiled
+    from lbfgsb import fmin_l_bfgs_b
 
 def dots(*args):
     """Computes matrix product of N matrices"""
@@ -65,6 +73,9 @@ class SparseGramGet(theano.gof.Op):
 
     def perform(self, node, inputs, storage):
         base, i0, i1 = inputs
+        #print 'SparseGramGet base', base.shape
+        #print 'SparseGramGet i0', i0
+        #print 'SparseGramGet i1', i1
         storage[0][0] = base[i0[:,None], i1]
 
     def grad(self, inputs, g_outputs):
@@ -127,6 +138,12 @@ class SparseGramSet(theano.gof.Op):
             rval = base
         else:
             rval = base.copy()
+
+        #print 'SparseGramSet operation', self.operation, [id(n) for n in node.inputs]
+        #print 'SparseGramSet base', base.shape
+        #print 'SparseGramSet amt', amt.shape
+        #print 'SparseGramSet i0', i0
+        #print 'SparseGramSet i1', i1
 
         if len(set(i0)) != len(i0):
             raise NotImplementedError('dups illegal in numpy adv. indexing')
@@ -312,16 +329,18 @@ class GPR_math(object):
         self.y = tensor.as_tensor_variable(y)
         self.var_y = tensor.as_tensor_variable(var_y)
         self.K_fn = K_fn
-        self.K = self.K_fn(x, x)
         self.min_variance = min_variance
         if N is None:
             self.N = self.y.shape[0]
         else:
             self.N = N
 
-    def kyn(self):
+    def kyn(self, x=None):
         """Return tuple: K, y, var_y, N"""
-        return self.K, self.y, self.var_y, self.N
+        if x is None:
+            return self.K_fn(self.x, self.x), self.y, self.var_y, self.N
+        else:
+            return self.K_fn(self.x, x), self.y, self.var_y, self.N
 
     def s_nll(self):
         """ Marginal negative log likelihood of model
@@ -348,8 +367,8 @@ class GPR_math(object):
     def s_variance(self, x):
         """Gaussian Process variance at points x"""
         K, y, var_y, N = self.kyn()
-        K_x = self.K_fn(self.x, x)
         rK = PSD_hint(K + var_y * tensor.eye(N))
+        K_x = self.K_fn(self.x, x)
         if 0:
             # Fast but not differentiable  because grads notimpl
             L = cholesky(rK)
@@ -358,10 +377,7 @@ class GPR_math(object):
         else:
             # XXX: implement graph optimizations to clean this up
             #      and make it look more like the form above
-            var_x = 1 - diag(dots(
-                K_x.T,
-                matrix_inverse(rK),
-                K_x))
+            var_x = 1 - diag(dots(K_x.T, matrix_inverse(rK), K_x))
         return var_x
 
     def s_deg_of_freedom(self):
@@ -406,7 +422,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     multiplicative_kernels = True  # False means add
     #XXX: True/False is bad interface for this
 
-    constant_liar_global_mean = False
+    constant_liar_global_mean = True
     #XXX: True/False is bad interface for this
     # one scheme is to use running mean
     # other scheme estimates mean from startup jobs
@@ -437,13 +453,19 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     #       - analytic form, fast computation
     EI_criterion = 'softmax_hack'
 
+    n_candidates_to_draw = 5  # XXX: make this bigger for non-debugging
+
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
         self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
-        self.n_train = tensor.lscalar('n_train')
+        self.s_n_train = tensor.lscalar('n_train')
+        self.s_n_test = tensor.lscalar('n_test')
         self.y_obs = tensor.vector('y_obs')
         self.y_obs_var = tensor.vector('y_obs_var')
         self.x_obs_IVL = self.s_prior.new_like_self()
+
+        self.cand_x = self.s_prior.new_like_self()
+        self.cand_EI_thresh = tensor.scalar()
 
         self.kernels = []
         self.params = []  # to be populated by self.sparse_gram_matrix()
@@ -471,15 +493,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.y_obs,
                 self.y_obs_var,
                 self.K_fn,
-                N=self.n_train,
+                N=self.s_n_train,
                 min_variance = self.y_minvar)
         self.kernels_sealed = True  #XXX: debugging - removeme
 
         self.nll_obs = self.gprmath.s_nll()
-
-        self.cand_x = self.s_prior.new_like_self()
-
-        self.cand_EI_thresh = tensor.scalar()
 
         if self.EI_criterion == 'EI':
             self.cand_EI = self.gprmath.s_expectation_lt_thresh(
@@ -501,66 +519,93 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.cand_x.valslist())
 
     def K_fn(self, x0, x1):
+        """
+        :param x0: an IdxsValsList of symbolic variables
+        :param x1: an IdxsValsList of symbolic variables
+
+        :returns: symbolic gram matrix
+        """
         # for each random variable in self.s_prior
         # choose a kernel to compare observations of that variable
         # and do a sparse increment of the gram matrix
         if self.multiplicative_kernels:
-            fill_value = 1
+            fill_val = 1.0
+            modif = sparse_gram_mul
         else:
-            fill_value = 0
-        gram_matrices = [
-                kern.K(
-                    #iv0.idxs,
+            fill_val = 0.0
+            modif = sparse_gram_inc
+
+        n_train_dict = {
+                id(self.x_obs_IVL):self.s_n_train,
+                id(self.cand_x): self.s_n_test}
+
+        if x1 is x0:
+            nx1 = self.s_n_train
+        else:
+            nx1 = self.s_n_test
+        base = tensor.alloc(fill_val, self.s_n_train, nx1)
+        for kern, iv0, iv1 in zip(self.kernels, x0, x1):
+            gram = kern.K(
                     iv0.vals.dimshuffle(0, 'x'),
-                    #iv1.idxs,
-                    iv1.vals.dimshuffle(0, 'x'),
-                    #fill_value=fill_value
-                    )
-                for kern, iv0, iv1 in zip(self.kernels, x0, x1)]
+                    iv1.vals.dimshuffle(0, 'x'))
+            base = modif(base, gram, iv0.idxs, iv1.idxs)
 
-        if self.multiplicative_kernels:
-            return tensor.mul(*gram_matrices)
-        else:
-            return tensor.add(*gram_matrices)
+        return base
 
-    def prepare_GP_training_data(self, X_IVLs, Ys, Ys_var):
+    def prepare_GP_training_data(self, ivls):
+
+        y_mean = numpy.mean(ivls['losses']['ok'].vals)
+        y_std = numpy.std(ivls['losses']['ok'].vals)
+
+        x_all = ivls['x_IVLs']['ok'].copy()
+        y_all_iv = ivls['losses']['ok'].copy()
+        y_var_iv = ivls['losses_variance']['ok'].copy()
+
         if self.constant_liar_global_mean:
-            y_mean = numpy.mean(Ys['ok'][:self.n_startup_jobs])
-            y_std = numpy.std(Ys['ok'][:self.n_startup_jobs])
+            liar_y_mean = y_mean
+            liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
         else:
-            y_mean = numpy.mean(Ys['ok'])
-            y_std = numpy.std(Ys['ok'])
+            raise NotImplementedError()
 
-        x_all = X_IVLs['ok'].copy()
-        y_all = list(Ys['ok'])
-        y_all_var = list(Ys_var['ok'])
-
-        avg_var = numpy.mean(y_all_var)
+        y_all_iv = y_all_iv.as_list()
+        y_var_iv = y_var_iv.as_list()
+        x_all = x_all.as_list()
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
-                    % len(Ys[pseudo_bad_status]))
-            idmap = x_all.stack(X_IVLs[pseudo_bad_status])
-            assert range(len(idmap)) == list(sorted(idmap.keys()))
-            y_all.extend([0 for y in Ys[pseudo_bad_status]])
-            y_all_var.extend([avg_var for y in Ys[pseudo_bad_status]])
+                    % len(ivls['losses'][pseudo_bad_status].idxs))
+            x_all.stack(ivls['x_IVLs'][pseudo_bad_status])
+            y_all_iv.stack(IdxsVals(
+                ivls['losses'][pseudo_bad_status].idxs,
+                [liar_y_mean] * len(ivls['losses'][pseudo_bad_status].idxs)))
+            y_var_iv.stack(IdxsVals(
+                ivls['losses_variance'][pseudo_bad_status].idxs,
+                [liar_y_var] * len(ivls['losses'][pseudo_bad_status].idxs)))
 
-        # assert that stack() isn't written badly
-        assert len(x_all) == len(X_IVLs['ok'])
+        # renumber the configurations in x_all to be 0 .. (n_train - 1)
+        idmap = y_all_iv.reindex()
+        idmap = y_var_iv.reindex(idmap)
+        idmap = x_all.reindex(idmap)
 
-        y_all = numpy.asarray(y_all)
-        y_all_var = numpy.asarray(y_all_var)
+        assert y_all_iv.idxset() == y_var_iv.idxset() == x_all.idxset()
+
+        assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs)))
+        assert numpy.all(y_var_iv.idxs == numpy.arange(len(y_all_iv.idxs)))
+
+        y_all = y_all_iv.as_numpy(vdtype=theano.config.floatX).vals
+        y_var = y_var_iv.as_numpy(vdtype=theano.config.floatX).vals
+        x_all = x_all.as_numpy_floatX()
 
         y_all = (y_all - y_mean) / (1e-8 + y_std)
-        y_all_var /= (1e-8 + y_std)**2
+        y_var /= (1e-8 + y_std)**2
 
-        assert y_all.shape == y_all_var.shape
-        if y_all_var.min() < -1e-6:
+        assert y_all.shape == y_var.shape
+        if y_var.min() < -1e-6:
             raise ValueError('negative variance encountered in results')
-        y_all_var = numpy.maximum(y_all_var, self.y_minvar)
-        return x_all, y_all, y_mean, y_all_var, y_std
+        y_var = numpy.maximum(y_var, self.y_minvar)
+        return x_all, y_all, y_mean, y_var, y_std
 
-    def fit_GP(self, x_all, y_all, y_mean, y_all_var, y_std, maxiter=100):
+    def fit_GP(self, x_all, y_all, y_mean, y_var, y_std, maxiter=100):
         """
         Fit GPR kernel parameters by minimizing magininal nll.
 
@@ -575,10 +620,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         self._GP_n_train = n_train
         self._GP_x_all = x_all
+
         self._GP_y_all = y_all
+
+        self._GP_y_var = y_var
+
         self._GP_y_mean = y_mean
         self._GP_y_std = y_std
-        self._GP_y_all_var = y_all_var
 
         if hasattr(self, 'nll_fn'):
             nll_fn = self.nll_fn
@@ -588,13 +636,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 + self.params_l2_penalty * sum(
                     [(p ** 2).sum() for p in self.params]))
             nll_fn = self.nll_fn = theano.function(
-                    [self.n_train, self.y_obs, self.y_obs_var]
+                    [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten(),
                     cost,
                     allow_input_downcast=True)
             #theano.printing.debugprint(nll_fn)
             dnll_dparams = self.dnll_dparams = theano.function(
-                    [self.n_train, self.y_obs, self.y_obs_var]
+                    [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten(),
                     tensor.grad(cost, self.params),
                     allow_input_downcast=True)
@@ -628,15 +676,17 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             set_pt(pt)
             # XXX TODO: estimate y_obs_var
             return nll_fn(self._GP_n_train,
+                    self._GP_n_train,
                     self._GP_y_all,
-                    self._GP_y_all_var,
+                    self._GP_y_var,
                     *self._GP_x_all.flatten())
         def df(pt):
             #print 'df', pt
             set_pt(pt)
             dparams = dnll_dparams(self._GP_n_train,
+                    self._GP_n_train,
                     self._GP_y_all,
-                    self._GP_y_all_var,
+                    self._GP_y_var,
                     *self._GP_x_all.flatten())
             rval = []
             for dp in dparams:
@@ -657,7 +707,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     maxiter=maxiter,
                     epsilon=.02)
         else:
-            best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f,
+            best_pt, best_value, best_d = fmin_l_bfgs_b(f,
                     start_pt,
                     df,
                     maxfun=maxiter,
@@ -688,17 +738,21 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         except AttributeError:
             s_x = self.s_prior.new_like_self()
             self._mean_variance = theano.function(
-                    [self.n_train, self.y_obs, self.y_obs_var]
+                    [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten()
                         + s_x.flatten(),
                     [self.gprmath.s_mean(s_x), self.gprmath.s_variance(s_x)],
                     allow_input_downcast=True)
         if len(x) != len(self._GP_x_all):
             raise ValueError('x has wrong len')
+        x_idxset = x.idxset()
+        if list(sorted(x_idxset)) != range(len(x_idxset)):
+            raise ValueError('x needs re-indexing')
         rval_mean, rval_var = self._mean_variance(
                 self._GP_n_train,
+                len(x_idxset),
                 self._GP_y_all,
-                self._GP_y_all_var,
+                self._GP_y_var,
                 *(self._GP_x_all.flatten() + x.flatten()))
         assert rval_var.min() > 0
         assert self._GP_y_std > 0
@@ -706,33 +760,53 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 rval_var * self._GP_y_std**2)
 
     def GP_EI(self, x):
+        x_idxset = x.idxset()
+        if list(sorted(x_idxset)) != range(len(x_idxset)):
+            raise ValueError('x needs re-indexing')
+
         try:
             self._EI_fn
         except AttributeError:
             self._EI_fn = theano.function(
-                    [self.n_train, self.y_obs, self.y_obs_var]
+                    [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten()
                         + [self.cand_EI_thresh]
                         + self.cand_x.flatten(),
                     self.cand_EI,
                     allow_input_downcast=True)
 
-        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_all_var)).min()
+        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var)).min()
 
         rval = self._EI_fn(self._GP_n_train,
+                len(x_idxset),
                 self._GP_y_all,
-                self._GP_y_all_var,
+                self._GP_y_var,
                 *(self._GP_x_all.flatten()
                     + [thresh]
                     + x.flatten()))
+        assert rval.shape == (len(x_idxset),)
         return rval
 
     def GP_EI_optimize(self, x, maxiter=100):
+        x_idxset = x.idxset()
+        if list(sorted(x_idxset)) != range(len(x_idxset)):
+            raise ValueError('x needs re-indexing')
+
+        if len(x) > 1:
+            # f and df are hacked to work for problems of 1 var.
+            # What's necessary is to flatten all variables into a
+            # vector to interface with scipy.
+            raise NotImplementedError()
+
+        #print 'GP_EI_optimize'
+        #print self._GP_n_train, self._GP_x_all.idxset()
+        #print len(x_idxset), x_idxset
+
         try:
             self._EI_fn_g
         except AttributeError:
             self._EI_fn_g = theano.function(
-                    [self.n_train, self.y_obs, self.y_obs_var]
+                    [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten()
                         + [self.cand_EI_thresh]
                         + self.cand_x.flatten(),
@@ -743,13 +817,14 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             if self.g_candidate_vals[0].ndim != 1:
                 raise NotImplementedError()
 
-        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_all_var)).min()
+        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var)).min()
 
         def f(pt):
             #print 'EI_optimize: f', pt
             rval = self._EI_fn_g(self._GP_n_train,
+                    len(x_idxset),
                     self._GP_y_all,
-                    self._GP_y_all_var,
+                    self._GP_y_var,
                     *(self._GP_x_all.flatten()
                         + [thresh, x.flatten()[0], pt]))
             assert len(rval) == 2
@@ -757,8 +832,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             return -numpy.sum(rval[0])
         def df(pt):
             rval = self._EI_fn_g(self._GP_n_train,
+                    len(x_idxset),
                     self._GP_y_all,
-                    self._GP_y_all_var,
+                    self._GP_y_var,
                     *(self._GP_x_all.flatten()
                         + [thresh, x.flatten()[0], pt]))
             #print 'EI_optimize: df', pt, -rval[1]
@@ -767,7 +843,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         #print 'EI_optimize: OPTIMIZING...'
         start_pt = x.flatten()[1].astype('float64')
 
-        best_pt, best_value, best_d = scipy.optimize.fmin_l_bfgs_b(f,
+        best_pt, best_value, best_d = fmin_l_bfgs_b(f,
                 start_pt,
                 df,
                 maxfun=maxiter,
@@ -781,15 +857,27 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         rval[0].vals = best_pt
         return rval
 
-    def suggest_from_model(self, ivls, N):
-        x_all, y_all, y_mean, y_all_var = self.prepare_GP_training_data(
-                ivls['X_IVLs'],
-                ivls['losses'],
-                ivls['losses_variance'])
-        self.fit_GP(x_all, y_all, y_mean, y_all_var)
+    def draw_candidates(self):
+        return IdxsValsList.fromflattened(
+                self._prior_sampler(self.n_candidates_to_draw))
 
-        candidates = self._prior_sampler(N * 10)
+    def suggest_from_model(self, trials, results, N):
+        ivls = self.idxs_vals_by_status(trials, results)
+        prepared_data = self.prepare_GP_training_data(ivls)
+        self.fit_GP(*prepared_data)
 
+        candidates = self.draw_candidates()
+        candidates_opt = self.GP_EI_optimize(candidates)
+
+        EI_opt = self.GP_EI(candidates_opt)
+        best_idx = numpy.argmax(EI_opt)
+
+        if 1: # for DEBUGGING
+            EI = self.GP_EI(candidates)
+            #assert EI.max() < EI_opt.max()
+
+        rval = candidates_opt.numeric_take([best_idx])
+        return rval
 
     def suggest_from_prior(self, N):
         if not hasattr(self, '_prior_sampler'):
@@ -802,7 +890,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def suggest(self, trials, results, N):
         ivls = self.idxs_vals_by_status(trials, results)
-        if len(ivls['losses']['ok']) < self.n_startup_jobs:
+        if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
             return self.suggest_ivl(
                     self.suggest_from_prior(N))
         else:

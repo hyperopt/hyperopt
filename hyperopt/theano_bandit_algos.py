@@ -18,7 +18,7 @@ import theano
 from theano import tensor
 
 import base
-from idxs_vals_rnd import IdxsValsList
+from idxs_vals_rnd import IdxsVals, IdxsValsList
 
 
 STATUS_STRINGS = (
@@ -110,15 +110,11 @@ class TheanoBanditAlgo(base.BanditAlgo):
     def recall(self, idlist):
         """Construct an IdxsValsList representation of the elements of idlist.
 
-        The result will be renumberd 0,1,...len(idlist).
-
-        Thus element 0 of the returned IdxValsList will correspond to the
-        database element whose id matches the 0th element of idlist.
+        The result will not be renumbered.
         """
         if idlist:
-            # iddict maps idx in database -> idx in rval
-            iddict = dict([(orig, new) for (new, orig) in enumerate(idlist)])
-            if len(iddict) != len(idlist):
+            idset = set(idlist)
+            if len(idset) != len(idlist):
                 raise NotImplementedError('dups in idlist')
 
             # for each variable in the bandit (each idxs, vals pair)
@@ -128,14 +124,10 @@ class TheanoBanditAlgo(base.BanditAlgo):
             rval_vals = []
             for idxs, vals in zip(self.db_idxs, self.db_vals):
                 assert len(idxs) == len(vals)
-                ii_vv = [(iddict[ii], vv)
-                        for (ii, vv) in zip(idxs, vals) if ii in iddict]
-                if ii_vv:
-                    idxs, vals = zip(*ii_vv)
-                else:
-                    idxs, vals = [], []
-                rval_idxs.append(list(idxs))
-                rval_vals.append(list(vals))
+                ii_vv = [(ii, vv)
+                        for (ii, vv) in zip(idxs, vals) if ii in idset]
+                rval_idxs.append([iv[0] for iv in ii_vv])
+                rval_vals.append([iv[1] for iv in ii_vv])
         else:
             rval_idxs = [[] for s in self.s_idxs]
             rval_vals = [[] for s in self.s_idxs]
@@ -197,32 +189,28 @@ class TheanoBanditAlgo(base.BanditAlgo):
         for status in STATUS_STRINGS:
             positions[status] = [i
                     for i, s in enumerate(Y_status) if s == status]
-            ivs[status] = self.recall([trials[i]['_config_id']
-                for i in positions[status]])
-            ys[status] = [self.bandit.loss(results[i], config=trials[i])
-                for i in positions[status]]
-            losses_variance[status] = [self.bandit.loss_variance(
-                    results[i], config=trials[i])
-                for i in positions[status]]
+            ids = [trials[i]['_config_id'] for i in positions[status]]
+            ivs[status] = self.recall(ids)
+            ys[status] = IdxsVals(ids,
+                    [self.bandit.loss(results[i], config=trials[i])
+                        for i in positions[status]])
+            losses_variance[status] = IdxsVals(ids,
+                    [self.bandit.loss_variance(results[i], config=trials[i])
+                        for i in positions[status]])
             logger.info('TheanoBanditAlgo.suggest: %04i jobs with status %s'
-                    % (len(ys[status]), status))
-            if 'ok' == status:
-                for y in ys[status]:
-                    try:
-                        float(y)
-                    except TypeError:
-                        raise TypeError('invalid loss for status "ok": %s'
-                                % y)
-                    if float(y) != float(y):
-                        raise ValueError('invalid loss for status "ok":  %s'
-                                % y)
+                    % (len(ids), status))
 
-        assert not numpy.any(
-                numpy.isnan(
-                    numpy.array(ys['ok'], dtype='float')))
+        # check that all ok jobs have a legitimate floating-point loss
+        for y in ys['ok'].vals:
+            try:
+                float(y)
+            except TypeError:
+                raise TypeError('invalid loss for status "ok": %s'
+                        % y)
+            if float(y) != float(y):
+                raise ValueError('invalid loss for status "ok":  %s'
+                        % y)
 
-        # this is an assert because we validated Y_status above
-        assert sum(len(l) for l in positions.values()) == len(Y_status)
         return dict(
                 positions=positions,
                 x_IVLs=ivs,
