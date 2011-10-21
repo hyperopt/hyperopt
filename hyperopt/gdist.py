@@ -410,29 +410,33 @@ class gRandom(gSON):
 
 
 class gGauss(gRandom):
-    params = ['mean', 'stdev']
+    params = ['mean', 'stdev', 'size']
 
     def theano_sampler_helper(self, memo, s_rng):
         for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         mu = get_value(self.mean, memo)
         stdev = get_value(self.stdev, memo)
+        size = get_value(self.size, memo)
         sigma = stdev ** 2
         elems = memo[id(self)]
-        vals = s_rng.normal(draw_shape=(elems.shape[0],), mu=mu, sigma=sigma)
+        vals = s_rng.normal(draw_shape=(elems.shape[0], size),
+                            mu=mu, sigma=sigma)
         memo[id(self)] = (elems, vals)
 
 
 class gUniform(gRandom):
-    params = ['min', 'max']
+    params = ['min', 'max', 'size']
 
     def theano_sampler_helper(self, memo, s_rng):
         for child in self.children():
             child.theano_sampler_helper(memo, s_rng)
         low = get_value(self.min, memo)
         high = get_value(self.max, memo)
+        size = get_value(self.size, memo)
         elems = memo[id(self)]
-        vals = s_rng.uniform(draw_shape=(elems.shape[0],), low=low, high=high)
+        vals = s_rng.uniform(draw_shape=(elems.shape[0], size), 
+                             low=low, high=high)
         memo[id(self)] = (elems, vals)
 
 
@@ -440,6 +444,7 @@ class gChoice(gRandom):
 
     def make_contents(self):
         self.vals = [get_obj(t, self.path) for t in self.genson_obj.vals]
+        self.size = get_obj(self.genson_obj.size,self.path)
 
     def children(self):
         return [x for x in self.vals if gdistable(x)]
@@ -450,9 +455,12 @@ class gChoice(gRandom):
     def get_elems(self, s_rng, elems, memo):
         n_options = len(self.vals)
         #print 'n_options', n_options
+        s = tensor.lscalar()
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=(elems.shape[0],))
+                    draw_shape=(elems.shape[0],s))
+        self.s_to_replace = s
+        self.old_casevar = casevar
         memo[id(self)] = elems
         for i, child in enumerate(self.vals):
             if child in self.children():
@@ -464,9 +472,13 @@ class gChoice(gRandom):
             child.theano_sampler_helper(memo, s_rng)
         n_options = len(self.vals)
         elems = memo[id(self)]
+        size = get_value(self.size,memo)
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=(elems.shape[0],))
+                    draw_shape=(elems.shape[0],size))
+        assert self.old_casevar.owner.inputs[2].owner.inputs[1] is \
+                                                     self.s_to_replace
+        self.old_casevar.owner.inputs[1] = size
         memo[id(self)] = (elems, casevar)
 
     def nth_theano_sample(self, n, idxdict, valdict):
