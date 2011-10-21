@@ -14,7 +14,7 @@ import numpy
 import scipy.optimize
 import theano
 from theano import tensor
-from theano_linalg import (diag, matrix_inverse, det, PSD_hint, trace)
+from theano.sandbox.linalg import (diag, matrix_inverse, det, PSD_hint, trace)
 import montetheano
 
 from idxs_vals_rnd import IdxsValsList
