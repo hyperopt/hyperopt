@@ -406,7 +406,16 @@ def resolve_scoped_reference(ref, path):
 
 
 class gRandom(gSON):
-    pass
+    def get_shape(self, size, elems):
+        if isinstance(size, int):
+            if size == 1:
+                ds = (elems.shape[0],)
+            else:
+                ds = (elems.shape[0], size)
+        else:
+            ds = (elems.shape[0],) + tuple(size)
+
+        return ds
 
 
 class gGauss(gRandom):
@@ -420,11 +429,7 @@ class gGauss(gRandom):
         sigma = stdev ** 2
         elems = memo[id(self)]
         size = get_value(self.size, memo)
-        if isinstance(size, int):
-            ds = (elems.shape[0], size)
-        else:
-            ds = (elems.shape[0],) + tuple(size)
-
+        ds = self.get_shape(size, elems)
         vals = s_rng.normal(draw_shape=ds,
                             mu=mu, sigma=sigma)
         memo[id(self)] = (elems, vals)
@@ -440,11 +445,7 @@ class gUniform(gRandom):
         high = get_value(self.max, memo)
         size = get_value(self.size, memo)
         elems = memo[id(self)]
-        if isinstance(size, int):
-            ds = (elems.shape[0], size)
-        else:
-            ds = (elems.shape[0],) + tuple(size)
-
+        ds = self.get_shape(size, elems)
         vals = s_rng.uniform(draw_shape=ds,
                              low=low, high=high)
         memo[id(self)] = (elems, vals)
@@ -483,11 +484,7 @@ class gChoice(gRandom):
         n_options = len(self.vals)
         elems = memo[id(self)]
         size = get_value(self.size, memo)
-        if isinstance(size, int):
-            ds = (elems.shape[0], size)
-        else:
-            ds = (elems.shape[0],) + tuple(size)
-
+        ds = self.get_shape(size, elems)
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
                     draw_shape=ds)
