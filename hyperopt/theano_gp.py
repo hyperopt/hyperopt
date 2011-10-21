@@ -67,7 +67,7 @@ class SparseGramGet(theano.gof.Op):
         base, i0, i1 = inputs
         storage[0][0] = base[i0[:,None], i1]
 
-    def grad(self, node, inputs, g_outputs):
+    def grad(self, inputs, g_outputs):
         base, i0, i1 = inputs
         base0 = tensor.zeros_like(base)
         gbase = sparse_gram_inc(base0, g_outputs[0], i0, i1)
@@ -103,14 +103,37 @@ class SparseGramSet(theano.gof.Op):
             self.destructive))
 
     def make_node(self, base, amt, i0, i1):
-        # XXX: type checking, conversion
+        base, amt, i0, i1 = map(tensor.as_tensor_variable,
+                (base, amt, i0, i1))
+        if base.ndim != 2:
+            raise TypeError('base not matrix', base)
+        if amt.ndim != 2:
+            raise TypeError('amt not matrix', base)
+        if i0.ndim != 1:
+            raise TypeError('i0 not lvector', i0)
+        if 'int' not in str(i0.dtype):
+            raise TypeError('i0 not lvector', i0)
+        if i1.ndim != 1:
+            raise TypeError('i1 not lvector', i1)
+        if 'int' not in str(i1.dtype):
+            raise TypeError('i1 not lvector', i1)
         return theano.gof.Apply(self,
                 [base, amt, i0, i1],
                 [base.type()])
 
     def perform(self, node, inputs, storage):
         base, amt, i0, i1 = inputs
-        rval = base.copy()
+        if self.destructive:
+            rval = base
+        else:
+            rval = base.copy()
+
+        if len(set(i0)) != len(i0):
+            raise NotImplementedError('dups illegal in numpy adv. indexing')
+
+        if len(set(i1)) != len(i1):
+            raise NotImplementedError('dups illegal in numpy adv. indexing')
+
         if 'set' == self.operation:
             rval[i0[:,None], i1] = amt
         elif 'inc' == self.operation:
@@ -119,9 +142,10 @@ class SparseGramSet(theano.gof.Op):
             rval[i0[:,None], i1] *= amt
         else:
             assert 0, self.operation
+
         storage[0][0] = rval
 
-    def grad(self, node, inputs, g_outputs):
+    def grad(self, inputs, g_outputs):
         base, amt, i0, i1 = inputs
         z = self(*inputs)
         gz, = g_outputs
@@ -132,12 +156,8 @@ class SparseGramSet(theano.gof.Op):
             gbase = gz
             gamt = sparse_gram_get(gz, i0, i1)
         elif 'mul' == self.operation:
-            # XXX: This is an incorrect gradient when
-            #      any of the terms in the multiplication is 0
-            #      Since gram matrices can be pretty sparse
-            #      it might be important to address that case.
             gbase = sparse_gram_mul(gz, amt, i0, i1)
-            ginc = (sparse_gram_get(gz, i0, i1)
+            gamt = (sparse_gram_get(gz, i0, i1)
                     * sparse_gram_get(base, i0, i1))
         return [gbase, gamt, None, None]
 
