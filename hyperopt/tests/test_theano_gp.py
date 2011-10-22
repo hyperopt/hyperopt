@@ -18,6 +18,7 @@ from theano import tensor
 from theano.tests.unittest_tools import verify_grad, seed_rng
 
 from hyperopt.idxs_vals_rnd import IdxsValsList
+from hyperopt.bandits import TwoArms
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
@@ -252,74 +253,8 @@ class TestSparseUpdate(unittest.TestCase):
                 # print e.analytic_grad
                 raise
 
-# test that it can fit a GP to each of the simple variable types:
-#  - normal
-#  - uniform
-#  - lognormal
-#  - quantized lognormal
-#  - categorical
 
-
-class GaussianBandit(GensonBandit):
-
-    test_str = '{"x":gaussian(0,1)}'
-
-    def __init__(self):
-        super(GaussianBandit, self).__init__(source_string=self.test_str)
-
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - 2) ** 2, status='ok')
-
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1
-
-
-class GaussianBandit2var(GensonBandit):
-
-    test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
-
-    def __init__(self, a, b):
-        super(GaussianBandit2var, self).__init__(source_string=self.test_str)
-        GaussianBandit2var.a = a
-        GaussianBandit2var.b = b
-
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=cls.a * (config['x'] - 2) ** 2 + \
-                                   cls.b * (config['y'] - 2) ** 2, status='ok')
-
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1
-        
-class GaussianBandit4var(GensonBandit):
-
-    test_str = """{"p0":choice([{"a":normal(0,1),"b":normal(0,1)},
-                                 {"c":normal(0,1),"d":normal(0,1)}])}"""
-
-    def __init__(self, a, b, c, d):
-        super(GaussianBandit2var, self).__init__(source_string=self.test_str)
-        GaussianBandit2var.a = a
-        GaussianBandit2var.b = b
-        GaussianBandit2var.c = c
-        GaussianBandit2var.d = d
-
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=cls.a * (config['p0']["a"] - 2) ** 2 + \
-                         cls.b * (config['p0']["b"] - 2) ** 2 + \
-                         cls.c * (config['p0']["c"] - 2) ** 2 + \
-                         cls.d * (config['p0']["d"] - 2) ** 2 ,
-                    status='ok')     
-        
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1
-
-
-class A(GP_BanditAlgo):
+class GPAlgo(GP_BanditAlgo):
     def suggest_from_model(self, trials, results, N):
         if self.use_base_suggest:
             return GP_BanditAlgo.suggest_from_model(self,
@@ -388,6 +323,65 @@ class A(GP_BanditAlgo):
         return rval
 
 
+class GaussianBandit(GensonBandit):
+
+    test_str = '{"x":gaussian(0,1)}'
+
+    def __init__(self):
+        super(GaussianBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1
+
+
+class GaussianBandit2var(GensonBandit):
+
+    test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
+
+    def __init__(self, a, b):
+        super(GaussianBandit2var, self).__init__(source_string=self.test_str)
+        GaussianBandit2var.a = a
+        GaussianBandit2var.b = b
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=cls.a * (config['x'] - 2) ** 2 + \
+                                   cls.b * (config['y'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1
+        
+class GaussianBandit4var(GensonBandit):
+
+    test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
+                                 {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
+
+    def __init__(self, a, b, c, d):
+        super(GaussianBandit4var, self).__init__(source_string=self.test_str)
+        GaussianBandit4var.a = a
+        GaussianBandit4var.b = b
+        GaussianBandit4var.c = c
+        GaussianBandit4var.d = d
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=cls.a * (config['p0'].get("a", 2) - 2) ** 2 + \
+                         cls.b * (config['p0'].get("b", 2) - 2) ** 2 + \
+                         cls.c * (config['p0'].get("c", 2) - 2) ** 2 + \
+                         cls.d * (config['p0'].get("d", 2) - 2) ** 2 ,
+                    status='ok')     
+        
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1
+        
+
 def fit_base(A, B, *args, **kwargs):
 
     A.n_startup_jobs = 7
@@ -405,26 +399,35 @@ def fit_base(A, B, *args, **kwargs):
         A.use_base_suggest = False
         se.run(1)
         return se
-
+    
     return run_then_show(50)
-
-
+    
+    
 def test_1var():
-    fit_base(A, GaussianBandit)
+    fit_base(GPAlgo, GaussianBandit)
+
+
+def test_fit_categorical():
+    fit_base(GPAlgo, TwoArms)
 
 
 def test_2var_equal():
-    se = fit_base(A, GaussianBandit2var, 1, 1)
+    se = fit_base(GPAlgo, GaussianBandit2var, 1, 1)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
     l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
     assert .85 < l0 / l1 < 1.15
 
 
 def test_2var_unequal():
-    se0 = fit_base(A, GaussianBandit2var, 1, 0)
+    se0 = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
     l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
     assert l1 / l0 > 5
+
+
+def test_fit_uniform(): pass
+def test_fit_lognormal(): pass
+def test_fit_quantized_lognormal(): pass
 
 # for a Bandit with
 #    template one_of({'a':normal, 'b':normal}, {'c':normal, 'd':normal})

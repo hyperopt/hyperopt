@@ -66,6 +66,8 @@ def get_obj_type(t):
         return gUniform
     elif isinstance(t, genson.functions.ChoiceRandomGenerator):
         return gChoice
+    elif isinstance(t, genson.functions.RandintGenerator):
+        return gRandint
     elif isinstance(t, genson.references.ScopedReference):
         return gRef
     elif hasattr(t, 'keys'):
@@ -429,7 +431,7 @@ class gGauss(gRandom):
         sigma = stdev ** 2
         elems = memo[id(self)]
         size = get_value(self.size, memo)
-        ds = self.get_shape(size, elems)
+        ds = get_size(size,elems)
         vals = s_rng.normal(draw_shape=ds,
                             mu=mu, sigma=sigma)
         memo[id(self)] = (elems, vals)
@@ -445,7 +447,7 @@ class gUniform(gRandom):
         high = get_value(self.max, memo)
         size = get_value(self.size, memo)
         elems = memo[id(self)]
-        ds = self.get_shape(size, elems)
+        ds = get_size(size,elems)
         vals = s_rng.uniform(draw_shape=ds,
                              low=low, high=high)
         memo[id(self)] = (elems, vals)
@@ -455,25 +457,21 @@ class gChoice(gRandom):
 
     def make_contents(self):
         self.vals = [get_obj(t, self.path) for t in self.genson_obj.vals]
-        self.size = get_obj(self.genson_obj.size, self.path)
 
     def children(self):
-        return [x for x in (self.vals + [self.size]) if gdistable(x)]
+        return [x for x in (self.vals) if gdistable(x)]
 
     def children_names(self):
         return ['[%i]' % i for i in range(len(self.children()))]
 
     def get_elems(self, s_rng, elems, memo):
         n_options = len(self.vals)
-        #print 'n_options', n_options
-        s = tensor.lscalar()
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
                     draw_shape=(elems.shape[0],))
-        self.s_to_replace = s
-        self.old_casevar = casevar
+        self.casevar = casevar
         memo[id(self)] = elems
-        for i, child in enumerate(self.vals + [self.size]):
+        for i, child in enumerate(self.vals):
             if child in self.children():
                 elems_i = elems[MT.for_theano.where(tensor.eq(i, casevar))]
                 child.get_elems(s_rng, elems_i, memo)
@@ -483,17 +481,35 @@ class gChoice(gRandom):
             child.theano_sampler_helper(memo, s_rng)
         n_options = len(self.vals)
         elems = memo[id(self)]
+        memo[id(self)] = (elems, self.casevar)
+
+    def nth_theano_sample(self, n, idxdict, valdict):
+        v = numpy.where(idxdict[id(self)] == n)[0][0]
+        case = valdict[id(self)][v].tolist()
+        if self.vals[case] in self.children():
+            return self.vals[case].nth_theano_sample(n, idxdict, valdict)
+        else:
+            return self.vals[case]
+
+
+
+class gRandint(gRandom):
+
+    params = ['min','max','size']
+    
+    def theano_sampler_helper(self, memo, s_rng):
+        low = get_value(self.min, memo)
+        high = get_value(self.max, memo)
+        n_options = int(high-low)
         size = get_value(self.size, memo)
-        ds = self.get_shape(size, elems)
+        elems = memo[id(self)]
+        ds = get_size(size,elems)
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=ds)
-
-        #assert self.old_casevar.owner.inputs[2].owner.inputs[1] is \
-        #                                             self.s_to_replace
-        #self.old_casevar.owner.inputs[2].owner.inputs[1] = size
+                    draw_shape=ds)       
+        elems = memo[id(self)]
         memo[id(self)] = (elems, casevar)
-
+  
     def nth_theano_sample(self, n, idxdict, valdict):
         v = numpy.where(idxdict[id(self)] == n)[0][0]
         case = valdict[id(self)][v].tolist()
@@ -507,7 +523,17 @@ class gChoice(gRandom):
                 return self.vals[case]
         else:
             return [self.unroll(c, n, idxdict, valdict) for c in case]
+            
 
+def get_size(size,elems):
+    if isinstance(size, int):
+        if size == 1:
+            ds = (elems.shape[0],)
+        else:
+            ds = (elems.shape[0], size)
+    else:
+        ds = (elems.shape[0],) + tuple(size)
+    return ds
 
 def get_value(x, memo):
     if isinstance(x, gSON):
