@@ -8,6 +8,7 @@ __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
 import logging
+import time
 logger = logging.getLogger(__name__)
 
 import numpy
@@ -468,16 +469,14 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.cand_EI_thresh = tensor.scalar()
 
         self.kernels = []
-        self.params = []  # to be populated by self.sparse_gram_matrix()
-        self.param_bounds = []  # to be populated by self.sparse_gram_matrix()
+        self.is_refinable = {}
 
         for iv in self.s_prior:
             dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
             if dist_name == 'normal':
-                kern = SquaredExponentialKernel()
-                self.kernels.append(kern)
-                self.params.extend(kern.params())
-                self.param_bounds.extend(kern.param_bounds())
+                k = SquaredExponentialKernel()
+                self.kernels.append(k)
+                self.is_refinable[k] = True
             elif dist_name == 'uniform':
                 raise NotImplementedError()
             elif dist_name == 'lognormal':
@@ -485,9 +484,19 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             elif dist_name == 'quantized_lognormal':
                 raise NotImplementedError()
             elif dist_name == 'categorical':
-                raise NotImplementedError()
+                # XXX: a better CategoryKernel would have different similarities
+                #      for different choices
+                k = CategoryKernel()
+                self.kernels.append(k)
+                self.is_refinable[k] = False
             else:
                 raise TypeError("unsupported distribution", dist_name)
+
+        self.params = []
+        self.param_bounds = []
+        for k in self.kernels:
+            self.params.extend(k.params())
+            self.param_bounds.extend(k.param_bounds())
 
         self.gprmath = GPR_math(self.x_obs_IVL,
                 self.y_obs,
@@ -514,9 +523,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         ### XXX: identify which elements in cand_x we could optimize
         #        and calculate gradients here.
 
-        self.g_candidate_vals = tensor.grad(
-                self.cand_EI.sum(),
-                self.cand_x.valslist())
+        if self.is_refinable[self.kernels[0]]:
+            self.g_candidate_vals = tensor.grad(
+                    self.cand_EI.sum(),
+                    self.cand_x.valslist())
 
     def K_fn(self, x0, x1):
         """
@@ -788,6 +798,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
 
+        n_refinable = len([k for k in self.kernels if self.is_refinable[k]])
+        if n_refinable == 0:
+            return x
+
         if len(x) > 1:
             # f and df are hacked to work for problems of 1 var.
             # What's necessary is to flatten all variables into a
@@ -866,7 +880,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         if 1: # for DEBUGGING
             EI = self.GP_EI(candidates)
-            #assert EI.max() < EI_opt.max()
+            assert EI.max() - 1e-4 <= EI_opt.max()
 
         rval = candidates_opt.numeric_take([best_idx])
         return rval
@@ -882,10 +896,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def suggest(self, trials, results, N):
         ivls = self.idxs_vals_by_status(trials, results)
-        if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
-            return self.suggest_ivl(
-                    self.suggest_from_prior(N))
-        else:
-            return self.suggest_ivl(
-                    self.suggest_from_model(trials, results, N))
+        t = time.time()
+        try:
+            if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
+                return self.suggest_ivl(
+                        self.suggest_from_prior(N))
+            else:
+                return self.suggest_ivl(
+                        self.suggest_from_model(trials, results, N))
 
+        finally:
+            print 'suggest %i took %.2f seconds' % (
+                    len(ivls['losses']['ok'].idxs),
+                    time.time() - t)
