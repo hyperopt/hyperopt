@@ -286,6 +286,7 @@ class GPAlgo(GP_BanditAlgo):
         print EI_opt
 
         num = len(candidates_opt)
+
         if self.show:
 
             plt.scatter(x_all[0].vals,
@@ -295,6 +296,7 @@ class GPAlgo(GP_BanditAlgo):
             plt.scatter(candidates_opt[0].vals,
                     numpy.zeros_like(candidates[1]) - .1,
                     c='k')
+
 
             plt.figure()
 
@@ -307,6 +309,7 @@ class GPAlgo(GP_BanditAlgo):
             IVL = IdxsValsList.fromlists(XmeshN, Xmesh)
             gp_mean, gp_var = self.GP_mean_variance(IVL)
             gp_EI = self.GP_EI(IVL)
+
             print "GP_VAR", gp_var
             plt.plot(xmesh, gp_mean)
             plt.plot(xmesh, gp_mean + numpy.sqrt(gp_var), c='g')
@@ -419,7 +422,7 @@ def test_2var_equal():
 
 
 def test_2var_unequal():
-    se0 = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
+    se = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
     l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
     assert l1 / l0 > 5
@@ -429,7 +432,17 @@ def test_fit_uniform(): pass
 def test_fit_lognormal(): pass
 def test_fit_quantized_lognormal(): pass
 
+
 # for a Bandit with
 #    template one_of({'a':normal, 'b':normal}, {'c':normal, 'd':normal})
 # and an evaluate that depends only on a or d,
 # show that the length scales of b and c go to inf.
+
+def test_4var_unequal():
+    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0, 0, 1)
+    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
+    
+

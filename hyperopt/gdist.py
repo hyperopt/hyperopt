@@ -492,7 +492,6 @@ class gChoice(gRandom):
             return self.vals[case]
 
 
-
 class gRandint(gRandom):
 
     params = ['min','max','size']

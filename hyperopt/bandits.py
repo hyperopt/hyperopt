@@ -82,6 +82,10 @@ class TwoArms(Base):
                 loc=reward_mus[config['x']],
                 scale=reward_sigmas[config['x']])
 
+    @classmethod
+    def loss_variance(cls, result, config):
+        return 1.0
+
 
 class Distractor(Base):
     """
