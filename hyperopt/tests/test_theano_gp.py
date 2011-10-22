@@ -346,6 +346,7 @@ def test_fit_normal():
 
 
 def test_fit_categorical():
+    numpy.random.seed(555)
 
     GPAlgo.n_startup_jobs = 7
     se = SerialExperiment(GPAlgo(TwoArms()))
@@ -362,7 +363,13 @@ def test_fit_categorical():
         GPAlgo.use_base_suggest = False
         se.run(1)
 
-    run_then_show(40)
+    run_then_show(100)
+    arm0count = len([t for t in se.trials if t['x'] == 0])
+    arm1count = len([t for t in se.trials if t['x'] == 1])
+    print 'arm 0 count', arm0count
+    print 'arm 1 count', arm1count
+
+    assert arm0count > 66
 
 
 def test_fit_uniform(): pass

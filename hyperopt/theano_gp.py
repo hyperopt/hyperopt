@@ -20,6 +20,7 @@ import montetheano
 
 from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
+from theano_gm import AdaptiveParzenGM
 
 if 0:
     from scipy.optimize import fmin_l_bfgs_b
@@ -456,6 +457,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     n_candidates_to_draw = 5  # XXX: make this bigger for non-debugging
 
+    n_candidates_to_draw_in_GM = 5 # XXX: make this bigger and only refine best
+
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
         self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
@@ -527,6 +530,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             self.g_candidate_vals = tensor.grad(
                     self.cand_EI.sum(),
                     self.cand_x.valslist())
+
+        # self.gm_algo is used to draw candidates for subsequent refinement
+        # It is also entirely responsible for choosing categorical variables.
+        self.gm_algo = AdaptiveParzenGM(self.bandit)
 
     def K_fn(self, x0, x1):
         """
@@ -863,16 +870,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         rval[0].vals = best_pt
         return rval
 
-    def draw_candidates(self):
-        return IdxsValsList.fromflattened(
-                self._prior_sampler(self.n_candidates_to_draw))
-
     def suggest_from_model(self, trials, results, N):
         ivls = self.idxs_vals_by_status(trials, results)
         prepared_data = self.prepare_GP_training_data(ivls)
         self.fit_GP(*prepared_data)
 
-        candidates = self.draw_candidates()
+        self.gm_algo.n_EI_candidates = self.n_candidates_to_draw_in_GM
+        candidates = self.gm_algo.suggest_from_model(ivls,
+                self.n_candidates_to_draw)
+        print candidates.idxset()
+
         candidates_opt = self.GP_EI_optimize(candidates)
 
         EI_opt = self.GP_EI(candidates_opt)

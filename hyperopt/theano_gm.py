@@ -120,10 +120,16 @@ class GM_BanditAlgo(TheanoBanditAlgo):
                     mode=mode)
 
     def suggest_from_prior(self, N):
+        if not hasattr(self, '_prior_sampler'):
+            self.build_helpers()
+
         rvals = self._prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
     def suggest_from_model(self, ivls, N):
+        if not hasattr(self, '_helper'):
+            self.build_helpers()
+
         ylist = numpy.asarray(sorted(ivls['losses']['ok'].vals), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))
         y_thresh = ylist[y_thresh_idx : y_thresh_idx + 2].mean()
@@ -183,13 +189,12 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         assert gis.union(bis) == xis
         assert gis.intersection(bis) == set()
 
-        return IdxsValsList.fromflattened(keep_flat)
+        rval = IdxsValsList.fromflattened(keep_flat)
+        # relabel the return values to be elements 0 ... N - 1
+        rval.reindex()
+        return rval
 
     def suggest(self, trials, results, N):
-        if not hasattr(self, '_prior_sampler'):
-            self.build_helpers()
-            assert hasattr(self, '_prior_sampler')
-
         ivls = self.idxs_vals_by_status(trials, results)
         if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
             logger.info('GM_BanditAlgo warming up %i/%i'
@@ -199,10 +204,10 @@ class GM_BanditAlgo(TheanoBanditAlgo):
             return self.suggest_ivl(self.suggest_from_model(ivls, N))
 
 
-def AdaptiveParzenGM():
+def AdaptiveParzenGM(bandit):
     GE = idxs_vals_rnd.IndependentAdaptiveParzenEstimator()
     BE = idxs_vals_rnd.IndependentAdaptiveParzenEstimator()
-    rval = GM_BanditAlgo(
+    rval = GM_BanditAlgo(bandit,
             good_estimator=GE,
             bad_estimator=BE)
     return rval
