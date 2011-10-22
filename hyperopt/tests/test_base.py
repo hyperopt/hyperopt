@@ -6,7 +6,7 @@ from hyperopt import bandits
 def ivl_fl(ilist, vlist):
     return IdxsValsList.fromlists(ilist, vlist)
 
-def test_TheanoBanditAlgo_on_TwoArms():
+def test_recall_and_record_1d():
     bandit = bandits.TwoArms()
     algo = TheanoBanditAlgo(bandit)
 
@@ -22,11 +22,11 @@ def test_TheanoBanditAlgo_on_TwoArms():
     assert algo.recall([]) == ivl_fl([[]], [[]])
     assert algo.recall([0]) == ivl_fl([[0]], [[0]])
     assert algo.recall([0, 1]) == ivl_fl([[0, 1]], [[0, 0]])
-    assert algo.recall([0, 2]) == ivl_fl([[0, 1]], [[0, 1]])
-    assert algo.recall([0, 3]) == ivl_fl([[0, 1]], [[0, 0]])
+    assert algo.recall([0, 2]) == ivl_fl([[0, 2]], [[0, 1]])
+    assert algo.recall([3]) == ivl_fl([[3]], [[0]])
 
 
-def test_TheanoBanditAlgo_on_EggCarton2():
+def test_recall_record_2d():
     bandit = bandits.EggCarton2()
     algo = TheanoBanditAlgo(bandit)
     assert len(algo.all_s_idxs) == 6
@@ -60,10 +60,10 @@ def test_TheanoBanditAlgo_on_EggCarton2():
             [[0], [0], []],
             [[-5], [0], []])
     assert algo.recall([1]) == ivl_fl(
-            [[0], [0], [0]],
+            [[1], [1], [1]],
             [[-10], [1], [.5]])
     assert algo.recall([2]) == ivl_fl(
-            [[0], [0], [0]],
+            [[2], [2], [2]],
             [[-15], [1], [.25]])
 
     # {x=-5, hf=raw}
@@ -75,7 +75,7 @@ def test_TheanoBanditAlgo_on_EggCarton2():
             [[5, 10, 15], [1, 0, 1], [.5, .25 ]]))
 
     assert algo.recall([2,3,4]) == ivl_fl(
-            [[0,   1, 2 ], [0, 1, 2], [0, 1]],
+            [[2,   3, 4 ], [2, 3, 4], [2, 3]],
             [[-15, 5, 10], [1, 1, 0], [.25, .5]])
 
 # XXX: test suggest()

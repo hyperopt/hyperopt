@@ -39,7 +39,7 @@ class IdxsVals(object):
     def __eq__(self, other):
         return self.idxs == other.idxs and self.vals == other.vals
 
-    def s_take(self, elements):
+    def symbolic_take(self, elements):
         """Symbolic advanced sparse vector indexing by int-list `elements`
         """
         pos = find(self.idxs, elements)
@@ -103,14 +103,13 @@ class IdxsValsList(list):
     def valslist(self):
         return [e.vals for e in self]
 
-    def take(self, subelements):
-        # XXX This only works sensibly for symbolic values
+    def symbolic_take(self, subelements):
         """Return a new IdxsValsList of the same length as self, whose elements
         are restricted to contain only the given `subelements`.
         """
         # make a variable outside the loop to help theano's merge-optimizer
         subel = theano.tensor.as_tensor_variable(subelements)
-        return self.__class__([e.take(subel) for e in self])
+        return self.__class__([e.symbolic_take(subel) for e in self])
 
     def numeric_take(self, subelements):
         """Numeric take, returns IdxsValsList in which elements not in

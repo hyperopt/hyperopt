@@ -82,8 +82,8 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         GE = self.good_estimator
         BE = self.bad_estimator
 
-        Gobs = s_obs.take(where(yvals < y_thresh))
-        Bobs = s_obs.take(where(yvals >= y_thresh))
+        Gobs = s_obs.symbolic_take(where(yvals < y_thresh))
+        Bobs = s_obs.symbolic_take(where(yvals >= y_thresh))
 
         # To "optimize" EI we just draw a pile of samples from the density
         # of good points and then just take the best of those.
@@ -106,7 +106,7 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         if do_compile:
             self._helper = theano.function(
                 [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
-                (Gsamples.take(keep_idxs).flatten()
+                (Gsamples.symbolic_take(keep_idxs).flatten()
                     + Gobs.flatten()
                     + Bobs.flatten()
                     ),
@@ -123,8 +123,8 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         rvals = self._prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
-    def suggest_from_model(self, X_IVLs, Ys, N):
-        ylist = numpy.asarray(sorted(Ys['ok']), dtype='float')
+    def suggest_from_model(self, ivls, N):
+        ylist = numpy.asarray(sorted(ivls['losses']['ok'].vals), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))
         y_thresh = ylist[y_thresh_idx : y_thresh_idx + 2].mean()
 
@@ -137,18 +137,27 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         logger.info('GM_BanditAlgo good scores: %s'
                 % str(ylist[:y_thresh_idx]))
 
-        x_all = X_IVLs['ok'].copy()
-        y_all = list(Ys['ok'])
+        x_all = ivls['x_IVLs']['ok'].as_list()
+        y_all_iv = ivls['losses']['ok'].as_list()
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
-                    % len(Ys[pseudo_bad_status]))
-            idmap = x_all.stack(X_IVLs[pseudo_bad_status])
-            assert range(len(idmap)) == list(sorted(idmap.keys()))
-            y_all.extend([y_thresh + 1 for y in Ys[pseudo_bad_status]])
+                    % len(ivls['losses'][pseudo_bad_status].idxs))
+            x_all.stack(ivls['x_IVLs'][pseudo_bad_status])
+            y_all_iv.stack(IdxsVals(
+                ivls['losses'][pseudo_bad_status].idxs,
+                [y_thresh + 1] * len(ivls['losses'][pseudo_bad_status].idxs)))
 
-        # assert that stack() isn't written badly
-        assert len(x_all) == len(X_IVLs['ok'])
+        # renumber the configurations in x_all to be 0 .. (n_train - 1)
+        idmap = y_all_iv.reindex()
+        idmap = x_all.reindex(idmap)
+
+        assert y_all_iv.idxset() == x_all.idxset()
+
+        assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs)))
+
+        y_all = y_all_iv.as_numpy(vdtype=theano.config.floatX).vals
+        x_all = x_all.as_numpy_floatX()
 
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
@@ -182,17 +191,12 @@ class GM_BanditAlgo(TheanoBanditAlgo):
             assert hasattr(self, '_prior_sampler')
 
         ivls = self.idxs_vals_by_status(trials, results)
-        if len(ivls['losses']['ok']) < self.n_startup_jobs:
+        if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
             logger.info('GM_BanditAlgo warming up %i/%i'
-                    % (len(ivls['losses']['ok']), self.n_startup_jobs))
-            return self.suggest_ivl(
-                    self.suggest_from_prior(N))
+                    % (len(ivls['losses']['ok'].idxs), self.n_startup_jobs))
+            return self.suggest_ivl(self.suggest_from_prior(N))
         else:
-            return self.suggest_ivl(
-                    self.suggest_from_model(
-                        ivls['x_IVLs'],
-                        ivls['losses'],
-                        N))
+            return self.suggest_ivl(self.suggest_from_model(ivls, N))
 
 
 def AdaptiveParzenGM():

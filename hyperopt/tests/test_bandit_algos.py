@@ -72,8 +72,7 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
                 HL['G_ll'],
                 allow_input_downcast=True,
                 )
-            theano.printing.debugprint(f)
-            #theano.printing.pydotprint(f, 'f.png')
+            # theano.printing.debugprint(f)
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 1
 
@@ -216,8 +215,7 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
                 HL['G_ll'],
                 allow_input_downcast=True,
                 )
-            theano.printing.debugprint(f)
-            #theano.printing.pydotprint(f, 'f.png')
+            # theano.printing.debugprint(f)
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 1
 

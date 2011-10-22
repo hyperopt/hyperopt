@@ -557,19 +557,15 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         y_mean = numpy.mean(ivls['losses']['ok'].vals)
         y_std = numpy.std(ivls['losses']['ok'].vals)
 
-        x_all = ivls['x_IVLs']['ok'].copy()
-        y_all_iv = ivls['losses']['ok'].copy()
-        y_var_iv = ivls['losses_variance']['ok'].copy()
+        x_all = ivls['x_IVLs']['ok'].as_list()
+        y_all_iv = ivls['losses']['ok'].as_list()
+        y_var_iv = ivls['losses_variance']['ok'].as_list()
 
         if self.constant_liar_global_mean:
             liar_y_mean = y_mean
             liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
         else:
             raise NotImplementedError()
-
-        y_all_iv = y_all_iv.as_list()
-        y_var_iv = y_var_iv.as_list()
-        x_all = x_all.as_list()
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
@@ -797,10 +793,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             # What's necessary is to flatten all variables into a
             # vector to interface with scipy.
             raise NotImplementedError()
-
-        #print 'GP_EI_optimize'
-        #print self._GP_n_train, self._GP_x_all.idxset()
-        #print len(x_idxset), x_idxset
 
         try:
             self._EI_fn_g
