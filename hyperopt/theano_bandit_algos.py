@@ -137,6 +137,7 @@ class TheanoBanditAlgo(base.BanditAlgo):
         """Append idxs and vals to variable database, by numbering them
         self._next_id to N, and returning the list of these ids."""
         if len(ivl) != len(self.db_idxs):
+            print('NUM',len(ivl),len(self.db_idxs))
             raise ValueError('number of variables does not match db_idxs - '
                     'are you sure you are recording to the right database?')
         new_ids = []

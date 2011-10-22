@@ -466,6 +466,15 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         self.cand_x = self.s_prior.new_like_self()
         self.cand_EI_thresh = tensor.scalar()
+        
+        self.s_big_param_vec = tensor.vector()
+        ### assumes all variables are refinable
+        ### assumes all variables are vectors
+        n_elements_used = 0
+        for iv in self.cand_x:
+            n_elements_in_v = iv.idxs.shape[0]
+            iv.vals = self.s_big_param_vec[n_elements_used:n_elements_used + n_elements_in_v]
+            n_elements_used += n_elements_in_v        
 
         self.kernels = []
         self.params = []  # to be populated by self.sparse_gram_matrix()
@@ -510,13 +519,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         else:
             raise ValueError('EI_criterion', self.EI_criterion)
 
-        # optimize EI.sum() wrt the continuous-valued variables in candidates
-        ### XXX: identify which elements in cand_x we could optimize
-        #        and calculate gradients here.
-
-        self.g_candidate_vals = tensor.grad(
-                self.cand_EI.sum(),
-                self.cand_x.valslist())
 
     def K_fn(self, x0, x1):
         """
@@ -740,7 +742,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     [self.gprmath.s_mean(s_x), self.gprmath.s_variance(s_x)],
                     allow_input_downcast=True)
         if len(x) != len(self._GP_x_all):
-            raise ValueError('x has wrong len')
+            raise ValueError('x has wrong len',len(x),len(self._GP_x_all))
         x_idxset = x.idxset()
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
@@ -787,57 +789,32 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         x_idxset = x.idxset()
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
-
-        if len(x) > 1:
-            # f and df are hacked to work for problems of 1 var.
-            # What's necessary is to flatten all variables into a
-            # vector to interface with scipy.
-            raise NotImplementedError()
-
+                          
         try:
             self._EI_fn_g
         except AttributeError:
             self._EI_fn_g = theano.function(
+                    [self.s_big_param_vec] +
                     [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten()
                         + [self.cand_EI_thresh]
-                        + self.cand_x.flatten(),
-                    [self.cand_EI] + self.g_candidate_vals,
+                        + self.cand_x.idxslist(),
+                    [-self.cand_EI.sum(), -tensor.grad(self.cand_EI.sum(), self.s_big_param_vec)],
                     allow_input_downcast=True)
-            if len(self.g_candidate_vals) != 1:
-                raise NotImplementedError()
-            if self.g_candidate_vals[0].ndim != 1:
-                raise NotImplementedError()
 
         thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var)).min()
 
-        def f(pt):
-            #print 'EI_optimize: f', pt
-            rval = self._EI_fn_g(self._GP_n_train,
-                    len(x_idxset),
-                    self._GP_y_all,
-                    self._GP_y_var,
-                    *(self._GP_x_all.flatten()
-                        + [thresh, x.flatten()[0], pt]))
-            assert len(rval) == 2
-            #print 'EI_optimize: EIs', rval[0]
-            return -numpy.sum(rval[0])
-        def df(pt):
-            rval = self._EI_fn_g(self._GP_n_train,
-                    len(x_idxset),
-                    self._GP_y_all,
-                    self._GP_y_var,
-                    *(self._GP_x_all.flatten()
-                        + [thresh, x.flatten()[0], pt]))
-            #print 'EI_optimize: df', pt, -rval[1]
-            return -rval[1].astype('float64')
-
         #print 'EI_optimize: OPTIMIZING...'
-        start_pt = x.flatten()[1].astype('float64')
+        #start_pt = x.flatten()[1].astype('float64')
+        start_pt = numpy.concatenate(x.valslist()).astype('float64')
 
-        best_pt, best_value, best_d = fmin_l_bfgs_b(f,
+        args = (self._GP_n_train,len(x_idxset),self._GP_y_all,self._GP_y_var) + \
+               tuple(self._GP_x_all.flatten()) + (thresh,) + tuple(x.idxslist())
+
+        best_pt, best_value, best_d = fmin_l_bfgs_b(self._EI_fn_g,
                 start_pt,
-                df,
+                None,
+                args = args,
                 maxfun=maxiter,
                 #TODO: bounds from distributions
                 bounds=[(-5, 5) for p in start_pt],
@@ -845,8 +822,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         #print 'BEST_PT', best_pt
         rval = x.copy()
-        assert len(x) == 1
-        rval[0].vals = best_pt
+        initial = 0
+        for (_ind,iv) in enumerate(x):
+            diff = len(iv.vals)
+            rval[_ind].vals = best_pt[initial:initial+diff]
+            initial += diff
         return rval
 
     def draw_candidates(self):
