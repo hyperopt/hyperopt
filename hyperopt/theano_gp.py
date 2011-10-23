@@ -380,15 +380,7 @@ class GPR_math(object):
         K, y, var_y, N = self.kyn()
         rK = PSD_hint(K + var_y * tensor.eye(N))
         K_x = self.K_fn(self.x, x)
-        if 0:
-            # Fast but not differentiable  because grads notimpl
-            L = cholesky(rK)
-            v = solve(L, K_x)
-            var_x = 1 - (v**2).sum(axis=0)
-        else:
-            # XXX: implement graph optimizations to clean this up
-            #      and make it look more like the form above
-            var_x = 1 - diag(dots(K_x.T, matrix_inverse(rK), K_x))
+        var_x = 1 - diag(dots(K_x.T, matrix_inverse(rK), K_x))
         return var_x
 
     def s_deg_of_freedom(self):
@@ -550,18 +542,23 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         :returns: symbolic gram matrix
         """
-        # for each random variable in self.s_prior
-        # choose a kernel to compare observations of that variable
-        # and do a sparse increment of the gram matrix
 
         gram_matrices = {}
         gram_matrices_idxs = {}
+        gram_weights = {}
         for k, iv_prior, iv0, iv1 in zip(self.kernels, self.s_prior, x0, x1):
             # XXX : to be more robust, it would be nice to build an Env with the
             #       idxs as outputs, and then run the MergeOptimizer on it.
             gram = k.K(iv0.vals, iv1.vals)
             gram_matrices.setdefault(iv_prior.idxs, []).append(gram)
             gram_matrices_idxs.setdefault(iv_prior.idxs, [iv0.idxs, iv1.idxs])
+            gram_weights_idxs.setdefault(iv_prior.idxs, tensor.scalar())
+
+        # The idxs variables can be arranged in a tree, such that each node is a
+        # subset of its parent.
+        # The gram matrix is formed by summing along the paths in this tree.
+        # For the kernel to be valid, every node must be weighted, and it must
+        # be the case that every path from root -> leaf sums to 1.
 
         nx1 = self.s_n_train if x1 is x0 else self.s_n_test
         base = tensor.alloc(0.0, self.s_n_train, nx1)
