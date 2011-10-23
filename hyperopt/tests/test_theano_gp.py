@@ -255,6 +255,7 @@ class TestSparseUpdate(unittest.TestCase):
 
 
 class GPAlgo(GP_BanditAlgo):
+    use_base_suggest = True
     def suggest_from_model(self, trials, results, N):
         if self.use_base_suggest:
             return GP_BanditAlgo.suggest_from_model(self,
@@ -327,7 +328,6 @@ class GPAlgo(GP_BanditAlgo):
 
 
 class GaussianBandit(GensonBandit):
-
     test_str = '{"x":gaussian(0,1)}'
 
     def __init__(self):
@@ -343,14 +343,12 @@ class GaussianBandit(GensonBandit):
 
 
 class GaussianBandit2var(GensonBandit):
-
     test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
 
     def __init__(self, a, b):
         super(GaussianBandit2var, self).__init__(source_string=self.test_str)
         GaussianBandit2var.a = a
         GaussianBandit2var.b = b
-
     @classmethod
     def evaluate(cls, config, ctrl):
         return dict(loss=cls.a * (config['x'] - 2) ** 2 + \
@@ -359,59 +357,69 @@ class GaussianBandit2var(GensonBandit):
     @classmethod
     def loss_variance(cls, result, config):
         return .1
-        
-class GaussianBandit4var(GensonBandit):
 
+
+class GaussianBandit4var(GensonBandit):
+    """
+    This bandit allows testing continuous distributions nested inside choice
+    variables.
+
+    The loss actually only depends on 'a' or 'd'. So the length scales of 'b'
+    and 'd' should go to infinity.
+    """
     test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
                                  {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
 
     def __init__(self, a, b, c, d):
         super(GaussianBandit4var, self).__init__(source_string=self.test_str)
-        GaussianBandit4var.a = a
-        GaussianBandit4var.b = b
-        GaussianBandit4var.c = c
-        GaussianBandit4var.d = d
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=cls.a * (config['p0'].get("a", 2) - 2) ** 2 + \
-                         cls.b * (config['p0'].get("b", 2) - 2) ** 2 + \
-                         cls.c * (config['p0'].get("c", 2) - 2) ** 2 + \
-                         cls.d * (config['p0'].get("d", 2) - 2) ** 2 ,
-                    status='ok')     
-        
-    @classmethod
-    def loss_variance(cls, result, config):
+        # relevances to loss function:
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+
+    def evaluate(self, config, ctrl):
+        return dict(loss=self.a * (config['p0'].get("a", 2) - 2) ** 2 + \
+                         self.b * (config['p0'].get("b", 2) - 2) ** 2 + \
+                         self.c * (config['p0'].get("c", 2) - 2) ** 2 + \
+                         self.d * (config['p0'].get("d", 2) - 2) ** 2 ,
+                    status='ok')
+
+    def loss_variance(self, result, config):
+        """Return uncertainty in reported loss.
+
+        The function is technically deterministic (var = 0), but
+        overestimating is ok.
+        """
         return .1
-        
+
 
 def fit_base(A, B, *args, **kwargs):
-
     A.n_startup_jobs = 7
-    se = SerialExperiment(A(B(*args, **kwargs)))
-    se.run(A.n_startup_jobs)
 
-    assert len(se.trials) == len(se.results) == A.n_startup_jobs
+    n_iter = kwargs.pop('n_iter', 40)
+    serial_exp = SerialExperiment(A(B(*args, **kwargs)))
+    serial_exp.run(A.n_startup_jobs)
+
+    assert len(serial_exp.trials) == len(serial_exp.results)
+    assert len(serial_exp.trials) == A.n_startup_jobs
 
     def run_then_show(N):
         if N > 1:
             A.show = False
             A.use_base_suggest = True
-            se.run(N - 1)
+            serial_exp.run(N - 1)
         A.show = True
         A.use_base_suggest = False
-        se.run(1)
-        return se
-    
-    return run_then_show(50)
-    
-    
+        serial_exp.run(1)
+        return serial_exp
+
+    return run_then_show(n_iter)
+
+
 def test_1var():
     fit_base(GPAlgo, GaussianBandit)
-
-
-def test_fit_categorical():
-    fit_base(GPAlgo, TwoArms)
 
 
 def test_2var_equal():
@@ -425,24 +433,50 @@ def test_2var_unequal():
     se = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
     l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
+    #N.B. a ratio in log-length scales is a big difference!
     assert l1 / l0 > 5
 
 
-def test_fit_uniform(): pass
-def test_fit_lognormal(): pass
-def test_fit_quantized_lognormal(): pass
+def test_4var_all_relevant():
+    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0.5, 2, 1,
+            n_iter=10)
+    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
+    # XXX: assert something about the final length scales
 
 
-# for a Bandit with
-#    template one_of({'a':normal, 'b':normal}, {'c':normal, 'd':normal})
-# and an evaluate that depends only on a or d,
-# show that the length scales of b and c go to inf.
 
-def test_4var_unequal():
+def test_4var_some_irrelevant():
     se = fit_base(GPAlgo, GaussianBandit4var, 1, 0, 0, 1)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
     l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
     l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
     l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
-    
+    # XXX: assert something about the final length scales
 
+
+def test_fit_categorical():
+    numpy.random.seed(555)
+    serial_exp = SerialExperiment(GPAlgo(TwoArms()))
+    serial_exp.bandit_algo.n_startup_jobs = 7
+    serial_exp.run(100)
+    arm0count = len([t for t in serial_exp.trials if t['x'] == 0])
+    arm1count = len([t for t in serial_exp.trials if t['x'] == 1])
+    print 'arm 0 count', arm0count
+    print 'arm 1 count', arm1count
+    assert arm0count > 60
+
+
+
+def test_fit_uniform():
+    pass # XXX
+
+
+def test_fit_lognormal():
+    pass # XXX
+
+
+def test_fit_quantized_lognormal():
+    pass # XXX

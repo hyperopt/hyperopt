@@ -12,6 +12,7 @@ __contact__   = "github.com/jaberg/hyperopt"
 import sys
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARN)
 
 import numpy
 import theano
