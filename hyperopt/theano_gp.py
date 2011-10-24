@@ -511,12 +511,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.bounds[k] = (None, None)
             elif dist_name == 'uniform':
                 k = SquaredExponentialKernel()
-                low = tensor.get_constant_value(
-                        mt_dist.uniform_get_low(iv.vals))
-                high = tensor.get_constant_value(
-                        mt_dist.uniform_get_high(iv.vals))
                 self.is_refinable[k] = get_refinability(iv, dist_name)
-                self.bounds[k] = (low, high)
+                if self.is_refinable[k]:
+                    low = tensor.get_constant_value(
+                            mt_dist.uniform_get_low(iv.vals))
+                    high = tensor.get_constant_value(
+                            mt_dist.uniform_get_high(iv.vals))
+                    self.bounds[k] = (low, high)
             elif dist_name == 'lognormal':
                 k = LogSquaredExponentialKernel()
                 self.is_refinable[k] = get_refinability(iv, dist_name)
@@ -860,8 +861,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self._GP_y_var,
                 *(self._GP_x_all.flatten() + x.flatten()))
 
-        for K_row in rval_K:
-            print K_row
+        if 0:
+            for K_row in rval_K:
+                print K_row
         rval_var_min = rval_var.min()
         assert rval_var_min > -1e-4, rval_var_min
         rval_var = numpy.maximum(rval_var, 0)
@@ -950,14 +952,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         bounds = []
         for (k, xk) in zip(self.kernels, x.valslist()):
             if self.is_refinable[k]:
-                bounds.extend([self.bounds[k][:] for _ind in range(len(xk))])
+                bounds.extend([self.bounds[k]] * len(xk))
+
+        #print 'START_PT', start_pt
+        #print 'BOUNDS', bounds
 
         best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
                 start_pt,
                 None,
                 args=args,
                 maxfun=maxiter,
-                #TODO: bounds from distributions
                 bounds=bounds,
                 iprint=-1)
 

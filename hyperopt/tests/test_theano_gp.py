@@ -257,6 +257,8 @@ class TestSparseUpdate(unittest.TestCase):
 
 class GPAlgo(GP_BanditAlgo):
     use_base_suggest = True
+    xlim_low = -5
+    xlim_high = 5
     def suggest_from_model(self, trials, results, N):
         if self.use_base_suggest:
             return GP_BanditAlgo.suggest_from_model(self,
@@ -302,11 +304,14 @@ class GPAlgo(GP_BanditAlgo):
 
             plt.figure()
 
-            plt.xlim([-5, 5])
-            xmesh = numpy.arange(-5, 5, .1)
+            plt.xlim([self.xlim_low, self.xlim_high])
+            xmesh = numpy.linspace(self.xlim_low, self.xlim_high)
             N = len(xmesh)
             XmeshN = [numpy.arange(N) for _ind in range(num)]
-            Xmesh = [numpy.arange(-5, 5, .1) for _ind in range(num)]
+            Xmesh = [numpy.linspace(self.xlim_low, self.xlim_high)
+                    for _ind in range(num)]
+
+            print Xmesh
 
             IVL = IdxsValsList.fromlists(XmeshN, Xmesh)
             gp_mean, gp_var = self.GP_mean_variance(IVL)
@@ -355,9 +360,9 @@ class UniformBandit(GensonBandit):
 
     @classmethod
     def loss_variance(cls, result, config):
-        return .1
-        
-        
+        return .01 ** 2
+
+
 class LognormalBandit(GensonBandit):
     test_str = '{"x":lognormal(0,1)}'
 
@@ -371,7 +376,7 @@ class LognormalBandit(GensonBandit):
     @classmethod
     def loss_variance(cls, result, config):
         return .1        
-        
+
 
 class QLognormalBandit(GensonBandit):
     test_str = '{"x":qlognormal(0,1)}'
@@ -386,6 +391,7 @@ class QLognormalBandit(GensonBandit):
     @classmethod
     def loss_variance(cls, result, config):
         return .1  
+
 
 class GaussianBandit2var(GensonBandit):
     test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
@@ -427,7 +433,7 @@ def fit_base(A, B, *args, **kwargs):
     return run_then_show(n_iter)
 
 
-def test_1var():
+def test_fit_normal():
     fit_base(GPAlgo, GaussianBandit)
 
 
@@ -499,7 +505,6 @@ def test_4var_all_relevant():
     hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
-
 def test_4var_some_irrelevant():
     bandit_algo = GPAlgo(GaussianBandit4var(1, 0, 0, 1))
     serial_exp = SerialExperiment(bandit_algo)
@@ -530,7 +535,26 @@ def test_fit_categorical():
 
 
 def test_fit_uniform():
-    fit_base(GPAlgo, UniformBandit)
+    bandit = UniformBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.0   #XXX match UniformBandit
+    bandit_algo.xlim_high = 1.0   #XXX match UniformBandit
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k] == (0, 1)
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(15)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1
 
 
 def test_fit_lognormal():
