@@ -558,9 +558,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         kerns = self.idxs_mulsets[idxs]
         cat_kerns = [k for k in kerns if isinstance(k, CategoryKernel)]
         if len(cat_kerns) == 0:
-            print 'adding gram_weight', idxs, parent_weight
-            if parent_weight != 1: #HACK
-                theano.printing.debugprint(parent_weight)
             self.gram_weights[idxs] = parent_weight
         elif len(cat_kerns) == 1:
             param = theano.shared(numpy.asarray(0.0))
@@ -578,8 +575,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                             raise NotImplementedError(sub_idxs)
                         self.init_gram_weights(sub_idxs,
                                 parent_weight=parent_weight * weight)
-            print 'adding gram_weight', idxs
-            theano.printing.debugprint(parent_weight * (1 - weight))
+            #print 'adding gram_weight', idxs
+            #theano.printing.debugprint(parent_weight * (1 - weight))
             self.gram_weights[idxs] = parent_weight * (1 - weight)
         else:
             # in this case the parent_weight must be shared between
