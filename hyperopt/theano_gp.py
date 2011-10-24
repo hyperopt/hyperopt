@@ -2,10 +2,10 @@
 Gaussian-process (GP)-based optimization algorithm using Theano
 """
 
-__authors__   = "James Bergstra"
+__authors__ = "James Bergstra"
 __copyright__ = "(c) 2011, James Bergstra"
-__license__   = "3-clause BSD License"
-__contact__   = "github.com/jaberg/hyperopt"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
 
 import logging
 import time
@@ -31,6 +31,7 @@ else:
     # it permits passing a combination f and df implementation
     # that theano has compiled
     from lbfgsb import fmin_l_bfgs_b
+
 
 def dots(*args):
     """Computes matrix product of N matrices"""
@@ -80,7 +81,7 @@ class SparseGramGet(theano.gof.Op):
         #print 'SparseGramGet base', base.shape
         #print 'SparseGramGet i0', i0
         #print 'SparseGramGet i1', i1
-        storage[0][0] = base[i0[:,None], i1]
+        storage[0][0] = base[i0[:, None], i1]
 
     def grad(self, inputs, g_outputs):
         base, i0, i1 = inputs
@@ -148,7 +149,8 @@ class SparseGramSet(theano.gof.Op):
             return
 
         if 0:
-            print 'SparseGramSet operation', self.operation, [id(n) for n in node.inputs]
+            print 'SparseGramSet operation', self.operation,
+            print [id(n) for n in node.inputs]
             print 'SparseGramSet base', base.shape
             print 'SparseGramSet amt', amt.shape
             print 'SparseGramSet i0', i0
@@ -162,11 +164,11 @@ class SparseGramSet(theano.gof.Op):
             raise NotImplementedError('dups illegal in numpy adv. indexing')
 
         if 'set' == self.operation:
-            rval[i0[:,None], i1] = amt
+            rval[i0[:, None], i1] = amt
         elif 'inc' == self.operation:
-            rval[i0[:,None], i1] += amt
+            rval[i0[:, None], i1] += amt
         elif 'mul' == self.operation:
-            rval[i0[:,None], i1] *= amt
+            rval[i0[:, None], i1] *= amt
         else:
             assert 0, self.operation
 
@@ -236,12 +238,12 @@ class SquaredExponentialKernel(object):
 
     def __str__(self):
         l = self.lenscale()
-        (low,high), = self.param_bounds()
+        (low, high), = self.param_bounds()
         if low is not None:
             low = self.lenscale(low)
         if high is not None:
             high = self.lenscale(high)
-        return "%s{l=%s,bounds=(%s,%s)}"%(
+        return "%s{l=%s,bounds=(%s,%s)}" % (
                     self.__class__.__name__,
                     str(l), str(low), str(high))
 
@@ -255,8 +257,8 @@ class SquaredExponentialKernel(object):
         if x.ndim == y.ndim == 1:
             x = x.dimshuffle(0, 'x')
             y = y.dimshuffle(0, 'x')
-        ll2 = tensor.exp(self.log_lenscale) #2l^2
-        d = ((x**2).sum(axis=1).dimshuffle(0, 'x')
+        ll2 = tensor.exp(self.log_lenscale)  # 2l^2
+        d = ((x ** 2).sum(axis=1).dimshuffle(0, 'x')
                 + (y ** 2).sum(axis=1)
                 - 2 * tensor.dot(x, y.T))
         K = tensor.exp(-d / ll2)
@@ -269,11 +271,11 @@ class LogSquaredExponentialKernel(SquaredExponentialKernel):
         if x.ndim == y.ndim == 1:
             x = x.dimshuffle(0, 'x')
             y = y.dimshuffle(0, 'x')
-        ll2 = tensor.exp(self.log_lenscale) #2l^2
+        ll2 = tensor.exp(self.log_lenscale)  # 2l^2
         log = tensor.log
         lx = log(x)
         ly = log(y)
-        d = ((lx**2).sum(axis=1).dimshuffle(0, 'x')
+        d = ((lx ** 2).sum(axis=1).dimshuffle(0, 'x')
                 + (ly ** 2).sum(axis=1)
                 - 2 * tensor.dot(lx, ly.T))
         K = tensor.exp(-d / ll2)
@@ -292,11 +294,12 @@ class ExponentialKernel(SquaredExponentialKernel):
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
-        if self.log_lenscale.ndim!=0:
+        if self.log_lenscale.ndim != 0:
             raise TypeError('log_lenscale must be scalar', self.log_lenscale)
+
     def __str__(self):
         l = numpy.exp(self.log_lenscale.value)
-        return "ExponentialKernel{l=%s}"%str(l)
+        return "ExponentialKernel{l=%s}" % str(l)
 
     @classmethod
     def alloc(cls, l=1):
@@ -306,10 +309,10 @@ class ExponentialKernel(SquaredExponentialKernel):
 
     def K(self, x, y):
         l = tensor.exp(self.log_lenscale)
-        d = ((x**2).sum(axis=1).dimshuffle(0,'x')
-                + (y**2).sum(axis=1)
+        d = ((x ** 2).sum(axis=1).dimshuffle(0, 'x')
+                + (y ** 2).sum(axis=1)
                 - 2 * tensor.dot(x, y.T))
-        K = tensor.exp(-tensor.sqrt(d)/l)
+        K = tensor.exp(-tensor.sqrt(d) / l)
         return K
 
 
@@ -329,12 +332,12 @@ class CategoryKernel(SquaredExponentialKernel):
     def K(self, x, y):
         xx = x.reshape((x.shape[0],))
         yy = y.reshape((y.shape[0],))
-        xx = xx.dimshuffle(0,'x') # drop cols because there should only be 1
-        yy = yy.dimshuffle(0)     # drop cols because there should only be 1
+        xx = xx.dimshuffle(0, 'x')  # drop cols because there should be 1
+        yy = yy.dimshuffle(0)       # drop cols because there should be 1
 
-        ll2 = tensor.exp(self.log_lenscale) #2l^2
-        d = tensor.neq(xx,yy)
-        K = tensor.exp(-d/ll2)
+        ll2 = tensor.exp(self.log_lenscale)  # 2l^2
+        d = tensor.neq(xx, yy)
+        K = tensor.exp(-d / ll2)
         return K
 
 
@@ -432,7 +435,8 @@ class GPR_math(object):
         rval = tensor.log1p(tensor.exp((thresh - mu) / sigma))
         return rval
 
-def get_refinability(v,dist_name):
+
+def get_refinability(v, dist_name):
     v = v.vals
     if dist_name == 'uniform':
         params = [mt_dist.uniform_get_low(v), mt_dist.uniform_get_high(v)]
@@ -441,16 +445,17 @@ def get_refinability(v,dist_name):
     elif dist_name == 'lognormal':
         params = [mt_dist.lognormal_get_mu(v), mt_dist.lognormal_get_sigma(v)]
     elif dist_name == 'quantized_lognormal':
-        params = [mt_dist.qlognormal_get_mu(v),
-                  mt_dist.qlognormal_get_sigma(v),
-                  mt_dist.qlognormal_get_round(v)]
+        params = [mt_dist.quantized_lognormal_get_mu(v),
+                  mt_dist.quantized_lognormal_get_sigma(v),
+                  mt_dist.quantized_lognormal_get_round(v)]
     for p in params:
         try:
             tensor.get_constant_value(p)
         except TypeError:
             return False
-    return True        
-    
+    return True
+
+
 class GP_BanditAlgo(TheanoBanditAlgo):
 
     constant_liar_global_mean = True
@@ -484,9 +489,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     #       - analytic form, fast computation
     EI_criterion = 'softmax_hack'
 
-    n_candidates_to_draw = 5  # XXX: make this bigger for non-debugging
+    n_candidates_to_draw = 5
+    # XXX: make this bigger for non-debugging
 
-    n_candidates_to_draw_in_GM = 5 # XXX: make this bigger and only refine best
+    n_candidates_to_draw_in_GM = 5
+    # XXX: make this bigger and only refine best
 
     def init_kernels(self):
         self.kernels = []
@@ -496,43 +503,43 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.param_bounds = []
         self.idxs_mulsets = {}
 
-
         for iv in self.s_prior:
             dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
             if dist_name == 'normal':
                 k = SquaredExponentialKernel()
-                self.is_refinable[k] = get_refinability(iv,dist_name)                                                        
-                self.bounds[k] = (None,None)
+                self.is_refinable[k] = get_refinability(iv, dist_name)
+                self.bounds[k] = (None, None)
             elif dist_name == 'uniform':
                 k = SquaredExponentialKernel()
-                low = tensor.get_constant_value(mt_dist.uniform_get_low(iv.vals))
-                high = tensor.get_constant_value(mt_dist.uniform_get_high(iv.vals))
-                self.is_refinable[k] = get_refinability(iv,dist_name) 
-                self.bounds[k] = (low,high)
+                low = tensor.get_constant_value(
+                        mt_dist.uniform_get_low(iv.vals))
+                high = tensor.get_constant_value(
+                        mt_dist.uniform_get_high(iv.vals))
+                self.is_refinable[k] = get_refinability(iv, dist_name)
+                self.bounds[k] = (low, high)
             elif dist_name == 'lognormal':
                 k = LogSquaredExponentialKernel()
-                self.is_refinable[k] = get_refinability(iv,dist_name) 
-                self.bounds[k] = (None,None)
+                self.is_refinable[k] = get_refinability(iv, dist_name)
+                self.bounds[k] = (0, None)
             elif dist_name == 'quantized_lognormal':
                 k = LogSquaredExponentialKernel()
-                self.is_refinable[k] = get_refinability(iv,dist_name) 
-                self.bounds[k] = (None,None)
+                self.is_refinable[k] = get_refinability(iv, dist_name)
+                self.bounds[k] = (0, None)
             elif dist_name == 'categorical':
-                # XXX: a better CategoryKernel would have different similarities
-                #      for different choices
+                # XXX: a better CategoryKernel would have different
+                # similarities for different choices
                 k = CategoryKernel()
                 self.is_refinable[k] = False
-                self.bounds[k] = (None,None)
+                # refinable is false, so not setting bounds
             else:
                 raise TypeError("unsupported distribution", dist_name)
 
             self.kernels.append(k)
             self.params.extend(k.params())
             self.param_bounds.extend(k.param_bounds())
-            # XXX : to be more robust, it would be nice to build an Env with the
-            #       idxs as outputs, and then run the MergeOptimizer on it.
+            # XXX : to be more robust, it would be nice to build an Env with
+            # the idxs as outputs, and then run the MergeOptimizer on it.
             self.idxs_mulsets.setdefault(iv.idxs, []).append(k)
-
 
     def init_gram_weights(self, idxs=None, parent_weight=1):
         """ Recursively
@@ -548,8 +555,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             root_idxs = [idxs for idxs in self.idxs_mulsets
                     if isinstance(idxs.owner.op, tensor.ARange)]
             if len(root_idxs) > 1:
-                # XXX : to be more robust, it would be nice to build an Env with
-                # the idxs as outputs, and then run the MergeOptimizer on it.
+                # XXX : to be more robust, it would be nice to build an Env
+                # with the idxs as outputs, and then run the MergeOptimizer on
+                # it.
                 raise NotImplementedError('not all idxs were derived from'
                     ' single ARange object')
             idxs = root_idxs[0]
@@ -621,7 +629,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.y_obs_var,
                 self.K_fn,
                 N=self.s_n_train,
-                min_variance = self.y_minvar)
+                min_variance=self.y_minvar)
 
         self.nll_obs = self.gprmath.s_nll()
 
@@ -703,7 +711,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         x_all = x_all.as_numpy_floatX()
 
         y_all = (y_all - y_mean) / (1e-8 + y_std)
-        y_var /= (1e-8 + y_std)**2
+        y_var /= (1e-8 + y_std) ** 2
 
         assert y_all.shape == y_var.shape
         if y_var.min() < -1e-6:
@@ -764,6 +772,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 v = p.get_value().flatten()
                 rval.extend(v)
             return numpy.asarray(rval)
+
         def set_pt(pt):
             i = 0
             for p in self.params:
@@ -781,6 +790,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     self._GP_y_all,
                     self._GP_y_var,
                     *self._GP_x_all.flatten())
+
         def df(pt):
             set_pt(pt)
             dparams = dnll_dparams(self._GP_n_train,
@@ -791,7 +801,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             rval = []
             for dp in dparams:
                 rval.extend(dp.flatten())
-            rval =  numpy.asarray(rval)
+
+            rval = numpy.asarray(rval)
             #print numpy.sqrt((rval**2).sum())
             return rval
 
@@ -855,7 +866,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         assert rval_var_min > -1e-4, rval_var_min
         rval_var = numpy.maximum(rval_var, 0)
         return (rval_mean * self._GP_y_std + self._GP_y_mean,
-                rval_var * self._GP_y_std**2)
+                rval_var * self._GP_y_std ** 2)
 
     def GP_EI(self, x):
         x_idxset = x.idxset()
@@ -890,9 +901,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
 
-        
         if len(x) != len(self.kernels):
-            raise ValueError('x has wrong length,',len(x) ,'!=',len(self.kernels))
+            raise ValueError('len(x) == %i but len(self.kernels)==%i' % (
+                len(x), len(self.kernels)))
 
         n_refinable = len([k for k in self.kernels if self.is_refinable[k]])
         if n_refinable == 0:
@@ -935,16 +946,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             + tuple([v
                 for (k, v) in zip(self.kernels, x.valslist())
                 if not self.is_refinable[k]]))
-                
+
         bounds = []
-        for (k,xk) in zip(self.kernels, x.valslist()):
+        for (k, xk) in zip(self.kernels, x.valslist()):
             if self.is_refinable[k]:
                 bounds.extend([self.bounds[k][:] for _ind in range(len(xk))])
-        
+
         best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
                 start_pt,
                 None,
-                args = args,
+                args=args,
                 maxfun=maxiter,
                 #TODO: bounds from distributions
                 bounds=bounds,
@@ -956,7 +967,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         for (_ind, iv) in enumerate(x):
             if self.is_refinable[self.kernels[_ind]]:
                 diff = len(iv.vals)
-                rval[_ind].vals = best_pt[initial:initial+diff]
+                rval[_ind].vals = best_pt[initial:initial + diff]
                 initial += diff
         assert initial == len(best_pt)
         return rval
@@ -976,7 +987,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         EI_opt = self.GP_EI(candidates_opt)
         best_idx = numpy.argmax(EI_opt)
 
-        if 1: # for DEBUGGING
+        if 1:
+            # for DEBUGGING
             EI = self.GP_EI(candidates)
             if EI.max() > EI_opt.max():
                 logger.warn(
@@ -1011,4 +1023,3 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             print 'suggest %i took %.2f seconds' % (
                     len(ivls['losses']['ok'].idxs),
                     time.time() - t)
-
