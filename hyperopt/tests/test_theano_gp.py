@@ -343,8 +343,52 @@ class GaussianBandit(GensonBandit):
         return .1
 
 
+class UniformBandit(GensonBandit):
+    test_str = '{"x":uniform(0,1)}'
+
+    def __init__(self):
+        super(UniformBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - .5) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1
+        
+        
+class LognormalBandit(GensonBandit):
+    test_str = '{"x":lognormal(0,1)}'
+
+    def __init__(self):
+        super(LognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1        
+        
+
+class QLognormalBandit(GensonBandit):
+    test_str = '{"x":qlognormal(0,1)}'
+
+    def __init__(self):
+        super(QLognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1  
+
 class GaussianBandit2var(GensonBandit):
-    test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
+    test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
 
     def __init__(self, a, b):
         super(GaussianBandit2var, self).__init__(source_string=self.test_str)
@@ -452,7 +496,7 @@ def test_4var_all_relevant():
     for k in bandit_algo.kernels:
         print 'last kernel fit', k, k.lenscale()
     assert min(serial_exp.losses()) < .05
-    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=False)
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
 
@@ -485,14 +529,13 @@ def test_fit_categorical():
     assert arm0count > 60
 
 
-
 def test_fit_uniform():
-    pass # XXX
+    fit_base(GPAlgo, UniformBandit)
 
 
 def test_fit_lognormal():
-    pass # XXX
+    fit_base(GPAlgo, LognormalBandit)
 
 
 def test_fit_quantized_lognormal():
-    pass # XXX
+    fit_base(GPAlgo, QLognormalBandit)
