@@ -359,42 +359,6 @@ class GaussianBandit2var(GensonBandit):
         return .1
 
 
-class GaussianBandit4var(GensonBandit):
-    """
-    This bandit allows testing continuous distributions nested inside choice
-    variables.
-
-    The loss actually only depends on 'a' or 'd'. So the length scales of 'b'
-    and 'd' should go to infinity.
-    """
-    test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
-                                 {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
-
-    def __init__(self, a, b, c, d):
-        super(GaussianBandit4var, self).__init__(source_string=self.test_str)
-
-        # relevances to loss function:
-        self.a = a
-        self.b = b
-        self.c = c
-        self.d = d
-
-    def evaluate(self, config, ctrl):
-        return dict(loss=self.a * (config['p0'].get("a", 2) - 2) ** 2 + \
-                         self.b * (config['p0'].get("b", 2) - 2) ** 2 + \
-                         self.c * (config['p0'].get("c", 2) - 2) ** 2 + \
-                         self.d * (config['p0'].get("d", 2) - 2) ** 2 ,
-                    status='ok')
-
-    def loss_variance(self, result, config):
-        """Return uncertainty in reported loss.
-
-        The function is technically deterministic (var = 0), but
-        overestimating is ok.
-        """
-        return .1
-
-
 def fit_base(A, B, *args, **kwargs):
     A.n_startup_jobs = 7
 
@@ -437,14 +401,56 @@ def test_2var_unequal():
     assert l1 / l0 > 5
 
 
+class GaussianBandit4var(GensonBandit):
+    """
+    This bandit allows testing continuous distributions nested inside choice
+    variables.
+
+    The loss actually only depends on 'a' or 'd'. So the length scales of 'b'
+    and 'd' should go to infinity.
+    """
+    test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
+                                 {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
+
+    def __init__(self, a, b, c, d):
+        super(GaussianBandit4var, self).__init__(source_string=self.test_str)
+
+        # relevances to loss function:
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+
+    def evaluate(self, config, ctrl):
+        return dict(loss=self.a * (config['p0'].get("a", 2) - 2) ** 2 + \
+                         self.b * (config['p0'].get("b", 2) - 2) ** 2 + \
+                         self.c * (config['p0'].get("c", 2) - 2) ** 2 + \
+                         self.d * (config['p0'].get("d", 2) - 2) ** 2 ,
+                    status='ok')
+
+    def loss_variance(self, result, config):
+        """Return uncertainty in reported loss.
+
+        The function is technically deterministic (var = 0), but
+        overestimating is ok.
+        """
+        return .1
+
+
 def test_4var_all_relevant():
-    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0.5, 2, 1,
-            n_iter=10)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
-    # XXX: assert something about the final length scales
+    bandit_algo = GPAlgo(GaussianBandit4var(1, .5, 2, 1))
+    serial_exp = SerialExperiment(bandit_algo)
+    bandit_algo.n_startup_jobs = 10
+    for i in range(50):
+        serial_exp.run(1)
+    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
+    print l0, l1, l2, l3
+    print serial_exp.losses()
+    import hyperopt.plotting
+    hyperopt.plotting.main_plot_vars(serial_exp)
 
 
 
