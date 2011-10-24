@@ -489,6 +489,110 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     n_candidates_to_draw_in_GM = 5 # XXX: make this bigger and only refine best
 
+    def init_kernels(self):
+        self.kernels = []
+        self.is_refinable = {}
+        self.bounds = {}
+        self.params = []
+        self.param_bounds = []
+        self.idxs_mulsets = {}
+
+
+        for iv in self.s_prior:
+            dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
+            if dist_name == 'normal':
+                k = SquaredExponentialKernel()
+                self.is_refinable[k] = get_refinability(iv,dist_name)                                                        
+                self.bounds[k] = (None,None)
+            elif dist_name == 'uniform':
+                k = SquaredExponentialKernel()
+                low = tensor.get_constant_value(mt_dist.uniform_get_low(iv.vals))
+                high = tensor.get_constant_value(mt_dist.uniform_get_high(iv.vals))
+                self.is_refinable[k] = get_refinability(iv,dist_name) 
+                self.bounds[k] = (low,high)
+            elif dist_name == 'lognormal':
+                k = LogSquaredExponentialKernel()
+                self.is_refinable[k] = get_refinability(iv,dist_name) 
+                self.bounds[k] = (None,None)
+            elif dist_name == 'quantized_lognormal':
+                k = LogSquaredExponentialKernel()
+                self.is_refinable[k] = self.get_refinability(iv,dist_name) 
+                self.bounds[k] = (None,None)
+            elif dist_name == 'categorical':
+                # XXX: a better CategoryKernel would have different similarities
+                #      for different choices
+                k = CategoryKernel()
+                self.is_refinable[k] = False
+                self.bounds[k] = (None,None)
+            else:
+                raise TypeError("unsupported distribution", dist_name)
+
+            self.kernels.append(k)
+            self.params.extend(k.params())
+            self.param_bounds.extend(k.param_bounds())
+            # XXX : to be more robust, it would be nice to build an Env with the
+            #       idxs as outputs, and then run the MergeOptimizer on it.
+            self.idxs_mulsets.setdefault(iv.idxs, []).append(k)
+
+
+    def init_gram_weights(self, idxs=None, parent_weight=1):
+        """ Recursively
+        parent_k: current, None for root
+        """
+        try:
+            gram_weights = self.gram_weights
+        except AttributeError:
+            self.convex_coefficient_params = []
+            gram_weights = self.gram_weights = {}
+
+        if idxs is None:
+            root_idxs = [idxs for idxs in self.idxs_mulsets
+                    if isinstance(idxs.owner.op, tensor.ARange)]
+            if len(root_idxs) > 1:
+                # XXX : to be more robust, it would be nice to build an Env with
+                # the idxs as outputs, and then run the MergeOptimizer on it.
+                raise NotImplementedError('not all idxs were derived from'
+                    ' single ARange object')
+            idxs = root_idxs[0]
+
+        kerns = self.idxs_mulsets[idxs]
+        cat_kerns = [k for k in kerns if isinstance(k, CategoryKernel)]
+        if len(cat_kerns) == 0:
+            print 'adding gram_weight', idxs, parent_weight
+            if parent_weight != 1: #HACK
+                theano.printing.debugprint(parent_weight)
+            self.gram_weights[idxs] = parent_weight
+        elif len(cat_kerns) == 1:
+            param = theano.shared(numpy.asarray(0.0))
+            self.convex_coefficient_params.append(param)
+            weight = tensor.nnet.sigmoid(param)
+            for i, k in enumerate(cat_kerns):
+                # call recursively for each mulset
+                # that corresponds to a slice out of idxs
+                for sub_idxs in self.idxs_mulsets:
+                    if idxs == sub_idxs.owner.inputs[0]:
+                        # choice nodes in genson generate
+                        # advanced indexing on idxs.
+                        if not isinstance(sub_idxs.owner.op,
+                                tensor.AdvancedSubtensor1):
+                            raise NotImplementedError(sub_idxs)
+                        self.init_gram_weights(sub_idxs,
+                                parent_weight=parent_weight * weight)
+            print 'adding gram_weight', idxs
+            theano.printing.debugprint(parent_weight * (1 - weight))
+            self.gram_weights[idxs] = parent_weight * (1 - weight)
+        else:
+            # in this case the parent_weight must be shared between
+            # this mulset and the child mulsets
+            raise NotImplementedError()
+            n_terms = len(cat_kerns) + 1
+            params = theano.shared(numpy.zeros(n_terms))
+            self.convex_coefficient_params.append(params)
+            weights = tensor.nnet.softmax(params) * parent_weight
+            for i, k in enumerate(cat_kerns):
+                build_softmax_coefs(k, weights[i])
+            self.gram_weights[idxs] = weights[len(cat_kerns)]
+
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
         self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
@@ -498,46 +602,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.y_obs_var = tensor.vector('y_obs_var')
         self.x_obs_IVL = self.s_prior.new_like_self()
 
-        self.kernels = []
-        self.is_refinable = {}
-        self.bounds = {}
-
-        for iv in self.s_prior:
-            dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
-            if dist_name == 'normal':
-                k = SquaredExponentialKernel()
-                self.kernels.append(k)
-                self.is_refinable[k] = get_refinability(iv,dist_name)                                                        
-                self.bounds[k] = (None,None)
-            elif dist_name == 'uniform':
-                k = SquaredExponentialKernel()
-                low = iv.vals.owner.inputs[2]
-                high = iv.vals.max()
-                self.kernels.append(k)
-                self.is_refinable[k] = get_refinability(iv,dist_name) 
-                self.bounds[k] = (min,max)
-            elif dist_name == 'lognormal':
-                k = LogSquaredExponentialKernel()
-                self.kernels.append(k)
-                self.is_refinable[k] = True
-                self.is_refinable[k] = get_refinability(iv,dist_name) 
-                self.bounds[k] = (None,None)
-            elif dist_name == 'quantized_lognormal':
-                k = LogSquaredExponentialKernel()
-                self.kernels.append(k)
-                self.is_refinable[k] = self.get_refinability(iv,dist_name) 
-                self.bounds[k] = (None,None)
-            elif dist_name == 'categorical':
-                # XXX: a better CategoryKernel would have different similarities
-                #      for different choices
-                k = CategoryKernel()
-                self.kernels.append(k)
-                self.is_refinable[k] = False
-            else:
-                raise TypeError("unsupported distribution", dist_name)
-
         self.cand_x = self.s_prior.new_like_self()
         self.cand_EI_thresh = tensor.scalar()
+
+        self.init_kernels()
+        self.init_gram_weights()
 
         self.s_big_param_vec = tensor.vector()
         ### assumes all variables are refinable
@@ -550,12 +619,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 stop = n_elements_used + n_elements_in_v
                 iv.vals = self.s_big_param_vec[start:stop]
                 n_elements_used += n_elements_in_v
-
-        self.params = []
-        self.param_bounds = []
-        for k in self.kernels:
-            self.params.extend(k.params())
-            self.param_bounds.extend(k.param_bounds())
 
         self.gprmath = GPR_math(self.x_obs_IVL,
                 self.y_obs,
@@ -591,25 +654,15 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         gram_matrices = {}
         gram_matrices_idxs = {}
-        gram_weights = {}
         for k, iv_prior, iv0, iv1 in zip(self.kernels, self.s_prior, x0, x1):
-            # XXX : to be more robust, it would be nice to build an Env with the
-            #       idxs as outputs, and then run the MergeOptimizer on it.
-            gram = k.K(iv0.vals, iv1.vals)
-            gram_matrices.setdefault(iv_prior.idxs, []).append(gram)
+            gram_matrices.setdefault(iv_prior.idxs, []).append(
+                    k.K(iv0.vals, iv1.vals))
             gram_matrices_idxs.setdefault(iv_prior.idxs, [iv0.idxs, iv1.idxs])
-            gram_weights_idxs.setdefault(iv_prior.idxs, tensor.scalar())
-
-        # The idxs variables can be arranged in a tree, such that each node is a
-        # subset of its parent.
-        # The gram matrix is formed by summing along the paths in this tree.
-        # For the kernel to be valid, every node must be weighted, and it must
-        # be the case that every path from root -> leaf sums to 1.
 
         nx1 = self.s_n_train if x1 is x0 else self.s_n_test
         base = tensor.alloc(0.0, self.s_n_train, nx1)
         for idxs, grams in gram_matrices.items():
-            prod = tensor.mul(*grams)
+            prod = self.gram_weights[idxs] * tensor.mul(*grams)
             base = sparse_gram_inc(base, prod, *gram_matrices_idxs[idxs])
 
         return base
@@ -780,21 +833,28 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten()
                         + s_x.flatten(),
-                    [self.gprmath.s_mean(s_x), self.gprmath.s_variance(s_x)],
+                    [self.gprmath.s_mean(s_x),
+                        self.gprmath.s_variance(s_x),
+                        #self.K_fn(self.x_obs_IVL, self.x_obs_IVL),
+                        self.K_fn(self.x_obs_IVL, s_x),
+                        ],
                     allow_input_downcast=True)
-            theano.printing.debugprint(self._mean_variance)
+            #theano.printing.debugprint(self._mean_variance)
         if len(x) != len(self._GP_x_all):
             raise ValueError('x has wrong len',
                     (len(x), len(self._GP_x_all)))
         x_idxset = x.idxset()
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
-        rval_mean, rval_var = self._mean_variance(
+        rval_mean, rval_var, rval_K = self._mean_variance(
                 self._GP_n_train,
                 len(x_idxset),
                 self._GP_y_all,
                 self._GP_y_var,
                 *(self._GP_x_all.flatten() + x.flatten()))
+
+        for K_row in rval_K:
+            print K_row
         rval_var_min = rval_var.min()
         assert rval_var_min > -1e-4, rval_var_min
         rval_var = numpy.maximum(rval_var, 0)
@@ -834,8 +894,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
 
+        
         if len(x) != len(self.kernels):
-            raise ValueError('x has wrong length')
+            raise ValueError('x has wrong length,',len(x) ,'!=',len(self.kernels))
 
         n_refinable = len([k for k in self.kernels if self.is_refinable[k]])
         if n_refinable == 0:
@@ -879,9 +940,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 for (k, v) in zip(self.kernels, x.valslist())
                 if not self.is_refinable[k]]))
                 
-        bounds = [self.bounds[k] for k in self.kernels if 
-                         self.is_refinable[k]]
-
+        print('THING',[len(xk) for k, xk in zip(self.kernels, x.valslist())
+                        if self.is_refinable[k]])
+        print(len(start_pt))
+                        
+        bounds = []
+        for (k,xk) in zip(self.kernels, x.valslist()):
+            if self.is_refinable[k]:
+                bounds.extend([self.bounds[k][:] for _ind in range(len(xk))])
+        print(bounds)
+        
         best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
                 start_pt,
                 None,
@@ -903,6 +971,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         return rval
 
     def suggest_from_model(self, trials, results, N):
+        logger.debug('suggest_from_model')
         ivls = self.idxs_vals_by_status(trials, results)
         prepared_data = self.prepare_GP_training_data(ivls)
         self.fit_GP(*prepared_data)
@@ -910,7 +979,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.gm_algo.n_EI_candidates = self.n_candidates_to_draw_in_GM
         candidates = self.gm_algo.suggest_from_model(ivls,
                 self.n_candidates_to_draw)
-        print candidates.idxset()
 
         candidates_opt = self.GP_EI_optimize(candidates)
 
@@ -928,6 +996,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         return rval
 
     def suggest_from_prior(self, N):
+        logger.debug('suggest_from_prior')
         if not hasattr(self, '_prior_sampler'):
             self._prior_sampler = theano.function(
                     [self.s_N],
@@ -951,3 +1020,4 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             print 'suggest %i took %.2f seconds' % (
                     len(ivls['losses']['ok'].idxs),
                     time.time() - t)
+
