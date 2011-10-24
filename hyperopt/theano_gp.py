@@ -441,7 +441,7 @@ def get_refinability(v,dist_name):
         params = [mt_dist.normal_get_mu(v), mt_dist.normal_get_sigma(v)]
     elif dist_name == 'lognormal':
         params = [mt_dist.lognormal_get_mu(v), mt_dist.lognormal_get_sigma(v)]
-    elif dist_name == 'qlognormal':
+    elif dist_name == 'quantized_lognormal':
         params = [mt_dist.qlognormal_get_mu(v),
                   mt_dist.qlognormal_get_sigma(v),
                   mt_dist.qlognormal_get_round(v)]
@@ -516,7 +516,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.bounds[k] = (None,None)
             elif dist_name == 'quantized_lognormal':
                 k = LogSquaredExponentialKernel()
-                self.is_refinable[k] = self.get_refinability(iv,dist_name) 
+                self.is_refinable[k] = get_refinability(iv,dist_name) 
                 self.bounds[k] = (None,None)
             elif dist_name == 'categorical':
                 # XXX: a better CategoryKernel would have different similarities

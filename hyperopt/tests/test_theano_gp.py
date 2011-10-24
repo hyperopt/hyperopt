@@ -430,18 +430,6 @@ def test_1var():
     fit_base(GPAlgo, GaussianBandit)
 
 
-def test_1var_uniform():
-    fit_base(GPAlgo, UniformBandit)
-
-
-def test_1var_lognormal():
-    fit_base(GPAlgo, LognormalBandit)
-
-
-def test_1var_qlognormal():
-    fit_base(GPAlgo, QLognormalBandit)
-
-
 def test_2var_equal():
     se = fit_base(GPAlgo, GaussianBandit2var, 1, 1)
     l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
@@ -531,14 +519,13 @@ def test_fit_categorical():
     assert arm0count > 60
 
 
-
 def test_fit_uniform():
-    pass # XXX
+    fit_base(GPAlgo, UniformBandit)
 
 
 def test_fit_lognormal():
-    pass # XXX
+    fit_base(GPAlgo, LognormalBandit)
 
 
 def test_fit_quantized_lognormal():
-    pass # XXX
+    fit_base(GPAlgo, QLognormalBandit)
