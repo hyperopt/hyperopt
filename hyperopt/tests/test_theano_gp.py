@@ -496,7 +496,7 @@ def test_4var_all_relevant():
     for k in bandit_algo.kernels:
         print 'last kernel fit', k, k.lenscale()
     assert min(serial_exp.losses()) < .05
-    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=False)
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
 

@@ -434,7 +434,6 @@ class GPR_math(object):
 
 def get_refinability(v,dist_name):
     v = v.vals
-    print(v.owner.op, dir(v.owner.op))
     if dist_name == 'uniform':
         params = [mt_dist.uniform_get_low(v), mt_dist.uniform_get_high(v)]
     elif dist_name == 'normal':
@@ -937,15 +936,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 for (k, v) in zip(self.kernels, x.valslist())
                 if not self.is_refinable[k]]))
                 
-        print('THING',[len(xk) for k, xk in zip(self.kernels, x.valslist())
-                        if self.is_refinable[k]])
-        print(len(start_pt))
-                        
         bounds = []
         for (k,xk) in zip(self.kernels, x.valslist()):
             if self.is_refinable[k]:
                 bounds.extend([self.bounds[k][:] for _ind in range(len(xk))])
-        print(bounds)
         
         best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
                 start_pt,
