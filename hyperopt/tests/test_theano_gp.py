@@ -24,6 +24,7 @@ from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.genson_bandits import GensonBandit
 from hyperopt.experiments import SerialExperiment
+import hyperopt.plotting
 
 from hyperopt.theano_gp import SparseGramSet
 from hyperopt.theano_gp import SparseGramGet
@@ -447,20 +448,29 @@ def test_4var_all_relevant():
     l1 = bandit_algo.kernels[1].log_lenscale.get_value()
     l2 = bandit_algo.kernels[2].log_lenscale.get_value()
     l3 = bandit_algo.kernels[3].log_lenscale.get_value()
-    print l0, l1, l2, l3
-    print serial_exp.losses()
-    import hyperopt.plotting
-    hyperopt.plotting.main_plot_vars(serial_exp)
+    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
+    for k in bandit_algo.kernels:
+        print 'last kernel fit', k, k.lenscale()
+    assert min(serial_exp.losses()) < .05
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=False)
 
 
 
 def test_4var_some_irrelevant():
-    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0, 0, 1)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
-    # XXX: assert something about the final length scales
+    bandit_algo = GPAlgo(GaussianBandit4var(1, 0, 0, 1))
+    serial_exp = SerialExperiment(bandit_algo)
+    bandit_algo.n_startup_jobs = 10
+    for i in range(50):
+        serial_exp.run(1)
+    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
+    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
+    for k in bandit_algo.kernels:
+        print 'last kernel fit', k, k.lenscale()
+    assert min(serial_exp.losses()) < .05
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
 def test_fit_categorical():

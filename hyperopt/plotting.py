@@ -55,7 +55,7 @@ def main_plot_history(self):
     plt.show()
 
 
-def main_plot_vars(self):
+def main_plot_vars(self, end_with_show=True):
     import montetheano.rstreams
     # this requires a TheanoBanditAlgo, which has the sample history recorded as
     # idxs and vals
@@ -177,7 +177,8 @@ def main_plot_vars(self):
             print s_val
             print db_idx
             print db_val
-    plt.show()
+    if end_with_show:
+        plt.show()
 
 if __name__ == '__main__':
     cmd = sys.argv[1]
