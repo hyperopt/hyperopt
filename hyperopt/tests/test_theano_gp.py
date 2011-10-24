@@ -342,8 +342,52 @@ class GaussianBandit(GensonBandit):
         return .1
 
 
+class UniformBandit(GensonBandit):
+    test_str = '{"x":uniform(0,1)}'
+
+    def __init__(self):
+        super(UniformBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - .5) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1
+        
+        
+class LognormalBandit(GensonBandit):
+    test_str = '{"x":lognormal(0,1)}'
+
+    def __init__(self):
+        super(LognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1        
+        
+
+class QLognormalBandit(GensonBandit):
+    test_str = '{"x":qlognormal(0,1)}'
+
+    def __init__(self):
+        super(QLognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1  
+
 class GaussianBandit2var(GensonBandit):
-    test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
+    test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
 
     def __init__(self, a, b):
         super(GaussianBandit2var, self).__init__(source_string=self.test_str)
@@ -420,6 +464,18 @@ def fit_base(A, B, *args, **kwargs):
 
 def test_1var():
     fit_base(GPAlgo, GaussianBandit)
+
+
+def test_1var_uniform():
+    fit_base(GPAlgo, UniformBandit)
+
+
+def test_1var_lognormal():
+    fit_base(GPAlgo, LognormalBandit)
+
+
+def test_1var_qlognormal():
+    fit_base(GPAlgo, QLognormalBandit)
 
 
 def test_2var_equal():

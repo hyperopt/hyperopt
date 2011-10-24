@@ -18,6 +18,7 @@ import theano
 from theano import tensor
 from theano.sandbox.linalg import (diag, matrix_inverse, det, PSD_hint, trace)
 import montetheano
+import montetheano.distributions as mt_dist
 
 from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
@@ -262,7 +263,24 @@ class SquaredExponentialKernel(object):
         return K
 
 
-class ExponentialKernel(object):
+class LogSquaredExponentialKernel(SquaredExponentialKernel):
+
+    def K(self, x, y):
+        if x.ndim == y.ndim == 1:
+            x = x.dimshuffle(0, 'x')
+            y = y.dimshuffle(0, 'x')
+        ll2 = tensor.exp(self.log_lenscale) #2l^2
+        log = tensor.log
+        lx = log(x)
+        ly = log(y)
+        d = ((lx**2).sum(axis=1).dimshuffle(0, 'x')
+                + (ly ** 2).sum(axis=1)
+                - 2 * tensor.dot(lx, ly.T))
+        K = tensor.exp(-d / ll2)
+        return K
+
+
+class ExponentialKernel(SquaredExponentialKernel):
     """
     K(x,y) = exp(- ||x-y|| / l)
 
@@ -285,11 +303,6 @@ class ExponentialKernel(object):
         log_l = numpy.log(l)
         log_lenscale = theano.shared(log_l)
         return cls(log_lenscale=log_lenscale)
-
-    def params(self):
-        return [self.log_lenscale]
-    def param_bounds(self):
-        return [(self.log_lenscale_min, self.log_lenscale_max)]
 
     def K(self, x, y):
         l = tensor.exp(self.log_lenscale)
@@ -419,7 +432,26 @@ class GPR_math(object):
         rval = tensor.log1p(tensor.exp((thresh - mu) / sigma))
         return rval
 
-
+def get_refinability(v,dist_name):
+    v = v.vals
+    print(v.owner.op, dir(v.owner.op))
+    if dist_name == 'uniform':
+        params = [mt_dist.uniform_get_low(v), mt_dist.uniform_get_high(v)]
+    elif dist_name == 'normal':
+        params = [mt_dist.normal_get_mu(v), mt_dist.normal_get_sigma(v)]
+    elif dist_name == 'lognormal':
+        params = [mt_dist.lognormal_get_mu(v), mt_dist.lognormal_get_sigma(v)]
+    elif dist_name == 'qlognormal':
+        params = [mt_dist.qlognormal_get_mu(v),
+                  mt_dist.qlognormal_get_sigma(v),
+                  mt_dist.qlognormal_get_round(v)]
+    for p in params:
+        try:
+            tensor.get_constant_value(p)
+        except TypeError:
+            return False
+    return True        
+    
 class GP_BanditAlgo(TheanoBanditAlgo):
 
     constant_liar_global_mean = True
@@ -468,19 +500,33 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         self.kernels = []
         self.is_refinable = {}
+        self.bounds = {}
 
         for iv in self.s_prior:
             dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
             if dist_name == 'normal':
                 k = SquaredExponentialKernel()
                 self.kernels.append(k)
-                self.is_refinable[k] = True
+                self.is_refinable[k] = get_refinability(iv,dist_name)                                                        
+                self.bounds[k] = (None,None)
             elif dist_name == 'uniform':
-                raise NotImplementedError()
+                k = SquaredExponentialKernel()
+                low = iv.vals.owner.inputs[2]
+                high = iv.vals.max()
+                self.kernels.append(k)
+                self.is_refinable[k] = get_refinability(iv,dist_name) 
+                self.bounds[k] = (min,max)
             elif dist_name == 'lognormal':
-                raise NotImplementedError()
+                k = LogSquaredExponentialKernel()
+                self.kernels.append(k)
+                self.is_refinable[k] = True
+                self.is_refinable[k] = get_refinability(iv,dist_name) 
+                self.bounds[k] = (None,None)
             elif dist_name == 'quantized_lognormal':
-                raise NotImplementedError()
+                k = LogSquaredExponentialKernel()
+                self.kernels.append(k)
+                self.is_refinable[k] = self.get_refinability(iv,dist_name) 
+                self.bounds[k] = (None,None)
             elif dist_name == 'categorical':
                 # XXX: a better CategoryKernel would have different similarities
                 #      for different choices
@@ -832,6 +878,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             + tuple([v
                 for (k, v) in zip(self.kernels, x.valslist())
                 if not self.is_refinable[k]]))
+                
+        bounds = [self.bounds[k] for k in self.kernels if 
+                         self.is_refinable[k]]
 
         best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
                 start_pt,
@@ -839,7 +888,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 args = args,
                 maxfun=maxiter,
                 #TODO: bounds from distributions
-                bounds=[(-5, 5) for p in start_pt],
+                bounds=bounds,
                 iprint=-1)
 
         #print 'BEST_PT', best_pt

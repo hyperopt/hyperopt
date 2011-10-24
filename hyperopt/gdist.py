@@ -68,6 +68,10 @@ def get_obj_type(t):
         return gChoice
     elif isinstance(t, genson.functions.RandintGenerator):
         return gRandint
+    elif isinstance(t, genson.functions.LognormalRandomGenerator):
+        return gLognormal
+    elif isinstance(t, genson.functions.QuantizedLognormalRandomGenerator):
+        return gQLognormal
     elif isinstance(t, genson.references.ScopedReference):
         return gRef
     elif hasattr(t, 'keys'):
@@ -428,12 +432,47 @@ class gGauss(gRandom):
             child.theano_sampler_helper(memo, s_rng)
         mu = get_value(self.mean, memo)
         stdev = get_value(self.stdev, memo)
-        sigma = stdev ** 2
+        self.sigma = sigma = stdev ** 2
         elems = memo[id(self)]
         size = get_value(self.size, memo)
         ds = get_size(size,elems)
         vals = s_rng.normal(draw_shape=ds,
                             mu=mu, sigma=sigma)
+        memo[id(self)] = (elems, vals)
+
+
+class gLognormal(gRandom):
+    params = ['mean', 'stdev', 'size']
+
+    def theano_sampler_helper(self, memo, s_rng):
+        for child in self.children():
+            child.theano_sampler_helper(memo, s_rng)
+        mu = get_value(self.mean, memo)
+        stdev = get_value(self.stdev, memo)
+        sigma = self.sigma = stdev ** 2
+        elems = memo[id(self)]
+        size = get_value(self.size, memo)
+        ds = get_size(size,elems)
+        vals = s_rng.lognormal(draw_shape=ds,
+                            mu=mu, sigma=sigma)
+        memo[id(self)] = (elems, vals)
+
+
+class gQLognormal(gRandom):
+    params = ['mean', 'stdev', 'size', 'round']
+
+    def theano_sampler_helper(self, memo, s_rng):
+        for child in self.children():
+            child.theano_sampler_helper(memo, s_rng)
+        mu = get_value(self.mean, memo)
+        stdev = get_value(self.stdev, memo)
+        self.sigma = sigma = stdev ** 2
+        elems = memo[id(self)]
+        size = get_value(self.size, memo)
+        round = get_value(self.round, memo)
+        ds = get_size(size,elems)
+        vals = s_rng.quantized_lognormal(draw_shape=ds, mu=mu, sigma=sigma, 
+                                         step = round, dtype = 'int64')
         memo[id(self)] = (elems, vals)
 
 
