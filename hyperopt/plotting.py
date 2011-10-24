@@ -66,6 +66,10 @@ def main_plot_vars(self):
         flat_template = bandit.template.flatten()
         flat_names = [n[1:] for n in bandit.template.flatten_names(prefix="")]
     except:
+        # these are used for printing and labeling subplots
+        # the code above doesn't work with GenSON
+        # XXX
+        flat_template = [None] * 100
         flat_names = ['name not found'] * 100
 
 
@@ -147,7 +151,7 @@ def main_plot_vars(self):
             plt.title(flat_names[template_pos], fontsize=10)
             plt.scatter(time_ii, coords_ii,
                     c=map(color_fn_bw, results_ii))
-        elif dist_name == 'categorical':
+        elif dist_name in ('categorical', 'uniform', 'normal'):
             if 0:
                 print '-----------'
                 print flat_names[template_pos]
