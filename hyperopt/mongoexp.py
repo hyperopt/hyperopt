@@ -120,7 +120,7 @@ Ctrl.checkpoint does several things:
 * optionally updates the result subdocument
 
 The main_worker routine calls Ctrl.checkpoint(rval) once after the
-bandit.evalute function has returned before setting the status to 2 or 3 to
+bandit.evalute function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
@@ -151,6 +151,11 @@ import base
 import utils
 
 logger = logging.getLogger(__name__)
+
+STATE_NEW = 0
+STATE_RUNNING = 1
+STATE_DONE = 2
+STATE_ERROR = 3
 
 # Proxy that could be factored out
 # if we also want to use CouchDB
@@ -273,19 +278,19 @@ class MongoJobs(object):
     #
     # Collections:
     #
-    # db.jobs - structured {'argd', 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
+    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
     #                       'error', 'result'}
     #    This is the collection that the worker nodes write to
     #
     # db.gfs - file storage via gridFS for all collections
     #
-    def __init__(self, db, jobs, gfs, conn, tunnel, argd_name):
+    def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
         self.db = db
         self.jobs = jobs
         self.gfs = gfs
         self.conn=conn
         self.tunnel=tunnel
-        self.argd_name = argd_name
+        self.config_name = config_name
 
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
@@ -301,10 +306,10 @@ class MongoJobs(object):
         return cls(db, db[jobs_coll], gfs, connection, tunnel)
 
     @classmethod
-    def new_from_connection_str(cls, conn_str, gfs_coll='fs', argd_name='spec'):
+    def new_from_connection_str(cls, conn_str, gfs_coll='fs', config_name='spec'):
         connection, tunnel, db, coll = connection_from_string(conn_str)
         gfs = gridfs.GridFS(db, collection=gfs_coll)
-        return cls(db, coll, gfs, connection, tunnel, argd_name)
+        return cls(db, coll, gfs, connection, tunnel, config_name)
 
     def __iter__(self):
         return self.jobs.find()
@@ -316,27 +321,27 @@ class MongoJobs(object):
             return 0
 
     def jobs_complete(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=2))
+        c = self.jobs.find(spec=dict(state=STATE_DONE))
         return c if cursor else list(c)
     def jobs_error(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=3))
+        c = self.jobs.find(spec=dict(state=STATE_ERROR))
         return c if cursor else list(c)
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=1)))
+        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=1)))
+        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
     def jobs_queued(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=0))
+        c = self.jobs.find(spec=dict(state=STATE_NEW))
         return c if cursor else list(c)
 
     def insert(self, job, safe=True):
@@ -369,7 +374,7 @@ class MongoJobs(object):
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
     def delete_all_error_jobs(self, safe=True):
-        return self.delete_all(cond={'state':3}, safe=safe)
+        return self.delete_all(cond={'state': STATE_ERROR}, safe=safe)
 
     def reserve(self, host_id, cond=None):
         now = coarse_utcnow()
@@ -384,13 +389,13 @@ class MongoJobs(object):
         if cond['owner'] is not None:
             raise ValueError('refusing to reserve owned job')
         try:
-            self.jobs.update( 
-                cond, 
-                {'$set': 
-                    {'owner':host_id,
-                     'book_time':now,
-                     'state':1,
-                     'refresh_time':now,
+            self.jobs.update(
+                cond,
+                {'$set':
+                    {'owner': host_id,
+                     'book_time': now,
+                     'state': STATE_RUNNING,
+                     'refresh_time': now,
                      }
                  },
                 safe=True,
@@ -555,17 +560,15 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        # don't call base Experiment because it tries to set trials = []
-        # base.Experiment.__init__(self, bandit, bandit_algo)
+        bandit = utils.json_call(bandit_json)
+        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        base.Experiment.__init__(self, bandit_algo)
         self.bandit_json = bandit_json
-        self.bandit = utils.json_call(bandit_json)
-        self.bandit_algo = utils.json_call(bandit_algo_json)
-        self.bandit_algo.set_bandit(self.bandit)
         self.workdir = workdir
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
-                    argd_name='spec')
+                    config_name='spec')
         else:
             self.mongo_handle = mongo_handle
         config = self.mongo_handle.db.config.find_one()
@@ -584,36 +587,50 @@ class MongoExperiment(base.Experiment):
         del rval['mongo_handle']
         return rval
 
-    def __get_trials(self):
-        # TODO: this query can be done much more efficiently
-        query = {'exp_key': self.exp_key, 'result': {'$ne': None}}
-        all_jobs = list(self.mongo_handle.jobs.find(query))
-        id_jobs = [(j['_id'], j) for j in all_jobs]
-        id_jobs.sort()
-        return [id_job[1]['spec'] for id_job in id_jobs]
-    trials = property(__get_trials)
+    def __setstate__(self, dct):
+        self.__dict__.update(dct)
+        if 'trials' not in dct:
+            assert 'results' not in dct
+            self.trials = []
+            self.results = []
 
-    def __get_results(self):
-        # TODO: this query can be done much more efficiently
-        query = {'exp_key': self.exp_key, 'result': {'$ne': None}}
+    def refresh_trials_results(self):
+        query = {'exp_key': self.exp_key}
         all_jobs = list(self.mongo_handle.jobs.find(query))
-        #logger.info('all jobs: %s' % str(all_jobs))
-        id_jobs = [(j['_id'], j) for j in all_jobs]
+        logger.info('skipping %i error jobs'
+                % len([j for j in all_jobs if j['state'] == STATE_ERROR]))
+        id_jobs = [(j['_id'], j)
+            for j in all_jobs if j['state'] != STATE_ERROR]
         id_jobs.sort()
-        return [id_job[1]['result'] for id_job in id_jobs]
-    results = property(__get_results)
+        self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
+        self.results[:] = [j['result'] for (_id, j) in id_jobs]
 
-    def queue_extend(self, trial_specs):
+    def queue_extend(self, trial_configs, skip_dups=True):
+        if skip_dups:
+            new_configs = []
+            for config in trial_configs:
+                #XXX: This will basically never work
+                #     now that TheanoBanditAlgo puts a _config_id into
+                #     each suggestion
+                query = self.mongo_handle.jobs.find(dict(spec=config))
+                if query.count():
+                    matches = list(query)
+                    assert len(matches) == 1
+                    logger.info('Skipping duplicate trial')
+                else:
+                    new_configs.append(config)
+            trial_configs = new_configs
         rval = []
+        # this tells the mongo-worker how to evaluate the job
         cmd = ('bandit_json evaluate', self.bandit_json)
-        for spec in trial_specs:
+        for config in trial_configs:
             to_insert = dict(
-                    state=0,
+                    state=STATE_NEW,
                     exp_key=self.exp_key,
                     cmd=cmd,
                     owner=None,
-                    spec=spec,
-                    result=None,
+                    spec=config,
+                    result=self.bandit.new_result(),
                     version=0,
                     )
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
@@ -621,9 +638,9 @@ class MongoExperiment(base.Experiment):
 
     def queue_len(self):
         # TODO: consider searching by SON rather than dict
-        query = dict(state=0, exp_key=self.exp_key)
+        query = dict(state=STATE_NEW, exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
-        logger.info('Queue len: %i' % rval)
+        logger.debug('Queue len: %i' % rval)
         return rval
 
     def run(self, N):
@@ -632,22 +649,16 @@ class MongoExperiment(base.Experiment):
 
         n_queued = 0
 
-        while n_queued < N:
-            while self.queue_len() < self.min_queue_len:
-                suggestions = algo.suggest(
-                        self.trials, self.Ys(), self.Ys_status(), 1)
-                logger.info('algo suggested trial: %s' % str(suggestions[0]))
-                new_suggestions = []
-                for spec in suggestions:
-                    spec_query = self.mongo_handle.jobs.find(dict(spec=spec))
-                    if spec_query.count():
-                        spec_matches = list(spec_query)
-                        assert len(spec_matches) == 1
-                        logger.info('Skipping duplicate trial')
-                    else:
-                        new_suggestions.append(spec)
-                new_suggestions = self.queue_extend(new_suggestions)
-                n_queued += len(new_suggestions)
+        while n_queued < N and self.queue_len() < self.min_queue_len:
+            self.refresh_trials_results()
+            t0 = time.time()
+            suggestions = algo.suggest(
+                    self.trials, self.results, 1)
+            t1 = time.time()
+            logger.info('algo suggested trial: %s (in %.2f seconds)'
+                    % (str(suggestions[0]), t1 - t0))
+            new_suggestions = self.queue_extend(suggestions)
+            n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
 
 
@@ -770,6 +781,7 @@ def main_worker():
         logger.info("exiting with N=%i after %i consecutive exceptions" %(
             N, cons_errs))
     elif N == 1:
+        # XXX: the name of the jobs collection is a parameter elsewhere
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
         job = None
@@ -805,7 +817,6 @@ def main_worker():
         try:
             if cmd_protocol == 'cpickled fn':
                 worker_fn = cPickle.loads(job['cmd'][1])
-                result = worker_fn(spec, ctrl)
             elif cmd_protocol == 'call evaluate':
                 bandit = cPickle.loads(job['cmd'][1])
                 worker_fn = bandit.evaluate
@@ -813,24 +824,24 @@ def main_worker():
                 cmd_toks = cmd.split('.')
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
-                result = worker_fn(spec, ctrl)
             elif cmd_protocol == 'bandit_json evaluate':
                 bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
-                result = worker_fn(spec, ctrl)
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
+
+            result = worker_fn(spec, ctrl)
         except Exception, e:
             #TODO: save exception to database, but if this fails, then at least raise the original
             # traceback properly
             ctrl.checkpoint()
             mj.update(job,
-                    {'state': 3,
+                    {'state': STATE_ERROR,
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
         ctrl.checkpoint(result)
-        mj.update(job, {'state': 2}, safe=True)
+        mj.update(job, {'state': STATE_DONE}, safe=True)
     else:
         parser.print_help()
         return -1
@@ -839,7 +850,7 @@ def main_worker():
 def main_search():
     from optparse import OptionParser
     parser = OptionParser(
-            usage="%prog [options] [bandit bandit_algo]")
+            usage="%prog [options] [<bandit> <bandit_algo>]")
     parser.add_option("--clear-existing",
             action="store_true",
             dest="clear_existing",
@@ -916,6 +927,16 @@ def main_search():
 
     try:
         if options.clear_existing:
+            print >> sys.stdout, "Are you sure you want to delete",
+            print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
+                    % (mj.jobs.find({'exp_key':exp_key}).count(),
+                        str(exp_key)))
+            print >> sys.stdout, '(y/n)'
+            y, n = 'y', 'n'
+            if input() != 'y':
+                print >> sys.stdout, "aborting"
+                del self
+                return 1
             # delete any saved driver
             for name in md.attachment_names(driver):
                 md.delete_attachment(driver, name)
@@ -957,6 +978,7 @@ def main_search():
             md.update(driver, dict(owner=None))
         except pymongo.errors.OperationFailure:
             pass
+
 
 def main_show():
     from optparse import OptionParser
@@ -1036,9 +1058,22 @@ def main_show():
         parser.print_help()
         return -1
 
-    if cmd == 'history':
+    if 'history' == cmd:
         import plotting
+        import matplotlib.pyplot as plt
+        self.refresh_trials_results()
+        yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
+            for y, r in zip(self.losses(), self.results) if y is not None])
+        plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
+    elif 'dump' == cmd:
+        raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
+    elif 'dump_pickle' == cmd:
+        self.refresh_trials_results()
+        cPickle.dump(self, sys.stdout)
+    elif 'vars' == cmd:
+        import plotting
+        return plotting.main_plot_vars(self)
     else:
         logger.error("Invalid cmd %s" % cmd)
         parser.print_help()

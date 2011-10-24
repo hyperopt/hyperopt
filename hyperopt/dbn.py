@@ -15,15 +15,11 @@ from bson import SON, BSON
 import theano
 from theano import tensor
 
-# scikits.data
-from datasets.tasks import classification_train_valid_test
+# scikit-data
+from skdata.tasks import classification_train_valid_test
 
-# XXX import source code into this project
-from pylearn.shared.layers.logreg import LogisticRegression
-import pylearn.gd.sgd
-
-# XXX use scikits-learn?
-import pylearn.preprocessing.pca
+# XXX use scikits-learn for PCA
+import pylearn_pca
 
 from base import Bandit
 from utils import json_call
@@ -35,41 +31,201 @@ except:
 
 from ht_dist2 import rSON2, one_of, rlist, uniform, lognormal, ceil_lognormal
 
+
+class LogisticRegression(object):
+    def __init__(self, x, w, b, params=None):
+        if params is None:
+            params = []
+        self.input = x
+        self.output = tensor.nnet.softmax(tensor.dot(x, w) + b)
+        self.l1 = abs(w).sum()
+        self.l2_sqr = (w**2).sum()
+        self.argmax = tensor.argmax(
+                tensor.dot(x, w) + b,
+                axis=x.ndim - 1)
+        self.w = w
+        self.b = b
+        self.params = params
+
+    @classmethod
+    def new(cls, input, n_in, n_out, dtype=None, name=None):
+        if dtype is None:
+            dtype = input.dtype
+        if name is None:
+            name = cls.__name__
+        logger.debug('allocating params w, b: %s' % str((n_in, n_out, dtype)))
+        w = theano.shared(
+                numpy.zeros((n_in, n_out), dtype=dtype),
+                name='%s.w' % name)
+        b = theano.shared(
+                numpy.zeros((n_out,), dtype=dtype),
+                name='%s.b' % name)
+        return cls(input, w, b, params=[w, b])
+
+
+    def nll(self, target):
+        """Return the negative log-likelihood of the prediction of this model under a given
+        target distribution.  Passing symbolic integers here means 1-hot.
+        WRITEME
+        """
+        return tensor.nnet.categorical_crossentropy(self.output, target)
+
+    def errors(self, target):
+        """Return a vector of 0s and 1s, with 1s on every line that was mis-classified.
+        """
+        if target.ndim != self.argmax.ndim:
+            raise TypeError('target should have the same shape as self.argmax',
+                    ('target', target.type, 'argmax', self.argmax.type))
+        if target.dtype.startswith('int'):
+            return theano.tensor.neq(self.argmax, target)
+        else:
+            raise NotImplementedError()
+
+
+def sgd_updates(params, grads, stepsizes):
+    """Return a list of (pairs) that can be used as updates in theano.function to implement
+    stochastic gradient descent.
+
+    :param params: variables to adjust in order to minimize some cost
+    :type params: a list of variables (theano.function will require shared variables)
+    :param grads: the gradient on each param (with respect to some cost)
+    :type grads: list of theano expressions
+    :param stepsizes: step by this amount times the negative gradient on each iteration
+    :type stepsizes: [symbolic] scalar or list of one [symbolic] scalar per param
+    """
+    try:
+        iter(stepsizes)
+    except Exception:
+        stepsizes = [stepsizes for p in params]
+    if len(params) != len(grads):
+        raise ValueError('params and grads have different lens')
+    updates = [(p, p - step * gp) for (step, p, gp) in zip(stepsizes, params, grads)]
+    return updates
+
+
 def geom(lower, upper, round=1):
     ll = numpy.log(lower)
     lu = numpy.log(upper)
     return ceil_lognormal(.5 * (ll + lu), .4 * (lu - ll), round)
 
 
-def preprocess_data(argd, ctrl):
-    dataset = json_call(argd['dataset_name'])
+def dbn_template(dataset_name='skdata.larochelle_etal_2007.Rectangles',
+        sup_min_epochs=300,
+        sup_max_epochs=4000):
+    template = rSON2(
+        'preprocessing', one_of(
+            rSON2(
+                'kind', 'raw'),
+            rSON2(
+                'kind', 'zca',
+                'energy', uniform(0.5, 1.0))),
+        'dataset_name', dataset_name,
+        'sup_max_epochs', sup_max_epochs,
+        'sup_min_epochs', sup_min_epochs,
+        'iseed', one_of(5, 6, 7, 8),
+        'batchsize', one_of(20, 100),
+        'lr', lognormal(numpy.log(.01), 3),
+        'lr_anneal_start', geom(100, 10000),
+        'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+        'next_layer', one_of(None,
+            rSON2(
+                'n_hid', geom(2**7, 2**12, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                'cd_epochs', geom(1, 3000),
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 2),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', one_of(None,
+                    rSON2(
+                        'n_hid', geom(2**7, 2**12, round=16),
+                        'W_init_dist', one_of('uniform', 'normal'),
+                        'W_init_algo', one_of('old', 'Xavier'),
+                        'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                        'cd_epochs', geom(1, 2000),
+                        'cd_batchsize', 100,
+                        'cd_sample_v0s', one_of(False, True),
+                        'cd_lr', lognormal(numpy.log(.01), 2),
+                        'cd_lr_anneal_start', geom(10, 10000),
+                        'next_layer', one_of(None,
+                            rSON2(
+                                'n_hid', geom(2**7, 2**12, round=16),
+                                'W_init_dist', one_of('uniform', 'normal'),
+                                'W_init_algo', one_of('old', 'Xavier'),
+                                'W_init_algo_old_multiplier', lognormal(0., 1.),
+                                'cd_epochs', geom(1, 1500),
+                                'cd_batchsize', 100,
+                                'cd_sample_v0s', one_of(False, True),
+                                'cd_lr', lognormal(numpy.log(.01), 2),
+                                'cd_lr_anneal_start', geom(10, 10000),
+                                'next_layer', None,
+                                )))))))
+    return template
+
+
+def nnet1_template(dataset_name='skdata.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
+            sup_max_epochs=400):
+    template = rSON2(
+        'preprocessing', one_of(
+            rSON2(
+                'kind', 'raw'),
+            rSON2(
+                'kind', 'zca',
+                'energy', uniform(0.5, 1.0))),
+        'dataset_name', dataset_name,
+        'sup_max_epochs', sup_max_epochs,
+        'sup_min_epochs', sup_min_epochs,
+        'iseed', one_of(5, 6, 7, 8),
+        'batchsize', one_of(20, 100),
+        'lr', lognormal(numpy.log(.01), 3),
+        'lr_anneal_start', geom(100, 10000),
+        'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
+        'next_layer', rSON2(
+                'n_hid', geom(2**4, 2**10, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', uniform(.2, 2),
+                'cd_epochs', 0,
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 3),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', None))
+    return template
+
+
+def preprocess_data(config, ctrl):
+    dataset = json_call(config['dataset_name'])
     train, valid, test = classification_train_valid_test(dataset)
     X_train, y_train = numpy.asarray(train[0]), numpy.asarray(train[1])
     X_valid, y_valid = numpy.asarray(valid[0]), numpy.asarray(valid[1])
     X_test, y_test = numpy.asarray(test[0]), numpy.asarray(test[1])
 
-    if argd['preprocessing']['kind'] == 'pca':
+    if config['preprocessing']['kind'] == 'pca':
         # compute pca of input (TODO: retrieve only pca_whitened input)
         raise NotImplementedError('rewrite since cut and paste')
-        (eigvals,eigvecs), centered_trainset = pylearn.preprocessing.pca.pca_from_examples(
+        (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=dataset['inputs'][:dataset['n_train']],
-                max_energy_fraction=argd['pca_energy'])
+                max_energy_fraction=config['pca_energy'])
         eigmean = dataset['inputs'][0] - centered_trainset[0]
 
-        whitened_inputs = pylearn.preprocessing.pca.pca_whiten((eigvals,eigvecs),
+        whitened_inputs = pylearn_pca.pca_whiten((eigvals,eigvecs),
                 dataset['inputs']-eigmean)
         ctrl.info('PCA kept %i of %i components'%(whitened_inputs.shape[1],
             dataset['n_inputs']))
-    elif argd['preprocessing']['kind'] == 'zca':
-        (eigvals,eigvecs), centered_trainset = pylearn.preprocessing.pca.pca_from_examples(
+    elif config['preprocessing']['kind'] == 'zca':
+        (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=X_train,
-                max_energy_fraction=argd['preprocessing']['energy'])
+                max_energy_fraction=config['preprocessing']['energy'])
         eigmean = X_train[0] - centered_trainset[0]
 
         def whiten(X):
-            X = pylearn.preprocessing.pca.pca_whiten((eigvals,eigvecs),
+            X = pylearn_pca.pca_whiten((eigvals,eigvecs),
                     X - eigmean)
-            X = pylearn.preprocessing.pca.pca_whiten_inverse((eigvals, eigvecs),
+            X = pylearn_pca.pca_whiten_inverse((eigvals, eigvecs),
                     X) + eigmean
             X = X.astype('float32')
             X_min = X.min()
@@ -83,18 +239,18 @@ def preprocess_data(argd, ctrl):
         X_train, X_valid, X_test = [whiten(X)
                 for X in [X_train, X_valid, X_test]]
 
-    elif argd['preprocessing']['kind'] == 'normalize':
+    elif config['preprocessing']['kind'] == 'normalize':
         raise NotImplementedError('rewrite since cut and paste')
         n_train=dataset['n_train']
         whitened_inputs = dataset['inputs']
         whitened_inputs = whitened_inputs - whitened_inputs[:n_train].mean(axis=0)
         whitened_inputs /= whitened_inputs[:n_train].std(axis=0)+1e-7
-    elif argd['preprocessing']['kind'] == 'raw':
+    elif config['preprocessing']['kind'] == 'raw':
         pass
     else:
         raise ValueError(
                 'unrecognized preprocessing',
-                argd['preprocessing']['kind'])
+                config['preprocessing']['kind'])
 
     for Xy in 'X', 'y':
         for suffix in 'train', 'valid', 'test':
@@ -168,9 +324,10 @@ def train_rbm(s_rng, s_idx, s_batchsize, s_features, W, vbias, hbias, n_in,
     else:
         return dict(final_recon_l1=float('nan'))
 
+_dataset_cache = {}
 
 class DBN_Base(Bandit):
-    def dryrun_argd(self, *args, **kwargs):
+    def dryrun_config(self, *args, **kwargs):
         return dict(
                 lr=.01,
                 sup_max_epochs=500,
@@ -202,24 +359,24 @@ class DBN_Base(Bandit):
                     ),
                 l2_penalty=0.1,
                 lr_anneal_start=20,
-                dataset_name='datasets.larochelle_etal_2007.Rectangles',
+                dataset_name='skdata.larochelle_etal_2007.Rectangles',
                 )
 
     @classmethod
-    def evaluate(cls, argd, ctrl):
+    def evaluate(cls, config, ctrl):
         time_limit = time.time() + 60 * 60 # 1hr from now
         rval = SON(dbn_train_fn_version=1)
 
         ctrl.info('starting dbn_train_fn')
-        kv = argd.items()
+        kv = config.items()
         kv.sort()
         for k,v in kv:
             ctrl.info('key=%s\t%s' %(k,str(v)))
 
-        rng = numpy.random.RandomState(argd['iseed'])
+        rng = numpy.random.RandomState(config['iseed'])
         s_rng = RandomStreams(int(rng.randint(2**30)))
 
-        dataset, train_Xy, valid_Xy, test_Xy = preprocess_data(argd, ctrl)
+        dataset, train_Xy, valid_Xy, test_Xy = preprocess_data(config, ctrl)
 
         # allocate learning function parameters
         s_inputs_all = tensor.fmatrix('inputs')
@@ -241,70 +398,78 @@ class DBN_Base(Bandit):
 
         rval['cd_reports'] = []
 
-        layer_config = argd['next_layer']
-        # allocate model parameters
-        while layer_config:
-            i = len(rval['cd_reports'])
-            n_hid_i = layer_config['n_hid']
-            if layer_config['W_init_dist']=='uniform':
-                W = rng.uniform(low=-1,high=1,size=(n_hid_i, n_inputs_i)).T.astype('float32')
-            elif layer_config['W_init_dist'] == 'normal':
-                W = rng.randn(n_hid_i, n_inputs_i).T.astype('float32')
-            else:
-                raise ValueError('W_init_dist', layer_config['W_init_dist'])
+        try:
+            layer_config = config['next_layer']
+            # allocate model parameters
+            while layer_config:
+                i = len(rval['cd_reports'])
+                n_hid_i = layer_config['n_hid']
+                if layer_config['W_init_dist']=='uniform':
+                    W = rng.uniform(low=-1,high=1,size=(n_hid_i, n_inputs_i)).T.astype('float32')
+                elif layer_config['W_init_dist'] == 'normal':
+                    W = rng.randn(n_hid_i, n_inputs_i).T.astype('float32')
+                else:
+                    raise ValueError('W_init_dist', layer_config['W_init_dist'])
 
-            if layer_config['W_init_algo'] == 'old':
-                #N.B. the weights are transposed so that as the number of hidden units changes,
-                # the first hidden units are always the same vectors.
-                # this makes it easier to isolate the effect of random initialization
-                # from the other hyper-parameters under review
-                W *= layer_config['W_init_algo_old_multiplier'] / numpy.sqrt(n_inputs_i)
-            elif layer_config['W_init_algo'] == 'Xavier':
-                W *= numpy.sqrt(6.0 / (n_inputs_i + n_hid_i))
-            else:
-                raise ValueError(layer_config['W_init_algo'])
+                if layer_config['W_init_algo'] == 'old':
+                    #N.B. the weights are transposed so that as the number of hidden units changes,
+                    # the first hidden units are always the same vectors.
+                    # this makes it easier to isolate the effect of random initialization
+                    # from the other hyper-parameters under review
+                    W *= layer_config['W_init_algo_old_multiplier'] / numpy.sqrt(n_inputs_i)
+                elif layer_config['W_init_algo'] == 'Xavier':
+                    W *= numpy.sqrt(6.0 / (n_inputs_i + n_hid_i))
+                else:
+                    raise ValueError(layer_config['W_init_algo'])
 
-            layer_idx = len(rval['cd_reports'])
-            weights.append(theano.shared(W, 'W_%i' % layer_idx))
-            hbiases.append(theano.shared(numpy.zeros(n_hid_i, dtype='float32'),
-                'h_%i' % layer_idx))
-            vbiases.append(theano.shared(numpy.zeros(n_inputs_i, dtype='float32'),
-                'v_%i' % layer_idx))
-            del W
+                layer_idx = len(rval['cd_reports'])
+                weights.append(theano.shared(W, 'W_%i' % layer_idx))
+                hbiases.append(theano.shared(numpy.zeros(n_hid_i, dtype='float32'),
+                    'h_%i' % layer_idx))
+                vbiases.append(theano.shared(numpy.zeros(n_inputs_i, dtype='float32'),
+                    'v_%i' % layer_idx))
+                del W
 
-            # allocate RBM training function for this layer
-            # this version re-calculates the training set every time
-            # TODO: cache the training set for each layer
-            # TODO: consider sparsity?
-            # TODO: consider momentum?
-            if layer_config['cd_epochs']:
-                cd_report = train_rbm(
-                        s_rng, s_idx, s_batchsize, s_features,
-                        W=weights[-1],
-                        vbias=vbiases[-1],
-                        hbias=hbiases[-1],
-                        n_in=n_inputs_i,
-                        n_hid=n_hid_i,
-                        batchsize=layer_config['cd_batchsize'],
-                        sample_v0s=layer_config['cd_sample_v0s'],
-                        cdlr=layer_config['cd_lr'] / float(layer_config['cd_batchsize']),
-                        n_epochs=layer_config['cd_epochs'],
-                        n_batches_per_epoch=dataset.descr['n_train'] // layer_config['cd_batchsize'],
-                        lr_anneal_start=layer_config['cd_lr_anneal_start'],
-                        givens = {
-                            s_inputs_all: tensor.as_tensor_variable(train_Xy[0])
-                            },
-                        time_limit=time_limit
-                        )
-            else:
-                cd_report = None
-            rval['cd_reports'].append(cd_report)
+                # allocate RBM training function for this layer
+                # this version re-calculates the training set every time
+                # TODO: cache the training set for each layer
+                # TODO: consider sparsity?
+                # TODO: consider momentum?
+                if layer_config['cd_epochs']:
+                    cd_report = train_rbm(
+                            s_rng, s_idx, s_batchsize, s_features,
+                            W=weights[-1],
+                            vbias=vbiases[-1],
+                            hbias=hbiases[-1],
+                            n_in=n_inputs_i,
+                            n_hid=n_hid_i,
+                            batchsize=layer_config['cd_batchsize'],
+                            sample_v0s=layer_config['cd_sample_v0s'],
+                            cdlr=layer_config['cd_lr'] / float(layer_config['cd_batchsize']),
+                            n_epochs=layer_config['cd_epochs'],
+                            n_batches_per_epoch=dataset.descr['n_train'] // layer_config['cd_batchsize'],
+                            lr_anneal_start=layer_config['cd_lr_anneal_start'],
+                            givens = {
+                                s_inputs_all: tensor.as_tensor_variable(train_Xy[0])
+                                },
+                            time_limit=time_limit
+                            )
+                else:
+                    cd_report = None
+                rval['cd_reports'].append(cd_report)
 
-            # update s_features to point to top layer
-            s_features = tensor.nnet.sigmoid(
-                    tensor.dot(s_features, weights[-1]) + hbiases[-1])
-            n_inputs_i = n_hid_i
-            layer_config = layer_config.get('next_layer', None)
+                # update s_features to point to top layer
+                s_features = tensor.nnet.sigmoid(
+                        tensor.dot(s_features, weights[-1]) + hbiases[-1])
+                n_inputs_i = n_hid_i
+                layer_config = layer_config.get('next_layer', None)
+
+        except (MemoryError,):
+            rval['abort'] = 'MemoryError'
+            rval['status'] = 'ok'
+            rval['loss'] = 1.0
+            rval['best_epoch_valid'] = 0.0
+            return rval
 
         # allocate model
 
@@ -313,28 +478,28 @@ class DBN_Base(Bandit):
         traincost = logreg.nll(s_labels).mean()
         def ssq(X):
             return (X**2).sum()
-        traincost = traincost + argd['l2_penalty'] * (
+        traincost = traincost + config['l2_penalty'] * (
                 sum([ssq(w_i) for w_i in weights]) + ssq(logreg.w))
         # params = weights+hbiases+vbiases+logreg.params
         # vbiases are not involved in the supervised network
         params = weights + hbiases + logreg.params
         train_logreg_fn = theano.function([s_idx, s_lr],
                 [logreg.nll(s_labels).mean()],
-                updates=pylearn.gd.sgd.sgd_updates(
+                updates=sgd_updates(
                     params=params,
                     grads=tensor.grad(traincost, params),
                     stepsizes=[s_lr] * len(params)),
-                givens={s_batchsize:argd['batchsize'],
+                givens={s_batchsize:config['batchsize'],
                     s_inputs_all: tensor.as_tensor_variable(train_Xy[0]),
                     s_labels_all: train_Xy[1]})
         valid_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
-            givens={s_batchsize:argd['batchsize'],
+            givens={s_batchsize:config['batchsize'],
                 s_inputs_all: tensor.as_tensor_variable(valid_Xy[0]),
                 s_labels_all: valid_Xy[1]})
         test_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
-            givens={s_batchsize:argd['batchsize'],
+            givens={s_batchsize:config['batchsize'],
                 s_inputs_all: tensor.as_tensor_variable(test_Xy[0]),
                 s_labels_all: test_Xy[1]})
 
@@ -347,18 +512,18 @@ class DBN_Base(Bandit):
         test_rate=-1
         train_rate=-1
 
-        n_train_batches = dataset.descr['n_train'] // argd['batchsize']
-        n_valid_batches = dataset.descr['n_valid'] // argd['batchsize']
-        n_test_batches = dataset.descr['n_test'] // argd['batchsize']
+        n_train_batches = dataset.descr['n_train'] // config['batchsize']
+        n_valid_batches = dataset.descr['n_valid'] // config['batchsize']
+        n_test_batches = dataset.descr['n_test'] // config['batchsize']
 
         n_iters = 0
-        for epoch in xrange(argd['sup_max_epochs']):
-            e_lr = argd['lr']
-            e_lr *= min(1, argd['lr_anneal_start'] / float(n_iters+1)) #anneal learning rate
+        for epoch in xrange(config['sup_max_epochs']):
+            e_lr = config['lr']
+            e_lr *= min(1, config['lr_anneal_start'] / float(n_iters+1)) #anneal learning rate
             valid_rate = float(1 - numpy.mean([valid_logreg_fn(i)
                 for i in range(n_valid_batches)]))
             valid_rate_std_thresh = 0.5 * numpy.sqrt(valid_rate *
-                    (1 - valid_rate) / (n_valid_batches * argd['batchsize']))
+                    (1 - valid_rate) / (n_valid_batches * config['batchsize']))
 
             if valid_rate > (rval['best_epoch_valid']+valid_rate_std_thresh):
                 rval['best_epoch'] = epoch
@@ -372,7 +537,7 @@ class DBN_Base(Bandit):
             #ctrl.info('Epoch %i train nll: %f'%(epoch, train_rate))
             ctrl.checkpoint(rval)
 
-            if epoch > argd['sup_min_epochs'] and epoch > 2*rval['best_epoch']:
+            if epoch > config['sup_min_epochs'] and epoch > 2*rval['best_epoch']:
                 break
             if time.time() > time_limit:
                 break
@@ -397,100 +562,49 @@ class DBN_Base(Bandit):
         ctrl.info('rval: %s' % str(rval))
         return rval
 
+    @classmethod
+    def loss(cls, result, config=None):
+        """Extract the scalar-valued loss from a result document
+        """
+        try:
+            if numpy.isnan(float(result['loss'])):
+                return None
+            else:
+                return float(result['loss'])
+        except KeyError, TypeError:
+            return None
 
-class DBN_Bandit(DBN_Base):
-    def __init__(self,
-            dataset_name='datasets.larochelle_etal_2007.Rectangles',
-            sup_min_epochs=300,
-            sup_max_epochs=4000):
-        template = rSON2(
-            'preprocessing', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'zca',
-                    'energy', uniform(0.5, 1.0))),
-            'dataset_name', dataset_name,
-            'sup_max_epochs', sup_max_epochs,
-            'sup_min_epochs', sup_min_epochs,
-            'iseed', one_of(5, 6, 7, 8),
-            'batchsize', one_of(20, 100),
-            'lr', lognormal(numpy.log(.01), 3),
-            'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
-            'next_layer', one_of(None,
-                rSON2(
-                    'n_hid', geom(2**7, 2**12, round=16),
-                    'W_init_dist', one_of('uniform', 'normal'),
-                    'W_init_algo', one_of('old', 'Xavier'),
-                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                    'cd_epochs', geom(1, 3000),
-                    'cd_batchsize', 100,
-                    'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', lognormal(numpy.log(.01), 2),
-                    'cd_lr_anneal_start', geom(10, 10000),
-                    'next_layer', one_of(None,
-                        rSON2(
-                            'n_hid', geom(2**7, 2**12, round=16),
-                            'W_init_dist', one_of('uniform', 'normal'),
-                            'W_init_algo', one_of('old', 'Xavier'),
-                            'W_init_algo_old_multiplier', uniform(.2, 2),
-                            'cd_epochs', geom(1, 2000),
-                            'cd_batchsize', 100,
-                            'cd_sample_v0s', one_of(False, True),
-                            'cd_lr', lognormal(numpy.log(.01), 2),
-                            'cd_lr_anneal_start', geom(10, 10000),
-                            'next_layer', one_of(None,
-                                rSON2(
-                                    'n_hid', geom(2**7, 2**12, round=16),
-                                    'W_init_dist', one_of('uniform', 'normal'),
-                                    'W_init_algo', one_of('old', 'Xavier'),
-                                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                                    'cd_epochs', geom(1, 1500),
-                                    'cd_batchsize', 100,
-                                    'cd_sample_v0s', one_of(False, True),
-                                    'cd_lr', lognormal(numpy.log(.01), 2),
-                                    'cd_lr_anneal_start', geom(10, 10000),
-                                    'next_layer', None,
-                                    )))))))
-        DBN_Base.__init__(self, template)
+    @classmethod
+    def loss_variance(cls, result, config=None):
+        if config['dataset_name'] not in _dataset_cache:
+            _dataset_cache[config['dataset_name']] = json_call(
+                config['dataset_name'])
+        dataset = _dataset_cache[config['dataset_name']]
+        n_valid = dataset.descr['n_valid']
+        p = cls.loss(result, config)
+        return p * (1.0 - p) / (n_valid - 1)
 
 
-class NeuralNetworkBandit(DBN_Base):
-    def __init__(self, dataset_name='datasets.larochelle_etal_2007.Rectangles',
-            sup_min_epochs=30, # THESE ARE KINDA SMALL FOR SERIOUS RESULTS
-            sup_max_epochs=400):
-        template = rSON2(
-            'preprocessing', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'zca',
-                    'energy', uniform(0.5, 1.0))),
-            'dataset_name', dataset_name,
-            'sup_max_epochs', sup_max_epochs,
-            'sup_min_epochs', sup_min_epochs,
-            'iseed', one_of(5, 6, 7, 8),
-            'batchsize', one_of(20, 100),
-            'lr', lognormal(numpy.log(.01), 3),
-            'lr_anneal_start', geom(100, 10000),
-            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 3)),
-            'next_layer', rSON2(
-                    'n_hid', geom(2**4, 2**10, round=16),
-                    'W_init_dist', one_of('uniform', 'normal'),
-                    'W_init_algo', one_of('old', 'Xavier'),
-                    'W_init_algo_old_multiplier', uniform(.2, 2),
-                    'cd_epochs', 0,
-                    'cd_batchsize', 100,
-                    'cd_sample_v0s', one_of(False, True),
-                    'cd_lr', lognormal(numpy.log(.01), 3),
-                    'cd_lr_anneal_start', geom(10, 10000),
-                    'next_layer', None))
+    @classmethod
+    def true_loss(cls, result, config=None):
+        return 1 - result.get('best_epoch_test', None)
 
-        DBN_Base.__init__(self, template)
+    @classmethod
+    def status(cls, result):
+        """Extract the job status from a result document
+        """
+        if (result['status'] == 'ok' and cls.loss(result) is None):
+            return 'fail'
+        else:
+            return result['status']
 
 
 def DBN_Convex():
-    return DBN_Bandit(
-            dataset_name='datasets.larochelle_etal_2007.Convex')
+    return DBN_Base(
+            dbn_template(
+                dataset_name='skdata.larochelle_etal_2007.Convex'))
 
+
+def DBN_MRBI():
+    ds =  'skdata.larochelle_etal_2007.MNIST_RotatedBackgroundImages'
+    return DBN_Base(dbn_template(dataset_name=ds))

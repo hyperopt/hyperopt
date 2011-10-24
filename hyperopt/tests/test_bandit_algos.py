@@ -2,16 +2,18 @@ import logging
 import unittest
 import sys
 
+import numpy
 import theano
 import montetheano
 from montetheano.for_theano import where
 
 import hyperopt
 import hyperopt.bandits
+import hyperopt.dbn
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
 from hyperopt.experiments import SerialExperiment
-import idxs_vals_rnd
-from idxs_vals_rnd import IndependentAdaptiveParzenEstimator
+from hyperopt import idxs_vals_rnd
+from hyperopt.idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 
 def ops(fn, OpCls):
     if isinstance(fn, list):
@@ -41,11 +43,10 @@ def adaptive_parzens(fn):
 class TestGM_Distractor(unittest.TestCase): # Tests normal
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Distractor(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Distractor(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts(self):
         # If everything is done right, there should be
@@ -71,8 +72,7 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
                 HL['G_ll'],
                 allow_input_downcast=True,
                 )
-            theano.printing.debugprint(f)
-            #theano.printing.pydotprint(f, 'f.png')
+            # theano.printing.debugprint(f)
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 1
 
@@ -99,22 +99,27 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         plt.hist(
-                [t['doc'] for t in self.experiment.trials],
+                [t['x'] for t in self.experiment.trials],
                 bins=20)
-        plt.show()
+
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -1.85
+
+        if 0:
+            plt.show()
 
 
 class TestGM_TwoArms(unittest.TestCase): # Tests one_of
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.TwoArms(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.TwoArms(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_optimize_20(self):
         self.experiment.bandit_algo.build_helpers()
@@ -123,12 +128,7 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         Gpseudocounts = HL['Gsamples'][0].vals.owner.inputs[1]
         Bpseudocounts = HL['Bsamples'][0].vals.owner.inputs[1]
 
-        f = theano.function(
-            [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-                + HL['s_obs'].flatten(),
-            HL['Gsamples'].take(HL['keep_idxs']).flatten(),
-            allow_input_downcast=True,
-            )
+        f = self.experiment.bandit_algo._helper
         debug = theano.function(
             [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
                 + HL['s_obs'].flatten(),
@@ -155,8 +155,8 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
 
         import matplotlib.pyplot as plt
         plt.subplot(1,4,1)
-        Xs = [t['doc'] for t in self.experiment.trials]
-        Ys = self.experiment.Ys()
+        Xs = [t['x'] for t in self.experiment.trials]
+        Ys = self.experiment.losses()
         plt.plot(Ys)
         plt.xlabel('time')
         plt.ylabel('loss')
@@ -175,17 +175,21 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         plt.hist(Gyvals, bins=20)
         plt.hist(Byvals, bins=20)
 
-        plt.show()
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -3.00
+
+        if 0:
+            plt.show()
 
 
 class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Quadratic1(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Quadratic1(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts(self):
         # If everything is done right, there should be
@@ -211,8 +215,7 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
                 HL['G_ll'],
                 allow_input_downcast=True,
                 )
-            theano.printing.debugprint(f)
-            #theano.printing.pydotprint(f, 'f.png')
+            # theano.printing.debugprint(f)
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 1
 
@@ -239,54 +242,61 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     bins=20)
         else:
             plt.scatter(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < 0.01
+
+        if 0:
+            plt.show()
 
 
 class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.Q1Lognormal(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Q1Lognormal(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_optimize_20(self):
         self.experiment.run(50)
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         if 0:
             plt.hist(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     bins=20)
         else:
             plt.scatter(
-                    [t['doc'] for t in self.experiment.trials],
+                    [t['x'] for t in self.experiment.trials],
                     range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < .01
+        if 0:
+            plt.show()
 
 
 class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
     def setUp(self):
         self.experiment = SerialExperiment(
-            bandit=hyperopt.bandits.EggCarton2(),
             bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.EggCarton2(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
-        self.experiment.set_bandit()
 
     def test_op_counts_in_llik(self):
         self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
@@ -330,71 +340,90 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
 
         import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
-        plt.plot(self.experiment.Ys())
+        plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
         plt.scatter(
-                [t['doc']['x'] for t in self.experiment.trials],
+                [t['x'] for t in self.experiment.trials],
                 range(len(self.experiment.trials)))
-        plt.show()
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < -1.75
+        if 0:
+            plt.show()
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
-    class A: pass
-    self = A()
-    self.experiment = SerialExperiment(
-        bandit=hyperopt.bandits.EggCarton2(),
-        bandit_algo=GM_BanditAlgo(
-                good_estimator=IndependentAdaptiveParzenEstimator(),
-                bad_estimator=IndependentAdaptiveParzenEstimator()))
-    self.experiment.set_bandit()
-    self.experiment.bandit_algo.build_helpers(True)
-    HL = self.experiment.bandit_algo.helper_locals
-    f = theano.function(
-        [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-            + HL['s_obs'].flatten(),
-        HL['Gsamples'].take(HL['keep_idxs']).flatten(),
-        allow_input_downcast=True,
-        )
+class Dummy_DBN_Base(hyperopt.Bandit):
+    """
+    A DBN_Base stub.
 
-    debug_outputs = []
-    #obs = (HL['Gobs'].flatten() + HL['Bobs'].flatten())
-    #samples = (HL['Gsamples'].flatten() + HL['Bsamples'].flatten())
+    This class is used in unittests of optimization algorithms to ensure they
+    can deal with large nested specifications that include lots of distribution
+    types.
+    """
+    def __init__(self):
+        hyperopt.Bandit.__init__(self, template=hyperopt.dbn.dbn_template())
+        self.rng = numpy.random.RandomState(234)
 
-    for Gpost, Bpost in zip(HL['Gsamples'], HL['Bsamples']):
-        lpdf = montetheano.rv.lpdf(Bpost.vals, Gpost.vals)
-        debug_outputs.extend([Bpost.vals, Gpost.vals, lpdf])
-
-    debug = theano.function(
-        [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-            + HL['s_obs'].flatten(),
-        debug_outputs,
-        allow_input_downcast=True,
-        )
-    debug_rval = [None]
-    def _helper(*args):
-        rval = f(*args)
-        debug_rval[0] = debug(*args)
+    def evaluate(self, argd, ctrl):
+        rval = dict(dbn_train_fn_version=-1)
+        # XXX: TODO: make up a loss function that depends on argd.
+        rval['status'] = 'ok'
+        rval['best_epoch_valid'] = float(self.rng.rand())
+        rval['loss'] = 1.0 - rval['best_epoch_valid']
         return rval
-    self.experiment.bandit_algo._helper = _helper
-    for i in xrange(500):
-        try:
-            self.experiment.run(1)
-        except:
-            print 'PROBLEM on iter', i
-            #theano.printing.debugprint(f)
-            raise
 
-    import matplotlib.pyplot as plt
-    plt.subplot(1,2,1)
-    plt.plot(self.experiment.Ys())
-    plt.subplot(1,2,2)
-    if 0:
-        plt.hist(
-                [t['doc'] for t in self.experiment.trials],
-                bins=20)
-    elif 0:
-        plt.scatter(
-                [t['doc'] for t in self.experiment.trials],
-                range(len(self.experiment.trials)))
-    plt.show()
+
+class TestGM_DummyDBN(unittest.TestCase):
+    def setUp(self):
+        self.experiment = SerialExperiment(
+            bandit_algo=GM_BanditAlgo(
+                    bandit=Dummy_DBN_Base(),
+                    good_estimator=IndependentAdaptiveParzenEstimator(),
+                    bad_estimator=IndependentAdaptiveParzenEstimator()))
+        self._old = theano.gof.link.raise_with_op.print_thunk_trace
+        theano.gof.link.raise_with_op.print_thunk_trace = True
+
+    def tearDown(self):
+        theano.gof.link.raise_with_op.print_thunk_trace = self._old
+
+    def test_optimize_20(self):
+        def callback(node, thunk, storage_map, compute_map):
+            numeric_outputs = [storage_map[v][0]
+                    for v in node.outputs
+                    if isinstance(v.type, theano.tensor.TensorType)]
+            numeric_inputs = [storage_map[v][0]
+                    for v in node.inputs
+                    if isinstance(v.type, theano.tensor.TensorType)]
+
+            if not all([numpy.all(numpy.isfinite(n)) for n in numeric_outputs]):
+                theano.printing.debugprint(node, depth=8)
+                print 'inputs'
+                print numeric_inputs
+                print 'outputs'
+                print numeric_outputs
+                raise ValueError('non-finite created in', node)
+
+        mode = theano.Mode(
+                optimizer='fast_compile',
+                linker=theano.gof.vm.VM_Linker(callback=callback))
+        self.experiment.bandit_algo.build_helpers(mode=mode)
+        _helper = self.experiment.bandit_algo._helper
+        theano.printing.debugprint(_helper)
+        for i in range(50):
+            print 'ITER', i
+            try:
+                self.experiment.run(1)
+            except:
+
+                raise
+
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.subplot(1,2,1)
+            plt.plot(self.experiment.losses())
+            plt.subplot(1,2,2)
+            plt.scatter(
+                    [t['x'] for t in self.experiment.trials],
+                    range(len(self.experiment.trials)))
+            plt.show()
+

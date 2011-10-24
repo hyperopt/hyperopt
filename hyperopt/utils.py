@@ -2,6 +2,8 @@ import sys
 import logging
 logger = logging.getLogger(__name__)
 
+import numpy
+
 def import_tokens(tokens):
     # XXX Document me
     # import as many as we can
@@ -33,7 +35,7 @@ def json_lookup(json):
     return symbol
 
 
-def json_call(json):
+def json_call(json, args=(), kwargs={}):
     """
     Return a dataset class instance based on a string, tuple or dictionary
 
@@ -47,7 +49,7 @@ def json_call(json):
     """
     if isinstance(json, basestring):
         symbol = json_lookup(json)
-        return symbol()
+        return symbol(*args, **kwargs)
     elif isinstance(json, dict):
         raise NotImplementedError('dict calling convention undefined', json)
     elif isinstance(json, (tuple, list)):
@@ -56,4 +58,22 @@ def json_call(json):
         raise TypeError(json)
 
 
+def pmin_sampled(mean, var, n_samples=1000, rng=None):
+    """Probability that each Gaussian-dist R.V. is less than the others
+
+    :param vscores: mean vector
+    :param var: variance vector
+
+    This function works by sampling n_samples from every (gaussian) mean distribution,
+    and counting up the number of times each element's sample is the best.
+
+    """
+    if rng is None:
+        rng = numpy.random.RandomState(232342)
+
+    samples = rng.randn(n_samples, len(mean)) * numpy.sqrt(var) + mean
+    winners = (samples.T == samples.min(axis=1)).T
+    wincounts = winners.sum(axis=0)
+    assert wincounts.shape == mean.shape
+    return wincounts.astype('float64') / wincounts.sum()
 

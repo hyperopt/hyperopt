@@ -3,6 +3,7 @@ Idxs-Vals reprepresentation of random samples
 
 XXX: What is Idxs-Vals representation?
 """
+import copy
 import sys
 
 import numpy
@@ -24,34 +25,99 @@ def as_variables(*args):
 
 
 class IdxsVals(object):
+    """Sparse compressed vector-like representation (idxs, vals).
+
+    N.B. This class is sometimes used to store symbolic variables, and
+    sometimes used to store numeric variables.  Not all operations work in
+    both cases, but many do.
+
+    """
     def __init__(self, i, v):
         self.idxs = i  # symbolic integer vector
         self.vals = v  # symbolic ndarray with same length as self.idxs
 
-    def take(self, elements):
-        """Advanced sparse vector indexing by int-list `elements`
+    def __eq__(self, other):
+        return self.idxs == other.idxs and self.vals == other.vals
+
+    def symbolic_take(self, elements):
+        """Symbolic advanced sparse vector indexing by int-list `elements`
         """
         pos = find(self.idxs, elements)
         return IdxsVals(self.idxs[pos], self.vals[pos])
+
+    def numeric_take(self, elements):
+        """Numeric advanced sparse vector indexing by int-list `elements`
+        """
+        d = dict(zip(self.idxs, self.vals))
+        return self.__class__(
+                [ii for ii in elements if ii in d],
+                [d[ii] for ii in elements if ii in d])
+
+    def copy(self):
+        return self.__class__(copy.copy(self.idxs), copy.copy(self.vals))
+
+    def reindex(self, idmap=None):
+        """Replace elements of self.idxs according to `idmap`
+        """
+        if idmap is None:
+            idmap = dict([(idx, i) for i, idx in
+                enumerate(sorted(set(self.idxs)))])
+        self.idxs = [idmap[i] for i in self.idxs]
+        return idmap
+
+    def stack(self, other):
+        self.idxs.extend(other.idxs)
+        self.vals.extend(other.vals)
+
+    def as_numpy(self, vdtype=None):
+        idxs = numpy.asarray(self.idxs)
+        if vdtype is None:
+            vals = numpy.asarray(self.vals)
+        else:
+            vals = numpy.asarray(self.vals, dtype=vdtype)
+        return self.__class__(idxs, vals)
+
+    def as_list(self):
+        return self.__class__(list(self.idxs), list(self.vals))
+
+    def idxset(self):
+        return set(self.idxs)
 
 
 class IdxsValsList(list):
     """
     List of IdxsVals instances
+
+    N.B. This class is sometimes used to store symbolic variables, and
+    sometimes used to store numeric variables.  Not all operations work in
+    both cases, but many do.
+
     """
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(s == o for (s, o) in zip(self, other)))
+
     def idxslist(self):
         return [e.idxs for e in self]
 
     def valslist(self):
         return [e.vals for e in self]
 
-    def take(self, subelements):
+    def symbolic_take(self, subelements):
         """Return a new IdxsValsList of the same length as self, whose elements
         are restricted to contain only the given `subelements`.
         """
         # make a variable outside the loop to help theano's merge-optimizer
         subel = theano.tensor.as_tensor_variable(subelements)
-        return self.__class__([e.take(subel) for e in self])
+        return self.__class__([e.symbolic_take(subel) for e in self])
+
+    def numeric_take(self, subelements):
+        """Numeric take, returns IdxsValsList in which elements not in
+        `subelements` have been discarded
+        """
+        if len(set(subelements)) != len(subelements):
+            raise ValueError('duplicate in subelements are ambiguous')
+        return self.__class__([e.numeric_take(subelements) for e in self])
 
     @classmethod
     def new_like(cls, ivl):
@@ -70,11 +136,72 @@ class IdxsValsList(list):
 
     def flatten(self):
         """Return self[0].idxs, self[0].vals, self[1].idxs, self[1].vals, ...
+
+        This is useful for passing arguments to a Theano function.
         """
         rval = []
         for e in self:
             rval.extend([e.idxs, e.vals])
         return rval
+
+    @classmethod
+    def fromflattened(cls, args):
+        """Construct an IdxsValsList from the idxs0, vals0, idxs1, vals1, ...
+
+        This constructor re-constructs from the flattened representation.
+        """
+        if len(args) % 2:
+            raise ValueError('expected args of form'
+                    ' idxs0, vals0, idxs1, vals1, ...')
+        return cls.fromlists(args[::2], args[1::2])
+
+    def copy(self):
+        return self.__class__([iv.copy() for iv in self])
+
+    def stack(self, other):
+        """
+        Insert & append all the elements of other into self.
+
+        The indexes in other are not modified, so this could introduce
+        duplicate index values.
+        """
+        if len(self) != len(other):
+            raise ValueError('other is not compatible with self')
+        # append the other's elements to self
+        for self_iv, other_iv in zip(self, other):
+            self_iv.stack(other_iv)
+
+    def nnz(self):
+        return len(self.idxset())
+
+    def idxset(self):
+        """Return the set of active index positions"""
+        rval = set()
+        for idxs in self.idxslist():
+            rval.update(idxs)
+        return rval
+
+    def reindex(self, idmap=None):
+        if idmap is None:
+            idmap = dict([(idx, i) for i, idx in
+                enumerate(sorted(self.idxset()))])
+        for iv in self:
+            iv.reindex(idmap)
+        return idmap
+
+    def as_numpy(self):
+        return self.__class__([iv.as_numpy() for iv in self])
+
+    def as_numpy_floatX(self):
+        rval = self.as_numpy()
+        for iv in rval:
+            if iv.vals.dtype == 'float64':
+                # does nothing if floatX is float64
+                iv.vals = iv.vals.astype(theano.config.floatX)
+        return rval
+
+    def as_list(self):
+        return self.__class__([iv.as_list() for iv in self])
 
 
 class TreeEstimator(object):
@@ -258,11 +385,9 @@ class AdaptiveParzen(theano.Op):
             mus = numpy.asarray([prior_mu])
             sigma = numpy.asarray([prior_sigma])
         elif len(mus) == 1:
-            mus = numpy.asarray([prior_mu])
-            sigma = numpy.asarray([prior_sigma])
+            mus = numpy.asarray([prior_mu] + [mus[0]])
+            sigma = numpy.asarray([prior_sigma, prior_sigma * .5])
         elif len(mus) >= 2:
-            low = prior_mu - 2 * prior_sigma
-            high = prior_mu + 2 * prior_sigma
             order = numpy.argsort(mus)
             mus = mus[order]
             sigma = numpy.zeros_like(mus)
@@ -276,29 +401,44 @@ class AdaptiveParzen(theano.Op):
                 lsigma = mus[1] - mus[0]
                 usigma = mus[-1] - mus[-2]
 
-            sigma[0] = max(mus[0]-low, lsigma)
-            sigma[-1] = max(high - mus[-1], usigma)
+            sigma[0] = lsigma
+            sigma[-1] = usigma
 
+            # XXX: is sorting them necessary anymore?
             # un-sort the mus and sigma
             mus[order] = mus.copy()
             sigma[order] = sigma.copy()
 
-            #print mus, sigma
-
+            if not numpy.all(mus_orig == mus):
+                print 'orig', mus_orig
+                print 'mus', mus
             assert numpy.all(mus_orig == mus)
 
-        minsigma = 3.0 * prior_sigma / len(mus)   # XXX: magic formula
+            # put the prior back in
+            mus = numpy.asarray([prior_mu] + list(mus))
+            sigma = numpy.asarray([prior_sigma] + list(sigma))
 
-        sigma = numpy.maximum(sigma, minsigma)
+        maxsigma = prior_sigma
+        minsigma = prior_sigma / numpy.sqrt(len(mus))   # XXX: magic formula
 
-        outstorage[0][0] = numpy.ones(len(mus), dtype=node.outputs[0].dtype) / len(mus)
+        #print 'maxsigma, minsigma', maxsigma, minsigma
+
+        sigma = numpy.clip(sigma, minsigma, maxsigma)
+
+        weights = numpy.ones(len(mus), dtype=node.outputs[0].dtype)
+        weights[0] = numpy.sqrt(1 + len(mus))
+
+        # XXX: call asarray with dtype above to avoid re-copy here
+        outstorage[0][0] = weights / weights.sum()
         outstorage[1][0] = mus.astype(node.outputs[1].dtype)
         outstorage[2][0] = sigma.astype(node.outputs[2].dtype)
 
 
 class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
     """
+    XXX
     """
+    categorical_prior_strength = 1.0
 
     def s_posterior_helper(self, prior, obs, s_rng):
         """
@@ -340,7 +480,8 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
         elif dist_name == 'lognormal':
             if obs.vals.ndim == 1:
                 prior_mu, prior_sigma = prior.vals.owner.inputs[2:4]
-                weights, mus, sigmas = AdaptiveParzen()(tensor.log(obs.vals),
+                weights, mus, sigmas = AdaptiveParzen()(
+                        tensor.log(tensor.maximum(obs.vals, 1.0e-8)),
                         prior_mu, prior_sigma)
                 post_rv = s_rng.lognormal_mixture(weights, mus, sigmas,
                         draw_shape=prior.vals.shape,
@@ -349,11 +490,27 @@ class IndependentAdaptiveParzenEstimator(IndependentNodeTreeEstimator):
                 return post_rv
             else:
                 raise NotImplementedError()
-
+        elif dist_name == 'quantized_lognormal':
+            if obs.vals.ndim == 1:
+                prior_mu, prior_sigma, step = prior.vals.owner.inputs[2:5]
+                weights, mus, sigmas = AdaptiveParzen()(
+                        tensor.log(obs.vals),
+                        prior_mu, prior_sigma)
+                post_rv = s_rng.quantized_lognormal_mixture(
+                        weights, mus, sigmas, step,
+                        draw_shape=prior.vals.shape,
+                        ndim=prior.vals.ndim,
+                        dtype=prior.vals.dtype)
+                return post_rv
+            else:
+                raise NotImplementedError()
         elif dist_name == 'categorical':
             if obs.vals.ndim == 1:
-                prior_strength = 5  # XXX: should be passed to __init__
-                prior_counts = prior.vals.owner.inputs[1]  #XXX: name this?
+                prior_strength = self.categorical_prior_strength
+                p = prior.vals.owner.inputs[1]
+                if p.ndim != 1:
+                    raise TypeError()
+                prior_counts = p * p.shape[0] * tensor.sqrt(obs.vals.shape[0])
                 pseudocounts = tensor.inc_subtensor(
                         (prior_strength * prior_counts)[obs.vals],
                         1)
