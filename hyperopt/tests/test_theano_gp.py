@@ -379,14 +379,14 @@ class LognormalBandit(GensonBandit):
 
 
 class QLognormalBandit(GensonBandit):
-    test_str = '{"x":qlognormal(0,1)}'
+    test_str = '{"x":qlognormal(5,2)}'
 
     def __init__(self):
         super(QLognormalBandit, self).__init__(source_string=self.test_str)
 
     @classmethod
     def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+        return dict(loss=(config['x'] - 30) ** 2, status='ok')
 
     @classmethod
     def loss_variance(cls, result, config):
@@ -558,8 +558,56 @@ def test_fit_uniform():
 
 
 def test_fit_lognormal():
-    fit_base(GPAlgo, LognormalBandit)
+    bandit = LognormalBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.001
+    bandit_algo.xlim_high = 10.0
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k][0] > 0
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(25)
+
+    if 1:
+        bandit_algo.use_base_suggest = False
+        bandit_algo.show = True
+        serial_exp.run(1)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1
 
 
 def test_fit_quantized_lognormal():
-    fit_base(GPAlgo, QLognormalBandit)
+    bandit = QLognormalBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.1
+    bandit_algo.xlim_high = 300.0
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k][0] > 0
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(15)
+
+    if 1:
+        bandit_algo.use_base_suggest = False
+        bandit_algo.show = True
+        serial_exp.run(1)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1

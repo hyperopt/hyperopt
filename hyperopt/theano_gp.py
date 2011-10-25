@@ -521,11 +521,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             elif dist_name == 'lognormal':
                 k = LogSquaredExponentialKernel()
                 self.is_refinable[k] = get_refinability(iv, dist_name)
-                self.bounds[k] = (0, None)
+                self.bounds[k] = (1e-8, None)
             elif dist_name == 'quantized_lognormal':
                 k = LogSquaredExponentialKernel()
                 self.is_refinable[k] = get_refinability(iv, dist_name)
-                self.bounds[k] = (0, None)
+                self.bounds[k] = (1, None)
             elif dist_name == 'categorical':
                 # XXX: a better CategoryKernel would have different
                 # similarities for different choices
