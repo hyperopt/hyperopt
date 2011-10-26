@@ -829,7 +829,7 @@ def main_worker():
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
             elif cmd_protocol == 'bandit_json evaluate':
-                exp_key = spec['exp_key']
+                exp_key = job['exp_key']
                 driver = md.coll.find_one({'exp_key': exp_key})
                 try:
                     blob = md.get_attachment(driver, 'bandit_args')
