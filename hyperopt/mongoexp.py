@@ -784,6 +784,10 @@ def main_worker():
         # XXX: the name of the jobs collection is a parameter elsewhere
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
+
+        md = MongoJobs.new_from_connection_str(
+                as_mongo_str(options.mongo) + '/drivers')
+
         job = None
         while job is None:
             job = mj.reserve(
@@ -825,7 +829,19 @@ def main_worker():
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
             elif cmd_protocol == 'bandit_json evaluate':
-                bandit = utils.json_call(job['cmd'][1])
+                exp_key = spec['exp_key']
+                driver = md.coll.find_one({'exp_key': exp_key})
+                try:
+                    blob = md.get_attachment(driver, 'bandit_args')
+                except KeyError:
+                    bandit_argd = {}
+                else:
+                    bandit_argd = cPickle.loads(blob)
+                bandit_args = bandit_argd.get('args', ())
+                bandit_kwargs = bandit_argd.get('kwargs', {})
+                bandit = utils.json_call(job['cmd'][1],
+                                         bandit_args,
+                                         bandit_kwargs)
                 worker_fn = bandit.evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -889,6 +905,14 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="direct hyperopt-mongo-worker to chdir here",
             metavar="DIR")
+    parser.add_option("--argfile",
+            dest="argfile",
+            default=None,
+            help="path to file containing arguments to bandit constructor \
+                  file format: pickle of dictionary containing two keys,\
+                    {'args' : tuple of positional arguments, \
+                     'kwargs' : dictionary of keyword arguments}")
+
 
     (options, args) = parser.parse_args()
 
@@ -964,6 +988,12 @@ def main_search():
                 exp_key = exp_key,
                 poll_interval_secs = (int(options.poll_interval))
                     if options.poll_interval else 5)
+            if options.argfile:
+                argfile = options.argfile
+                argd = cPickle.load(open(argfile))
+                md.set_attachment(driver, 
+                                  cPickle.dumps(argd), 
+                                  name='bandit_args')
 
         self.run(options.steps)
     finally:

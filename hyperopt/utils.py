@@ -35,7 +35,7 @@ def json_lookup(json):
     return symbol
 
 
-def json_call(json, args=(), kwargs={}):
+def json_call(json, args=(), kwargs=None):
     """
     Return a dataset class instance based on a string, tuple or dictionary
 
@@ -47,6 +47,8 @@ def json_call(json, args=(), kwargs={}):
     lot. (XXX)
 
     """
+    if kwargs is None:
+        kwargs = {}
     if isinstance(json, basestring):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)

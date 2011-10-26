@@ -60,6 +60,13 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="create workdirs here",
             metavar="DIR")
+    parser.add_option("--argfile",
+            dest="argfile",
+            default=None,
+            help="path to file containing arguments to bandit constructor \
+                  file format: pickle of dictionary containing two keys,\
+                    {'args' : tuple of positional arguments, \
+                     'kwargs' : dictionary of keyword arguments}")
 
     (options, args) = parser.parse_args()
     try:
@@ -75,7 +82,14 @@ def main_search():
         self = cPickle.load(handle)
         handle.close()
     except IOError:
-        bandit = utils.json_call(bandit_json)
+        if option.argfile:
+            argfile = options.argfile
+            bandit_argd = cPickle.load(open(argfile))
+        else:
+            bandit_argd = None
+        bandit_args = bandit_argd.get('args', ())
+        bandit_kwargs = bandit_argd.get('kwargs', {})
+        bandit = utils.json_call(bandit_json, bandit_args, bandit_kwargs)
         bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
         self = SerialExperiment(bandit_algo)
 
