@@ -60,10 +60,17 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="create workdirs here",
             metavar="DIR")
-    parser.add_option("--argfile",
-            dest="argfile",
+    parser.add_option("--bandit_argfile",
+            dest="bandit_argfile",
             default=None,
-            help="path to file containing arguments to bandit constructor \
+            help="path to file containing arguments bandit constructor \
+                  file format: pickle of dictionary containing two keys,\
+                    {'args' : tuple of positional arguments, \
+                     'kwargs' : dictionary of keyword arguments}")
+    parser.add_option("--bandit_algo_argfile",
+            dest="bandit_algo_argfile",
+            default=None,
+            help="path to file containing arguments bandit_algo constructor \
                   file format: pickle of dictionary containing two keys,\
                     {'args' : tuple of positional arguments, \
                      'kwargs' : dictionary of keyword arguments}")
@@ -82,15 +89,26 @@ def main_search():
         self = cPickle.load(handle)
         handle.close()
     except IOError:
-        if option.argfile:
-            argfile = options.argfile
+        if option.bandit_argfile:
+            argfile = options.bandit_argfile
             bandit_argd = cPickle.load(open(argfile))
         else:
             bandit_argd = None
         bandit_args = bandit_argd.get('args', ())
-        bandit_kwargs = bandit_argd.get('kwargs', {})
-        bandit = utils.json_call(bandit_json, bandit_args, bandit_kwargs)
-        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        bandit_kwargs = bandit_argd.get('kwargs', {})      
+        bandit = utils.json_call(bandit_json, 
+                                 args=bandit_args,
+                                 kwargs=bandit_kwargs)
+        if option.bandit_algo_argfile:
+            argfile = options.bandit_algo_argfile
+            bandit_algo_argd = cPickle.load(open(argfile))
+        else:
+            bandit_algo_argd = None    
+        bandit_algo_args = bandit_algo_argd.get('args', ())
+        bandit_algo_kwargs = bandit_algo_argd.get('kwargs', {})            
+        bandit_algo = utils.json_call(bandit_algo_json, 
+                                      args=(bandit,) + bandit_algo_args,
+                                      kwargs=bandit_algo_kwargs)
         self = SerialExperiment(bandit_algo)
 
     try:

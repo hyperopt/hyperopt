@@ -560,17 +560,41 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        bandit = utils.json_call(bandit_json)
-        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
-        base.Experiment.__init__(self, bandit_algo)
-        self.bandit_json = bandit_json
-        self.workdir = workdir
+
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
                     config_name='spec')
         else:
             self.mongo_handle = mongo_handle
+        driver = self.mongo_handle.db.drivers.find_one({'exp_key': exp_key})
+        try:
+            blob = self.mongo_handle.get_attachment(driver, 'bandit_args')
+        except KeyError:
+            bandit_argd = {}
+        else:
+            bandit_argd = cPickle.loads(blob)
+        bandit_args = bandit_argd.get('args', ())
+        bandit_kwargs = bandit_argd.get('kwargs', {})
+        bandit = utils.json_call(bandit_json,
+                                 args=bandit_args,
+                                 kwargs=bandit_kwargs)
+        try:
+            blob = self.mongo_handle.get_attachment(driver, 'bandit_algo_args')
+        except KeyError:
+            bandit_algo_argd = {}
+        else:
+            bandit_algo_argd = cPickle.loads(blob)
+        bandit_algo_args = bandit_algo_argd.get('args', ())
+        bandit_algo_kwargs = bandit_algo_argd.get('kwargs', {})
+        bandit_algo = utils.json_call(bandit_algo_json, 
+                                      args=(bandit,) + bandit_algo_args,
+                                      kwargs=bandit_algo_kwargs)
+        base.Experiment.__init__(self, bandit_algo)
+        self.bandit_json = bandit_json
+        self.workdir = workdir
+        
+        
         config = self.mongo_handle.db.config.find_one()
         if config is None:
             logger.info('inserting config document')
@@ -840,8 +864,8 @@ def main_worker():
                 bandit_args = bandit_argd.get('args', ())
                 bandit_kwargs = bandit_argd.get('kwargs', {})
                 bandit = utils.json_call(job['cmd'][1],
-                                         bandit_args,
-                                         bandit_kwargs)
+                                         args = bandit_args,
+                                         kwargs = bandit_kwargs)
                 worker_fn = bandit.evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -905,10 +929,17 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="direct hyperopt-mongo-worker to chdir here",
             metavar="DIR")
-    parser.add_option("--argfile",
-            dest="argfile",
+    parser.add_option("--bandit_argfile",
+            dest="bandit_argfile",
             default=None,
-            help="path to file containing arguments to bandit constructor \
+            help="path to file containing arguments bandit constructor \
+                  file format: pickle of dictionary containing two keys,\
+                    {'args' : tuple of positional arguments, \
+                     'kwargs' : dictionary of keyword arguments}")
+    parser.add_option("--bandit_algo_argfile",
+            dest="bandit_algo_argfile",
+            default=None,
+            help="path to file containing arguments bandit_algo constructor \
                   file format: pickle of dictionary containing two keys,\
                     {'args' : tuple of positional arguments, \
                      'kwargs' : dictionary of keyword arguments}")
@@ -988,12 +1019,18 @@ def main_search():
                 exp_key = exp_key,
                 poll_interval_secs = (int(options.poll_interval))
                     if options.poll_interval else 5)
-            if options.argfile:
+            if options.bandit_argfile:
                 argfile = options.argfile
                 argd = cPickle.load(open(argfile))
                 md.set_attachment(driver, 
                                   cPickle.dumps(argd), 
                                   name='bandit_args')
+            if options.bandit_algo_argfile:
+                argfile = options.bandit_algo_argfile
+                argd = cPickle.load(open(argfile))
+                md.set_attachment(driver, 
+                                  cPickle.dumps(argd), 
+                                  name='bandit_algo_args')                                  
 
         self.run(options.steps)
     finally:
