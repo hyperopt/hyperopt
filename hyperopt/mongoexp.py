@@ -661,8 +661,10 @@ class MongoExperiment(base.Experiment):
             n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
         
-        while self.queue_len() > 0:
-            time.sleep(self.poll_interval_secs)
+        if block_until_done:
+            while self.queue_len() > 0:
+                print('Now waiting for %d jobs to finish.' % self.queue_len())
+                time.sleep(self.poll_interval_secs)
 
 
 class Shutdown(Exception):
