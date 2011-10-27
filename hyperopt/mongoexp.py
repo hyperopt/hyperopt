@@ -894,6 +894,7 @@ def main_search():
             metavar="DIR")
     parser.add_option("--block",
             dest="block",
+            action="store_true",
             default=False,
             help="block return until all queue is empty")
 
