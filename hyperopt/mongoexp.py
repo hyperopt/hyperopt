@@ -929,14 +929,14 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="direct hyperopt-mongo-worker to chdir here",
             metavar="DIR")
-    parser.add_option("--bandit_argfile",
+    parser.add_option("--bandit-argfile",
             dest="bandit_argfile",
             default=None,
             help="path to file containing arguments bandit constructor \
                   file format: pickle of dictionary containing two keys,\
                     {'args' : tuple of positional arguments, \
                      'kwargs' : dictionary of keyword arguments}")
-    parser.add_option("--bandit_algo_argfile",
+    parser.add_option("--bandit-algo-argfile",
             dest="bandit_algo_argfile",
             default=None,
             help="path to file containing arguments bandit_algo constructor \

@@ -60,14 +60,14 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="create workdirs here",
             metavar="DIR")
-    parser.add_option("--bandit_argfile",
+    parser.add_option("--bandit-argfile",
             dest="bandit_argfile",
             default=None,
             help="path to file containing arguments bandit constructor \
                   file format: pickle of dictionary containing two keys,\
                     {'args' : tuple of positional arguments, \
                      'kwargs' : dictionary of keyword arguments}")
-    parser.add_option("--bandit_algo_argfile",
+    parser.add_option("--bandit-algo-argfile",
             dest="bandit_algo_argfile",
             default=None,
             help="path to file containing arguments bandit_algo constructor \
@@ -93,7 +93,7 @@ def main_search():
             argfile = options.bandit_argfile
             bandit_argd = cPickle.load(open(argfile))
         else:
-            bandit_argd = None
+            bandit_argd = {}
         bandit_args = bandit_argd.get('args', ())
         bandit_kwargs = bandit_argd.get('kwargs', {})      
         bandit = utils.json_call(bandit_json, 
@@ -103,7 +103,7 @@ def main_search():
             argfile = options.bandit_algo_argfile
             bandit_algo_argd = cPickle.load(open(argfile))
         else:
-            bandit_algo_argd = None    
+            bandit_algo_argd = {}  
         bandit_algo_args = bandit_algo_argd.get('args', ())
         bandit_algo_kwargs = bandit_algo_argd.get('kwargs', {})            
         bandit_algo = utils.json_call(bandit_algo_json, 
