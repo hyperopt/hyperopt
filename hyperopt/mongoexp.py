@@ -643,7 +643,7 @@ class MongoExperiment(base.Experiment):
         logger.debug('Queue len: %i' % rval)
         return rval
 
-    def run(self, N):
+    def run(self, N, block_until_done = False):
         bandit = self.bandit
         algo = self.bandit_algo
 
@@ -659,6 +659,9 @@ class MongoExperiment(base.Experiment):
                     % (str(suggestions[0]), t1 - t0))
             new_suggestions = self.queue_extend(suggestions)
             n_queued += len(new_suggestions)
+            time.sleep(self.poll_interval_secs)
+        
+        while self.queue_len() > 0:
             time.sleep(self.poll_interval_secs)
 
 
@@ -889,6 +892,11 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="direct hyperopt-mongo-worker to chdir here",
             metavar="DIR")
+    parser.add_option("--block",
+            dest="block",
+            action="store_true",
+            default=False,
+            help="block return until all queue is empty")
 
     (options, args) = parser.parse_args()
 
@@ -965,7 +973,7 @@ def main_search():
                 poll_interval_secs = (int(options.poll_interval))
                     if options.poll_interval else 5)
 
-        self.run(options.steps)
+        self.run(options.steps, block_until_done = options.block)
     finally:
         # if we still have a db connection, unregister ourselves as the active
         # driver
