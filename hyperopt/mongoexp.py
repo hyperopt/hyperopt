@@ -661,8 +661,15 @@ class MongoExperiment(base.Experiment):
             n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
         
-        while self.queue_len() > 0:
-            time.sleep(self.poll_interval_secs)
+        if block_until_done:
+            while self.queue_len() > 0:
+                msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
+                logger.info(msg)
+                time.sleep(self.poll_interval_secs)
+            logger.info('Queue empty, exiting run.') 
+        else:
+            msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
+            logger.info(msg)
 
 
 class Shutdown(Exception):
