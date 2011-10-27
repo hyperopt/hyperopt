@@ -939,10 +939,11 @@ def main_search():
     parser.add_option("--bandit-algo-argfile",
             dest="bandit_algo_argfile",
             default=None,
-            help="path to file containing arguments bandit_algo constructor \
-                  file format: pickle of dictionary containing two keys,\
-                    {'args' : tuple of positional arguments, \
-                     'kwargs' : dictionary of keyword arguments}")
+            help="path to file containing arguments for bandit_algo "
+                  "constructor.  File format is pickled dictionary containing "
+                  "two keys: 'args', a tuple of positional arguments, and "
+                  "'kwargs', a dictionary of keyword arguments. "
+                  "NOTE: bandit is pre-pended as first element of arg tuple.")
 
 
     (options, args) = parser.parse_args()
