@@ -591,6 +591,7 @@ class MongoExperiment(base.Experiment):
                                       args=(bandit,) + bandit_algo_args,
                                       kwargs=bandit_algo_kwargs)
         base.Experiment.__init__(self, bandit_algo)
+        
         self.bandit_json = bandit_json
         self.workdir = workdir
         
