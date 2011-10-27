@@ -524,7 +524,7 @@ class MongoJobs(object):
     def get_attachment(self, doc, name):
         """Retrieve data attached to `doc` by `attach_blob`.
 
-        Raises KeyError if `name` does not correspond to an attached blob.
+        Raises OperationFailure if `name` does not correspond to an attached blob.
 
         Returns the blob as a string.
         """
@@ -554,7 +554,7 @@ class MongoJobs(object):
 def get_obj(md, driver, name, obj, args=(), kwargs={}):
 	try:
 		blob = md.get_attachment(driver, name)
-	except KeyError:
+	except OperationFailure:
 		blob = None
 	return utils.get_obj(obj, argstr=blob, args=args, kwargs=kwargs)
 
@@ -655,11 +655,10 @@ class MongoExperiment(base.Experiment):
         return rval
 
     def run(self, N):
-        bandit = self.bandit
         algo = self.bandit_algo
 
         n_queued = 0
-
+        print ('HERE->',n_queued, N, self.queue_len(), self.min_queue_len)
         while n_queued < N and self.queue_len() < self.min_queue_len:
             self.refresh_trials_results()
             t0 = time.time()
@@ -842,7 +841,7 @@ def main_worker():
             elif cmd_protocol == 'bandit_json evaluate':
                 exp_key = job['exp_key']
                 driver = md.coll.find_one({'exp_key': exp_key})
-                bandit = get_obj(md, driver, 'bandit_args', bandit_json)
+                bandit = get_obj(md, driver, 'bandit_args', job['cmd'][1])
                 worker_fn = bandit.evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -958,6 +957,7 @@ def main_search():
     assert driver['owner'] == owner
     assert driver['exp_key'] == exp_key
 
+
     try:
         if options.clear_existing:
             print >> sys.stdout, "Are you sure you want to delete",
@@ -989,6 +989,17 @@ def main_search():
                 self.poll_interval = int(options.poll_interval)
         else:
             logger.info('loading new MongoExperiment')
+            if options.bandit_argfile:
+                argd = cPickle.load(open(options.bandit_argfile))
+                md.set_attachment(driver, 
+                                  cPickle.dumps(argd), 
+                                  name='bandit_args')
+            if options.bandit_algo_argfile:
+                argd = cPickle.load(open(options.bandit_algo_argfile))
+                md.set_attachment(driver, 
+                                  cPickle.dumps(argd), 
+                                  name='bandit_algo_args')                                  
+
             self = MongoExperiment(
                 bandit_json = args[0],
                 bandit_algo_json = args[1],
@@ -997,19 +1008,6 @@ def main_search():
                 exp_key = exp_key,
                 poll_interval_secs = (int(options.poll_interval))
                     if options.poll_interval else 5)
-            if options.bandit_argfile:
-                argfile = options.argfile
-                argd = cPickle.load(open(argfile))
-                md.set_attachment(driver, 
-                                  cPickle.dumps(argd), 
-                                  name='bandit_args')
-            if options.bandit_algo_argfile:
-                argfile = options.bandit_algo_argfile
-                argd = cPickle.load(open(argfile))
-                md.set_attachment(driver, 
-                                  cPickle.dumps(argd), 
-                                  name='bandit_algo_args')                                  
-
         self.run(options.steps)
     finally:
         # if we still have a db connection, unregister ourselves as the active

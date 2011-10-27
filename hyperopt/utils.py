@@ -64,7 +64,7 @@ def get_obj(f, argfile = None, argstr = None, args = (), kwargs = None):
     if kwargs is None:
         kwargs = {}
     if argfile is not None:
-        argstr = open(argfile.read())
+        argstr = open(argfile).read()
     if argstr is not None:
         argd = cPickle.loads(argstr)
     else:

@@ -245,7 +245,7 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         # mark each trial with a _config_id that connects it to self.db_idxs
         for rid, r in zip(ids, rval):
-            r['_config_id'] = rid
+            r['_config_id'] = int(rid)
         return rval
 
 

@@ -180,6 +180,7 @@ class Experiment(object):
     """
     def __init__(self, bandit_algo):
         self.bandit_algo = bandit_algo
+        self.bandit = bandit_algo.bandit
         self.trials = []
         self.results = []
 
