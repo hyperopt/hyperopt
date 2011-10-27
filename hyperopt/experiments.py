@@ -90,26 +90,10 @@ def main_search():
         self = cPickle.load(handle)
         handle.close()
     except IOError:
-        if option.bandit_argfile:
-            argfile = options.bandit_argfile
-            bandit_argd = cPickle.load(open(argfile))
-        else:
-            bandit_argd = {}
-        bandit_args = bandit_argd.get('args', ())
-        bandit_kwargs = bandit_argd.get('kwargs', {})      
-        bandit = utils.json_call(bandit_json, 
-                                 args=bandit_args,
-                                 kwargs=bandit_kwargs)
-        if option.bandit_algo_argfile:
-            argfile = options.bandit_algo_argfile
-            bandit_algo_argd = cPickle.load(open(argfile))
-        else:
-            bandit_algo_argd = {}  
-        bandit_algo_args = bandit_algo_argd.get('args', ())
-        bandit_algo_kwargs = bandit_algo_argd.get('kwargs', {})            
-        bandit_algo = utils.json_call(bandit_algo_json, 
-                                      args=(bandit,) + bandit_algo_args,
-                                      kwargs=bandit_algo_kwargs)
+        bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
+        bandit_algo = utils.get_obj(bandit_algo_json,
+                                    argfile=options.bandit_algo_argfile,
+                                    args=(bandit,))
         self = SerialExperiment(bandit_algo)
 
     try:
