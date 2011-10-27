@@ -411,22 +411,24 @@ class GaussianBandit2var(GensonBandit):
 
 
 def fit_base(A, B, *args, **kwargs):
-    A.n_startup_jobs = 7
+
+    algo = A(B(*args, **kwargs))
+    algo.n_startup_jobs = 7
 
     n_iter = kwargs.pop('n_iter', 40)
-    serial_exp = SerialExperiment(A(B(*args, **kwargs)))
-    serial_exp.run(A.n_startup_jobs)
+    serial_exp = SerialExperiment(algo)
+    serial_exp.run(algo.n_startup_jobs)
 
     assert len(serial_exp.trials) == len(serial_exp.results)
-    assert len(serial_exp.trials) == A.n_startup_jobs
+    assert len(serial_exp.trials) == algo.n_startup_jobs
 
     def run_then_show(N):
         if N > 1:
-            A.show = False
-            A.use_base_suggest = True
+            algo.show = False
+            algo.use_base_suggest = True
             serial_exp.run(N - 1)
-        A.show = True
-        A.use_base_suggest = False
+        algo.show = True
+        algo.use_base_suggest = False
         serial_exp.run(1)
         return serial_exp
 
