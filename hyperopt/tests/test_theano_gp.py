@@ -24,6 +24,7 @@ from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.genson_bandits import GensonBandit
 from hyperopt.experiments import SerialExperiment
+import hyperopt.plotting
 
 from hyperopt.theano_gp import SparseGramSet
 from hyperopt.theano_gp import SparseGramGet
@@ -256,6 +257,8 @@ class TestSparseUpdate(unittest.TestCase):
 
 class GPAlgo(GP_BanditAlgo):
     use_base_suggest = True
+    xlim_low = -5
+    xlim_high = 5
     def suggest_from_model(self, trials, results, N):
         if self.use_base_suggest:
             return GP_BanditAlgo.suggest_from_model(self,
@@ -301,11 +304,14 @@ class GPAlgo(GP_BanditAlgo):
 
             plt.figure()
 
-            plt.xlim([-5, 5])
-            xmesh = numpy.arange(-5, 5, .1)
+            plt.xlim([self.xlim_low, self.xlim_high])
+            xmesh = numpy.linspace(self.xlim_low, self.xlim_high)
             N = len(xmesh)
             XmeshN = [numpy.arange(N) for _ind in range(num)]
-            Xmesh = [numpy.arange(-5, 5, .1) for _ind in range(num)]
+            Xmesh = [numpy.linspace(self.xlim_low, self.xlim_high)
+                    for _ind in range(num)]
+
+            print Xmesh
 
             IVL = IdxsValsList.fromlists(XmeshN, Xmesh)
             gp_mean, gp_var = self.GP_mean_variance(IVL)
@@ -342,8 +348,53 @@ class GaussianBandit(GensonBandit):
         return .1
 
 
+class UniformBandit(GensonBandit):
+    test_str = '{"x":uniform(0,1)}'
+
+    def __init__(self):
+        super(UniformBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - .5) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .01 ** 2
+
+
+class LognormalBandit(GensonBandit):
+    test_str = '{"x":lognormal(0,1)}'
+
+    def __init__(self):
+        super(LognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1        
+
+
+class QLognormalBandit(GensonBandit):
+    test_str = '{"x":qlognormal(5,2)}'
+
+    def __init__(self):
+        super(QLognormalBandit, self).__init__(source_string=self.test_str)
+
+    @classmethod
+    def evaluate(cls, config, ctrl):
+        return dict(loss=(config['x'] - 30) ** 2, status='ok')
+
+    @classmethod
+    def loss_variance(cls, result, config):
+        return .1  
+
+
 class GaussianBandit2var(GensonBandit):
-    test_str = '{"x":gaussian(0,1),"y":gaussian(0,1)}'
+    test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
 
     def __init__(self, a, b):
         super(GaussianBandit2var, self).__init__(source_string=self.test_str)
@@ -357,6 +408,50 @@ class GaussianBandit2var(GensonBandit):
     @classmethod
     def loss_variance(cls, result, config):
         return .1
+
+
+def fit_base(A, B, *args, **kwargs):
+
+    algo = A(B(*args, **kwargs))
+    algo.n_startup_jobs = 7
+
+    n_iter = kwargs.pop('n_iter', 40)
+    serial_exp = SerialExperiment(algo)
+    serial_exp.run(algo.n_startup_jobs)
+
+    assert len(serial_exp.trials) == len(serial_exp.results)
+    assert len(serial_exp.trials) == algo.n_startup_jobs
+
+    def run_then_show(N):
+        if N > 1:
+            algo.show = False
+            algo.use_base_suggest = True
+            serial_exp.run(N - 1)
+        algo.show = True
+        algo.use_base_suggest = False
+        serial_exp.run(1)
+        return serial_exp
+
+    return run_then_show(n_iter)
+
+
+def test_fit_normal():
+    fit_base(GPAlgo, GaussianBandit)
+
+
+def test_2var_equal():
+    se = fit_base(GPAlgo, GaussianBandit2var, 1, 1)
+    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
+    assert .85 < l0 / l1 < 1.15
+
+
+def test_2var_unequal():
+    se = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
+    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
+    #N.B. a ratio in log-length scales is a big difference!
+    assert l1 / l0 > 5
 
 
 class GaussianBandit4var(GensonBandit):
@@ -395,66 +490,38 @@ class GaussianBandit4var(GensonBandit):
         return .1
 
 
-def fit_base(A, B, *args, **kwargs):
-    A.n_startup_jobs = 7
-
-    n_iter = kwargs.pop('n_iter', 40)
-    serial_exp = SerialExperiment(A(B(*args, **kwargs)))
-    serial_exp.run(A.n_startup_jobs)
-
-    assert len(serial_exp.trials) == len(serial_exp.results)
-    assert len(serial_exp.trials) == A.n_startup_jobs
-
-    def run_then_show(N):
-        if N > 1:
-            A.show = False
-            A.use_base_suggest = True
-            serial_exp.run(N - 1)
-        A.show = True
-        A.use_base_suggest = False
-        serial_exp.run(1)
-        return serial_exp
-
-    return run_then_show(n_iter)
-
-
-def test_1var():
-    fit_base(GPAlgo, GaussianBandit)
-
-
-def test_2var_equal():
-    se = fit_base(GPAlgo, GaussianBandit2var, 1, 1)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    assert .85 < l0 / l1 < 1.15
-
-
-def test_2var_unequal():
-    se = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    #N.B. a ratio in log-length scales is a big difference!
-    assert l1 / l0 > 5
-
-
 def test_4var_all_relevant():
-    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0.5, 2, 1,
-            n_iter=10)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
-    # XXX: assert something about the final length scales
-
+    bandit_algo = GPAlgo(GaussianBandit4var(1, .5, 2, 1))
+    serial_exp = SerialExperiment(bandit_algo)
+    bandit_algo.n_startup_jobs = 10
+    for i in range(50):
+        serial_exp.run(1)
+    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
+    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
+    for k in bandit_algo.kernels:
+        print 'last kernel fit', k, k.lenscale()
+    assert min(serial_exp.losses()) < .05
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
 def test_4var_some_irrelevant():
-    se = fit_base(GPAlgo, GaussianBandit4var, 1, 0, 0, 1)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = se.bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = se.bandit_algo.kernels[3].log_lenscale.get_value()
-    # XXX: assert something about the final length scales
+    bandit_algo = GPAlgo(GaussianBandit4var(1, 0, 0, 1))
+    serial_exp = SerialExperiment(bandit_algo)
+    bandit_algo.n_startup_jobs = 10
+    for i in range(50):
+        serial_exp.run(1)
+    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
+    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
+    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
+    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
+    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
+    for k in bandit_algo.kernels:
+        print 'last kernel fit', k, k.lenscale()
+    assert min(serial_exp.losses()) < .05
+    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
 
 
 def test_fit_categorical():
@@ -469,14 +536,80 @@ def test_fit_categorical():
     assert arm0count > 60
 
 
-
 def test_fit_uniform():
-    pass # XXX
+    bandit = UniformBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.0   #XXX match UniformBandit
+    bandit_algo.xlim_high = 1.0   #XXX match UniformBandit
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k] == (0, 1)
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(15)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1
 
 
 def test_fit_lognormal():
-    pass # XXX
+    bandit = LognormalBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.001
+    bandit_algo.xlim_high = 10.0
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k][0] > 0
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(25)
+
+    if 1:
+        bandit_algo.use_base_suggest = False
+        bandit_algo.show = True
+        serial_exp.run(1)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1
 
 
 def test_fit_quantized_lognormal():
-    pass # XXX
+    bandit = QLognormalBandit()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 5
+    serial_exp = SerialExperiment(bandit_algo)
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    bandit_algo.xlim_low = 0.1
+    bandit_algo.xlim_high = 300.0
+
+    k = bandit_algo.kernels[0]
+    assert bandit_algo.is_refinable[k]
+    assert bandit_algo.bounds[k][0] > 0
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+    serial_exp.run(15)
+
+    if 1:
+        bandit_algo.use_base_suggest = False
+        bandit_algo.show = True
+        serial_exp.run(1)
+
+    assert min(serial_exp.losses()) < .005
+    assert bandit_algo.kernels[0].lenscale() < .25
+
+    assert min([t['x'] for t in serial_exp.trials]) >= 0
+    assert min([t['x'] for t in serial_exp.trials]) <= 1

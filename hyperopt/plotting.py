@@ -55,27 +55,37 @@ def main_plot_history(self):
     plt.show()
 
 
-def main_plot_vars(self):
+def main_plot_vars(self, end_with_show=True):
     import montetheano.rstreams
     # this requires a TheanoBanditAlgo, which has the sample history recorded as
     # idxs and vals
-    flat_template = self.bandit.template.flatten()
-    flat_names = [n[1:] for n in self.bandit.template.flatten_names(prefix="")]
+    bandit_algo = self.bandit_algo
+    bandit = bandit_algo.bandit
+
+    try:
+        flat_template = bandit.template.flatten()
+        flat_names = [n[1:] for n in bandit.template.flatten_names(prefix="")]
+    except:
+        # these are used for printing and labeling subplots
+        # the code above doesn't work with GenSON
+        # XXX
+        flat_template = [None] * 100
+        flat_names = ['name not found'] * 100
 
 
     TBA_ids = set()
-    for db_idx in self.bandit_algo.db_idxs:
+    for db_idx in bandit_algo.db_idxs:
         TBA_ids.update(db_idx)
-    trial_TBA_ids = set([t['TBA_id'] for t in self.trials])
-    print 'Skipping %i jobs not in the official trials:' % len(
-            [t for t in TBA_ids if t not in trial_TBA_ids])
-    print [t for t in TBA_ids if t not in trial_TBA_ids]
+    trial_TBA_ids = set([t['_config_id'] for t in self.trials])
+    skip_ids = [t for t in TBA_ids if t not in trial_TBA_ids]
+    print 'Skipping %i jobs not in the official trials: %s' % (
+            len(skip_ids), str(skip_ids))
 
     # at which point in `trials` was a given TBA_id inserted?
-    TBA_id_timestep = dict([(t['TBA_id'], i) for i, t in enumerate(self.trials)])
+    TBA_id_timestep = dict([(t['_config_id'], i) for i, t in enumerate(self.trials)])
 
     results_by_TBA_id = dict([
-        (t['TBA_id'], self.bandit.loss(r, argd=t))
+        (t['_config_id'], bandit.loss(r, config=t))
         for (t, r) in zip(self.trials, self.results)
         ])
 
@@ -95,14 +105,21 @@ def main_plot_vars(self):
                 return 0, 3-t, t-2
             return 0, 0, 4-t
 
+    def color_fn_bw(lossval):
+        if lossval is None:
+            return (1, 1, 1)
+        else:
+            t = (lossval - loss_min) / (loss_max - loss_min + .0001)
+            return (t, t, t)
+
     C = 5
-    R = int(numpy.ceil(len(self.bandit_algo.s_vals) / float(C)))
+    R = int(numpy.ceil(len(bandit_algo.s_vals) / float(C)))
 
     for ii, (s_val, db_idx, db_val, template_pos) in enumerate(zip(
-            self.bandit_algo.s_vals,
-            self.bandit_algo.db_idxs,
-            self.bandit_algo.db_vals,
-            self.bandit_algo.all_s_locs)):
+            bandit_algo.s_vals,
+            bandit_algo.db_idxs,
+            bandit_algo.db_vals,
+            bandit_algo.all_s_locs)):
 
         plt.subplot(R, C, ii + 1)
 
@@ -132,14 +149,16 @@ def main_plot_vars(self):
                     if i in trial_TBA_ids]
 
             plt.title(flat_names[template_pos], fontsize=10)
-            plt.scatter(time_ii, coords_ii, c=map(color_fn, results_ii))
-        elif dist_name == 'categorical':
-            print '-----------'
-            print flat_names[template_pos]
-            print flat_template[template_pos]
-            print s_val
-            print db_idx
-            print db_val
+            plt.scatter(time_ii, coords_ii,
+                    c=map(color_fn_bw, results_ii))
+        elif dist_name in ('categorical', 'uniform', 'normal'):
+            if 0:
+                print '-----------'
+                print flat_names[template_pos]
+                print flat_template[template_pos]
+                print s_val
+                print db_idx
+                print db_val
 
             results_ii = [results_by_TBA_id[i] for i in db_idx
                     if i in trial_TBA_ids]
@@ -148,7 +167,8 @@ def main_plot_vars(self):
             time_ii = [TBA_id_timestep[i] for i in db_idx
                     if i in trial_TBA_ids]
             plt.title(flat_names[template_pos], fontsize=10)
-            plt.scatter(time_ii, coords_ii, c=map(color_fn, results_ii))
+            plt.scatter(time_ii, coords_ii,
+                    c=map(color_fn_bw, results_ii))
 
         else:
             print '-----------'
@@ -157,7 +177,8 @@ def main_plot_vars(self):
             print s_val
             print db_idx
             print db_val
-    plt.show()
+    if end_with_show:
+        plt.show()
 
 if __name__ == '__main__':
     cmd = sys.argv[1]
