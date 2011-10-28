@@ -450,34 +450,31 @@ def get_refinability(v, dist_name):
 
 
 class GP_BanditAlgo(TheanoBanditAlgo):
-
-    constant_liar_global_mean = True
-    #XXX: True/False is bad interface for this
-    # one scheme is to use running mean
-    # other scheme estimates mean from startup jobs
-
-    use_cg = False
-    # what optimizer to use for fitting GP, optimizing candidates?
+    """
+    Gaussian proces - based BanditAlgo
+    """
 
     params_l2_penalty = 0
     # fitting penalty on the lengthscales of kernels
     # might make sense to make this negative to blur out the ML solution.
 
-    mode = None  # to use theano's default
+    mode = None          # None to use theano's default compilation mode
 
     n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
                          # should be bandit-agnostic
-    y_minvar = 1e-6
+
+    y_minvar = 1e-6      # minimum variance to permit for observations
 
     # EI_criterion can be
-    #   EI - expected improvement (numerically bad)
-    #   log_EI - log(EI)
-    #          (mathematically correct,
-    #           numerically good,
-    #           is there an analytic form?)
-    #           Not currently implemented
-    #   softmax_hack - log(1 + sigmoid((mu-thresh)/sigma))
-    #       - mathematically incorrect
+    #   'EI' for expected improvement
+    #       - numerically terrible
+    #       - unusable in practice because gradient is mostly near 0
+    #   'log_EI' for the logarithm of EI
+    #       - mathematically equivalent to optimizing EI
+    #       - numerically good (in theory)
+    #       - not implemented
+    #   'softmax_hack' log(1 + sigmoid((mu-thresh)/sigma))
+    #       - mathematically approximate (logistic sigmoid \approx erf)
     #       - numerically good
     #       - analytic form, fast computation
     EI_criterion = 'softmax_hack'
@@ -673,11 +670,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         y_all_iv = ivls['losses']['ok'].as_list()
         y_var_iv = ivls['losses_variance']['ok'].as_list()
 
-        if self.constant_liar_global_mean:
-            liar_y_mean = y_mean
-            liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
-        else:
-            raise NotImplementedError()
+        # using constant liar heuristic for jobs in progress
+        liar_y_mean = y_mean
+        liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
