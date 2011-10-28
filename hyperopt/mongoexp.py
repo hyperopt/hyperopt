@@ -156,6 +156,10 @@ STATE_NEW = 0
 STATE_RUNNING = 1
 STATE_DONE = 2
 STATE_ERROR = 3
+JOB_STATES = [STATE_NEW,
+              STATE_RUNNING,
+              STATE_DONE,
+              STATE_ERROR]
 
 # Proxy that could be factored out
 # if we also want to use CouchDB
@@ -639,8 +643,12 @@ class MongoExperiment(base.Experiment):
     def queue_len(self, states=STATE_NEW):
         # TODO: consider searching by SON rather than dict    
         if isinstance(states,int):
+            assert states in JOB_STATES
             query = dict(state=states, exp_key=self.exp_key)
         else:
+            assert hasattr(states, '__iter__')
+            states = list(states)
+            assert all([x in JOB_STATES for x in states])
             query = dict(state=dict('$in', states),
                          exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
