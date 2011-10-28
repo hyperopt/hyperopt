@@ -656,9 +656,7 @@ class MongoExperiment(base.Experiment):
 
     def run(self, N):
         algo = self.bandit_algo
-
         n_queued = 0
-        print ('HERE->',n_queued, N, self.queue_len(), self.min_queue_len)
         while n_queued < N and self.queue_len() < self.min_queue_len:
             self.refresh_trials_results()
             t0 = time.time()
@@ -956,7 +954,6 @@ def main_search():
     assert '_id' in driver
     assert driver['owner'] == owner
     assert driver['exp_key'] == exp_key
-
 
     try:
         if options.clear_existing:
