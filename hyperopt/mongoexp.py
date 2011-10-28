@@ -367,7 +367,7 @@ class MongoJobs(object):
         """Delete all jobs and attachments"""
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
-                for name, file_id in d.get('_attachments',[]):
+                for name, file_id in d.get('_attachments', []):
                     self.gfs.delete(file_id)
                 logger.info('deleting job %s' % d['_id'])
                 self.jobs.remove(d, safe=safe)
@@ -461,7 +461,7 @@ class MongoJobs(object):
                     # str('a') != unicode('a').
                     # TODO: eliminate false alarms and catch real ones
                     mismatching_keys = []
-                    for k,v in server_doc.items():
+                    for k, v in server_doc.items():
                         if k in doc:
                             if doc[k] != v:
                                 mismatching_keys.append((k, v, doc[k]))
@@ -559,7 +559,7 @@ class MongoExperiment(base.Experiment):
 
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
-            exp_key, poll_interval_secs = 10):
+            exp_key, max_queue_len=1, poll_interval_secs=10):
         bandit = utils.json_call(bandit_json)
         bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
         base.Experiment.__init__(self, bandit_algo)
@@ -579,7 +579,7 @@ class MongoExperiment(base.Experiment):
         else:
             logger.info('found config document %s' % str(config))
         self.poll_interval_secs = poll_interval_secs
-        self.min_queue_len = 1 # can be changed at any time
+        self.max_queue_len = max_queue_len # can be changed at any time
         self.exp_key = exp_key
 
     def __getstate__(self):
@@ -636,33 +636,39 @@ class MongoExperiment(base.Experiment):
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
         return rval
 
-    def queue_len(self):
-        # TODO: consider searching by SON rather than dict
-        query = dict(state=STATE_NEW, exp_key=self.exp_key)
+    def queue_len(self, states=STATE_NEW):
+        # TODO: consider searching by SON rather than dict    
+        if isinstance(states,int):
+            query = dict(state=states, exp_key=self.exp_key)
+        else:
+            query = dict(state=dict('$in', states),
+                         exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
         logger.debug('Queue len: %i' % rval)
         return rval
 
-    def run(self, N, block_until_done = False):
+    def run(self, N, block_until_done=False):
         bandit = self.bandit
         algo = self.bandit_algo
 
         n_queued = 0
 
-        while n_queued < N and self.queue_len() < self.min_queue_len:
-            self.refresh_trials_results()
-            t0 = time.time()
-            suggestions = algo.suggest(
-                    self.trials, self.results, 1)
-            t1 = time.time()
-            logger.info('algo suggested trial: %s (in %.2f seconds)'
-                    % (str(suggestions[0]), t1 - t0))
-            new_suggestions = self.queue_extend(suggestions)
-            n_queued += len(new_suggestions)
-            time.sleep(self.poll_interval_secs)
-        
+        while n_queued < N:
+            if self.queue_len() < self.max_queue_len:
+                self.refresh_trials_results()
+                t0 = time.time()
+                suggestions = algo.suggest(
+                        self.trials, self.results, 1)
+                t1 = time.time()
+                logger.info('algo suggested trial: %s (in %.2f seconds)'
+                        % (str(suggestions[0]), t1 - t0))
+                new_suggestions = self.queue_extend(suggestions)
+                n_queued += len(new_suggestions)
+            else:
+                time.sleep(self.poll_interval_secs)
+
         if block_until_done:
-            while self.queue_len() > 0:
+            while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
                 msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
                 logger.info(msg)
                 time.sleep(self.poll_interval_secs)
@@ -904,6 +910,10 @@ def main_search():
             action="store_true",
             default=False,
             help="block return until all queue is empty")
+    parser.add_option("--max-queue-len",
+            dest="max_queue_len",
+            default=1,
+            help="maximum number of jobs to allow in queue")
 
     (options, args) = parser.parse_args()
 
@@ -977,6 +987,7 @@ def main_search():
                 mongo_handle = mj,
                 workdir = options.workdir,
                 exp_key = exp_key,
+                max_queue_len = options.max_queue_len,
                 poll_interval_secs = (int(options.poll_interval))
                     if options.poll_interval else 5)
 
