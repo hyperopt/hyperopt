@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
 import numpy
-import scipy.optimize
+from scipy.optimize import fmin_l_bfgs_b
 import theano
 from theano import tensor
 from theano.sandbox.linalg import (diag, matrix_inverse, det, PSD_hint, trace)
@@ -24,13 +24,6 @@ from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
 from theano_gm import AdaptiveParzenGM
 
-if 0:
-    from scipy.optimize import fmin_l_bfgs_b
-else:
-    # in theory this is about twice as fast as scipy's because
-    # it permits passing a combination f and df implementation
-    # that theano has compiled
-    from lbfgsb import fmin_l_bfgs_b
 
 
 def dots(*args):
