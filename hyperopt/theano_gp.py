@@ -449,6 +449,26 @@ def get_refinability(v, dist_name):
     return True
 
 
+def categorical_parent(v):
+    """
+    Return the categorical variable c in the case that v = a[where(b==c)]
+    """
+    theano.printing.debugprint(v)
+    if not v.owner:
+        raise ValueError(v)
+    if not isinstance(v.owner.op, tensor.AdvancedSubtensor1):
+        raise ValueError('expecting AdvancedSubtensor1', v)
+    base, locs = v.owner.inputs
+    if not (locs.owner and locs.owner.op == montetheano.for_theano.where):
+        raise ValueError('expecting where', locs)
+    value_eq_cat, = locs.owner.inputs
+    if not (value_eq_cat.owner and value_eq_cat.owner.op == tensor.eq):
+        raise ValueError('expecting equals', value_eq_cat)
+    value, catvar = value_eq_cat.owner.inputs
+    if not (catvar.owner and isinstance(catvar.owner.op, mt_dist.Categorical)):
+        raise ValueError('expecting categorical', catvar)
+    return catvar
+
 class GP_BanditAlgo(TheanoBanditAlgo):
     """
     Gaussian proces - based BanditAlgo
@@ -532,9 +552,63 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             # the idxs as outputs, and then run the MergeOptimizer on it.
             self.idxs_mulsets.setdefault(iv.idxs, []).append(k)
 
-    def init_gram_weights(self, idxs=None, parent_weight=1):
-        """ Recursively
-        parent_k: current, None for root
+    def init_gram_weights_helper(self, idxs, parent_weight, cparent):
+        kerns = self.idxs_mulsets[idxs]
+        cat_kerns = [k for k in kerns if isinstance(k, CategoryKernel)]
+        if len(cat_kerns) == 0:
+            self.gram_weights[idxs] = parent_weight
+        elif len(cat_kerns) == 1:
+            # We have a mulset with one categorical variable in it.
+            param = theano.shared(numpy.asarray(0.0))
+            self.convex_coefficient_params.append(param)
+            weight = tensor.nnet.sigmoid(param)
+            # call recursively for each mulset
+            # that corresponds to a slice out of idxs
+            for sub_idxs in self.idxs_mulsets:
+                if idxs == sub_idxs.owner.inputs[0]:
+                    # choice nodes in genson generate
+                    # advanced indexing on idxs.
+                    if not isinstance(sub_idxs.owner.op,
+                            tensor.AdvancedSubtensor1):
+                        raise NotImplementedError(sub_idxs)
+                    self.init_gram_weights_helper(
+                            sub_idxs,
+                            parent_weight=parent_weight * weight,
+                            cparent=cparent)
+            #print 'adding gram_weight', idxs
+            #theano.printing.debugprint(parent_weight * (1 - weight))
+            self.gram_weights[idxs] = parent_weight * (1 - weight)
+        else:
+            # We have a mulset with multiple categorical variables in it.
+            # in this case the parent_weight must be divided among
+            # this mulset itself, and each of the contained mulsets
+            # (corresponding to the choices within each categorical variable)
+            n_terms = len(cat_kerns) + 1
+            params = theano.shared(numpy.zeros(n_terms))
+            self.convex_coefficient_params.append(params)
+            weights = tensor.nnet.softmax(params) * parent_weight
+            for i, k in enumerate(cat_kerns):
+                # we're looking for sub_idxs that are formed by
+                # advanced-indexing into `idxs` at positions determined
+                # by the random choices of the variable corresponding to
+                # kernel k
+                cat_vals = self.s_prior[self.kernels.index(k)].vals
+                sub_idxs_list = [sub_idxs for sub_idxs in self.idxs_mulsets
+                        if cparent[sub_idxs] == cat_vals]
+                assert all(si.owner.inputs[0] == idxs for si in sub_idxs_list)
+                for sub_idxs in sub_idxs_list:
+                    self.init_gram_weights_helper(
+                            sub_idxs,
+                            parent_weight=weights[i],
+                            cparent=cparent)
+            self.gram_weights[idxs] = weights[len(cat_kerns)]
+
+            # TODO: If a categorical variable acts as a switch between several
+            # choices, but all of those choices are constants (and won't
+            # contribute a meaningful kernel) then should we just skip it?
+
+    def init_gram_weights(self):
+        """ Initialize mixture component weights of the hierarchical kernel.
         """
         try:
             gram_weights = self.gram_weights
@@ -542,51 +616,27 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             self.convex_coefficient_params = []
             gram_weights = self.gram_weights = {}
 
-        if idxs is None:
-            root_idxs = [idxs for idxs in self.idxs_mulsets
-                    if isinstance(idxs.owner.op, tensor.ARange)]
-            if len(root_idxs) > 1:
-                # XXX : to be more robust, it would be nice to build an Env
-                # with the idxs as outputs, and then run the MergeOptimizer on
-                # it.
-                raise NotImplementedError('not all idxs were derived from'
-                    ' single ARange object')
-            idxs = root_idxs[0]
+        # XXX : to be more robust, it would be better to build an Env
+        # with the idxs as outputs, and then run the MergeOptimizer on
+        # it.
 
-        kerns = self.idxs_mulsets[idxs]
-        cat_kerns = [k for k in kerns if isinstance(k, CategoryKernel)]
-        if len(cat_kerns) == 0:
-            self.gram_weights[idxs] = parent_weight
-        elif len(cat_kerns) == 1:
-            param = theano.shared(numpy.asarray(0.0))
-            self.convex_coefficient_params.append(param)
-            weight = tensor.nnet.sigmoid(param)
-            for i, k in enumerate(cat_kerns):
-                # call recursively for each mulset
-                # that corresponds to a slice out of idxs
-                for sub_idxs in self.idxs_mulsets:
-                    if idxs == sub_idxs.owner.inputs[0]:
-                        # choice nodes in genson generate
-                        # advanced indexing on idxs.
-                        if not isinstance(sub_idxs.owner.op,
-                                tensor.AdvancedSubtensor1):
-                            raise NotImplementedError(sub_idxs)
-                        self.init_gram_weights(sub_idxs,
-                                parent_weight=parent_weight * weight)
-            #print 'adding gram_weight', idxs
-            #theano.printing.debugprint(parent_weight * (1 - weight))
-            self.gram_weights[idxs] = parent_weight * (1 - weight)
-        else:
-            # in this case the parent_weight must be shared between
-            # this mulset and the child mulsets
-            raise NotImplementedError()
-            n_terms = len(cat_kerns) + 1
-            params = theano.shared(numpy.zeros(n_terms))
-            self.convex_coefficient_params.append(params)
-            weights = tensor.nnet.softmax(params) * parent_weight
-            for i, k in enumerate(cat_kerns):
-                build_softmax_coefs(k, weights[i])
-            self.gram_weights[idxs] = weights[len(cat_kerns)]
+        # Precondition: all idxs are either the root ARange or an
+        # AdvancedSubtensor1 of some other idxs variable
+        root_idxs = None
+        cparent = {}
+        for ii in self.idxs_mulsets:
+            assert ii.owner
+            if isinstance(ii.owner.op, tensor.ARange):
+                assert root_idxs in (ii, None)
+                root_idxs = ii
+                cparent[ii] = None
+            else:
+                assert isinstance(ii.owner.op,
+                        tensor.AdvancedSubtensor1)
+                assert ii.owner.inputs[0] in self.idxs_mulsets
+                cparent[ii] = categorical_parent(ii)
+
+        return self.init_gram_weights_helper(root_idxs, 1, cparent)
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)

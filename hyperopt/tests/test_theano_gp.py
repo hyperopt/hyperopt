@@ -24,6 +24,7 @@ from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.genson_bandits import GensonBandit
 from hyperopt.experiments import SerialExperiment
+from hyperopt.dbn import Dummy_DBN_Base
 import hyperopt.plotting
 
 from hyperopt.theano_gp import SparseGramSet
@@ -613,3 +614,17 @@ def test_fit_quantized_lognormal():
 
     assert min([t['x'] for t in serial_exp.trials]) >= 0
     assert min([t['x'] for t in serial_exp.trials]) <= 1
+
+def test_fit_dummy_dbn():
+    bandit = Dummy_DBN_Base()
+    bandit_algo = GPAlgo(bandit)
+    bandit_algo.n_startup_jobs = 20
+    serial_exp = SerialExperiment(bandit_algo)
+    bandit_algo.show = False
+    bandit_algo.use_base_suggest = True
+
+    serial_exp.run(bandit_algo.n_startup_jobs)
+    serial_exp.run(50) # use the GP for some iterations
+
+    # No assertion here.
+    # If it runs this far, it's already something.
