@@ -28,82 +28,68 @@ from hyperopt.dbn import Dummy_DBN_Base
 import hyperopt.plotting
 
 
-class GPAlgo(GP_BanditAlgo):
-    use_base_suggest = True
-    xlim_low = -5
-    xlim_high = 5
-    def suggest_from_model(self, trials, results, N):
-        if self.use_base_suggest:
-            return GP_BanditAlgo.suggest_from_model(self,
-                    trials, results, N)
-
-        ivls = self.idxs_vals_by_status(trials, results)
-        X_IVLs = ivls['x_IVLs']
-        Ys = ivls['losses']
-        Ys_var = ivls['losses_variance']
-        prepared_data = self.prepare_GP_training_data(ivls)
-        x_all, y_all, y_mean, y_var, y_std = prepared_data
-        self.fit_GP(*prepared_data)
-
-        candidates = self._prior_sampler(5)
-        EI = self.GP_EI(IdxsValsList.fromflattened(candidates))
-        print ''
-        print 'Candidates'
-        print candidates[0]
-        print candidates[1]
-        print EI
-        #print 'optimizing candidates'
-        candidates_opt = self.GP_EI_optimize(
-                IdxsValsList.fromflattened(candidates))
-        EI_opt = self.GP_EI(candidates_opt)
-        print ''
-        print 'Optimized candidates'
-        print candidates_opt[0].idxs
-        print candidates_opt[0].vals
-        print EI_opt
-
-        num = len(candidates_opt)
-
-        if self.show:
-
-            plt.scatter(x_all[0].vals,
-                    y_all * self._GP_y_std + self._GP_y_mean)
-            plt.scatter(candidates[1], numpy.zeros_like(candidates[1]),
-                c='y')
-            plt.scatter(candidates_opt[0].vals,
-                    numpy.zeros_like(candidates[1]) - .1,
-                    c='k')
+GPAlgo = GP_BanditAlgo
 
 
-            plt.figure()
+def show_bandit_algo(self, trials, results, xlim_low=-5, xlim_high=5,
+        n_candidates=5):
+    ivls = self.idxs_vals_by_status(trials, results)
+    X_IVLs = ivls['x_IVLs']
+    Ys = ivls['losses']
+    Ys_var = ivls['losses_variance']
+    prepared_data = self.prepare_GP_training_data(ivls)
+    x_all, y_all, y_mean, y_var, y_std = prepared_data
+    self.fit_GP(*prepared_data)
 
-            plt.xlim([self.xlim_low, self.xlim_high])
-            xmesh = numpy.linspace(self.xlim_low, self.xlim_high)
-            N = len(xmesh)
-            XmeshN = [numpy.arange(N) for _ind in range(num)]
-            Xmesh = [numpy.linspace(self.xlim_low, self.xlim_high)
-                    for _ind in range(num)]
+    candidates = self._prior_sampler(n_candidates)
+    EI = self.GP_EI(IdxsValsList.fromflattened(candidates))
+    print ''
+    print 'Candidates'
+    print 'idxs', candidates[0]
+    print 'vals', candidates[1]
+    print 'EI', EI
+    #print 'optimizing candidates'
+    candidates_opt = self.GP_EI_optimize(
+            IdxsValsList.fromflattened(candidates))
+    self.post_refinement(candidates_opt)
+    EI_opt = self.GP_EI(candidates_opt)
+    print ''
+    print 'Optimized candidates'
+    print 'idxs', candidates_opt[0].idxs
+    print 'vals', candidates_opt[0].vals
+    print "EI", EI_opt
 
-            print Xmesh
+    num = len(candidates_opt)
 
-            IVL = IdxsValsList.fromlists(XmeshN, Xmesh)
-            gp_mean, gp_var = self.GP_mean_variance(IVL)
-            gp_EI = self.GP_EI(IVL)
+    plt.scatter(x_all[0].vals,
+            y_all * self._GP_y_std + self._GP_y_mean)
+    plt.scatter(candidates[1], numpy.zeros_like(candidates[1]),
+        c='y')
+    plt.scatter(candidates_opt[0].vals,
+            numpy.zeros_like(candidates[1]) - .1,
+            c='k')
 
-            print "GP_VAR", gp_var
-            plt.plot(xmesh, gp_mean)
-            plt.plot(xmesh, gp_mean + numpy.sqrt(gp_var), c='g')
-            plt.plot(xmesh, gp_mean - numpy.sqrt(gp_var), c='g')
-            plt.plot(xmesh, gp_EI, c='r')
-            plt.show()
+    plt.figure()
 
-        best_idx = numpy.argmax(EI_opt)
-        args = []
-        for c_opt in candidates_opt:
-            args.append([c_opt.idxs[best_idx]])
-            args.append([c_opt.vals[best_idx]])
-        rval = IdxsValsList.fromflattened(tuple(args))
-        return rval
+    plt.xlim([xlim_low, xlim_high])
+    xmesh = numpy.linspace(xlim_low, xlim_high)
+    N = len(xmesh)
+    XmeshN = [numpy.arange(N) for _ind in range(num)]
+    Xmesh = [numpy.linspace(xlim_low, xlim_high)
+            for _ind in range(num)]
+
+    print Xmesh
+
+    IVL = IdxsValsList.fromlists(XmeshN, Xmesh)
+    gp_mean, gp_var = self.GP_mean_variance(IVL)
+    gp_EI = self.GP_EI(IVL)
+
+    print "GP_VAR", gp_var
+    plt.plot(xmesh, gp_mean)
+    plt.plot(xmesh, gp_mean + numpy.sqrt(gp_var), c='g')
+    plt.plot(xmesh, gp_mean - numpy.sqrt(gp_var), c='g')
+    plt.plot(xmesh, gp_EI, c='r')
+    plt.show()
 
 
 class TestGaussian1D(unittest.TestCase):
@@ -160,45 +146,101 @@ class TestUniform1D(unittest.TestCase):
         bandit_algo.n_startup_jobs = 5
         serial_exp = SerialExperiment(bandit_algo)
         serial_exp.run(bandit_algo.n_startup_jobs)
-        bandit_algo.xlim_low = -3.0   #XXX match UniformBandit
-        bandit_algo.xlim_high = 2.0   #XXX match UniformBandit
         serial_exp.run(20)
 
         # a grid spacing would have used 25 points to cover 5 units of distance
         # so be no more than 1/5**2 == .04.  Here we test that the GP gets the error below .005
         assert min(serial_exp.losses()) < 5e-3, serial_exp.results
 
+        # assert that the sampler has not exceeded the boundaries
+        assert min([t['x'] for t in serial_exp.trials]) >= bandit_algo.xlim_low
+        assert min([t['x'] for t in serial_exp.trials]) <= bandit_algo.xlim_high
+
         # XXX: assert that variance has been reduced along the whole uniform range
+        # if showing a plot...
+        # xlim_low = -3.0   #XXX match UniformBandit
+        # xlim_high = 2.0   #XXX match UniformBandit
 
 
-class LognormalBandit(GensonBandit):
-    test_str = '{"x":lognormal(0,1)}'
+class TestLognormal1D(unittest.TestCase):
+    def setUp(self):
+        class LognormalBandit(GensonBandit):
+            def __init__(self, test_str):
+                super(LognormalBandit, self).__init__(source_string=test_str)
 
-    def __init__(self):
-        super(LognormalBandit, self).__init__(source_string=self.test_str)
+            def evaluate(cls, config, ctrl):
+                return dict(
+                        loss=(numpy.log(config['x']) - numpy.log(2)) ** 2,
+                            status='ok')
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+            def loss_variance(cls, result, config):
+                return .00001
+        self.ln_bandit = LognormalBandit('{"x":lognormal(0,1)}')
+        self.qln_bandit = LognormalBandit('{"x":qlognormal(5,2)}')
 
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1        
+    def test_fit_lognormal(self):
+        bandit_algo = GPAlgo(self.ln_bandit)
+        bandit_algo.n_startup_jobs = 5
+        serial_exp = SerialExperiment(bandit_algo)
+        serial_exp.run(bandit_algo.n_startup_jobs)
 
+        # check that the Lognormal kernel has been
+        # identified as refinable
+        k = bandit_algo.kernels[0]
+        assert bandit_algo.is_refinable[k]
+        assert bandit_algo.bounds[k][0] > 0
 
-class QLognormalBandit(GensonBandit):
-    test_str = '{"x":qlognormal(5,2)}'
+        serial_exp.run(25)
+        if 0:
+            bandit_algo.show = False
+            bandit_algo.use_base_suggest = True
+            bandit_algo.xlim_low = 0.001
+            bandit_algo.xlim_high = 10.0
+            bandit_algo.use_base_suggest = False
+            bandit_algo.show = True
+            serial_exp.run(1)
 
-    def __init__(self):
-        super(QLognormalBandit, self).__init__(source_string=self.test_str)
+        assert min(serial_exp.losses()) < .005
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - 30) ** 2, status='ok')
+        # check that  all points were positive
+        assert min([t['x'] for t in serial_exp.trials]) > 0
 
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1  
+        # the lenscale is about 1.8  Is that about right? What's right?
+        print bandit_algo.kernels[0].lenscale()
+
+    def test_fit_quantized_lognormal(self):
+        bandit_algo = GPAlgo(self.qln_bandit)
+        bandit_algo.n_startup_jobs = 5
+        serial_exp = SerialExperiment(bandit_algo)
+        serial_exp.run(bandit_algo.n_startup_jobs)
+
+        # check that the Lognormal kernel has been
+        # identified as refinable
+        k = bandit_algo.kernels[0]
+        assert bandit_algo.is_refinable[k]
+        assert bandit_algo.bounds[k][0] > 0
+
+        serial_exp.run(25)
+        xvec = numpy.asarray([t['x'] for t in serial_exp.trials])
+        if 0:
+            show_bandit_algo(bandit_algo,
+                    serial_exp.trials, 
+                    serial_exp.results,
+                    xlim_low=1,
+                    xlim_high=xvec.max() + 1,
+                    )
+
+        assert min(serial_exp.losses()) == 0, (
+                serial_exp.losses(), min(serial_exp.losses()))
+
+        # check that  all points were positive
+        assert xvec.min() > 0
+
+        # assert that the step size was respected
+        assert numpy.all(numpy.fmod(xvec, 1) == 0)
+
+        # the lenscale is about 1.8  Is that about right? What's right?
+        print bandit_algo.kernels[0].lenscale()
 
 
 class GaussianBandit2var(GensonBandit):
@@ -354,61 +396,6 @@ def test_fit_categorical():
     assert min([t['x'] for t in serial_exp.trials]) >= 0
     assert min([t['x'] for t in serial_exp.trials]) <= 1
 
-
-def test_fit_lognormal():
-    bandit = LognormalBandit()
-    bandit_algo = GPAlgo(bandit)
-    bandit_algo.n_startup_jobs = 5
-    serial_exp = SerialExperiment(bandit_algo)
-    serial_exp.run(bandit_algo.n_startup_jobs)
-    bandit_algo.xlim_low = 0.001
-    bandit_algo.xlim_high = 10.0
-
-    k = bandit_algo.kernels[0]
-    assert bandit_algo.is_refinable[k]
-    assert bandit_algo.bounds[k][0] > 0
-    bandit_algo.show = False
-    bandit_algo.use_base_suggest = True
-    serial_exp.run(25)
-
-    if 1:
-        bandit_algo.use_base_suggest = False
-        bandit_algo.show = True
-        serial_exp.run(1)
-
-    assert min(serial_exp.losses()) < .005
-    assert bandit_algo.kernels[0].lenscale() < .25
-
-    assert min([t['x'] for t in serial_exp.trials]) >= 0
-    assert min([t['x'] for t in serial_exp.trials]) <= 1
-
-
-def test_fit_quantized_lognormal():
-    bandit = QLognormalBandit()
-    bandit_algo = GPAlgo(bandit)
-    bandit_algo.n_startup_jobs = 5
-    serial_exp = SerialExperiment(bandit_algo)
-    serial_exp.run(bandit_algo.n_startup_jobs)
-    bandit_algo.xlim_low = 0.1
-    bandit_algo.xlim_high = 300.0
-
-    k = bandit_algo.kernels[0]
-    assert bandit_algo.is_refinable[k]
-    assert bandit_algo.bounds[k][0] > 0
-    bandit_algo.show = False
-    bandit_algo.use_base_suggest = True
-    serial_exp.run(15)
-
-    if 1:
-        bandit_algo.use_base_suggest = False
-        bandit_algo.show = True
-        serial_exp.run(1)
-
-    assert min(serial_exp.losses()) < .005
-    assert bandit_algo.kernels[0].lenscale() < .25
-
-    assert min([t['x'] for t in serial_exp.trials]) >= 0
-    assert min([t['x'] for t in serial_exp.trials]) <= 1
 
 def test_fit_dummy_dbn():
     bandit = Dummy_DBN_Base()

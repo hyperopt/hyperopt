@@ -505,6 +505,38 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     n_candidates_to_draw_in_GM = 5
     # XXX: make this bigger and only refine best
 
+    def qln_cleanup(self, prior_vals, kern, candidate_vals):
+        """
+        Undo the smooth relaxation applied to quantized log-normal variables
+        """
+        round = tensor.get_constant_value(
+                mt_dist.quantized_lognormal_get_round(
+                    prior_vals))
+        intlike = numpy.ceil(candidate_vals / float(round))
+        assert intlike.ndim >= 1
+        # in test problems, it seems possible to get stuck in a mode
+        # where the EI optimum always gets rounded up to 3
+        # and so 2 is never tried, even though it is actually the best point.
+        intlike = numpy.maximum(1,
+                intlike - numpy.random.randint(2, size=len(intlike)))
+        assert intlike.ndim >= 1
+        rval = intlike * float(round)
+        rval = rval.astype(prior_vals.dtype)
+        return rval
+
+    def post_refinement(self, candidates):
+        # Coercing candidates from the form that was good for optimizing
+        # to the form that is required by the configuration grammar
+        for i, (iv, k, c) in enumerate(
+                zip(self.s_prior, self.kernels, candidates)):
+            if k in self.post_refinement_cleanup:
+                cvals = self.post_refinement_cleanup[k](iv.vals, k, c.vals)
+                assert cvals.shape == c.vals.shape
+                assert str(cvals.dtype) == iv.vals.dtype
+                assert cvals.ndim == iv.vals.ndim
+                c.vals = cvals
+
+
     def init_kernels(self):
         self.kernels = []
         self.is_refinable = {}
@@ -512,6 +544,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.params = []
         self.param_bounds = []
         self.idxs_mulsets = {}
+        self.post_refinement_cleanup = {}
 
         for iv in self.s_prior:
             dist_name = montetheano.rstreams.rv_dist_name(iv.vals)
@@ -535,7 +568,12 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             elif dist_name == 'quantized_lognormal':
                 k = LogSquaredExponentialKernel()
                 self.is_refinable[k] = get_refinability(iv, dist_name)
-                self.bounds[k] = (1, None)
+                if self.is_refinable:
+                    lbound = tensor.get_constant_value(
+                            mt_dist.quantized_lognormal_get_round(
+                                iv.vals))
+                    self.bounds[k] = (lbound, None)
+                    self.post_refinement_cleanup[k] = self.qln_cleanup
             elif dist_name == 'categorical':
                 # XXX: a better CategoryKernel would have different
                 # similarities for different choices
@@ -1037,6 +1075,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
                         EI.max(), EI_opt.max()))
 
+        self.post_refinement(candidates_opt)
         rval = candidates_opt.numeric_take([best_idx])
         return rval
 
