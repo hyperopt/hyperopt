@@ -113,7 +113,6 @@ class TestGaussian1D(unittest.TestCase):
         self.bandit = GaussianBandit()
         self.algo = GPAlgo(self.bandit)
 
-
     def test_basic(self):
         self.algo.n_startup_jobs = 7
         n_iter = 40
@@ -129,17 +128,15 @@ class TestUniform1D(unittest.TestCase):
             test_str = '{"x":uniform(-3,2)}'
 
             def __init__(self):
-                super(UniformBandit, self).__init__(source_string=self.test_str)
+                super(UniformBandit, self).__init__(
+                        source_string=self.test_str)
 
-            @classmethod
             def evaluate(cls, config, ctrl):
                 return dict(loss=(config['x'] + 2.5) ** 2, status='ok')
 
-            @classmethod
             def loss_variance(cls, result, config):
                 return 0 # test 0 variance for once
         self.bandit = UniformBandit()
-
 
     def test_fit_uniform(self):
         bandit_algo = GPAlgo(self.bandit)
@@ -148,15 +145,19 @@ class TestUniform1D(unittest.TestCase):
         serial_exp.run(bandit_algo.n_startup_jobs)
         serial_exp.run(20)
 
-        # a grid spacing would have used 25 points to cover 5 units of distance
-        # so be no more than 1/5**2 == .04.  Here we test that the GP gets the error below .005
+        # a grid spacing would have used 25 points to cover 5 units of
+        # distance
+        # so be no more than 1/5**2 == .04.  Here we test that the GP gets the
+        # error below .005
         assert min(serial_exp.losses()) < 5e-3, serial_exp.results
 
         # assert that the sampler has not exceeded the boundaries
         assert min([t['x'] for t in serial_exp.trials]) >= bandit_algo.xlim_low
         assert min([t['x'] for t in serial_exp.trials]) <= bandit_algo.xlim_high
 
-        # XXX: assert that variance has been reduced along the whole uniform range
+        # XXX: assert that variance has been reduced along the whole uniform
+        # range
+
         # if showing a plot...
         # xlim_low = -3.0   #XXX match UniformBandit
         # xlim_high = 2.0   #XXX match UniformBandit
@@ -166,7 +167,8 @@ class TestLognormal1D(unittest.TestCase):
     def setUp(self):
         class LognormalBandit(GensonBandit):
             def __init__(self, test_str):
-                super(LognormalBandit, self).__init__(source_string=test_str)
+                super(LognormalBandit, self).__init__(
+                        source_string=test_str)
 
             def evaluate(cls, config, ctrl):
                 return dict(
@@ -191,14 +193,6 @@ class TestLognormal1D(unittest.TestCase):
         assert bandit_algo.bounds[k][0] > 0
 
         serial_exp.run(25)
-        if 0:
-            bandit_algo.show = False
-            bandit_algo.use_base_suggest = True
-            bandit_algo.xlim_low = 0.001
-            bandit_algo.xlim_high = 10.0
-            bandit_algo.use_base_suggest = False
-            bandit_algo.show = True
-            serial_exp.run(1)
 
         assert min(serial_exp.losses()) < .005
 
