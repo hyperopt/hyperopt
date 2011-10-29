@@ -608,3 +608,27 @@ def DBN_Convex():
 def DBN_MRBI():
     ds =  'skdata.larochelle_etal_2007.MNIST_RotatedBackgroundImages'
     return DBN_Base(dbn_template(dataset_name=ds))
+
+
+class Dummy_DBN_Base(Bandit):
+    """
+    A DBN_Base stub.
+
+    This class is used in unittests of optimization algorithms to ensure they
+    can deal with large nested specifications that include lots of distribution
+    types.
+
+    The evaluate function simply returns a random score.
+    """
+    def __init__(self):
+        Bandit.__init__(self, template=dbn_template())
+        self.rng = numpy.random.RandomState(234)
+
+    def evaluate(self, argd, ctrl):
+        rval = dict(dbn_train_fn_version=-1)
+        # XXX: TODO: make up a loss function that depends on argd.
+        rval['status'] = 'ok'
+        rval['best_epoch_valid'] = float(self.rng.rand())
+        rval['loss'] = 1.0 - rval['best_epoch_valid']
+        return rval
+

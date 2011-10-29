@@ -9,11 +9,11 @@ from montetheano.for_theano import where
 
 import hyperopt
 import hyperopt.bandits
-import hyperopt.dbn
 from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
 from hyperopt.experiments import SerialExperiment
 from hyperopt import idxs_vals_rnd
 from hyperopt.idxs_vals_rnd import IndependentAdaptiveParzenEstimator
+import hyperopt.dbn import Dummy_DBN_Base
 
 def ops(fn, OpCls):
     if isinstance(fn, list):
@@ -350,27 +350,6 @@ class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
         assert min(self.experiment.losses()) < -1.75
         if 0:
             plt.show()
-
-
-class Dummy_DBN_Base(hyperopt.Bandit):
-    """
-    A DBN_Base stub.
-
-    This class is used in unittests of optimization algorithms to ensure they
-    can deal with large nested specifications that include lots of distribution
-    types.
-    """
-    def __init__(self):
-        hyperopt.Bandit.__init__(self, template=hyperopt.dbn.dbn_template())
-        self.rng = numpy.random.RandomState(234)
-
-    def evaluate(self, argd, ctrl):
-        rval = dict(dbn_train_fn_version=-1)
-        # XXX: TODO: make up a loss function that depends on argd.
-        rval['status'] = 'ok'
-        rval['best_epoch_valid'] = float(self.rng.rand())
-        rval['loss'] = 1.0 - rval['best_epoch_valid']
-        return rval
 
 
 class TestGM_DummyDBN(unittest.TestCase):
