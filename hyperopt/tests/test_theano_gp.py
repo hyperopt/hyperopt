@@ -27,14 +27,6 @@ from hyperopt.experiments import SerialExperiment
 from hyperopt.dbn import Dummy_DBN_Base
 import hyperopt.plotting
 
-from hyperopt.theano_gp import SparseGramSet
-from hyperopt.theano_gp import SparseGramGet
-from hyperopt.theano_gp import sparse_gram_get
-from hyperopt.theano_gp import sparse_gram_set
-from hyperopt.theano_gp import sparse_gram_inc
-
-from hyperopt.theano_gp import sparse_gram_mul
-
 
 class GPAlgo(GP_BanditAlgo):
     use_base_suggest = True
@@ -114,34 +106,69 @@ class GPAlgo(GP_BanditAlgo):
         return rval
 
 
-class GaussianBandit(GensonBandit):
-    test_str = '{"x":gaussian(0,1)}'
+class TestGaussian1D(unittest.TestCase):
+    def setUp(self):
+        class GaussianBandit(GensonBandit):
+            test_str = '{"x":gaussian(0,1)}'
 
-    def __init__(self):
-        super(GaussianBandit, self).__init__(source_string=self.test_str)
+            def __init__(self):
+                super(GaussianBandit, self).__init__(
+                        source_string=self.test_str)
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - 2) ** 2, status='ok')
+            @classmethod
+            def evaluate(cls, config, ctrl):
+                return dict(
+                        loss=(config['x'] - 2) ** 2,
+                        status='ok')
 
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1
+            @classmethod
+            def loss_variance(cls, result, config):
+                return .1
+        self.bandit = GaussianBandit()
+        self.algo = GPAlgo(self.bandit)
 
 
-class UniformBandit(GensonBandit):
-    test_str = '{"x":uniform(0,1)}'
+    def test_basic(self):
+        self.algo.n_startup_jobs = 7
+        n_iter = 40
+        serial_exp = SerialExperiment(self.algo)
+        serial_exp.run(self.algo.n_startup_jobs)
+        serial_exp.run(n_iter)
+        assert min(serial_exp.losses()) < 1e-2
 
-    def __init__(self):
-        super(UniformBandit, self).__init__(source_string=self.test_str)
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=(config['x'] - .5) ** 2, status='ok')
+class TestUniform1D(unittest.TestCase):
+    def setUp(self):
+        class UniformBandit(GensonBandit):
+            test_str = '{"x":uniform(-3,2)}'
 
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .01 ** 2
+            def __init__(self):
+                super(UniformBandit, self).__init__(source_string=self.test_str)
+
+            @classmethod
+            def evaluate(cls, config, ctrl):
+                return dict(loss=(config['x'] + 2.5) ** 2, status='ok')
+
+            @classmethod
+            def loss_variance(cls, result, config):
+                return 0 # test 0 variance for once
+        self.bandit = UniformBandit()
+
+
+    def test_fit_uniform(self):
+        bandit_algo = GPAlgo(self.bandit)
+        bandit_algo.n_startup_jobs = 5
+        serial_exp = SerialExperiment(bandit_algo)
+        serial_exp.run(bandit_algo.n_startup_jobs)
+        bandit_algo.xlim_low = -3.0   #XXX match UniformBandit
+        bandit_algo.xlim_high = 2.0   #XXX match UniformBandit
+        serial_exp.run(20)
+
+        # a grid spacing would have used 25 points to cover 5 units of distance
+        # so be no more than 1/5**2 == .04.  Here we test that the GP gets the error below .005
+        assert min(serial_exp.losses()) < 5e-3, serial_exp.results
+
+        # XXX: assert that variance has been reduced along the whole uniform range
 
 
 class LognormalBandit(GensonBandit):
@@ -214,10 +241,6 @@ def fit_base(A, B, *args, **kwargs):
         return serial_exp
 
     return run_then_show(n_iter)
-
-
-def test_fit_normal():
-    fit_base(GPAlgo, GaussianBandit)
 
 
 def test_2var_equal():
@@ -317,16 +340,6 @@ def test_fit_categorical():
     # this is just a test of the gm_algo candidate proposal mechanism
     # since the GP doesn't apply to discrete variables.
     assert arm0count > 60
-
-
-def test_fit_uniform():
-    bandit = UniformBandit()
-    bandit_algo = GPAlgo(bandit)
-    bandit_algo.n_startup_jobs = 5
-    serial_exp = SerialExperiment(bandit_algo)
-    serial_exp.run(bandit_algo.n_startup_jobs)
-    bandit_algo.xlim_low = 0.0   #XXX match UniformBandit
-    bandit_algo.xlim_high = 1.0   #XXX match UniformBandit
 
     k = bandit_algo.kernels[0]
     assert bandit_algo.is_refinable[k]
