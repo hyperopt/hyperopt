@@ -237,61 +237,41 @@ class TestLognormal1D(unittest.TestCase):
         print bandit_algo.kernels[0].lenscale()
 
 
-class GaussianBandit2var(GensonBandit):
-    test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
+class TestGaussian2D(unittest.TestCase):
+    class Bandit(GensonBandit):
+        test_str = '{"x":gaussian(0,1), "y":gaussian(0,1)}'
 
-    def __init__(self, a, b):
-        super(GaussianBandit2var, self).__init__(source_string=self.test_str)
-        GaussianBandit2var.a = a
-        GaussianBandit2var.b = b
-    @classmethod
-    def evaluate(cls, config, ctrl):
-        return dict(loss=cls.a * (config['x'] - 2) ** 2 + \
-                                   cls.b * (config['y'] - 2) ** 2, status='ok')
+        def __init__(self, a, b):
+            GensonBandit.__init__(self, source_string=self.test_str)
+            self.a = a
+            self.b = b
+        def evaluate(self, config, ctrl):
+            return dict(loss=(
+                    self.a * (config['x'] - 2) ** 2 +
+                    self.b * (config['y'] - 2) ** 2),
+                status='ok')
 
-    @classmethod
-    def loss_variance(cls, result, config):
-        return .1
+        def loss_variance(cls, result, config):
+            return 0
 
+    def test_2var_equal(self):
+        algo = GPAlgo(TestGaussian2D.Bandit(1, 1))
+        algo.n_startup_jobs = 5
+        se = SerialExperiment(algo)
+        se.run(25)
+        l0 = algo.kernels[0].lenscale()
+        l1 = algo.kernels[1].lenscale()
+        assert .85 < l0 / l1 < 1.15
 
-def fit_base(A, B, *args, **kwargs):
-
-    algo = A(B(*args, **kwargs))
-    algo.n_startup_jobs = 7
-
-    n_iter = kwargs.pop('n_iter', 40)
-    serial_exp = SerialExperiment(algo)
-    serial_exp.run(algo.n_startup_jobs)
-
-    assert len(serial_exp.trials) == len(serial_exp.results)
-    assert len(serial_exp.trials) == algo.n_startup_jobs
-
-    def run_then_show(N):
-        if N > 1:
-            algo.show = False
-            algo.use_base_suggest = True
-            serial_exp.run(N - 1)
-        algo.show = True
-        algo.use_base_suggest = False
-        serial_exp.run(1)
-        return serial_exp
-
-    return run_then_show(n_iter)
-
-
-def test_2var_equal():
-    se = fit_base(GPAlgo, GaussianBandit2var, 1, 1)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    assert .85 < l0 / l1 < 1.15
-
-
-def test_2var_unequal():
-    se = fit_base(GPAlgo, GaussianBandit2var, 1, 0)
-    l0 = se.bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = se.bandit_algo.kernels[1].log_lenscale.get_value()
-    #N.B. a ratio in log-length scales is a big difference!
-    assert l1 / l0 > 5
+    def test_2var_unequal(self):
+        algo = GPAlgo(TestGaussian2D.Bandit(1, 0))
+        algo.n_startup_jobs = 25 
+        se = SerialExperiment(algo)
+        se.run(50)
+        l0 = algo.kernels[0].lenscale()
+        l1 = algo.kernels[1].lenscale()
+        #N.B. a ratio in log-length scales is a big difference!
+        assert l1 / l0 > 3
 
 
 class GaussianBandit4var(GensonBandit):

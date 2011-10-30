@@ -240,6 +240,9 @@ class SquaredExponentialKernel(object):
                     self.__class__.__name__,
                     str(l), str(low), str(high))
 
+    def random_reset(self, rng):
+        self.log_lenscale.set_value(rng.randn())
+
     def params(self):
         return [self.log_lenscale]
 
@@ -518,7 +521,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         # where the EI optimum always gets rounded up to 3
         # and so 2 is never tried, even though it is actually the best point.
         intlike = numpy.maximum(1,
-                intlike - numpy.random.randint(2, size=len(intlike)))
+                intlike - self.numpy_rng.randint(2, size=len(intlike)))
         assert intlike.ndim >= 1
         rval = intlike * float(round)
         rval = rval.astype(prior_vals.dtype)
@@ -678,6 +681,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
+        self.numpy_rng = numpy.random.RandomState(234)
         self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
         self.s_n_train = tensor.lscalar('n_train')
         self.s_n_test = tensor.lscalar('n_test')
@@ -842,6 +846,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             lbounds.extend(numpy.asarray(value(lb)).flatten())
             ubounds.extend(numpy.asarray(value(ub)).flatten())
         bounds = numpy.asarray([lbounds, ubounds]).T
+
+        # re-initialize params to eliminate warm-start bias
+        for k in self.kernels:
+            k.random_reset(self.numpy_rng)
 
         def get_pt():
             rval = []
