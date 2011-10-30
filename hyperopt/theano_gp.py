@@ -16,7 +16,7 @@ import numpy
 from scipy.optimize import fmin_l_bfgs_b
 import theano
 from theano import tensor
-from theano.sandbox.linalg import (diag, matrix_inverse, det, PSD_hint, trace)
+from theano.sandbox.linalg import (diag, matrix_inverse, det, psd, trace)
 import montetheano
 import montetheano.distributions as mt_dist
 
@@ -371,7 +371,7 @@ class GPR_math(object):
         :note: See RW.pdf page 37, Eq. 2.30.
         """
         K, y, var_y, N = self.kyn()
-        rK = PSD_hint(K + var_y * tensor.eye(N))
+        rK = psd(K + var_y * tensor.eye(N))
         nll = (0.5 * dots(y, matrix_inverse(rK), y)
                 + 0.5 * tensor.log(det(rK))
                 + N / 2.0 * tensor.log(2 * numpy.pi))
@@ -380,7 +380,7 @@ class GPR_math(object):
     def s_mean(self, x):
         """Gaussian Process mean at points x"""
         K, y, var_y, N = self.kyn()
-        rK = PSD_hint(K + var_y * tensor.eye(N))
+        rK = psd(K + var_y * tensor.eye(N))
         alpha = tensor.dot(matrix_inverse(rK), y)
 
         K_x = self.K_fn(self.x, x)
@@ -390,7 +390,7 @@ class GPR_math(object):
     def s_variance(self, x):
         """Gaussian Process variance at points x"""
         K, y, var_y, N = self.kyn()
-        rK = PSD_hint(K + var_y * tensor.eye(N))
+        rK = psd(K + var_y * tensor.eye(N))
         K_x = self.K_fn(self.x, x)
         var_x = 1 - diag(dots(K_x.T, matrix_inverse(rK), K_x))
         return var_x
@@ -403,7 +403,7 @@ class GPR_math(object):
         Defined pg. 25 of Rasmussen & Williams.
         """
         K, y, var_y, N = self.kyn()
-        rK = PSD_hint(K + var_y * tensor.eye(N))
+        rK = psd(K + var_y * tensor.eye(N))
         dof = trace(tensor.dot(K, matrix_inverse(rK)))
         return dof
 
@@ -845,6 +845,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         + self.x_obs_IVL.flatten(),
                     tensor.grad(cost, self.params),
                     allow_input_downcast=True)
+            print('Compiled nll_fn with %i thunks' %
+                    len(nll_fn.maker.env.toposort()))
+            print('Compiled dnll_fn with %i thunks' %
+                    len(dnll_dparams.maker.env.toposort()))
 
         lbounds = []
         ubounds = []
@@ -1019,6 +1023,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         -tensor.grad(self.cand_EI.sum(),
                             self.s_big_param_vec)],
                     allow_input_downcast=True)
+            print('Compiled EI_fn_g with %i thunks' %
+                    len(EI_fn_g.maker.env.toposort()))
 
         thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var + 1e-8)).min()
 
