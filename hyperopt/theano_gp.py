@@ -456,7 +456,7 @@ def categorical_parent(v):
     """
     Return the categorical variable c in the case that v = a[where(b==c)]
     """
-    theano.printing.debugprint(v)
+    #theano.printing.debugprint(v)
     if not v.owner:
         raise ValueError(v)
     if not isinstance(v.owner.op, tensor.AdvancedSubtensor1):
@@ -755,6 +755,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         return base
 
     def prepare_GP_training_data(self, ivls):
+        # XXX mean and std should be estimated only from
+        #     the initial jobs that were sampled randomly.
+        #     suggest_from_prior should keep track of the ids
+        #     it returned, and those ids should be used here.
         y_mean = numpy.mean(ivls['losses']['ok'].vals)
         y_std = numpy.std(ivls['losses']['ok'].vals)
 
@@ -763,6 +767,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         y_var_iv = ivls['losses_variance']['ok'].as_list()
 
         # using constant liar heuristic for jobs in progress
+        # XXX: should this be the mean of all jobs or the mean
+        #      of random jobs?  Probably all jobs.
         liar_y_mean = y_mean
         liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
 

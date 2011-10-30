@@ -262,6 +262,7 @@ class TestGaussian2D(unittest.TestCase):
         l0 = algo.kernels[0].lenscale()
         l1 = algo.kernels[1].lenscale()
         assert .85 < l0 / l1 < 1.15
+        assert min(se.losses()) < .005
 
     def test_2var_unequal(self):
         algo = GPAlgo(TestGaussian2D.Bandit(1, 0))
@@ -272,76 +273,74 @@ class TestGaussian2D(unittest.TestCase):
         l1 = algo.kernels[1].lenscale()
         #N.B. a ratio in log-length scales is a big difference!
         assert l1 / l0 > 3
+        assert min(se.losses()) < .005
 
 
-class GaussianBandit4var(GensonBandit):
-    """
-    This bandit allows testing continuous distributions nested inside choice
-    variables.
-
-    The loss actually only depends on 'a' or 'd'. So the length scales of 'b'
-    and 'd' should go to infinity.
-    """
-    test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
-                                 {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
-
-    def __init__(self, a, b, c, d):
-        super(GaussianBandit4var, self).__init__(source_string=self.test_str)
-
-        # relevances to loss function:
-        self.a = a
-        self.b = b
-        self.c = c
-        self.d = d
-
-    def evaluate(self, config, ctrl):
-        return dict(loss=self.a * (config['p0'].get("a", 2) - 2) ** 2 + \
-                         self.b * (config['p0'].get("b", 2) - 2) ** 2 + \
-                         self.c * (config['p0'].get("c", 2) - 2) ** 2 + \
-                         self.d * (config['p0'].get("d", 2) - 2) ** 2 ,
-                    status='ok')
-
-    def loss_variance(self, result, config):
-        """Return uncertainty in reported loss.
-
-        The function is technically deterministic (var = 0), but
-        overestimating is ok.
+class TestGaussian4D(unittest.TestCase):
+    class Bandit(GensonBandit):
         """
-        return .1
+        This bandit allows testing continuous distributions nested inside
+        choice variables.
 
+        The loss actually only depends on 'a' or 'd'. So the length scales of
+        'b' and 'd' should go to infinity.
+        """
+        test_str = """{"p0":choice([{"a":gaussian(0,1),"b":gaussian(0,1)},
+                                     {"c":gaussian(0,1),"d":gaussian(0,1)}])}"""
 
-def test_4var_all_relevant():
-    bandit_algo = GPAlgo(GaussianBandit4var(1, .5, 2, 1))
-    serial_exp = SerialExperiment(bandit_algo)
-    bandit_algo.n_startup_jobs = 10
-    for i in range(50):
-        serial_exp.run(1)
-    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
-    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
-    for k in bandit_algo.kernels:
-        print 'last kernel fit', k, k.lenscale()
-    assert min(serial_exp.losses()) < .05
-    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
+        def __init__(self, a, b, c, d):
+            GensonBandit.__init__(self, source_string=self.test_str)
+            # relevances to loss function:
+            self.a = a
+            self.b = b
+            self.c = c
+            self.d = d
 
+        def evaluate(self, config, ctrl):
+            return dict(loss=self.a * (config['p0'].get("a", 2) - 2) ** 2 + \
+                             self.b * (config['p0'].get("b", 2) - 2) ** 2 + \
+                             self.c * (config['p0'].get("c", 2) - 2) ** 2 + \
+                             self.d * (config['p0'].get("d", 2) - 2) ** 2 ,
+                        status='ok')
 
-def test_4var_some_irrelevant():
-    bandit_algo = GPAlgo(GaussianBandit4var(1, 0, 0, 1))
-    serial_exp = SerialExperiment(bandit_algo)
-    bandit_algo.n_startup_jobs = 10
-    for i in range(50):
-        serial_exp.run(1)
-    l0 = bandit_algo.kernels[0].log_lenscale.get_value()
-    l1 = bandit_algo.kernels[1].log_lenscale.get_value()
-    l2 = bandit_algo.kernels[2].log_lenscale.get_value()
-    l3 = bandit_algo.kernels[3].log_lenscale.get_value()
-    l4 = bandit_algo.kernels[4].log_lenscale.get_value()
-    for k in bandit_algo.kernels:
-        print 'last kernel fit', k, k.lenscale()
-    assert min(serial_exp.losses()) < .05
-    hyperopt.plotting.main_plot_vars(serial_exp, end_with_show=True)
+        def loss_variance(self, result, config):
+            """Return uncertainty in reported loss.
+
+            The function is technically deterministic (var = 0), but
+            overestimating is ok.
+            """
+            return .1
+
+    def test_4var_all_relevant(self):
+        bandit_algo = GPAlgo(TestGaussian4D.Bandit(1, .5, 2, 1))
+        serial_exp = SerialExperiment(bandit_algo)
+        bandit_algo.n_startup_jobs = 10
+        serial_exp.run(50)
+        l0 = bandit_algo.kernels[0].lenscale()
+        l1 = bandit_algo.kernels[1].lenscale()
+        l2 = bandit_algo.kernels[2].lenscale()
+        l3 = bandit_algo.kernels[3].lenscale()
+        l4 = bandit_algo.kernels[4].lenscale()
+        for k in bandit_algo.kernels:
+            print 'last kernel fit', k, k.lenscale()
+        assert min(serial_exp.losses()) < .05
+        gauss_scales = numpy.asarray([l1, l2, l3, l4])
+        assert gauss_scales.min() * 3 > gauss_scales.max()
+
+    def test_4var_some_irrelevant(self):
+        bandit_algo = GPAlgo(TestGaussian4D.Bandit(1, 0, 0, 1))
+        serial_exp = SerialExperiment(bandit_algo)
+        bandit_algo.n_startup_jobs = 10
+        serial_exp.run(50)
+        l0 = bandit_algo.kernels[0].lenscale()
+        l1 = bandit_algo.kernels[1].lenscale()
+        l2 = bandit_algo.kernels[2].lenscale()
+        l3 = bandit_algo.kernels[3].lenscale()
+        l4 = bandit_algo.kernels[4].lenscale()
+        for k in bandit_algo.kernels:
+            print 'last kernel fit', k, k.lenscale()
+        assert min(serial_exp.losses()) < .05
+        assert max(l1, l4) * 3 < min(l2, l3)
 
 
 def test_fit_categorical():
