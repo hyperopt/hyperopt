@@ -18,7 +18,7 @@ from theano import tensor
 from theano.tests.unittest_tools import verify_grad, seed_rng
 
 from hyperopt.idxs_vals_rnd import IdxsValsList
-from hyperopt.bandits import TwoArms
+from hyperopt.bandits import TwoArms, EggCarton, EggCarton2
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.ht_dist2 import rSON2, normal
@@ -348,6 +348,53 @@ class TestGaussian4D(unittest.TestCase):
         assert min(serial_exp.losses()) < .05
         assert max(l1, l4) * 3 < min(l2, l3)
 
+class TestEggCarton(unittest.TestCase):
+    def setUp(self):
+        numpy.random.seed(555)
+        self.algo = GPAlgo(EggCarton())
+        self.algo.n_startup_jobs = 20
+        self.serial_exp = SerialExperiment(self.algo)
+
+    def test_fit(self):
+        for i in range(100):
+            self.serial_exp.run(1)
+            if i > self.algo.n_startup_jobs:
+                print [k.lenscale() for k in self.algo.kernels]
+                assert numpy.allclose(
+                        numpy.diag(self.algo.GP_train_K()),
+                        1.0)
+        plt.plot(
+                range(len(self.serial_exp.losses())),
+                self.serial_exp.losses())
+        plt.figure()
+        hyperopt.plotting.main_plot_vars(self.serial_exp, end_with_show=True)
+
+    def test_diag_1(self):
+        pass
+
+class TestEggCarton2(unittest.TestCase):
+    def setUp(self):
+        numpy.random.seed(555)
+        self.algo = GPAlgo(EggCarton2())
+        self.algo.n_startup_jobs = 20
+        self.serial_exp = SerialExperiment(self.algo)
+
+    def test_fit(self):
+        for i in range(100):
+            self.serial_exp.run(1)
+            if i > self.algo.n_startup_jobs:
+                print [k.lenscale() for k in self.algo.kernels]
+                assert numpy.allclose(
+                        numpy.diag(self.algo.GP_train_K()),
+                        1.0)
+        plt.plot(
+                range(len(self.serial_exp.losses())),
+                self.serial_exp.losses())
+        plt.figure()
+        hyperopt.plotting.main_plot_vars(self.serial_exp, end_with_show=True)
+
+    def test_diag_1(self):
+        pass
 
 def test_fit_categorical():
     numpy.random.seed(555)

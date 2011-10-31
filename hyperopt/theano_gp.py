@@ -8,6 +8,7 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
 import logging
+import sys
 import time
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
@@ -15,6 +16,7 @@ logger.setLevel(logging.WARN)
 import numpy
 from scipy.optimize import fmin_l_bfgs_b
 import theano
+from theano.printing import Print
 from theano import tensor
 from theano.sandbox.linalg import (diag, matrix_inverse, det, psd, trace)
 import montetheano
@@ -24,6 +26,7 @@ from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
 from theano_gm import AdaptiveParzenGM
 
+from gdist import union
 
 
 def dots(*args):
@@ -116,8 +119,8 @@ class SparseGramSet(theano.gof.Op):
                 (base, amt, i0, i1))
         if base.ndim != 2:
             raise TypeError('base not matrix', base)
-        if amt.ndim != 2:
-            raise TypeError('amt not matrix', base)
+        if amt.ndim not in (0, 2):
+            raise TypeError('amt not matrix or scalar', amt)
         if i0.ndim != 1:
             raise TypeError('i0 not lvector', i0)
         if 'int' not in str(i0.dtype):
@@ -179,7 +182,12 @@ class SparseGramSet(theano.gof.Op):
             gbase = sparse_gram_mul(gz, amt, i0, i1)
             gamt = (sparse_gram_get(gz, i0, i1)
                     * sparse_gram_get(base, i0, i1))
-        return [gbase, gamt, None, None]
+        if amt.ndim == 0:
+            return [gbase, gamt.sum(), None, None]
+        elif amt.ndim == 2:
+            return [gbase, gamt, None, None]
+        else:
+            raise NotImplementedError()
 
 sparse_gram_set = SparseGramSet('set')
 sparse_gram_inc = SparseGramSet('inc')
@@ -502,11 +510,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     #       - analytic form, fast computation
     EI_criterion = 'softmax_hack'
 
-    n_candidates_to_draw = 5
-    # XXX: make this bigger for non-debugging
+    n_candidates_to_draw = 20
+    # number of candidates returned by GM, and refined with gradient EI
 
-    n_candidates_to_draw_in_GM = 5
-    # XXX: make this bigger and only refine best
+    n_candidates_to_draw_in_GM = 100
+    # number of candidates drawn within GM
 
     def qln_cleanup(self, prior_vals, kern, candidate_vals):
         """
@@ -538,7 +546,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 assert str(cvals.dtype) == iv.vals.dtype
                 assert cvals.ndim == iv.vals.ndim
                 c.vals = cvals
-
 
     def init_kernels(self):
         self.kernels = []
@@ -595,7 +602,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def init_gram_weights_helper(self, idxs, parent_weight, cparent):
         kerns = self.idxs_mulsets[idxs]
-        cat_kerns = [k for k in kerns if isinstance(k, CategoryKernel)]
+        cat_kerns = [k for k, iv in zip(self.kernels, self.s_prior) if (
+            isinstance(k, CategoryKernel)
+            and k in kerns
+            and iv.vals in cparent.values())]
         if len(cat_kerns) == 0:
             self.gram_weights[idxs] = parent_weight
         elif len(cat_kerns) == 1:
@@ -644,10 +654,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                             cparent=cparent)
             self.gram_weights[idxs] = weights[len(cat_kerns)]
 
-            # TODO: If a categorical variable acts as a switch between several
-            # choices, but all of those choices are constants (and won't
-            # contribute a meaningful kernel) then should we just skip it?
-
     def init_gram_weights(self):
         """ Initialize mixture component weights of the hierarchical kernel.
         """
@@ -677,7 +683,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 assert ii.owner.inputs[0] in self.idxs_mulsets
                 cparent[ii] = categorical_parent(ii)
 
-        return self.init_gram_weights_helper(root_idxs, 1, cparent)
+        self.categorical_parent_of_idxs = cparent
+        self.init_gram_weights_helper(root_idxs, 1, cparent)
+        self.convex_coefficient_param_bounds = [(-5, 5)
+                for p in self.convex_coefficient_params]
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
@@ -694,6 +703,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         self.init_kernels()
         self.init_gram_weights()
+        self.params.extend(self.convex_coefficient_params)
+        self.param_bounds.extend(self.convex_coefficient_param_bounds)
 
         self.s_big_param_vec = tensor.vector()
         ### assumes all variables are refinable
@@ -752,24 +763,82 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             prod = self.gram_weights[idxs] * tensor.mul(*grams)
             base = sparse_gram_inc(base, prod, *gram_matrices_idxs[idxs])
 
+        # we need to top up the gram matrix with weighted blocks of 1s
+        # every time a categorical variable
+        # sliced categoricals
+        if 0:
+            sliced_vals = set(self.categorical_parent_of_idxs.values())
+            sliced_vals.remove(None)
+            print sliced_vals
+            for v in sliced_vals:
+                print v, [iv for iv in self.s_prior if iv.vals is v]
+            sliced_idxs = []
+            sliced_idxs0 = []
+            sliced_idxs1 = []
+            for vals in sliced_vals:
+                tt = [i for i, iv in enumerate(self.s_prior)
+                        if iv.vals is vals]
+                assert len(tt) == 1, tt
+                i = tt[0]
+                sliced_idxs.append(self.s_prior[i].idxs)
+                sliced_idxs0.append(x0[i].idxs)
+                sliced_idxs1.append(x1[i].idxs)
+
+            # assert there are no dups
+            assert len(sliced_idxs) == len(set(sliced_idxs))
+
+            cp_items = self.categorical_parent_of_idxs.items()
+            for prior_idxs, prior_vals, idxs0, idxs1 in zip(
+                    sliced_idxs,
+                    sliced_vals,
+                    sliced_idxs0,
+                    sliced_idxs1):
+                child_idxs = set([subidxs for subidxs, parent_vals in cp_items
+                        if parent_vals == vals])
+                # child_idxs are among s_prior
+                assert child_idxs
+                pos_of_child_idxs = [i for i, iv in enumerate(self.s_prior)
+                        if iv.idxs in child_idxs]
+                child_idxs0 = [x0[i].idxs for i in pos_of_child_idxs]
+                child_idxs1 = [x1[i].idxs for i in pos_of_child_idxs]
+
+                union0 = union(*child_idxs0)
+                union1 = union(*child_idxs1)
+
+                weight = None
+                for ci in child_idxs:
+                    if weight is None:
+                        weight = self.gram_weights[ci]
+                    else:
+                        assert weight is self.gram_weights[ci]
+
+                base = sparse_gram_inc(base, weight, idxs0, idxs1)
+                base = sparse_gram_inc(base, -weight, union0, union1)
+        else:
+            print >> sys.stderr, "TODO: block update causes PSD failure "
         return base
 
     def prepare_GP_training_data(self, ivls):
-        # XXX mean and std should be estimated only from
-        #     the initial jobs that were sampled randomly.
-        #     suggest_from_prior should keep track of the ids
-        #     it returned, and those ids should be used here.
-        y_mean = numpy.mean(ivls['losses']['ok'].vals)
-        y_std = numpy.std(ivls['losses']['ok'].vals)
+        # The mean and std should be estimated only from
+        # the initial jobs that were sampled randomly.
+        ok_idxs = ivls['losses']['ok'].idxs
+        ok_vals = ivls['losses']['ok'].vals
+        if (max(ok_idxs[:self.n_startup_jobs])
+                < min([sys.maxint] + ok_idxs[self.n_startup_jobs:])):
+            y_mean = numpy.mean(ok_vals[:self.n_startup_jobs])
+            y_std = numpy.std(ok_vals[:self.n_startup_jobs])
+        else:
+            # TODO: extract the elements of losses['ok'] corresponding to
+            # initial random jobs, and use them to estimate y_mean, y_std
+            raise NotImplementedError()
+        y_std = numpy.maximum(y_std, numpy.sqrt(self.y_minvar))
+        del ok_idxs, ok_vals
 
         x_all = ivls['x_IVLs']['ok'].as_list()
         y_all_iv = ivls['losses']['ok'].as_list()
         y_var_iv = ivls['losses_variance']['ok'].as_list()
 
-        # using constant liar heuristic for jobs in progress
-        # XXX: should this be the mean of all jobs or the mean
-        #      of random jobs?  Probably all jobs.
-        liar_y_mean = y_mean
+        liar_y_mean = numpy.mean(ivls['losses']['ok'].vals)
         liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
 
         for pseudo_bad_status in 'new', 'running':
@@ -861,6 +930,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         for k in self.kernels:
             k.random_reset(self.numpy_rng)
 
+        # re-initialize coefficients to even weights
+        for p in self.convex_coefficient_params:
+            p.set_value(0 * p.get_value())
+
         def get_pt():
             rval = []
             for p in self.params:
@@ -878,7 +951,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             assert i == len(pt)
             #print self.kernel.summary()
 
+        n_calls = [0]
         def f(pt):
+            n_calls[0] += 1
             set_pt(pt)
             return nll_fn(self._GP_n_train,
                     self._GP_n_train,
@@ -887,6 +962,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     *self._GP_x_all.flatten())
 
         def df(pt):
+            n_calls[0] += 1
             set_pt(pt)
             dparams = dnll_dparams(self._GP_n_train,
                     self._GP_n_train,
@@ -923,7 +999,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         """
         return self.GP_mean_variance(x)[1]
 
-    def GP_mean_variance(self, x):
+    def GP_mean_variance(self, x, ret_K=False):
         """
         Compute mean and variance at points in x
         """
@@ -955,14 +1031,17 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self._GP_y_var,
                 *(self._GP_x_all.flatten() + x.flatten()))
 
-        if 0:
-            for K_row in rval_K:
-                print K_row
+        if ret_K:
+            return rval_K
+
         rval_var_min = rval_var.min()
         assert rval_var_min > -1e-4, rval_var_min
         rval_var = numpy.maximum(rval_var, 0)
         return (rval_mean * self._GP_y_std + self._GP_y_mean,
                 rval_var * self._GP_y_std ** 2)
+
+    def GP_train_K(self):
+        return self.GP_mean_variance(self._GP_x_all, ret_K=True)
 
     def GP_EI(self, x):
         x_idxset = x.idxset()
