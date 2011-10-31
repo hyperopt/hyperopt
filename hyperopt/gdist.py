@@ -31,22 +31,25 @@ class Union(theano.Op):
     def __hash__(self):
         return hash(type(self))
 
-    def make_node(self, v1, v2):
-        v1 = tensor.as_tensor_variable(v1)
-        v2 = tensor.as_tensor_variable(v2)
-        if v1.ndim != 1:
-            raise TypeError()
-        if v2.ndim != 1:
-            raise TypeError()
-        assert 'int' in str(v1.dtype)
+    def make_node(self, *argv):
+        argv = map(tensor.as_tensor_variable, argv)
+        if len(argv) == 0:
+            raise TypeError('union requires at least one argument')
+        for v in argv:
+            if v.ndim != 1:
+                raise TypeError('1d symbolic array required', v)
+            if 'int' not in str(v.dtype):
+                raise TypeError('int dtype required', v)
         return theano.gof.Apply(self,
-                [v1, v2],
-                [v1.type()])
+                list(argv),
+                [argv[0].type()])
 
     def perform(self, node, inputs, outstorage):
-        v1, v2 = inputs  # numeric!
-        ans = numpy.array(sorted(list(set(v1).union(v2)))).astype(v1.dtype)
-        outstorage[0][0] = ans
+        ans = set(inputs[0])
+        for ii in inputs[1:]:
+            ans.update(ii)
+        ans = numpy.array(sorted(ans))
+        outstorage[0][0] = node.outputs[0].type.filter(ans, strict=False)
 
 union = Union()
 
