@@ -108,6 +108,9 @@ class Distractor(Base):
         f2 = 2 * numpy.exp(-(config['x'] + 10) ** 2)  # bump with height 2 at (x=-10)
         return f1 + f2
 
+    def loss_variance(self, result, config=None):
+        return 0.0
+
 
 class EggCarton(Base):
     """
@@ -136,6 +139,9 @@ class EggCarton(Base):
         f1 = numpy.sin(x)                # climbs rightward from 0.0 to 1.0
         f2 = 2 * numpy.exp(-(x/5.0)**2)  # bump with height 2 at (x=-10)
         return f1 + f2
+
+    def loss_variance(self, result, config=None):
+        return 0.0
 
 
 class EggCarton2(Base):
@@ -169,4 +175,7 @@ class EggCarton2(Base):
             r -= numpy.cos(x) * config['hf']['amp']
 
         return r
+
+    def loss_variance(self, result, config=None):
+        return 0.01
 
