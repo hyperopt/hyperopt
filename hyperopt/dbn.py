@@ -587,13 +587,20 @@ class DBN_Base(Bandit):
 
     @classmethod
     def true_loss(cls, result, argd=None):
-        return 1 - result.get('best_epoch_test', None)
+        try:
+            rval =  float(1 - result['best_epoch_test'])
+            if 0 <= rval <= 1:
+                return rval
+        except (KeyError, TypeError):
+            return None
 
     @classmethod
     def status(cls, result):
         """Extract the job status from a result document
         """
-        if (result['status'] == 'ok' and cls.loss(result) is None):
+        if (result['status'] == 'ok' and
+            (cls.loss(result) is None
+                or cls.true_loss(result) is None)):
             return 'fail'
         else:
             return result['status']
