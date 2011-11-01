@@ -20,16 +20,20 @@ import montetheano as MT
 import base
 
 
-class Union(theano.Op):
+class SetOp(theano.Op):
     """
-    Inputs: two lists of integers.
-    Returns: sorted union of the input lists.
+    Inputs: N vectors of integers.
+    Returns: sorted union of all input elements.
     """
+    def __init__(self, operation):
+        self.operation = operation
+
     def __eq__(self, other):
-        return type(self) == type(other)
+        return (type(self) == type(other)
+                and self.operation == other.operation)
 
     def __hash__(self):
-        return hash(type(self))
+        return hash((type(self), self.operation))
 
     def make_node(self, *argv):
         argv = map(tensor.as_tensor_variable, argv)
@@ -45,13 +49,22 @@ class Union(theano.Op):
                 [argv[0].type()])
 
     def perform(self, node, inputs, outstorage):
+        for ii in inputs:
+            if 'int' not in str(ii.dtype):
+                raise TypeError('non-int arg to SetOp', ii)
         ans = set(inputs[0])
-        for ii in inputs[1:]:
-            ans.update(ii)
-        ans = numpy.array(sorted(ans))
-        outstorage[0][0] = node.outputs[0].type.filter(ans, strict=False)
+        if self.operation == 'union':
+            ans.update(*inputs[1:])
+        elif self.operation == 'difference':
+            ans.difference_update(*inputs[1:])
+        else:
+            raise NotImplementedError(self.operation)
+        npy_ans = numpy.array(sorted(ans), dtype=node.outputs[0].dtype)
+        outstorage[0][0] = node.outputs[0].type.filter(npy_ans, strict=True)
 
-union = Union()
+union = SetOp('union')
+#XXX: s/union/set_union
+set_difference = SetOp('difference')
 
 
 def gdistable(obj):
