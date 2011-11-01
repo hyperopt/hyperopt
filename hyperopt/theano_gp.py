@@ -26,7 +26,7 @@ from idxs_vals_rnd import IdxsVals, IdxsValsList
 from theano_bandit_algos import TheanoBanditAlgo
 from theano_gm import AdaptiveParzenGM
 
-from gdist import union
+from gdist import set_difference
 
 
 def dots(*args):
@@ -141,8 +141,11 @@ class SparseGramSet(theano.gof.Op):
             rval = base.copy()
 
         storage[0][0] = rval
-        if amt.size == 0:
-            return
+        if (len(i0) * len(i1) == 0):
+            if amt.size == 0 or amt.shape == ():
+                return
+            # if one of the index vecs is empty, but amt is not a scalar
+            # then the code below should generate a shape-based error
 
         if 0:
             print 'SparseGramSet operation', self.operation,
@@ -484,7 +487,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     """
     Gaussian proces - based BanditAlgo
     """
-
     params_l2_penalty = 0
     # fitting penalty on the lengthscales of kernels
     # might make sense to make this negative to blur out the ML solution.
@@ -509,6 +511,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     #       - numerically good
     #       - analytic form, fast computation
     EI_criterion = 'softmax_hack'
+
+    EI_ambition = 1.0
 
     n_candidates_to_draw = 20
     # number of candidates returned by GM, and refined with gradient EI
@@ -766,12 +770,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         # we need to top up the gram matrix with weighted blocks of 1s
         # every time a categorical variable
         # sliced categoricals
-        if 0:
+        if 1:
             sliced_vals = set(self.categorical_parent_of_idxs.values())
             sliced_vals.remove(None)
-            print sliced_vals
-            for v in sliced_vals:
-                print v, [iv for iv in self.s_prior if iv.vals is v]
+            if 0:
+                print sliced_vals
+                for v in sliced_vals:
+                    print v, [iv for iv in self.s_prior if iv.vals is v]
             sliced_idxs = []
             sliced_idxs0 = []
             sliced_idxs1 = []
@@ -797,14 +802,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         if parent_vals == vals])
                 # child_idxs are among s_prior
                 assert child_idxs
-                pos_of_child_idxs = [i for i, iv in enumerate(self.s_prior)
-                        if iv.idxs in child_idxs]
-                child_idxs0 = [x0[i].idxs for i in pos_of_child_idxs]
-                child_idxs1 = [x1[i].idxs for i in pos_of_child_idxs]
-
-                union0 = union(*child_idxs0)
-                union1 = union(*child_idxs1)
-
                 weight = None
                 for ci in child_idxs:
                     if weight is None:
@@ -812,10 +809,14 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     else:
                         assert weight is self.gram_weights[ci]
 
-                base = sparse_gram_inc(base, weight, idxs0, idxs1)
-                base = sparse_gram_inc(base, -weight, union0, union1)
-        else:
-            print >> sys.stderr, "TODO: block update causes PSD failure "
+                pos_of_child_idxs = [i for i, iv in enumerate(self.s_prior)
+                        if iv.idxs in child_idxs]
+                child_idxs0 = [x0[i].idxs for i in pos_of_child_idxs]
+                child_idxs1 = [x1[i].idxs for i in pos_of_child_idxs]
+
+                base = sparse_gram_inc(base, weight,
+                        set_difference(idxs0, *child_idxs0),
+                        set_difference(idxs1, *child_idxs1))
         return base
 
     def prepare_GP_training_data(self, ivls):
@@ -1059,7 +1060,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     self.cand_EI,
                     allow_input_downcast=True)
 
-        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var)).min()
+        thresh = (self._GP_y_all
+                - self.EI_ambition * numpy.sqrt(self._GP_y_var)).min()
 
         rval = self._EI_fn(self._GP_n_train,
                 len(x_idxset),
@@ -1154,13 +1156,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     def suggest_from_model(self, trials, results, N):
         logger.debug('suggest_from_model')
         ivls = self.idxs_vals_by_status(trials, results)
-        prepared_data = self.prepare_GP_training_data(ivls)
-        self.fit_GP(*prepared_data)
 
         self.gm_algo.n_EI_candidates = self.n_candidates_to_draw_in_GM
         candidates = self.gm_algo.suggest_from_model(ivls,
                 self.n_candidates_to_draw)
 
+        prepared_data = self.prepare_GP_training_data(ivls)
+        self.fit_GP(*prepared_data)
         candidates_opt = self.GP_EI_optimize(candidates)
 
         EI_opt = self.GP_EI(candidates_opt)
