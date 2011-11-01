@@ -7,6 +7,7 @@ __copyright__ = "(c) 2011, James Bergstra, Dan Yamins"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
+import cPickle
 import unittest
 
 import numpy
@@ -350,6 +351,7 @@ class TestGaussian4D(unittest.TestCase):
         assert min(serial_exp.losses()) < .05
         assert max(l1, l4) * 3 < min(l2, l3)
 
+
 class TestGaussWave(unittest.TestCase):
     def setUp(self):
         numpy.random.seed(555)
@@ -371,6 +373,7 @@ class TestGaussWave(unittest.TestCase):
         plt.figure()
         hyperopt.plotting.main_plot_vars(self.serial_exp,
                 end_with_show=False)
+
 
 class TestGaussWave2(unittest.TestCase):
     def setUp(self):
@@ -394,6 +397,7 @@ class TestGaussWave2(unittest.TestCase):
         plt.figure()
         hyperopt.plotting.main_plot_vars(self.serial_exp,
                 end_with_show=False)
+
 
 class TestGaussWave3(unittest.TestCase):
     """
@@ -450,6 +454,7 @@ class TestGaussWave3(unittest.TestCase):
         plt.figure()
         hyperopt.plotting.main_plot_vars(self.serial_exp,
                 end_with_show=False)
+
 
 class TestDummyDBN(unittest.TestCase):
     def dbn_template0(self,
@@ -675,6 +680,95 @@ class TestDummyDBN(unittest.TestCase):
                 assert numpy.max(abs(d - 1)) < .0001
                 assert 'float64' == str(d.dtype)
 
+
+class TestPickle(unittest.TestCase):
+    def setUp(self):
+        numpy.random.seed(555)
+        self.algo_a = GPAlgo(GaussWave2())
+        self.algo_a.n_startup_jobs = 10
+        self.algo_a.EI_ambition = 0.75
+        self.algo_b = GPAlgo(GaussWave2())
+        self.algo_b.n_startup_jobs = 10
+        self.algo_b.EI_ambition = 0.75
+        self.exp_a = SerialExperiment(self.algo_a)
+        self.exp_b = SerialExperiment(self.algo_b)
+
+    def test_reproducible(self):
+        self.exp_a.run(21)
+        self.exp_b.run(21)
+        for i, (ta, tb) in enumerate(zip(
+                self.exp_a.trials,
+                self.exp_b.trials)):
+            print i, ta, tb
+        print self.exp_a.losses()
+        print self.exp_b.losses()
+        # N.B. exact comparison, not approximate
+        assert numpy.all(self.exp_a.losses() == self.exp_b.losses())
+
+    def test_reproducible_w_recompiling(self):
+        for i in range(21):
+            self.exp_b.run(1)
+            if not i % 5:
+                todel = [k for k, v in self.algo_b.__dict__.items()
+                        if isinstance(v, theano.compile.Function)]
+                for name in todel:
+                    delattr(self.algo_b, name)
+        self.exp_a.run(21)
+        for i, (ta, tb) in enumerate(zip(
+                self.exp_a.trials,
+                self.exp_b.trials)):
+            print i, ta, tb
+        print self.exp_a.losses()
+        print self.exp_b.losses()
+        # N.B. exact comparison, not approximate
+        assert numpy.all(self.exp_a.losses() == self.exp_b.losses())
+
+    def test_reproducible_w_pickling(self):
+        self.exp_a.bandit_algo.trace_on = True
+        self.exp_b.bandit_algo.trace_on = True
+        ITERS = 12
+        for i in range(ITERS):
+            print 'running experiment b', i
+            self.exp_b.run(1)
+            if not i % 5:
+                # This knocks out the theano functions
+                # (see test_reproducible_w_recompiling)
+                # but also deep-copies the rest of the experiment
+                ####print 'pickling'
+                pstr = cPickle.dumps(self.exp_b)
+                ####print 'unpickling'
+                self.exp_b = cPickle.loads(pstr)
+        self.exp_a.run(ITERS)
+
+        trace_a = self.exp_a.bandit_algo._trace
+        trace_b = self.exp_b.bandit_algo._trace
+
+        for ta, tb in zip(trace_a, trace_b):
+            assert ta[0] == tb[0], (ta[0], tb[0])
+            print 'matching', ta[0]
+            na = numpy.asarray(ta[1])
+            nb = numpy.asarray(tb[1])
+            if not numpy.all(na == nb):
+                print ta[0]
+                print ''
+                print na.shape
+                print na
+                print ''
+                print nb.shape
+                print nb
+                print ''
+                print (na - nb)
+                assert 0
+        for i, (ta, tb) in enumerate(zip(
+                self.exp_a.trials,
+                self.exp_b.trials)):
+            ###print 'trial', i
+            ###print '  exp a', ta
+            ###print '  exp b', tb
+            pass
+        print self.exp_a.losses()
+        print self.exp_b.losses()
+        assert numpy.allclose(self.exp_a.losses(), self.exp_b.losses())
 
 def test_fit_categorical():
     numpy.random.seed(555)
