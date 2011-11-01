@@ -16,7 +16,6 @@ class GensonBandit(base.Bandit):
     def __init__(self,genson_file):
         template = genson.load(open(genson_file))
         base.Bandit.__init__(self.template)
-    
 
 class Base(base.Bandit):
     def __init__(self, template):
@@ -78,7 +77,7 @@ class TwoArms(Base):
         arms = 2
         reward_mus = [1] + [0] * (arms - 1)
         reward_sigmas = [1] * arms
-        return numpy.random.normal(size=(),
+        return self.rng.normal(size=(),
                 loc=reward_mus[config['x']],
                 scale=reward_sigmas[config['x']])
 
@@ -168,7 +167,7 @@ class GaussWave2(Base):
                     'amp', uniform(0, 1)))))
 
     def score(self, config):
-        r = numpy.random.randn() * .1
+        r = self.rng.randn() * .1
         x = config['x']
         r += 2 * numpy.exp(-(x/5.0)**2) # up to 2
         if config['hf']['kind'] == 'negcos':
