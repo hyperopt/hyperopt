@@ -223,8 +223,7 @@ class Experiment(object):
         def fmap(f):
             rval = numpy.asarray([f(r, doc(s))
                     for (r, s) in zip(self.results, self.trials)
-                    if r['status'] == 'ok' and self.bandit.loss(r, s) is not None
-                    ]).astype('float')
+                    if self.bandit.status(r) == 'ok']).astype('float')
             if not numpy.all(numpy.isfinite(rval)):
                 raise ValueError()
             return rval
