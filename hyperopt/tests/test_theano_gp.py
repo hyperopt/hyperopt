@@ -17,15 +17,16 @@ import theano
 from theano import tensor
 from theano.tests.unittest_tools import verify_grad, seed_rng
 
+import hyperopt
 from hyperopt.idxs_vals_rnd import IdxsValsList
 from hyperopt.bandits import TwoArms, GaussWave, GaussWave2
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.theano_gm import AdaptiveParzenGM
-from hyperopt.ht_dist2 import rSON2, normal
+from hyperopt.ht_dist2 import rSON2, normal, uniform, one_of, lognormal
 from hyperopt.genson_bandits import GensonBandit
 from hyperopt.experiments import SerialExperiment
-from hyperopt.dbn import Dummy_DBN_Base
+from hyperopt.dbn import Dummy_DBN_Base, geom
 import hyperopt.plotting
 
 
@@ -394,6 +395,287 @@ class TestGaussWave2(unittest.TestCase):
         hyperopt.plotting.main_plot_vars(self.serial_exp,
                 end_with_show=False)
 
+class TestGaussWave3(unittest.TestCase):
+    """
+    GP_BanditAlgo has different code paths for mulsets of one choice vs
+    mulsets with multiple choices.  This tests both kinds.
+    """
+    def setUp(self):
+        class Bandit(GensonBandit):
+            loss_target = -3
+            test_str = """ {
+                "x": uniform(-20, 20),
+                "hf": choice([
+                    {"kind": "raw"},
+                    {"kind": "negcos", "amp": uniform(0, 1)}]),
+                "y": choice([0,
+                    uniform(3, 4),
+                    uniform(2, 5),
+                    uniform(1, 6),
+                    choice([uniform(5, 6), uniform(4, 6.5)])])
+                }
+            """
+
+            def __init__(self):
+                GensonBandit.__init__(self, source_string=self.test_str)
+
+            def evaluate(self, config, ctrl):
+                r = numpy.random.randn() * .1
+                x = config['x']
+                r -= 2 * numpy.exp(-(x/5.0)**2) # up to 2
+                if config['hf']['kind'] == 'negcos':
+                    r -= numpy.sin(x) * config['hf']['amp']
+                r -= config['y']
+                return dict(loss=r, status='ok')
+
+            def loss_variance(self, result, config=None):
+                return 0.01
+
+        self.algo = GPAlgo(Bandit())
+        self.algo.n_startup_jobs = 5
+        self.serial_exp = SerialExperiment(self.algo)
+
+    def test_fit(self):
+        for i in range(50):
+            self.serial_exp.run(1)
+            if i > self.algo.n_startup_jobs:
+                print [k.lenscale() for k in self.algo.kernels]
+                d = numpy.diag(self.algo.GP_train_K())
+                print 'max abs err', numpy.max(abs(d - 1))
+                assert numpy.max(abs(d-1)) < .001
+                assert 'float64' == str(d.dtype)
+        plt.plot(
+                range(len(self.serial_exp.losses())),
+                self.serial_exp.losses())
+        plt.figure()
+        hyperopt.plotting.main_plot_vars(self.serial_exp,
+                end_with_show=False)
+
+class TestDummyDBN(unittest.TestCase):
+    def dbn_template0(self,
+            dataset_name='skdata.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=300,
+            sup_max_epochs=4000):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+            'next_layer', None)
+        return template
+
+    def dbn_template1(self,
+            dataset_name='skdata.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=300,
+            sup_max_epochs=4000):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+            'next_layer', one_of(None,
+            rSON2(
+                'n_hid', geom(2**7, 2**12, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                'cd_epochs', geom(1, 3000),
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 2),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', None)))
+        return template
+
+    def dbn_template2(self,
+            dataset_name='skdata.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=300,
+            sup_max_epochs=4000):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+            'next_layer', one_of(None,
+            rSON2(
+                'n_hid', geom(2**7, 2**12, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                'cd_epochs', geom(1, 3000),
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 2),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', one_of(None,
+                    rSON2(
+                        'n_hid', geom(2**7, 2**12, round=16),
+                        'W_init_dist', one_of('uniform', 'normal'),
+                        'W_init_algo', one_of('old', 'Xavier'),
+                        'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                        'cd_epochs', geom(1, 2000),
+                        'cd_batchsize', 100,
+                        'cd_sample_v0s', one_of(False, True),
+                        'cd_lr', lognormal(numpy.log(.01), 2),
+                        'cd_lr_anneal_start', geom(10, 10000),
+                        'next_layer', None)))))
+        return template
+
+    def dbn_template3(self,
+            dataset_name='skdata.larochelle_etal_2007.Rectangles',
+            sup_min_epochs=300,
+            sup_max_epochs=4000):
+        template = rSON2(
+            'preprocessing', one_of(
+                rSON2(
+                    'kind', 'raw'),
+                rSON2(
+                    'kind', 'zca',
+                    'energy', uniform(0.5, 1.0))),
+            'dataset_name', dataset_name,
+            'sup_max_epochs', sup_max_epochs,
+            'sup_min_epochs', sup_min_epochs,
+            'iseed', one_of(5, 6, 7, 8),
+            'batchsize', one_of(20, 100),
+            'lr', lognormal(numpy.log(.01), 3),
+            'lr_anneal_start', geom(100, 10000),
+            'l2_penalty', one_of(0, lognormal(numpy.log(1.0e-6), 2)),
+            'next_layer', one_of(None,
+            rSON2(
+                'n_hid', geom(2**7, 2**12, round=16),
+                'W_init_dist', one_of('uniform', 'normal'),
+                'W_init_algo', one_of('old', 'Xavier'),
+                'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                'cd_epochs', geom(1, 3000),
+                'cd_batchsize', 100,
+                'cd_sample_v0s', one_of(False, True),
+                'cd_lr', lognormal(numpy.log(.01), 2),
+                'cd_lr_anneal_start', geom(10, 10000),
+                'next_layer', one_of(None,
+                    rSON2(
+                        'n_hid', geom(2**7, 2**12, round=16),
+                        'W_init_dist', one_of('uniform', 'normal'),
+                        'W_init_algo', one_of('old', 'Xavier'),
+                        'W_init_algo_old_multiplier', lognormal(0.0, 1.0),
+                        'cd_epochs', geom(1, 2000),
+                        'cd_batchsize', 100,
+                        'cd_sample_v0s', one_of(False, True),
+                        'cd_lr', lognormal(numpy.log(.01), 2),
+                        'cd_lr_anneal_start', geom(10, 10000),
+                        'next_layer', one_of(None,
+                            rSON2(
+                                'n_hid', geom(2**7, 2**12, round=16),
+                                'W_init_dist', one_of('uniform', 'normal'),
+                                'W_init_algo', one_of('old', 'Xavier'),
+                                'W_init_algo_old_multiplier', lognormal(0., 1.),
+                                'cd_epochs', geom(1, 1500),
+                                'cd_batchsize', 100,
+                                'cd_sample_v0s', one_of(False, True),
+                                'cd_lr', lognormal(numpy.log(.01), 2),
+                                'cd_lr_anneal_start', geom(10, 10000),
+                                'next_layer', None,
+                                )))))))
+        return template
+
+    def bandit(self, template):
+        class Bandit(hyperopt.base.Bandit):
+            def __init__(self, template):
+                hyperopt.base.Bandit.__init__(self, template=template)
+                self.rng = numpy.random.RandomState(234)
+            def evaluate(self, argd, ctrl):
+                rval = dict(dbn_train_fn_version=-1)
+                # XXX: TODO: make up a loss function that depends on argd.
+                rval['status'] = 'ok'
+                rval['best_epoch_valid'] = float(self.rng.rand())
+                rval['loss'] = 1.0 - rval['best_epoch_valid']
+                return rval
+        return Bandit(template)
+
+    def test_fit0(self):
+        bandit = self.bandit(self.dbn_template0())
+        bandit_algo = GPAlgo(bandit)
+        bandit_algo.n_startup_jobs = 20
+        serial_exp = SerialExperiment(bandit_algo)
+        for i in range(50):
+            serial_exp.run(1)
+            if i > bandit_algo.n_startup_jobs:
+                #print 'LENSCALES',
+                #print [k.lenscale() for k in bandit_algo.kernels]
+                d = numpy.diag(bandit_algo.GP_train_K())
+                print 'max abs err', numpy.max(abs(d - 1))
+                assert numpy.max(abs(d - 1)) < .0001
+                assert 'float64' == str(d.dtype)
+
+    def test_fit1(self):
+        bandit = self.bandit(self.dbn_template1())
+        bandit_algo = GPAlgo(bandit)
+        bandit_algo.n_startup_jobs = 20
+        serial_exp = SerialExperiment(bandit_algo)
+        for i in range(50):
+            serial_exp.run(1)
+            if i > bandit_algo.n_startup_jobs:
+                d = numpy.diag(bandit_algo.GP_train_K())
+                print 'max abs err', numpy.max(abs(d - 1))
+                assert numpy.max(abs(d - 1)) < .0001
+                assert 'float64' == str(d.dtype)
+
+    def test_fit2(self):
+        bandit = self.bandit(self.dbn_template2())
+        bandit_algo = GPAlgo(bandit)
+        bandit_algo.n_startup_jobs = 20
+        serial_exp = SerialExperiment(bandit_algo)
+        for i in range(50):
+            serial_exp.run(1)
+            if i > bandit_algo.n_startup_jobs:
+                d = numpy.diag(bandit_algo.GP_train_K())
+                print 'max abs err', numpy.max(abs(d - 1))
+                assert numpy.max(abs(d - 1)) < .0001
+                assert 'float64' == str(d.dtype)
+
+    def test_fit3(self):
+        bandit = self.bandit(self.dbn_template3())
+        bandit_algo = GPAlgo(bandit)
+        bandit_algo.n_startup_jobs = 20
+        serial_exp = SerialExperiment(bandit_algo)
+        for i in range(50):
+            serial_exp.run(1)
+            if i > bandit_algo.n_startup_jobs:
+                d = numpy.diag(bandit_algo.GP_train_K())
+                print 'max abs err', numpy.max(abs(d - 1))
+                assert numpy.max(abs(d - 1)) < .0001
+                assert 'float64' == str(d.dtype)
+
+
 def test_fit_categorical():
     numpy.random.seed(555)
     serial_exp = SerialExperiment(GPAlgo(TwoArms()))
@@ -407,20 +689,6 @@ def test_fit_categorical():
     # since the GP doesn't apply to discrete variables.
     assert arm0count > 60
 
-
-def test_fit_dummy_dbn():
-    bandit = Dummy_DBN_Base()
-    bandit_algo = GPAlgo(bandit)
-    bandit_algo.n_startup_jobs = 20
-    serial_exp = SerialExperiment(bandit_algo)
-    bandit_algo.show = False
-    bandit_algo.use_base_suggest = True
-
-    serial_exp.run(bandit_algo.n_startup_jobs)
-    serial_exp.run(50) # use the GP for some iterations
-
-    # No assertion here.
-    # If it runs this far, it's already something.
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestGaussian4D)

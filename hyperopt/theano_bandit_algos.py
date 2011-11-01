@@ -230,7 +230,6 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         ids = self.record(ivl)
         N = len(ids)
-        print 'IDS', ids
 
         # now call idxs_vals_to_dict_list to rebuild a nested document
         # suitable for returning

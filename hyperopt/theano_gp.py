@@ -18,6 +18,7 @@ from scipy.optimize import fmin_l_bfgs_b
 import theano
 from theano.printing import Print
 from theano import tensor
+from theano.tensor import as_tensor_variable
 from theano.sandbox.linalg import (diag, matrix_inverse, det, psd, trace)
 import montetheano
 import montetheano.distributions as mt_dist
@@ -85,6 +86,7 @@ class SparseGramGet(theano.gof.Op):
         gbase = sparse_gram_inc(base0, g_outputs[0], i0, i1)
         return [gbase, None, None]
 
+
 sparse_gram_get = SparseGramGet()
 
 
@@ -120,7 +122,7 @@ class SparseGramSet(theano.gof.Op):
         if base.ndim != 2:
             raise TypeError('base not matrix', base)
         if amt.ndim not in (0, 2):
-            raise TypeError('amt not matrix or scalar', amt)
+            raise TypeError('amt not matrix or scalar', amt.type)
         if i0.ndim != 1:
             raise TypeError('i0 not lvector', i0)
         if 'int' not in str(i0.dtype):
@@ -191,6 +193,7 @@ class SparseGramSet(theano.gof.Op):
             return [gbase, gamt, None, None]
         else:
             raise NotImplementedError()
+
 
 sparse_gram_set = SparseGramSet('set')
 sparse_gram_inc = SparseGramSet('inc')
@@ -273,7 +276,6 @@ class SquaredExponentialKernel(object):
 
 
 class LogSquaredExponentialKernel(SquaredExponentialKernel):
-
     def K(self, x, y):
         if x.ndim == y.ndim == 1:
             x = x.dimshuffle(0, 'x')
@@ -358,16 +360,22 @@ class GPR_math(object):
 
     """
 
-    def __init__(self, x, y, var_y, K_fn, N=None, min_variance=1e-6):
+    def __init__(self, x, y, var_y, K_fn, N=None, min_variance=1e-6,
+            dtype='float64'):
         self.x = x
         self.y = tensor.as_tensor_variable(y)
         self.var_y = tensor.as_tensor_variable(var_y)
+        if self.y.dtype != dtype:
+            raise TypeError('y has dtype', self.y.dtype)
+        if self.var_y.dtype != dtype:
+            raise TypeError('y has dtype', self.var_y.dtype)
         self.K_fn = K_fn
         self.min_variance = min_variance
         if N is None:
             self.N = self.y.shape[0]
         else:
             self.N = N
+        self.dtype = dtype
 
     def kyn(self, x=None):
         """Return tuple: K, y, var_y, N"""
@@ -386,6 +394,8 @@ class GPR_math(object):
         nll = (0.5 * dots(y, matrix_inverse(rK), y)
                 + 0.5 * tensor.log(det(rK))
                 + N / 2.0 * tensor.log(2 * numpy.pi))
+        if nll.dtype != self.dtype:
+            raise TypeError('nll dtype', nll.dtype)
         return nll
 
     def s_mean(self, x):
@@ -396,6 +406,8 @@ class GPR_math(object):
 
         K_x = self.K_fn(self.x, x)
         y_x = tensor.dot(alpha, K_x)
+        if y_x.dtype != self.dtype:
+            raise TypeError('y_x dtype', y_x.dtype)
         return y_x
 
     def s_variance(self, x):
@@ -404,6 +416,8 @@ class GPR_math(object):
         rK = psd(K + var_y * tensor.eye(N))
         K_x = self.K_fn(self.x, x)
         var_x = 1 - diag(dots(K_x.T, matrix_inverse(rK), K_x))
+        if var_x.dtype != self.dtype:
+            raise TypeError('var_x dtype', var_x.dtype)
         return var_x
 
     def s_deg_of_freedom(self):
@@ -416,6 +430,8 @@ class GPR_math(object):
         K, y, var_y, N = self.kyn()
         rK = psd(K + var_y * tensor.eye(N))
         dof = trace(tensor.dot(K, matrix_inverse(rK)))
+        if dof.dtype != self.dtype:
+            raise TypeError('dof dtype', dof.dtype)
         return dof
 
     def s_expectation_lt_thresh(self, x, thresh):
@@ -428,9 +444,11 @@ class GPR_math(object):
                 tensor.maximum(self.s_variance(x),
                     self.min_variance))
         rval = 0.5 + 0.5 * tensor.erf((thresh - mu) / sigma)
+        if rval.dtype != self.dtype:
+            raise TypeError('rval dtype', rval.dtype)
         return rval
 
-    def softmax_hack(self, x, thresh):
+    def softplus_hack(self, x, thresh):
         """
         return approximation of \log(\int_{-inf}^{thresh} y p(y|x) dy)
         """
@@ -440,6 +458,8 @@ class GPR_math(object):
                 tensor.maximum(self.s_variance(x),
                     self.min_variance))
         rval = tensor.log1p(tensor.exp((thresh - mu) / sigma))
+        if rval.dtype != self.dtype:
+            raise TypeError('rval dtype', rval.dtype)
         return rval
 
 
@@ -483,6 +503,7 @@ def categorical_parent(v):
         raise ValueError('expecting categorical', catvar)
     return catvar
 
+
 class GP_BanditAlgo(TheanoBanditAlgo):
     """
     Gaussian proces - based BanditAlgo
@@ -506,18 +527,18 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     #       - mathematically equivalent to optimizing EI
     #       - numerically good (in theory)
     #       - not implemented
-    #   'softmax_hack' log(1 + sigmoid((mu-thresh)/sigma))
+    #   'softplus_hack' log(1 + sigmoid((mu-thresh)/sigma))
     #       - mathematically approximate (logistic sigmoid \approx erf)
     #       - numerically good
     #       - analytic form, fast computation
-    EI_criterion = 'softmax_hack'
+    EI_criterion = 'softplus_hack'
 
-    EI_ambition = 1.0
+    EI_ambition = 0.75
 
-    n_candidates_to_draw = 20
+    n_candidates_to_draw = 50
     # number of candidates returned by GM, and refined with gradient EI
 
-    n_candidates_to_draw_in_GM = 100
+    n_candidates_to_draw_in_GM = 200
     # number of candidates drawn within GM
 
     def qln_cleanup(self, prior_vals, kern, candidate_vals):
@@ -605,6 +626,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             self.idxs_mulsets.setdefault(iv.idxs, []).append(k)
 
     def init_gram_weights_helper(self, idxs, parent_weight, cparent):
+        if parent_weight.ndim != 0:
+            raise TypeError(parent_weight.type)
         kerns = self.idxs_mulsets[idxs]
         cat_kerns = [k for k, iv in zip(self.kernels, self.s_prior) if (
             isinstance(k, CategoryKernel)
@@ -616,19 +639,19 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             # We have a mulset with one categorical variable in it.
             param = theano.shared(numpy.asarray(0.0))
             self.convex_coefficient_params.append(param)
+            self.convex_coefficient_params_bounds.append((-5, 5))
             weight = tensor.nnet.sigmoid(param)
             # call recursively for each mulset
             # that corresponds to a slice out of idxs
-            for sub_idxs in self.idxs_mulsets:
-                if idxs == sub_idxs.owner.inputs[0]:
-                    # choice nodes in genson generate
-                    # advanced indexing on idxs.
-                    if not isinstance(sub_idxs.owner.op,
-                            tensor.AdvancedSubtensor1):
-                        raise NotImplementedError(sub_idxs)
+            cat_vals = self.s_prior[self.kernels.index(cat_kerns[0])].vals
+            self.weight_to_children[cat_vals] = parent_weight * weight
+            sub_idxs_list = [sub_idxs for sub_idxs in self.idxs_mulsets
+                    if cparent[sub_idxs] == cat_vals]
+            assert all(si.owner.inputs[0] == idxs for si in sub_idxs_list)
+            for sub_idxs in sub_idxs_list:
                     self.init_gram_weights_helper(
                             sub_idxs,
-                            parent_weight=parent_weight * weight,
+                            parent_weight=self.weight_to_children[cat_vals],
                             cparent=cparent)
             #print 'adding gram_weight', idxs
             #theano.printing.debugprint(parent_weight * (1 - weight))
@@ -641,20 +664,28 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             n_terms = len(cat_kerns) + 1
             params = theano.shared(numpy.zeros(n_terms))
             self.convex_coefficient_params.append(params)
+            self.convex_coefficient_params_bounds.extend([(-5, 5)] * n_terms)
             weights = tensor.nnet.softmax(params) * parent_weight
+            if weights.ndim == 2:
+                # dimshuffle gets rid of the extra dimension inserted by the
+                # stupid softmax implementation.  Get rid of this once
+                # Theano's softmax vector branch is merged to master.
+                weights = weights.dimshuffle(1)
             for i, k in enumerate(cat_kerns):
                 # we're looking for sub_idxs that are formed by
                 # advanced-indexing into `idxs` at positions determined
                 # by the random choices of the variable corresponding to
                 # kernel k
+                weights_i = weights[i]
                 cat_vals = self.s_prior[self.kernels.index(k)].vals
+                self.weight_to_children[cat_vals] = weights_i
                 sub_idxs_list = [sub_idxs for sub_idxs in self.idxs_mulsets
                         if cparent[sub_idxs] == cat_vals]
                 assert all(si.owner.inputs[0] == idxs for si in sub_idxs_list)
                 for sub_idxs in sub_idxs_list:
                     self.init_gram_weights_helper(
                             sub_idxs,
-                            parent_weight=weights[i],
+                            parent_weight=weights_i,
                             cparent=cparent)
             self.gram_weights[idxs] = weights[len(cat_kerns)]
 
@@ -662,10 +693,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         """ Initialize mixture component weights of the hierarchical kernel.
         """
         try:
-            gram_weights = self.gram_weights
+            self.gram_weights
+            raise Exception('already initialized weights')
         except AttributeError:
             self.convex_coefficient_params = []
-            gram_weights = self.gram_weights = {}
+            self.convex_coefficient_params_bounds = []
+            self.gram_weights = {}
+            self.weight_to_children = {}
 
         # XXX : to be more robust, it would be better to build an Env
         # with the idxs as outputs, and then run the MergeOptimizer on
@@ -688,9 +722,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 cparent[ii] = categorical_parent(ii)
 
         self.categorical_parent_of_idxs = cparent
-        self.init_gram_weights_helper(root_idxs, 1, cparent)
-        self.convex_coefficient_param_bounds = [(-5, 5)
-                for p in self.convex_coefficient_params]
+        self.init_gram_weights_helper(root_idxs, as_tensor_variable(1.0), cparent)
 
     def __init__(self, bandit):
         TheanoBanditAlgo.__init__(self, bandit)
@@ -708,7 +740,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.init_kernels()
         self.init_gram_weights()
         self.params.extend(self.convex_coefficient_params)
-        self.param_bounds.extend(self.convex_coefficient_param_bounds)
+        self.param_bounds.extend(self.convex_coefficient_params_bounds)
 
         self.s_big_param_vec = tensor.vector()
         ### assumes all variables are refinable
@@ -735,8 +767,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             self.cand_EI = self.gprmath.s_expectation_lt_thresh(
                     self.cand_x,
                     self.cand_EI_thresh)
-        elif self.EI_criterion == 'softmax_hack':
-            self.cand_EI = self.gprmath.softmax_hack(
+        elif self.EI_criterion == 'softplus_hack':
+            self.cand_EI = self.gprmath.softplus_hack(
                     self.cand_x,
                     self.cand_EI_thresh)
         else:
@@ -757,12 +789,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         gram_matrices = {}
         gram_matrices_idxs = {}
         for k, iv_prior, iv0, iv1 in zip(self.kernels, self.s_prior, x0, x1):
-            gram_matrices.setdefault(iv_prior.idxs, []).append(
-                    k.K(iv0.vals, iv1.vals))
+            gram = k.K(iv0.vals, iv1.vals)
+            gram_matrices.setdefault(iv_prior.idxs, []).append(gram)
             gram_matrices_idxs.setdefault(iv_prior.idxs, [iv0.idxs, iv1.idxs])
 
         nx1 = self.s_n_train if x1 is x0 else self.s_n_test
-        base = tensor.alloc(0.0, self.s_n_train, nx1)
+        # N.B. the asarray works around mysterious Theano casting rules...
+        base = tensor.alloc(numpy.asarray(0.0), self.s_n_train, nx1)
         for idxs, grams in gram_matrices.items():
             prod = self.gram_weights[idxs] * tensor.mul(*grams)
             base = sparse_gram_inc(base, prod, *gram_matrices_idxs[idxs])
@@ -777,46 +810,23 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 print sliced_vals
                 for v in sliced_vals:
                     print v, [iv for iv in self.s_prior if iv.vals is v]
-            sliced_idxs = []
-            sliced_idxs0 = []
-            sliced_idxs1 = []
-            for vals in sliced_vals:
-                tt = [i for i, iv in enumerate(self.s_prior)
-                        if iv.vals is vals]
-                assert len(tt) == 1, tt
-                i = tt[0]
-                sliced_idxs.append(self.s_prior[i].idxs)
-                sliced_idxs0.append(x0[i].idxs)
-                sliced_idxs1.append(x1[i].idxs)
-
             # assert there are no dups
-            assert len(sliced_idxs) == len(set(sliced_idxs))
+            assert len(sliced_vals) == len(set(sliced_vals))
 
-            cp_items = self.categorical_parent_of_idxs.items()
-            for prior_idxs, prior_vals, idxs0, idxs1 in zip(
-                    sliced_idxs,
-                    sliced_vals,
-                    sliced_idxs0,
-                    sliced_idxs1):
-                child_idxs = set([subidxs for subidxs, parent_vals in cp_items
-                        if parent_vals == vals])
-                # child_idxs are among s_prior
-                assert child_idxs
-                weight = None
-                for ci in child_idxs:
-                    if weight is None:
-                        weight = self.gram_weights[ci]
-                    else:
-                        assert weight is self.gram_weights[ci]
+            cparent = self.categorical_parent_of_idxs
 
+            for prior_vals in sliced_vals:
+                weight = self.weight_to_children[prior_vals]
                 pos_of_child_idxs = [i for i, iv in enumerate(self.s_prior)
-                        if iv.idxs in child_idxs]
+                        if cparent[iv.idxs] == prior_vals]
                 child_idxs0 = [x0[i].idxs for i in pos_of_child_idxs]
                 child_idxs1 = [x1[i].idxs for i in pos_of_child_idxs]
-
+                iii = self.s_prior.valslist().index(prior_vals)
+                assert iii >= 0
                 base = sparse_gram_inc(base, weight,
-                        set_difference(idxs0, *child_idxs0),
-                        set_difference(idxs1, *child_idxs1))
+                        set_difference(x0[iii].idxs, *child_idxs0),
+                        set_difference(x1[iii].idxs, *child_idxs1))
+        assert base.dtype == 'float64'
         return base
 
     def prepare_GP_training_data(self, ivls):
@@ -1202,6 +1212,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         self.suggest_from_model(trials, results, N))
 
         finally:
-            print 'suggest %i took %.2f seconds' % (
+            logger.info('suggest %i took %.2f seconds' % (
                     len(ivls['losses']['ok'].idxs),
-                    time.time() - t)
+                    time.time() - t))
+
+
+def HGP(bandit):
+    return GP_BanditAlgo(bandit)
