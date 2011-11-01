@@ -62,6 +62,7 @@ class SetOp(theano.Op):
         npy_ans = numpy.array(sorted(ans), dtype=node.outputs[0].dtype)
         outstorage[0][0] = node.outputs[0].type.filter(npy_ans, strict=True)
 
+
 union = SetOp('union')
 #XXX: s/union/set_union
 set_difference = SetOp('difference')
