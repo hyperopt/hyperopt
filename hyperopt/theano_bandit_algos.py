@@ -138,7 +138,7 @@ class TheanoBanditAlgo(base.BanditAlgo):
         """Append idxs and vals to variable database, by numbering them
         self._next_id to N, and returning the list of these ids."""
         if len(ivl) != len(self.db_idxs):
-            print('NUM',len(ivl),len(self.db_idxs))
+            print('NUM', len(ivl), len(self.db_idxs))
             raise ValueError('number of variables does not match db_idxs - '
                     'are you sure you are recording to the right database?')
         new_ids = []
@@ -230,14 +230,15 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         ids = self.record(ivl)
         N = len(ids)
+        print 'IDS', ids
 
         # now call idxs_vals_to_dict_list to rebuild a nested document
         # suitable for returning
         all_r_idxs = [None] * len(self.all_s_idxs)
         all_r_vals = [None] * len(self.all_s_vals)
         for i, j in enumerate(self.all_s_locs):
-            all_r_idxs[j] = ivl[i].idxs
-            all_r_vals[j] = ivl[i].vals
+            all_r_idxs[j] = numpy.asarray(ivl[i].idxs)
+            all_r_vals[j] = numpy.asarray(ivl[i].vals)
         rval = self.bandit.template.idxs_vals_to_dict_list(
                 list(all_r_idxs),
                 list(all_r_vals))
