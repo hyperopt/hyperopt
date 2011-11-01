@@ -21,6 +21,7 @@ from hyperopt.idxs_vals_rnd import IdxsValsList
 from hyperopt.bandits import TwoArms, EggCarton, EggCarton2
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
+from hyperopt.theano_gm import AdaptiveParzenGM
 from hyperopt.ht_dist2 import rSON2, normal
 from hyperopt.genson_bandits import GensonBandit
 from hyperopt.experiments import SerialExperiment
@@ -377,10 +378,11 @@ class TestEggCarton2(unittest.TestCase):
         numpy.random.seed(555)
         self.algo = GPAlgo(EggCarton2())
         self.algo.n_startup_jobs = 20
+        self.algo.EI_ambition = 0.75
         self.serial_exp = SerialExperiment(self.algo)
 
     def test_fit(self):
-        for i in range(100):
+        for i in range(75):
             self.serial_exp.run(1)
             if i > self.algo.n_startup_jobs:
                 print [k.lenscale() for k in self.algo.kernels]
