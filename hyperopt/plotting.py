@@ -48,7 +48,9 @@ def main_plot_history(self):
                 ymean + 0.53 * yrange,
                 )
     if 1:
-        plt.axhline(self.average_best_error(), c='g')
+        best_err = self.average_best_error()
+        print "avg best error:", best_err
+        plt.axhline(best_err, c='g')
     plt.title('bandit: %s algo: %s' % (
         self.bandit.short_str(),
         self.bandit_algo.short_str()))
