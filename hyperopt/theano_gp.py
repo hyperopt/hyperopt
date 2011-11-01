@@ -7,6 +7,7 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
+import copy
 import logging
 import sys
 import time
@@ -28,6 +29,13 @@ from theano_bandit_algos import TheanoBanditAlgo
 from theano_gm import AdaptiveParzenGM
 
 from gdist import set_difference
+
+class picklable_instancemethod(object):
+    def __init__(self, obj, name):
+        self.obj = obj
+        self.name = name
+    def __call__(self, *args, **kwargs):
+        return getattr(self.obj, self.name)(*args, **kwargs)
 
 
 def dots(*args):
@@ -75,9 +83,7 @@ class SparseGramGet(theano.gof.Op):
 
     def perform(self, node, inputs, storage):
         base, i0, i1 = inputs
-        #print 'SparseGramGet base', base.shape
-        #print 'SparseGramGet i0', i0
-        #print 'SparseGramGet i1', i1
+        #N.B. adv indexing copies, so no view/destroymap necessary
         storage[0][0] = base[i0[:, None], i1]
 
     def grad(self, inputs, g_outputs):
@@ -541,6 +547,30 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     n_candidates_to_draw_in_GM = 200
     # number of candidates drawn within GM
 
+    trace_on = False
+
+    def trace(self, msg, obj):
+        """Keep a trace of actions and results, useful for debugging"""
+        if self.trace_on:
+            try:
+                _trace = self._trace
+            except AttributeError:
+                _trace = self._trace = []
+            _trace.append((msg, copy.deepcopy(obj)))
+
+    def theano_trace_mode(self):
+        class PrintEverythingMode(theano.Mode):
+            def __init__(sss):
+                def print_eval(i, node, fn):
+                    for j, ij in enumerate(fn.inputs):
+                        self.trace(('linker in', j, node.op), ij[0])
+                    fn()
+                    for j, ij in enumerate(fn.outputs):
+                        self.trace(('linker out', j, node.op), ij[0])
+                wrap_linker = theano.gof.WrapLinkerMany([theano.gof.OpWiseCLinker()], [print_eval])
+                super(PrintEverythingMode, sss).__init__(wrap_linker, optimizer='fast_run')
+        return PrintEverythingMode()
+
     def qln_cleanup(self, prior_vals, kern, candidate_vals):
         """
         Undo the smooth relaxation applied to quantized log-normal variables
@@ -571,6 +601,68 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 assert str(cvals.dtype) == iv.vals.dtype
                 assert cvals.ndim == iv.vals.ndim
                 c.vals = cvals
+
+    def __init__(self, bandit):
+        TheanoBanditAlgo.__init__(self, bandit)
+        self.numpy_rng = numpy.random.RandomState(234)
+        self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
+        self.s_n_train = tensor.lscalar('n_train')
+        self.s_n_test = tensor.lscalar('n_test')
+        self.y_obs = tensor.vector('y_obs')
+        self.y_obs_var = tensor.vector('y_obs_var')
+        self.x_obs_IVL = self.s_prior.new_like_self()
+
+        self.cand_x = self.s_prior.new_like_self()
+        self.cand_EI_thresh = tensor.scalar()
+
+        self.init_kernels()
+        self.init_gram_weights()
+        self.params.extend(self.convex_coefficient_params)
+        self.param_bounds.extend(self.convex_coefficient_params_bounds)
+
+        self.s_big_param_vec = tensor.vector()
+        ### assumes all variables are refinable
+        ### assumes all variables are vectors
+        n_elements_used = 0
+        for k, iv in zip(self.kernels, self.cand_x):
+            if self.is_refinable[k]:
+                n_elements_in_v = iv.idxs.shape[0]
+                start = n_elements_used
+                stop = n_elements_used + n_elements_in_v
+                iv.vals = self.s_big_param_vec[start:stop]
+                n_elements_used += n_elements_in_v
+
+        self.gprmath = GPR_math(self.x_obs_IVL,
+                self.y_obs,
+                self.y_obs_var,
+                picklable_instancemethod(self, 'K_fn'),
+                N=self.s_n_train,
+                min_variance=self.y_minvar)
+
+        self.nll_obs = self.gprmath.s_nll()
+
+        if self.EI_criterion == 'EI':
+            self.cand_EI = self.gprmath.s_expectation_lt_thresh(
+                    self.cand_x,
+                    self.cand_EI_thresh)
+        elif self.EI_criterion == 'softplus_hack':
+            self.cand_EI = self.gprmath.softplus_hack(
+                    self.cand_x,
+                    self.cand_EI_thresh)
+        else:
+            raise ValueError('EI_criterion', self.EI_criterion)
+
+        # self.gm_algo is used to draw candidates for subsequent refinement
+        # It is also entirely responsible for choosing categorical variables.
+        self.gm_algo = AdaptiveParzenGM(self.bandit)
+
+    def __getstate__(self):
+        rval = dict(self.__dict__)
+        todel = [k for k, v in rval.items()
+                if isinstance(v, theano.compile.Function)]
+        for name in todel:
+            del rval[name]
+        return rval
 
     def init_kernels(self):
         self.kernels = []
@@ -724,60 +816,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         self.categorical_parent_of_idxs = cparent
         self.init_gram_weights_helper(root_idxs, as_tensor_variable(1.0), cparent)
 
-    def __init__(self, bandit):
-        TheanoBanditAlgo.__init__(self, bandit)
-        self.numpy_rng = numpy.random.RandomState(234)
-        self.s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
-        self.s_n_train = tensor.lscalar('n_train')
-        self.s_n_test = tensor.lscalar('n_test')
-        self.y_obs = tensor.vector('y_obs')
-        self.y_obs_var = tensor.vector('y_obs_var')
-        self.x_obs_IVL = self.s_prior.new_like_self()
-
-        self.cand_x = self.s_prior.new_like_self()
-        self.cand_EI_thresh = tensor.scalar()
-
-        self.init_kernels()
-        self.init_gram_weights()
-        self.params.extend(self.convex_coefficient_params)
-        self.param_bounds.extend(self.convex_coefficient_params_bounds)
-
-        self.s_big_param_vec = tensor.vector()
-        ### assumes all variables are refinable
-        ### assumes all variables are vectors
-        n_elements_used = 0
-        for k, iv in zip(self.kernels, self.cand_x):
-            if self.is_refinable[k]:
-                n_elements_in_v = iv.idxs.shape[0]
-                start = n_elements_used
-                stop = n_elements_used + n_elements_in_v
-                iv.vals = self.s_big_param_vec[start:stop]
-                n_elements_used += n_elements_in_v
-
-        self.gprmath = GPR_math(self.x_obs_IVL,
-                self.y_obs,
-                self.y_obs_var,
-                self.K_fn,
-                N=self.s_n_train,
-                min_variance=self.y_minvar)
-
-        self.nll_obs = self.gprmath.s_nll()
-
-        if self.EI_criterion == 'EI':
-            self.cand_EI = self.gprmath.s_expectation_lt_thresh(
-                    self.cand_x,
-                    self.cand_EI_thresh)
-        elif self.EI_criterion == 'softplus_hack':
-            self.cand_EI = self.gprmath.softplus_hack(
-                    self.cand_x,
-                    self.cand_EI_thresh)
-        else:
-            raise ValueError('EI_criterion', self.EI_criterion)
-
-        # self.gm_algo is used to draw candidates for subsequent refinement
-        # It is also entirely responsible for choosing categorical variables.
-        self.gm_algo = AdaptiveParzenGM(self.bandit)
-
     def K_fn(self, x0, x1):
         """
         :param x0: an IdxsValsList of symbolic variables
@@ -886,7 +924,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         y_var = numpy.maximum(y_var, self.y_minvar)
         return x_all, y_all, y_mean, y_var, y_std
 
-    def fit_GP(self, x_all, y_all, y_mean, y_var, y_std, maxiter=100):
+    def fit_GP(self, x_all, y_all, y_mean, y_var, y_std, maxiter=1000):
         """
         Fit GPR kernel parameters by minimizing magininal nll.
 
@@ -900,6 +938,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         if list(sorted(x_all.idxset())) != range(len(x_all.idxset())):
             raise NotImplementedError('need contiguous 0-based indexes on x')
         n_train = len(y_all)
+
+
+        #TODO: optimize this function by making theano include the get_pt and
+        #      set_pt, and theano function returns gradient and function value
+        #      at once.
 
         self._GP_n_train = n_train
         self._GP_x_all = x_all
@@ -919,12 +962,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten(),
                     cost,
-                    allow_input_downcast=True)
+                    allow_input_downcast=True,
+                    #mode=self.theano_trace_mode(),
+                    mode=self.mode,
+                    )
             dnll_dparams = self.dnll_dparams = theano.function(
                     [self.s_n_train, self.s_n_test, self.y_obs, self.y_obs_var]
                         + self.x_obs_IVL.flatten(),
                     tensor.grad(cost, self.params),
-                    allow_input_downcast=True)
+                    allow_input_downcast=True,
+                    mode=self.mode)
             print('Compiled nll_fn with %i thunks' %
                     len(nll_fn.maker.env.toposort()))
             print('Compiled dnll_fn with %i thunks' %
@@ -954,23 +1001,26 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
         def set_pt(pt):
             i = 0
+            self.trace('fit_GP set_pt', pt)
             for p in self.params:
+                assert p.dtype == 'float64'
                 shape = p.get_value(borrow=True).shape
-                size = numpy.prod(shape)
+                size = int(numpy.prod(shape))
                 p.set_value(pt[i:i + size].reshape(shape))
                 i += size
             assert i == len(pt)
-            #print self.kernel.summary()
 
         n_calls = [0]
         def f(pt):
             n_calls[0] += 1
             set_pt(pt)
-            return nll_fn(self._GP_n_train,
+            rval = nll_fn(self._GP_n_train,
                     self._GP_n_train,
                     self._GP_y_all,
                     self._GP_y_var,
                     *self._GP_x_all.flatten())
+            self.trace('fit_GP f', rval)
+            return rval
 
         def df(pt):
             n_calls[0] += 1
@@ -985,8 +1035,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 rval.extend(dp.flatten())
 
             rval = numpy.asarray(rval)
-            #print numpy.sqrt((rval**2).sum())
+            self.trace('fit_GP df', rval)
             return rval
+
+        self.trace('fit_GP start_pt', get_pt())
 
         best_pt, best_value, best_d = fmin_l_bfgs_b(f,
                 get_pt(),
@@ -996,6 +1048,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 iprint=-1)
         logger.info('fit_GP best value: %f' % best_value)
         set_pt(best_pt)
+        self.trace('fit_GP best_pt', best_pt)
         return best_value
 
     def GP_mean(self, x):
@@ -1083,7 +1136,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         assert rval.shape == (len(x_idxset),)
         return rval
 
-    def GP_EI_optimize(self, x, maxiter=100):
+    def GP_EI_optimize(self, x, maxiter=1000):
         x_idxset = x.idxset()
         if list(sorted(x_idxset)) != range(len(x_idxset)):
             raise ValueError('x needs re-indexing')
@@ -1113,7 +1166,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     [-self.cand_EI.sum(),
                         -tensor.grad(self.cand_EI.sum(),
                             self.s_big_param_vec)],
-                    allow_input_downcast=True)
+                    allow_input_downcast=True,
+                    mode=self.mode)
             print('Compiled EI_fn_g with %i thunks' %
                     len(EI_fn_g.maker.env.toposort()))
 
@@ -1141,16 +1195,30 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             if self.is_refinable[k]:
                 bounds.extend([self.bounds[k]] * len(xk))
 
-        #print 'START_PT', start_pt
-        #print 'BOUNDS', bounds
+        if self.trace_on:
+            def fff(*vvv):
+                for i, v in enumerate(vvv):
+                    self.trace(('vvv', i), numpy.asarray(v))
+                f, df = EI_fn_g(*vvv)
+                self.trace('f', f)
+                self.trace('df', df)
+                return f, df
+        else:
+            fff = EI_fn_g
 
-        best_pt, best_value, best_d = fmin_l_bfgs_b(EI_fn_g,
+        self.trace('start_pt', start_pt)
+        for i, v in enumerate(args):
+            self.trace(('args', i), numpy.asarray(v))
+        self.trace('bounds', numpy.asarray(bounds))
+        self.trace('maxiter', numpy.asarray(maxiter))
+        best_pt, best_value, best_d = fmin_l_bfgs_b(fff,
                 start_pt,
                 None,
                 args=args,
                 maxfun=maxiter,
                 bounds=bounds,
                 iprint=-1)
+        self.trace('best_pt', best_pt)
 
         #print 'BEST_PT', best_pt
         rval = x.copy()
@@ -1171,20 +1239,23 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         candidates = self.gm_algo.suggest_from_model(ivls,
                 self.n_candidates_to_draw)
 
-        prepared_data = self.prepare_GP_training_data(ivls)
-        self.fit_GP(*prepared_data)
-        candidates_opt = self.GP_EI_optimize(candidates)
-
-        EI_opt = self.GP_EI(candidates_opt)
-        best_idx = numpy.argmax(EI_opt)
-
         if 1:
-            # for DEBUGGING
-            EI = self.GP_EI(candidates)
-            if EI.max() > EI_opt.max():
-                logger.warn(
-                    'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
-                        EI.max(), EI_opt.max()))
+            prepared_data = self.prepare_GP_training_data(ivls)
+            self.fit_GP(*prepared_data)
+            candidates_opt = self.GP_EI_optimize(candidates)
+
+            EI_opt = self.GP_EI(candidates_opt)
+            best_idx = numpy.argmax(EI_opt)
+            if 1:
+                # for DEBUGGING
+                EI = self.GP_EI(candidates)
+                if EI.max() > EI_opt.max():
+                    logger.warn(
+                        'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
+                            EI.max(), EI_opt.max()))
+        else:
+            best_idx = 0
+            candidates_opt = candidates
 
         self.post_refinement(candidates_opt)
         rval = candidates_opt.numeric_take([best_idx])
@@ -1215,6 +1286,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             logger.info('suggest %i took %.2f seconds' % (
                     len(ivls['losses']['ok'].idxs),
                     time.time() - t))
+
 
 
 def HGP(bandit):
