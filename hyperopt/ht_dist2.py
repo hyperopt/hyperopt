@@ -377,7 +377,7 @@ class uniform(LowHigh):
         memo[id(self)] = (elems, vals)
 
     def nth_theano_sample(self, n, idxdict, valdict):
-        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
+        return float(valdict[id(self)][idxdict[id(self)]==n])
 
 
 class randint(LowHigh):
@@ -415,7 +415,7 @@ class normal(rdist):
         memo[id(self)] = (elems, vals)
 
     def nth_theano_sample(self, n, idxdict, valdict):
-        return float(valdict[id(self)][numpy.where(idxdict[id(self)]==n)[0][0]])
+        return float(valdict[id(self)][idxdict[id(self)]==n])
 
 
 class lognormal(normal):

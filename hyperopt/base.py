@@ -21,9 +21,10 @@ The design is that there are three components fitting together in this project:
   Trial.
 
 - Result - a JSON-encodable document describing the results of a Trial.
-    'status' - a string describing what happened to this trial (see
-                STATUS_STRINGS)
-    'loss' - a scalar saying how bad this trial was.
+    'status' - a string describing what happened to this trial
+                (BanditAlgo-dependent, see e.g.
+                theano_bandit_algos.STATUS_STRINGS)
+    'loss' - a scalar saying how bad this trial was, or None if unknown / NA.
 
 The modules communicate with trials in nested dictionary form.
 TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
@@ -31,9 +32,9 @@ TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
 """
 
 __authors__   = "James Bergstra"
-__copyright__ = "(c) 2010, Universite de Montreal"
+__copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "github.com/jaberg/hyperopt"
 
 import cPickle
 import logging
@@ -50,14 +51,6 @@ import utils
 import idxs_vals_rnd
 
 logger = logging.getLogger(__name__)
-
-STATUS_STRINGS = (
-    'new',        # computations have not started
-    'running',    # computations are in prog
-    'suspended',  # computations have been suspended, job is not finished
-    'ok',         # computations are finished, terminated normally
-    'fail')       # computations are finished, terminated with error
-                  #     - see result['status_fail'] for more info
 
 
 class Ctrl(object):
@@ -92,20 +85,20 @@ class Bandit(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def dryrun_argd(self):
+    def dryrun_config(self):
         """Return a point that could have been drawn from the template
         that is useful for small trial debugging.
         """
         raise NotImplementedError('override me')
 
     @classmethod
-    def evaluate(cls, argd, ctrl):
+    def evaluate(cls, config, ctrl):
         """Return a result document
         """
         raise NotImplementedError('override me')
 
     @classmethod
-    def loss(cls, result, argd=None):
+    def loss(cls, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -114,17 +107,17 @@ class Bandit(object):
             return None
 
     @classmethod
-    def loss_variance(cls, result, argd=None):
+    def loss_variance(cls, result, config=None):
         """Return the variance in the estimate of the loss"""
         return 0
 
     @classmethod
-    def true_loss(cls, result, argd=None):
+    def true_loss(cls, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
-        return cls.loss(result, argd=argd)
+        return cls.loss(result, config=config)
 
     @classmethod
-    def true_loss_variance(cls, result, argd=None):
+    def true_loss_variance(cls, result, config=None):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
@@ -150,8 +143,8 @@ class Bandit(object):
     def main_dryrun(cls):
         self = cls()
         ctrl = Ctrl()
-        argd = self.dryrun_argd()
-        self.evaluate(argd, ctrl)
+        config = self.dryrun_config()
+        self.evaluate(config, ctrl)
 
 
 class BanditAlgo(object):
@@ -166,6 +159,9 @@ class BanditAlgo(object):
     """
     seed = 123
 
+    def __init__(self, bandit):
+        self.bandit = bandit
+
     def __setstate__(self, dct):
         self.__dict__.update(dct)
         # recursively change type in-place
@@ -175,36 +171,26 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def set_bandit(self, bandit):
-        self.bandit = bandit
-
-    def suggest(self, X_list, Y_list, Y_status, N):
+    def suggest(self, trials, results, N):
         raise NotImplementedError('override me')
 
 
 class Experiment(object):
     """Object for conducting search experiments.
     """
-    def __init__(self, bandit, bandit_algo):
-        self.bandit = bandit
+    def __init__(self, bandit_algo):
         self.bandit_algo = bandit_algo
         self.trials = []
         self.results = []
 
-    def set_bandit(self, bandit=None):
-        if bandit is None:
-            self.bandit_algo.set_bandit(self.bandit)
-        else:
-            raise NotImplementedError('consider not allowing this')
-
     def run(self, N):
         raise NotImplementedError('override-me')
 
-    def Ys(self):
-        return map(self.bandit.loss, self.results)
+    def losses(self):
+        return map(self.bandit_algo.bandit.loss, self.results, self.trials)
 
-    def Ys_status(self):
-        return map(self.bandit.status, self.results)
+    def statuses(self):
+        return map(self.bandit_algo.bandit.status, self.results, self.trials)
 
     def average_best_error(self):
         """Return the average best error of the experiment
@@ -215,13 +201,8 @@ class Experiment(object):
         For bandits with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
-        def doc(s):
-            if 'TBA_id' in s:
-                return s['doc']
-            else:
-                return s
         def fmap(f):
-            rval = numpy.asarray([f(r, doc(s))
+            rval = numpy.asarray([f(r, s)
                     for (r, s) in zip(self.results, self.trials)
                     if self.bandit.status(r) == 'ok']).astype('float')
             if not numpy.all(numpy.isfinite(rval)):

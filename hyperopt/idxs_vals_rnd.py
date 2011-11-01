@@ -36,14 +36,52 @@ class IdxsVals(object):
         self.idxs = i  # symbolic integer vector
         self.vals = v  # symbolic ndarray with same length as self.idxs
 
-    def take(self, elements):
-        """Advanced sparse vector indexing by int-list `elements`
+    def __eq__(self, other):
+        return self.idxs == other.idxs and self.vals == other.vals
+
+    def symbolic_take(self, elements):
+        """Symbolic advanced sparse vector indexing by int-list `elements`
         """
         pos = find(self.idxs, elements)
         return IdxsVals(self.idxs[pos], self.vals[pos])
 
+    def numeric_take(self, elements):
+        """Numeric advanced sparse vector indexing by int-list `elements`
+        """
+        d = dict(zip(self.idxs, self.vals))
+        return self.__class__(
+                [ii for ii in elements if ii in d],
+                [d[ii] for ii in elements if ii in d])
+
     def copy(self):
         return self.__class__(copy.copy(self.idxs), copy.copy(self.vals))
+
+    def reindex(self, idmap=None):
+        """Replace elements of self.idxs according to `idmap`
+        """
+        if idmap is None:
+            idmap = dict([(idx, i) for i, idx in
+                enumerate(sorted(set(self.idxs)))])
+        self.idxs = [idmap[i] for i in self.idxs]
+        return idmap
+
+    def stack(self, other):
+        self.idxs.extend(other.idxs)
+        self.vals.extend(other.vals)
+
+    def as_numpy(self, vdtype=None):
+        idxs = numpy.asarray(self.idxs)
+        if vdtype is None:
+            vals = numpy.asarray(self.vals)
+        else:
+            vals = numpy.asarray(self.vals, dtype=vdtype)
+        return self.__class__(idxs, vals)
+
+    def as_list(self):
+        return self.__class__(list(self.idxs), list(self.vals))
+
+    def idxset(self):
+        return set(self.idxs)
 
 
 class IdxsValsList(list):
@@ -55,19 +93,31 @@ class IdxsValsList(list):
     both cases, but many do.
 
     """
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(s == o for (s, o) in zip(self, other)))
+
     def idxslist(self):
         return [e.idxs for e in self]
 
     def valslist(self):
         return [e.vals for e in self]
 
-    def take(self, subelements):
+    def symbolic_take(self, subelements):
         """Return a new IdxsValsList of the same length as self, whose elements
         are restricted to contain only the given `subelements`.
         """
         # make a variable outside the loop to help theano's merge-optimizer
         subel = theano.tensor.as_tensor_variable(subelements)
-        return self.__class__([e.take(subel) for e in self])
+        return self.__class__([e.symbolic_take(subel) for e in self])
+
+    def numeric_take(self, subelements):
+        """Numeric take, returns IdxsValsList in which elements not in
+        `subelements` have been discarded
+        """
+        if len(set(subelements)) != len(subelements):
+            raise ValueError('duplicate in subelements are ambiguous')
+        return self.__class__([e.numeric_take(subelements) for e in self])
 
     @classmethod
     def new_like(cls, ivl):
@@ -105,7 +155,6 @@ class IdxsValsList(list):
                     ' idxs0, vals0, idxs1, vals1, ...')
         return cls.fromlists(args[::2], args[1::2])
 
-
     def copy(self):
         return self.__class__([iv.copy() for iv in self])
 
@@ -113,26 +162,14 @@ class IdxsValsList(list):
         """
         Insert & append all the elements of other into self.
 
-        Return a dictionary mapping other idx -> self idx.
+        The indexes in other are not modified, so this could introduce
+        duplicate index values.
         """
         if len(self) != len(other):
             raise ValueError('other is not compatible with self')
-
-        base_idx = max(max(idxs) for idxs in self.idxslist()) + 1
-
-        # build the mapping from other idx -> self idx
-        rval = {}
-        for idxs in other.idxslist():
-            for ii in idxs:
-                rval.setdefault(ii, base_idx + len(rval))
-
         # append the other's elements to self
-        assert len(self) == len(other)
         for self_iv, other_iv in zip(self, other):
-            self_iv.idxs.extend([rval[ii] for ii in other_iv.idxs])
-            self_iv.vals.extend(other_iv.vals)
-
-        return rval
+            self_iv.stack(other_iv)
 
     def nnz(self):
         return len(self.idxset())
@@ -143,6 +180,28 @@ class IdxsValsList(list):
         for idxs in self.idxslist():
             rval.update(idxs)
         return rval
+
+    def reindex(self, idmap=None):
+        if idmap is None:
+            idmap = dict([(idx, i) for i, idx in
+                enumerate(sorted(self.idxset()))])
+        for iv in self:
+            iv.reindex(idmap)
+        return idmap
+
+    def as_numpy(self):
+        return self.__class__([iv.as_numpy() for iv in self])
+
+    def as_numpy_floatX(self):
+        rval = self.as_numpy()
+        for iv in rval:
+            if iv.vals.dtype == 'float64':
+                # does nothing if floatX is float64
+                iv.vals = iv.vals.astype(theano.config.floatX)
+        return rval
+
+    def as_list(self):
+        return self.__class__([iv.as_list() for iv in self])
 
 
 class TreeEstimator(object):

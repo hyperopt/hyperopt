@@ -197,29 +197,29 @@ def nnet1_template(dataset_name='skdata.larochelle_etal_2007.Rectangles',
     return template
 
 
-def preprocess_data(argd, ctrl):
-    dataset = json_call(argd['dataset_name'])
+def preprocess_data(config, ctrl):
+    dataset = json_call(config['dataset_name'])
     train, valid, test = classification_train_valid_test(dataset)
     X_train, y_train = numpy.asarray(train[0]), numpy.asarray(train[1])
     X_valid, y_valid = numpy.asarray(valid[0]), numpy.asarray(valid[1])
     X_test, y_test = numpy.asarray(test[0]), numpy.asarray(test[1])
 
-    if argd['preprocessing']['kind'] == 'pca':
+    if config['preprocessing']['kind'] == 'pca':
         # compute pca of input (TODO: retrieve only pca_whitened input)
         raise NotImplementedError('rewrite since cut and paste')
         (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=dataset['inputs'][:dataset['n_train']],
-                max_energy_fraction=argd['pca_energy'])
+                max_energy_fraction=config['pca_energy'])
         eigmean = dataset['inputs'][0] - centered_trainset[0]
 
         whitened_inputs = pylearn_pca.pca_whiten((eigvals,eigvecs),
                 dataset['inputs']-eigmean)
         ctrl.info('PCA kept %i of %i components'%(whitened_inputs.shape[1],
             dataset['n_inputs']))
-    elif argd['preprocessing']['kind'] == 'zca':
+    elif config['preprocessing']['kind'] == 'zca':
         (eigvals,eigvecs), centered_trainset = pylearn_pca.pca_from_examples(
                 X=X_train,
-                max_energy_fraction=argd['preprocessing']['energy'])
+                max_energy_fraction=config['preprocessing']['energy'])
         eigmean = X_train[0] - centered_trainset[0]
 
         def whiten(X):
@@ -239,18 +239,18 @@ def preprocess_data(argd, ctrl):
         X_train, X_valid, X_test = [whiten(X)
                 for X in [X_train, X_valid, X_test]]
 
-    elif argd['preprocessing']['kind'] == 'normalize':
+    elif config['preprocessing']['kind'] == 'normalize':
         raise NotImplementedError('rewrite since cut and paste')
         n_train=dataset['n_train']
         whitened_inputs = dataset['inputs']
         whitened_inputs = whitened_inputs - whitened_inputs[:n_train].mean(axis=0)
         whitened_inputs /= whitened_inputs[:n_train].std(axis=0)+1e-7
-    elif argd['preprocessing']['kind'] == 'raw':
+    elif config['preprocessing']['kind'] == 'raw':
         pass
     else:
         raise ValueError(
                 'unrecognized preprocessing',
-                argd['preprocessing']['kind'])
+                config['preprocessing']['kind'])
 
     for Xy in 'X', 'y':
         for suffix in 'train', 'valid', 'test':
@@ -327,7 +327,7 @@ def train_rbm(s_rng, s_idx, s_batchsize, s_features, W, vbias, hbias, n_in,
 _dataset_cache = {}
 
 class DBN_Base(Bandit):
-    def dryrun_argd(self, *args, **kwargs):
+    def dryrun_config(self, *args, **kwargs):
         return dict(
                 lr=.01,
                 sup_max_epochs=500,
@@ -363,20 +363,20 @@ class DBN_Base(Bandit):
                 )
 
     @classmethod
-    def evaluate(cls, argd, ctrl):
+    def evaluate(cls, config, ctrl):
         time_limit = time.time() + 60 * 60 # 1hr from now
         rval = SON(dbn_train_fn_version=1)
 
         ctrl.info('starting dbn_train_fn')
-        kv = argd.items()
+        kv = config.items()
         kv.sort()
         for k,v in kv:
             ctrl.info('key=%s\t%s' %(k,str(v)))
 
-        rng = numpy.random.RandomState(argd['iseed'])
+        rng = numpy.random.RandomState(config['iseed'])
         s_rng = RandomStreams(int(rng.randint(2**30)))
 
-        dataset, train_Xy, valid_Xy, test_Xy = preprocess_data(argd, ctrl)
+        dataset, train_Xy, valid_Xy, test_Xy = preprocess_data(config, ctrl)
 
         # allocate learning function parameters
         s_inputs_all = tensor.fmatrix('inputs')
@@ -399,7 +399,7 @@ class DBN_Base(Bandit):
         rval['cd_reports'] = []
 
         try:
-            layer_config = argd['next_layer']
+            layer_config = config['next_layer']
             # allocate model parameters
             while layer_config:
                 i = len(rval['cd_reports'])
@@ -478,7 +478,7 @@ class DBN_Base(Bandit):
         traincost = logreg.nll(s_labels).mean()
         def ssq(X):
             return (X**2).sum()
-        traincost = traincost + argd['l2_penalty'] * (
+        traincost = traincost + config['l2_penalty'] * (
                 sum([ssq(w_i) for w_i in weights]) + ssq(logreg.w))
         # params = weights+hbiases+vbiases+logreg.params
         # vbiases are not involved in the supervised network
@@ -489,17 +489,17 @@ class DBN_Base(Bandit):
                     params=params,
                     grads=tensor.grad(traincost, params),
                     stepsizes=[s_lr] * len(params)),
-                givens={s_batchsize:argd['batchsize'],
+                givens={s_batchsize:config['batchsize'],
                     s_inputs_all: tensor.as_tensor_variable(train_Xy[0]),
                     s_labels_all: train_Xy[1]})
         valid_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
-            givens={s_batchsize:argd['batchsize'],
+            givens={s_batchsize:config['batchsize'],
                 s_inputs_all: tensor.as_tensor_variable(valid_Xy[0]),
                 s_labels_all: valid_Xy[1]})
         test_logreg_fn = theano.function([s_idx],
             logreg.errors(s_labels).mean(),
-            givens={s_batchsize:argd['batchsize'],
+            givens={s_batchsize:config['batchsize'],
                 s_inputs_all: tensor.as_tensor_variable(test_Xy[0]),
                 s_labels_all: test_Xy[1]})
 
@@ -512,18 +512,18 @@ class DBN_Base(Bandit):
         test_rate=-1
         train_rate=-1
 
-        n_train_batches = dataset.descr['n_train'] // argd['batchsize']
-        n_valid_batches = dataset.descr['n_valid'] // argd['batchsize']
-        n_test_batches = dataset.descr['n_test'] // argd['batchsize']
+        n_train_batches = dataset.descr['n_train'] // config['batchsize']
+        n_valid_batches = dataset.descr['n_valid'] // config['batchsize']
+        n_test_batches = dataset.descr['n_test'] // config['batchsize']
 
         n_iters = 0
-        for epoch in xrange(argd['sup_max_epochs']):
-            e_lr = argd['lr']
-            e_lr *= min(1, argd['lr_anneal_start'] / float(n_iters+1)) #anneal learning rate
+        for epoch in xrange(config['sup_max_epochs']):
+            e_lr = config['lr']
+            e_lr *= min(1, config['lr_anneal_start'] / float(n_iters+1)) #anneal learning rate
             valid_rate = float(1 - numpy.mean([valid_logreg_fn(i)
                 for i in range(n_valid_batches)]))
             valid_rate_std_thresh = 0.5 * numpy.sqrt(valid_rate *
-                    (1 - valid_rate) / (n_valid_batches * argd['batchsize']))
+                    (1 - valid_rate) / (n_valid_batches * config['batchsize']))
 
             if valid_rate > (rval['best_epoch_valid']+valid_rate_std_thresh):
                 rval['best_epoch'] = epoch
@@ -537,7 +537,7 @@ class DBN_Base(Bandit):
             #ctrl.info('Epoch %i train nll: %f'%(epoch, train_rate))
             ctrl.checkpoint(rval)
 
-            if epoch > argd['sup_min_epochs'] and epoch > 2*rval['best_epoch']:
+            if epoch > config['sup_min_epochs'] and epoch > 2*rval['best_epoch']:
                 break
             if time.time() > time_limit:
                 break
@@ -563,7 +563,7 @@ class DBN_Base(Bandit):
         return rval
 
     @classmethod
-    def loss(cls, result, argd=None):
+    def loss(cls, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -575,18 +575,17 @@ class DBN_Base(Bandit):
             return None
 
     @classmethod
-    def loss_variance(cls, result, argd=None):
-        if argd['dataset_name'] not in _dataset_cache:
-            _dataset_cache[argd['dataset_name']] = json_call(
-                argd['dataset_name'])
-        dataset = _dataset_cache[argd['dataset_name']]
+    def loss_variance(cls, result, config=None):
+        if config['dataset_name'] not in _dataset_cache:
+            _dataset_cache[config['dataset_name']] = json_call(
+                config['dataset_name'])
+        dataset = _dataset_cache[config['dataset_name']]
         n_valid = dataset.descr['n_valid']
-        p = cls.loss(result, argd)
+        p = cls.loss(result, config)
         return p * (1.0 - p) / (n_valid - 1)
 
-
     @classmethod
-    def true_loss(cls, result, argd=None):
+    def true_loss(cls, result, config=None):
         try:
             rval =  float(1 - result['best_epoch_test'])
             if 0 <= rval <= 1:
@@ -606,7 +605,6 @@ class DBN_Base(Bandit):
             return result['status']
 
 
-
 def DBN_Convex():
     return DBN_Base(
             dbn_template(
@@ -616,3 +614,27 @@ def DBN_Convex():
 def DBN_MRBI():
     ds =  'skdata.larochelle_etal_2007.MNIST_RotatedBackgroundImages'
     return DBN_Base(dbn_template(dataset_name=ds))
+
+
+class Dummy_DBN_Base(Bandit):
+    """
+    A DBN_Base stub.
+
+    This class is used in unittests of optimization algorithms to ensure they
+    can deal with large nested specifications that include lots of distribution
+    types.
+
+    The evaluate function simply returns a random score.
+    """
+    def __init__(self):
+        Bandit.__init__(self, template=dbn_template())
+        self.rng = numpy.random.RandomState(234)
+
+    def evaluate(self, argd, ctrl):
+        rval = dict(dbn_train_fn_version=-1)
+        # XXX: TODO: make up a loss function that depends on argd.
+        rval['status'] = 'ok'
+        rval['best_epoch_valid'] = float(self.rng.rand())
+        rval['loss'] = 1.0 - rval['best_epoch_valid']
+        return rval
+
