@@ -290,11 +290,11 @@ class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
             plt.show()
 
 
-class TestGM_EggCarton2(unittest.TestCase): # Tests nested search
+class TestGM_GaussWave2(unittest.TestCase): # Tests nested search
     def setUp(self):
         self.experiment = SerialExperiment(
             bandit_algo=GM_BanditAlgo(
-                    bandit=hyperopt.bandits.EggCarton2(),
+                    bandit=hyperopt.bandits.GaussWave2(),
                     good_estimator=IndependentAdaptiveParzenEstimator(),
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
 

@@ -112,7 +112,7 @@ class Distractor(Base):
         return 0.0
 
 
-class EggCarton(Base):
+class GaussWave(Base):
     """
     Essentially, this is a high-frequency sinusoidal function plus a broad quadratic.
     One variable controls the position along the curve.
@@ -144,9 +144,9 @@ class EggCarton(Base):
         return 0.0
 
 
-class EggCarton2(Base):
+class GaussWave2(Base):
     """
-    Variant of the EggCarton problem in which noise is added to the score
+    Variant of the GaussWave problem in which noise is added to the score
     function, and there is an option to either have no sinusoidal variation, or
     a negative cosine with variable amplitude.
 

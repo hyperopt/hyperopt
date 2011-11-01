@@ -27,7 +27,7 @@ def test_recall_and_record_1d():
 
 
 def test_recall_record_2d():
-    bandit = bandits.EggCarton2()
+    bandit = bandits.GaussWave2()
     algo = TheanoBanditAlgo(bandit)
     assert len(algo.all_s_idxs) == 6
     assert len(algo.s_idxs) == 3

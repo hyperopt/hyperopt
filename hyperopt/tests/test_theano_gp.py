@@ -18,7 +18,7 @@ from theano import tensor
 from theano.tests.unittest_tools import verify_grad, seed_rng
 
 from hyperopt.idxs_vals_rnd import IdxsValsList
-from hyperopt.bandits import TwoArms, EggCarton, EggCarton2
+from hyperopt.bandits import TwoArms, GaussWave, GaussWave2
 from hyperopt.base import Bandit, BanditAlgo
 from hyperopt.theano_gp import GP_BanditAlgo
 from hyperopt.theano_gm import AdaptiveParzenGM
@@ -349,10 +349,10 @@ class TestGaussian4D(unittest.TestCase):
         assert min(serial_exp.losses()) < .05
         assert max(l1, l4) * 3 < min(l2, l3)
 
-class TestEggCarton(unittest.TestCase):
+class TestGaussWave(unittest.TestCase):
     def setUp(self):
         numpy.random.seed(555)
-        self.algo = GPAlgo(EggCarton())
+        self.algo = GPAlgo(GaussWave())
         self.algo.n_startup_jobs = 20
         self.serial_exp = SerialExperiment(self.algo)
 
@@ -368,15 +368,13 @@ class TestEggCarton(unittest.TestCase):
                 range(len(self.serial_exp.losses())),
                 self.serial_exp.losses())
         plt.figure()
-        hyperopt.plotting.main_plot_vars(self.serial_exp, end_with_show=True)
+        hyperopt.plotting.main_plot_vars(self.serial_exp,
+                end_with_show=False)
 
-    def test_diag_1(self):
-        pass
-
-class TestEggCarton2(unittest.TestCase):
+class TestGaussWave2(unittest.TestCase):
     def setUp(self):
         numpy.random.seed(555)
-        self.algo = GPAlgo(EggCarton2())
+        self.algo = GPAlgo(GaussWave2())
         self.algo.n_startup_jobs = 20
         self.algo.EI_ambition = 0.75
         self.serial_exp = SerialExperiment(self.algo)
@@ -393,10 +391,8 @@ class TestEggCarton2(unittest.TestCase):
                 range(len(self.serial_exp.losses())),
                 self.serial_exp.losses())
         plt.figure()
-        hyperopt.plotting.main_plot_vars(self.serial_exp, end_with_show=True)
-
-    def test_diag_1(self):
-        pass
+        hyperopt.plotting.main_plot_vars(self.serial_exp,
+                end_with_show=False)
 
 def test_fit_categorical():
     numpy.random.seed(555)
