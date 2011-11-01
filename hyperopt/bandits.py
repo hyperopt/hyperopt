@@ -172,7 +172,7 @@ class EggCarton2(Base):
         x = config['x']
         r += 2 * numpy.exp(-(x/5.0)**2) # up to 2
         if config['hf']['kind'] == 'negcos':
-            r -= numpy.cos(x) * config['hf']['amp']
+            r += numpy.sin(x) * config['hf']['amp']
 
         return r
 
