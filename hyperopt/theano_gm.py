@@ -48,10 +48,11 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         TheanoBanditAlgo.__init__(self, bandit)
         self.good_estimator = good_estimator
         self.bad_estimator = bad_estimator
+        self.build_helpers()
 
     def __getstate__(self):
         rval = dict(self.__dict__)
-        for name in '_helper', 'helper_locals', '_prior_sampler':
+        for name in '_helper', '_prior_sampler':
             if name in rval:
                 del rval[name]
         return rval
@@ -61,11 +62,11 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         # this allows loading of old pickles
         # from before the current implementation
         # of __getstate__
-        for name in '_helper', 'helper_locals', '_prior_sampler':
+        for name in '_helper', '_prior_sampler':
             if hasattr(self, name):
                 delattr(self, name)
 
-    def build_helpers(self, do_compile=True, mode=None):
+    def build_helpers(self, mode=None):
         s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
         s_obs = s_prior.new_like_self()
 
@@ -103,32 +104,33 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         self.helper_locals = locals()
         del self.helper_locals['self']
 
-        if do_compile:
-            self._helper = theano.function(
-                [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
-                (Gsamples.symbolic_take(keep_idxs).flatten()
-                    + Gobs.flatten()
-                    + Bobs.flatten()
-                    ),
-                allow_input_downcast=True,
-                mode=mode,
-                )
-
-            self._prior_sampler = theano.function(
-                    [n_to_draw],
-                    s_prior.flatten(),
-                    mode=mode)
-
     def suggest_from_prior(self, N):
-        if not hasattr(self, '_prior_sampler'):
-            self.build_helpers()
-
-        rvals = self._prior_sampler(N)
+        try:
+            prior_sampler = self._prior_sampler
+        except AttributeError:
+            prior_sampler = self._prior_sampler = theano.function(
+                    [self.helper_locals['n_to_draw']],
+                    self.helper_locals['s_prior'].flatten(),
+                    mode=self.helper_locals['mode'])
+        rvals = prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
     def suggest_from_model(self, ivls, N):
-        if not hasattr(self, '_helper'):
-            self.build_helpers()
+        try:
+            helper = self._helper
+        except AttributeError:
+            def asdf(n_to_draw, n_to_keep, y_thresh, yvals, s_obs, Gsamples,
+                    keep_idxs, Gobs, Bobs, mode, **kwargs):
+                return theano.function(
+                    [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
+                    (Gsamples.symbolic_take(keep_idxs).flatten()
+                        + Gobs.flatten()
+                        + Bobs.flatten()
+                        ),
+                    allow_input_downcast=True,
+                    mode=mode,
+                    )
+            helper = self._helper = asdf(**self.helper_locals)
 
         ylist = numpy.asarray(sorted(ivls['losses']['ok'].vals), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))
@@ -168,7 +170,7 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         logger.info('GM_BanditAlgo drawing %i candidates'
                 % self.n_EI_candidates)
 
-        helper_rval = self._helper(self.n_EI_candidates, N,
+        helper_rval = helper(self.n_EI_candidates, N,
             y_thresh, y_all, *x_all.flatten())
         assert len(helper_rval) == 6 * len(x_all)
 
