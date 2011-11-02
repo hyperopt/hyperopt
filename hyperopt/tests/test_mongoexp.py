@@ -1,3 +1,15 @@
+if 0:
+    # This code prints out the offending object when pickling fails
+    import copy_reg
+    orig_reduce_ex = copy_reg._reduce_ex
+    def my_reduce_ex(self, proto):
+        try:
+            return orig_reduce_ex(self, proto)
+        except:
+            print 'PICKLING FAILED', self
+            raise
+    copy_reg._reduce_ex = my_reduce_ex
+
 import cPickle
 import os
 import signal
@@ -101,7 +113,7 @@ def test_mongo_exp_with_threads():
             n_jobs -= 1
 
     for bandit_json in ('hyperopt.bandits.GaussWave2',
-            'hyperopt.dbn.Dummy_DBN_Base'):
+            'hyperopt.dbn.Dummy_DBN_Base',):
         with TempMongo() as tm:
             assert len(TempMongo.mongo_jobs('foodb')) == 0
             exp = MongoExperiment(

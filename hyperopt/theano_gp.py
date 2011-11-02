@@ -558,6 +558,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
             _trace.append((msg, copy.deepcopy(obj)))
 
     def theano_trace_mode(self):
+        print >> sys.stderr, "WARNING: theano_trace_mode breaks pickling"
         class PrintEverythingMode(theano.Mode):
             def __init__(sss):
                 def print_eval(i, node, fn):
@@ -594,8 +595,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         # to the form that is required by the configuration grammar
         for i, (iv, k, c) in enumerate(
                 zip(self.s_prior, self.kernels, candidates)):
-            if k in self.post_refinement_cleanup:
-                cvals = self.post_refinement_cleanup[k](iv.vals, k, c.vals)
+            if k, f in self.post_refinement_cleanup.items():
+                cvals = f(iv.vals, k, c.vals)
                 assert cvals.shape == c.vals.shape
                 assert str(cvals.dtype) == iv.vals.dtype
                 assert cvals.ndim == iv.vals.ndim
@@ -700,7 +701,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                             mt_dist.quantized_lognormal_get_round(
                                 iv.vals))
                     self.bounds[k] = (lbound, None)
-                    self.post_refinement_cleanup[k] = self.qln_cleanup
+                    ff = picklable_instancemethod(self, 'qln_cleanup')
+                    self.post_refinement_cleanup[k] = ff
             elif dist_name == 'categorical':
                 # XXX: a better CategoryKernel would have different
                 # similarities for different choices
@@ -963,7 +965,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         + self.x_obs_IVL.flatten(),
                     cost,
                     allow_input_downcast=True,
-                    #mode=self.theano_trace_mode(),
                     mode=self.mode,
                     )
             dnll_dparams = self.dnll_dparams = theano.function(
