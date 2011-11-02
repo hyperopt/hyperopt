@@ -3,7 +3,6 @@ Gaussian-process (GP)-based optimization algorithm using Theano
 """
 
 __authors__ = "James Bergstra"
-__copyright__ = "(c) 2011, James Bergstra"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
@@ -655,6 +654,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         # self.gm_algo is used to draw candidates for subsequent refinement
         # It is also entirely responsible for choosing categorical variables.
         self.gm_algo = AdaptiveParzenGM(self.bandit)
+        self.gm_algo.n_EI_candidates = self.n_candidates_to_draw_in_GM
 
     def __getstate__(self):
         rval = dict(self.__dict__)
@@ -1235,7 +1235,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         logger.debug('suggest_from_model')
         ivls = self.idxs_vals_by_status(trials, results)
 
-        self.gm_algo.n_EI_candidates = self.n_candidates_to_draw_in_GM
         candidates = self.gm_algo.suggest_from_model(ivls,
                 self.n_candidates_to_draw)
 

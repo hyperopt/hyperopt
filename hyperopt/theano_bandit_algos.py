@@ -175,6 +175,9 @@ class TheanoBanditAlgo(base.BanditAlgo):
             'losses': status -> list of losses matching x_IVLs[status]
             'losses_variance': status -> list of matching x_IVLs[status]
 
+        None of the returned dictionaries is aliased to the internal database
+        of recorded results.
+
         """
         assert len(trials) == len(results)
 
@@ -245,7 +248,8 @@ class TheanoBanditAlgo(base.BanditAlgo):
 
         # mark each trial with a _config_id that connects it to self.db_idxs
         for rid, r in zip(ids, rval):
-            r['_config_id'] = rid
+            assert rid == int(rid)       # numpy int64 is not BSON
+            r['_config_id'] = int(rid)
         return rval
 
 

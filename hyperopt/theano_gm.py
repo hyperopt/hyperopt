@@ -148,6 +148,9 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         x_all = ivls['x_IVLs']['ok'].as_list()
         y_all_iv = ivls['losses']['ok'].as_list()
 
+        assert y_all_iv.idxset() == x_all.idxset(), (y_all_iv.idxset(),
+                x_all.idxset())
+
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
                     % len(ivls['losses'][pseudo_bad_status].idxs))
@@ -155,12 +158,15 @@ class GM_BanditAlgo(TheanoBanditAlgo):
             y_all_iv.stack(IdxsVals(
                 ivls['losses'][pseudo_bad_status].idxs,
                 [y_thresh + 1] * len(ivls['losses'][pseudo_bad_status].idxs)))
+            assert y_all_iv.idxset() == x_all.idxset(), (y_all_iv.idxset(),
+                    x_all.idxset())
 
         # renumber the configurations in x_all to be 0 .. (n_train - 1)
         idmap = y_all_iv.reindex()
         idmap = x_all.reindex(idmap)
 
-        assert y_all_iv.idxset() == x_all.idxset()
+        assert y_all_iv.idxset() == x_all.idxset(), (y_all_iv.idxset(),
+                x_all.idxset())
 
         assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs)))
 

@@ -770,6 +770,7 @@ class TestPickle(unittest.TestCase):
         print self.exp_b.losses()
         assert numpy.allclose(self.exp_a.losses(), self.exp_b.losses())
 
+
 def test_fit_categorical():
     numpy.random.seed(555)
     serial_exp = SerialExperiment(GPAlgo(TwoArms()))
