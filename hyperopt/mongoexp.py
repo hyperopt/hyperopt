@@ -1,4 +1,6 @@
-""" Mongo-based Experiment driver and worker client
+"""
+Mongo-based Experiment driver and worker client
+===============================================
 
 Components involved:
 
@@ -125,10 +127,9 @@ finalize the job in the database.
 
 """
 
-__authors__   = "James Bergstra"
-__copyright__ = "(c) 2011, Harvard University"
-__license__   = "3-clause BSD License"
-__contact__   = "hyperopt project at github.com"
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
 
 import copy
 import cPickle
@@ -157,11 +158,22 @@ STATE_RUNNING = 1
 STATE_DONE = 2
 STATE_ERROR = 3
 
-# Proxy that could be factored out
-# if we also want to use CouchDB
-# and JobmanDB classes with this interface
-class OperationFailure (Exception):
-    pass
+
+class OperationFailure(Exception):
+    """Proxy that could be factored out if we also want to use CouchDB and
+    JobmanDB classes with this interface
+    """
+
+
+class Shutdown(Exception):
+    """
+    Exception for telling mongo_worker loop to quit
+    """
+
+
+class ReserveTimeout(Exception):
+    """No job was reserved in the alotted time
+    """
 
 
 def read_pw():
@@ -630,7 +642,7 @@ class MongoExperiment(base.Experiment):
                     cmd=cmd,
                     owner=None,
                     spec=config,
-                    result=self.bandit.new_result(),
+                    result=self.bandit_algo.bandit.new_result(),
                     version=0,
                     )
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
@@ -644,36 +656,119 @@ class MongoExperiment(base.Experiment):
         return rval
 
     def run(self, N, block_until_done = False):
-        bandit = self.bandit
         algo = self.bandit_algo
+        bandit = algo.bandit
 
         n_queued = 0
 
-        while n_queued < N and self.queue_len() < self.min_queue_len:
-            self.refresh_trials_results()
-            t0 = time.time()
-            suggestions = algo.suggest(
-                    self.trials, self.results, 1)
-            t1 = time.time()
-            logger.info('algo suggested trial: %s (in %.2f seconds)'
-                    % (str(suggestions[0]), t1 - t0))
-            new_suggestions = self.queue_extend(suggestions)
-            n_queued += len(new_suggestions)
+        while n_queued < N:
+            while self.queue_len() < self.min_queue_len:
+                self.refresh_trials_results()
+                t0 = time.time()
+                # just ask for one job at a time
+                suggestions = algo.suggest(self.trials, self.results, 1)
+                t1 = time.time()
+                logger.info('algo suggested trial: %s (in %.2f seconds)'
+                        % (str(suggestions[0]), t1 - t0))
+                try:
+                    new_suggestions = self.queue_extend(suggestions)
+                except:
+                    print 'Problem with suggestion:'
+                    print suggestions
+                    raise
+                n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
-        
+
         if block_until_done:
             while self.queue_len() > 0:
                 msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
                 logger.info(msg)
                 time.sleep(self.poll_interval_secs)
-            logger.info('Queue empty, exiting run.') 
+            logger.info('Queue empty, exiting run.')
         else:
             msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
             logger.info(msg)
 
+        self.refresh_trials_results()
 
-class Shutdown(Exception):
-    pass
+
+class MongoWorker(object):
+    poll_interval = 3.0            # seconds
+    workdir = None
+
+    def __init__(self, mj,
+            poll_interval=poll_interval,
+            workdir=workdir):
+        self.mj = mj
+        self.poll_interval = poll_interval
+        self.workdir = workdir
+
+    def run_one(self, host_id=None, reserve_timeout=None):
+        if host_id == None:
+            host_id = '%s:%i'%(socket.gethostname(), os.getpid()),
+        job = None
+        start_time = time.time()
+        mj = self.mj
+        while job is None:
+            if (time.time() - start_time) > reserve_timeout:
+                raise ReserveTimeout()
+            job = mj.reserve(host_id)
+            if not job:
+                interval = (1 +
+                        numpy.random.rand()
+                        * (float(self.poll_interval) - 1.0))
+                logger.info('no job found, sleeping for %.1fs' % interval)
+                time.sleep(interval)
+
+        logger.info('job found: %s' % str(job))
+
+        spec = copy.deepcopy(job['spec']) # don't let the cmd mess up our trial object
+
+        ctrl = CtrlObj(
+                jobs=mj,
+                read_only=False,
+                read_only_id=None,
+                )
+        ctrl.current_job = job
+        if self.workdir is None:
+            config = mj.db.config.find_one()
+            workdir = os.path.join(config['workdir'], str(job['_id']))
+        else:
+            workdir = os.path.expanduser(self.workdir)
+        os.makedirs(workdir)
+        os.chdir(workdir)
+        cmd_protocol = job['cmd'][0]
+        try:
+            if cmd_protocol == 'cpickled fn':
+                worker_fn = cPickle.loads(job['cmd'][1])
+            elif cmd_protocol == 'call evaluate':
+                bandit = cPickle.loads(job['cmd'][1])
+                worker_fn = bandit.evaluate
+            elif cmd_protocol == 'token_load':
+                cmd_toks = cmd.split('.')
+                cmd_module = '.'.join(cmd_toks[:-1])
+                worker_fn = exec_import(cmd_module, cmd)
+            elif cmd_protocol == 'bandit_json evaluate':
+                bandit = utils.json_call(job['cmd'][1])
+                worker_fn = bandit.evaluate
+            else:
+                raise ValueError('Unrecognized cmd protocol', cmd_protocol)
+
+            result = worker_fn(spec, ctrl)
+            logger.info('job returned: %s' % str(result))
+        except Exception, e:
+            #TODO: save exception to database, but if this fails, then at least raise the original
+            # traceback properly
+            logger.info('job exception: %s' % str(e))
+            ctrl.checkpoint()
+            mj.update(job,
+                    {'state': STATE_ERROR,
+                    'error': (str(type(e)), str(e))},
+                    safe=True)
+            raise
+        logger.info('job finished: %s' % str(job['_id']))
+        ctrl.checkpoint(result)
+        mj.update(job, {'state': STATE_DONE}, safe=True)
 
 
 class CtrlObj(object):
