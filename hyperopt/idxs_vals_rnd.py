@@ -39,6 +39,12 @@ class IdxsVals(object):
     def __eq__(self, other):
         return self.idxs == other.idxs and self.vals == other.vals
 
+    def __str__(self):
+        return 'IdxsVals(%s, %s)' % (self.idxs, self.vals)
+
+    def __repr__(self):
+        return str(self)
+
     def symbolic_take(self, elements):
         """Symbolic advanced sparse vector indexing by int-list `elements`
         """
