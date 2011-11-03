@@ -168,7 +168,8 @@ class GM_BanditAlgo(TheanoBanditAlgo):
         assert y_all_iv.idxset() == x_all.idxset(), (y_all_iv.idxset(),
                 x_all.idxset())
 
-        assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs)))
+        assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs))), (
+                y_all._iv.idxs)
 
         y_all = y_all_iv.as_numpy(vdtype=theano.config.floatX).vals
         x_all = x_all.as_numpy_floatX()

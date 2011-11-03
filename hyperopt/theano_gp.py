@@ -595,7 +595,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         # to the form that is required by the configuration grammar
         for i, (iv, k, c) in enumerate(
                 zip(self.s_prior, self.kernels, candidates)):
-            if k, f in self.post_refinement_cleanup.items():
+            if k in self.post_refinement_cleanup:
+                f = self.post_refinement_cleanup[k]
                 cvals = f(iv.vals, k, c.vals)
                 assert cvals.shape == c.vals.shape
                 assert str(cvals.dtype) == iv.vals.dtype
