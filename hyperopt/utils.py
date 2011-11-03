@@ -60,7 +60,11 @@ def json_call(json, args=(), kwargs=None):
     else:
         raise TypeError(json)
 
-def get_obj(f, argfile = None, argstr = None, args = (), kwargs = None):
+
+def get_obj(f, argfile=None, argstr=None, args=(), kwargs=None):
+    """
+    XXX: document me
+    """
     if kwargs is None:
         kwargs = {}
     if argfile is not None:
@@ -72,6 +76,7 @@ def get_obj(f, argfile = None, argstr = None, args = (), kwargs = None):
     args = args + argd.get('args',())
     kwargs.update(argd.get('kwargs',{}))
     return json_call(f, args=args, kwargs=kwargs)
+
 
 def pmin_sampled(mean, var, n_samples=1000, rng=None):
     """Probability that each Gaussian-dist R.V. is less than the others
