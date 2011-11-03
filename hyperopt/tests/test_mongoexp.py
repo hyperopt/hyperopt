@@ -175,7 +175,15 @@ class TestLock(unittest.TestCase):
                 exp_key='exp_key',
                 poll_interval_secs=1.0,
                 cmd=())
+            self.c = MongoExperiment(
+                bandit_algo=bandit_algos.Random(GaussWave2()),
+                mongo_handle=self.ctxt.mongo_jobs('foodb'),
+                workdir=self.ctxt.workdir,
+                exp_key='exp_key_different',
+                poll_interval_secs=1.0,
+                cmd=())
             self.a.ddoc_init()
+            self.c.ddoc_init()
         except:
             self.ctxt.__exit__(None)
             raise
@@ -186,8 +194,13 @@ class TestLock(unittest.TestCase):
     def test_lock_relock(self):
         with self.a.exclusive_access() as foo:
             self.assertRaises(OperationFailure, self.b.ddoc_lock)
+
         with self.b.exclusive_access() as foo:
+            # test that c can still be acquired with b locked
             self.assertRaises(OperationFailure, self.a.ddoc_lock)
+            with self.c.exclusive_access() as bar:
+                self.assertRaises(OperationFailure, self.a.ddoc_lock)
+
         with self.a.exclusive_access() as foo:
             with self.a.exclusive_access() as foo2:
                 with self.a.exclusive_access() as foo3:
@@ -197,6 +210,14 @@ class TestLock(unittest.TestCase):
             self.assertRaises(OperationFailure, self.b.ddoc_lock)
             assert self.a._locks == 1
         assert self.a._locks == 0
+
+    def test_clear_requires_lock(self):
+        with self.a.exclusive_access() as foo:
+            self.assertRaises(OperationFailure, self.b.clear_from_db)
+
+# XXX: test blocking behaviour
+
+# XXX: Test clear_db only removes things matching exp_key
 
 
 # XXX: test that multiple experiments can run simultaneously on the same

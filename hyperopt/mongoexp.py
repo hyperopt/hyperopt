@@ -161,6 +161,10 @@ STATE_NEW = 0
 STATE_RUNNING = 1
 STATE_DONE = 2
 STATE_ERROR = 3
+JOB_STATES = [STATE_NEW,
+              STATE_RUNNING,
+              STATE_DONE,
+              STATE_ERROR]
 
 
 class OperationFailure(Exception):
@@ -386,7 +390,7 @@ class MongoJobs(object):
         """Delete all jobs and attachments"""
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
-                for name, file_id in d.get('_attachments',[]):
+                for name, file_id in d.get('_attachments', []):
                     self.gfs.delete(file_id)
                 logger.info('deleting job %s' % d['_id'])
                 self.jobs.remove(d, safe=safe)
@@ -480,7 +484,7 @@ class MongoJobs(object):
                     # str('a') != unicode('a').
                     # TODO: eliminate false alarms and catch real ones
                     mismatching_keys = []
-                    for k,v in server_doc.items():
+                    for k, v in server_doc.items():
                         if k in doc:
                             if doc[k] != v:
                                 mismatching_keys.append((k, v, doc[k]))
@@ -578,8 +582,9 @@ class MongoExperiment(base.Experiment):
 
     """
     def __init__(self, bandit_algo, mongo_handle, workdir, exp_key, cmd,
-            poll_interval_secs=10):
-        # XXX: implement this: save_interval_secs=3.0)
+            poll_interval_secs=10,
+            save_interval_secs=3.0,
+            max_queue_len=1):
 
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
@@ -591,12 +596,13 @@ class MongoExperiment(base.Experiment):
             self.mongo_handle = mongo_handle
 
         base.Experiment.__init__(self, bandit_algo)
-        self.workdir = workdir
-        self.poll_interval_secs = poll_interval_secs
-        self.min_queue_len = 1 # can be changed at any time
-        self.exp_key = exp_key
-        self.cmd = cmd
-        self._locks = 0
+        self.workdir = workdir               # can be changed
+        self.poll_interval_secs = poll_interval_secs  # can be changed
+        self.save_interval_secs = save_interval_secs
+        self.max_queue_len = max_queue_len   # can be changed
+        self.exp_key = exp_key               # don't change this
+        self.cmd = cmd                       # don't change this
+        self._locks = 0                      # this is managed internally
 
     def __getstate__(self):
         rval = dict(self.__dict__)
@@ -651,18 +657,26 @@ class MongoExperiment(base.Experiment):
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
         return rval
 
-    def queue_len(self):
+    def queue_len(self, states=STATE_NEW):
         # TODO: consider searching by SON rather than dict
-        query = dict(state=STATE_NEW, exp_key=self.exp_key)
+        if isinstance(states,int):
+            assert states in JOB_STATES
+            query = dict(state=states, exp_key=self.exp_key)
+        else:
+            assert hasattr(states, '__iter__')
+            states = list(states)
+            assert all([x in JOB_STATES for x in states])
+            query = dict(state={'$in': states},
+                         exp_key=self.exp_key)
         rval = self.mongo_handle.jobs.find(query).count()
         logger.debug('Queue len: %i' % rval)
         return rval
 
-    def run(self, N, block_until_done = False):
+    def run(self, N, block_until_done=False):
         algo = self.bandit_algo
         n_queued = 0
         while n_queued < N:
-            while self.queue_len() < self.min_queue_len:
+            while self.queue_len() < self.max_queue_len:
                 self.refresh_trials_results()
                 t0 = time.time()
                 # just ask for one job at a time
@@ -673,14 +687,14 @@ class MongoExperiment(base.Experiment):
                 try:
                     new_suggestions = self.queue_extend(suggestions)
                 except:
-                    print 'Problem with suggestion:'
-                    print suggestions
+                    logger.error('Problem with suggestion: %s' % (
+                        suggestions))
                     raise
                 n_queued += len(new_suggestions)
             time.sleep(self.poll_interval_secs)
 
         if block_until_done:
-            while self.queue_len() > 0:
+            while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
                 msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
                 logger.info(msg)
                 time.sleep(self.poll_interval_secs)
@@ -690,6 +704,19 @@ class MongoExperiment(base.Experiment):
             logger.info(msg)
 
         self.refresh_trials_results()
+
+    def clear_from_db(self):
+        with self.exclusive_access() as foo:
+            ddoc = self.ddoc_get()
+            # remove attached states, bandits, etc.
+            for name in self.mongo_handle.attachment_names(ddoc):
+                self.mongo_handle.delete_attachment(ddoc, name)
+
+            # delete any jobs from a previous driver
+            self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
+
+            # remove the ddoc itself
+            self.mongo_handle.db.drivers.remove(ddoc, safe=True)
 
     def owner_label(self):
         # Don't make this an attribute, because after unpickling it has to be
@@ -707,11 +734,6 @@ class MongoExperiment(base.Experiment):
             self.init_driver_doc()
         return self.mongo_handle.db.drivers.find_one(
                 {'exp_key': self.exp_key})
-
-    def ddoc_clear(self):
-        ddoc = self.ddoc_get()
-        for name in self.mongo_handle.attachment_names(ddoc):
-            self.mongo_handle.delete_attachment(ddoc, name)
 
     def ddoc_init(self):
         """
@@ -1144,6 +1166,10 @@ def main_search():
                   "  'kwargs', a dictionary of keyword arguments. \n"
                   "NOTE: instantiated bandit is pre-pended as first element"
                   " of arg tuple.")
+    parser.add_option("--max-queue-len",
+            dest="max_queue_len",
+            default=1,
+            help="maximum number of jobs to allow in queue")
 
     (options, args) = parser.parse_args()
 
@@ -1207,47 +1233,47 @@ def main_search():
         exp_key=exp_key,
         poll_interval_secs=(int(options.poll_interval))
             if options.poll_interval else 5,
+        max_queue_len=options.max_queue_len,
         cmd=worker_cmd)
 
     self.ddoc_get()  # init the driver document if necessary
     self.write_config_to_db(
             bandit_args_kwargs=(
                 bandit_name, bandit_argv, bandit_kwargs))
+
+    if options.clear_existing:
+        print >> sys.stdout, "Are you sure you want to delete",
+        print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
+                % (mj.jobs.find({'exp_key':exp_key}).count(),
+                    str(exp_key)))
+        print >> sys.stdout, '(y/n)'
+        y, n = 'y', 'n'
+        if input() != 'y':
+            print >> sys.stdout, "aborting"
+            del self
+            return 1
+
     with self.exclusive_access(force=options.force_lock) as _foo:
+        self.clear_from_db()
 
-        # TODO: uncomment this error when it happens again, and I can see
-        # where in the traceback to put it.
-        #logger.error('experiment in progress: %s' % str(driver['owner']))
-        #logger.error('(hint: run with --force-lock to proceed anyway.)')
+    # TODO: uncomment this error when it happens again, and I can see
+    # where in the traceback to put it.
+    #logger.error('experiment in progress: %s' % str(driver['owner']))
+    #logger.error('(hint: run with --force-lock to proceed anyway.)')
 
-        if options.clear_existing:
-            print >> sys.stdout, "Are you sure you want to delete",
-            print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
-                    % (mj.jobs.find({'exp_key':exp_key}).count(),
-                        str(exp_key)))
-            print >> sys.stdout, '(y/n)'
-            y, n = 'y', 'n'
-            if input() != 'y':
-                print >> sys.stdout, "aborting"
-                del self
-                return 1
 
-            self.ddoc_clear()
-
-            # delete any jobs from a previous driver
-            mj.delete_all(cond={'exp_key': exp_key})
-
+    #
+    # Try replacing the self we constructed earlier
+    # with the unpickled saved state:
+    #
     try:
-        #
-        # Replace the self we constructed earlier
-        # with the unpickled saved state
-        #
         other = self.load_from_db()
     except OperationFailure:
         pass
     else:
         assert other.exp_key == exp_key
         other.mongo_handle = mj
+        other.max_queue_len=self.max_queue_len
         if options.workdir is not None:
             other.workdir = self.workdir
         if options.poll_interval is not None:
@@ -1256,7 +1282,7 @@ def main_search():
 
     with self.exclusive_access(force=options.force_lock) as _foo:
         try:
-            self.run(options.steps, block_until_done = options.block)
+            self.run(options.steps, block_until_done=options.block)
         finally:
             if options.save_on_exit:
                 # XXX: does this mess up the original exception traceback?
