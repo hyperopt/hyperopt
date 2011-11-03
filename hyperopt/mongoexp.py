@@ -536,7 +536,7 @@ class MongoJobs(object):
     def get_attachment(self, doc, name):
         """Retrieve data attached to `doc` by `attach_blob`.
 
-        Raises KeyError if `name` does not correspond to an attached blob.
+        Raises OperationFailure if `name` does not correspond to an attached blob.
 
         Returns the blob as a string.
         """
@@ -563,6 +563,14 @@ class MongoJobs(object):
         self.gfs.delete(file_id)
 
 
+def get_obj(md, driver, name, obj, args=(), kwargs={}):
+	try:
+		blob = md.get_attachment(driver, name)
+	except OperationFailure:
+		blob = None
+	return utils.get_obj(obj, argstr=blob, args=args, kwargs=kwargs)
+
+
 class MongoExperiment(base.Experiment):
     """
     This experiment uses a Mongo collection to store
@@ -572,17 +580,20 @@ class MongoExperiment(base.Experiment):
     """
     def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
             exp_key, poll_interval_secs = 10):
-        bandit = utils.json_call(bandit_json)
-        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
-        base.Experiment.__init__(self, bandit_algo)
-        self.bandit_json = bandit_json
-        self.workdir = workdir
+
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
                     config_name='spec')
         else:
             self.mongo_handle = mongo_handle
+        driver = self.mongo_handle.db.drivers.find_one({'exp_key': exp_key})
+        bandit = get_obj(self.mongo_handle, driver, 'bandit_args', bandit_json)
+        bandit_algo = get_obj(self.mongo_handle, driver, 'bandit_algo_args',
+                              bandit_algo_json, args=(bandit,))
+        base.Experiment.__init__(self, bandit_algo)
+        self.bandit_json = bandit_json
+        self.workdir = workdir
         config = self.mongo_handle.db.config.find_one()
         if config is None:
             logger.info('inserting config document')
@@ -657,10 +668,7 @@ class MongoExperiment(base.Experiment):
 
     def run(self, N, block_until_done = False):
         algo = self.bandit_algo
-        bandit = algo.bandit
-
         n_queued = 0
-
         while n_queued < N:
             while self.queue_len() < self.min_queue_len:
                 self.refresh_trials_results()
@@ -889,6 +897,10 @@ def main_worker():
         # XXX: the name of the jobs collection is a parameter elsewhere
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
+
+        md = MongoJobs.new_from_connection_str(
+                as_mongo_str(options.mongo) + '/drivers')
+
         job = None
         while job is None:
             job = mj.reserve(
@@ -930,7 +942,9 @@ def main_worker():
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
             elif cmd_protocol == 'bandit_json evaluate':
-                bandit = utils.json_call(job['cmd'][1])
+                exp_key = job['exp_key']
+                driver = md.coll.find_one({'exp_key': exp_key})
+                bandit = get_obj(md, driver, 'bandit_args', job['cmd'][1])
                 worker_fn = bandit.evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -999,6 +1013,23 @@ def main_search():
             action="store_true",
             default=False,
             help="block return until all queue is empty")
+    parser.add_option("--bandit-argfile",
+            dest="bandit_argfile",
+            default=None,
+            help="path to file containing arguments bandit constructor\n"
+                 "file format: pickle of dictionary containing two keys,\n"
+                 "  {'args' : tuple of positional arguments,\n"
+                 "   'kwargs' : dictionary of keyword arguments}")
+    parser.add_option("--bandit-algo-argfile",
+            dest="bandit_algo_argfile",
+            default=None,
+            help="path to file containing arguments for bandit_algo "
+                  "constructor.  File format is pickled dictionary containing "
+                  "two keys:\n"
+                  "  'args', a tuple of positional arguments, and \n"
+                  "  'kwargs', a dictionary of keyword arguments. \n"
+                  "NOTE: instantiated bandit is pre-pended as first element"
+                  " of arg tuple.")
 
     (options, args) = parser.parse_args()
 
@@ -1066,6 +1097,17 @@ def main_search():
                 self.poll_interval = int(options.poll_interval)
         else:
             logger.info('loading new MongoExperiment')
+            if options.bandit_argfile:
+                argd = cPickle.load(open(options.bandit_argfile))
+                md.set_attachment(driver,
+                                  cPickle.dumps(argd),
+                                  name='bandit_args')
+            if options.bandit_algo_argfile:
+                argd = cPickle.load(open(options.bandit_algo_argfile))
+                md.set_attachment(driver,
+                                  cPickle.dumps(argd),
+                                  name='bandit_algo_args')
+
             self = MongoExperiment(
                 bandit_json = args[0],
                 bandit_algo_json = args[1],

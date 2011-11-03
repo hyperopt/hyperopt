@@ -60,6 +60,21 @@ def main_search():
             default=os.path.expanduser('~/.hyperopt.workdir'),
             help="create workdirs here",
             metavar="DIR")
+    parser.add_option("--bandit-argfile",
+            dest="bandit_argfile",
+            default=None,
+            help="path to file containing arguments bandit constructor \
+                  file format: pickle of dictionary containing two keys,\
+                  {'args' : tuple of positional arguments, \
+                   'kwargs' : dictionary of keyword arguments}")
+    parser.add_option("--bandit-algo-argfile",
+            dest="bandit_algo_argfile",
+            default=None,
+            help="path to file containing arguments for bandit_algo "
+                  "constructor.  File format is pickled dictionary containing "
+                  "two keys: 'args', a tuple of positional arguments, and "
+                  "'kwargs', a dictionary of keyword arguments. "
+                  "NOTE: bandit is pre-pended as first element of arg tuple.")
 
     (options, args) = parser.parse_args()
     try:
@@ -75,8 +90,10 @@ def main_search():
         self = cPickle.load(handle)
         handle.close()
     except IOError:
-        bandit = utils.json_call(bandit_json)
-        bandit_algo = utils.json_call(bandit_algo_json, args=(bandit,))
+        bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
+        bandit_algo = utils.get_obj(bandit_algo_json,
+                                    argfile=options.bandit_algo_argfile,
+                                    args=(bandit,))
         self = SerialExperiment(bandit_algo)
 
     try:

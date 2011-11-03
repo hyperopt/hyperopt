@@ -1,5 +1,6 @@
 import sys
 import logging
+import cPickle
 logger = logging.getLogger(__name__)
 
 import numpy
@@ -35,7 +36,7 @@ def json_lookup(json):
     return symbol
 
 
-def json_call(json, args=(), kwargs={}):
+def json_call(json, args=(), kwargs=None):
     """
     Return a dataset class instance based on a string, tuple or dictionary
 
@@ -47,6 +48,8 @@ def json_call(json, args=(), kwargs={}):
     lot. (XXX)
 
     """
+    if kwargs is None:
+        kwargs = {}
     if isinstance(json, basestring):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)
@@ -57,6 +60,18 @@ def json_call(json, args=(), kwargs={}):
     else:
         raise TypeError(json)
 
+def get_obj(f, argfile = None, argstr = None, args = (), kwargs = None):
+    if kwargs is None:
+        kwargs = {}
+    if argfile is not None:
+        argstr = open(argfile).read()
+    if argstr is not None:
+        argd = cPickle.loads(argstr)
+    else:
+        argd = {}
+    args = args + argd.get('args',())
+    kwargs.update(argd.get('kwargs',{}))
+    return json_call(f, args=args, kwargs=kwargs)
 
 def pmin_sampled(mean, var, n_samples=1000, rng=None):
     """Probability that each Gaussian-dist R.V. is less than the others
