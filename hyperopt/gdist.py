@@ -60,6 +60,8 @@ class SetOp(theano.Op):
         else:
             raise NotImplementedError(self.operation)
         npy_ans = numpy.array(sorted(ans), dtype=node.outputs[0].dtype)
+        if npy_ans.ndim != 1:
+            raise TypeError('didnt make array', ans)
         outstorage[0][0] = node.outputs[0].type.filter(npy_ans, strict=True)
 
 

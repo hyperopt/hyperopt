@@ -582,6 +582,8 @@ class DBN_Base(Bandit):
         dataset = _dataset_cache[config['dataset_name']]
         n_valid = dataset.descr['n_valid']
         p = cls.loss(result, config)
+        if p is None:
+            return None
         return p * (1.0 - p) / (n_valid - 1)
 
     @classmethod

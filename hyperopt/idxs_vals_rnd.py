@@ -66,8 +66,9 @@ class IdxsVals(object):
         """Replace elements of self.idxs according to `idmap`
         """
         if idmap is None:
-            idmap = dict([(idx, i) for i, idx in
-                enumerate(sorted(set(self.idxs)))])
+            idmap = {}
+            for idx in self.idxs:
+                idmap.setdefault(idx, len(idmap))
         self.idxs = [idmap[i] for i in self.idxs]
         return idmap
 
