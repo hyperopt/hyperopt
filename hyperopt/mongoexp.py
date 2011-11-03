@@ -41,11 +41,14 @@ The experiment uses the following collections for IPC:
 
 * fs - a gridfs storage collection (used for pickling)
 
-* config - a collection with a single document, telling workers in what folder
-    to work. TODO: have a document per exp_key instead.
-
 * drivers - documents describing drivers. These are used to prevent two drivers
     from using the same exp_key simultaneously, and to attach saved states.
+    * exp_key
+    * workdir: [optional] path where workers should chdir to
+    Attachments:
+        * pkl: [optional] saved state of experiment class
+        * bandit_args_kwargs: [optional] pickled (clsname, args, kwargs) to
+             reconstruct bandit in worker processes
 
 The MongoJobs, MongoExperiment, and CtrlObj classes as well as the main_worker
 method form the abstraction barrier around this database layout.
@@ -134,6 +137,7 @@ __contact__ = "github.com/jaberg/hyperopt"
 import copy
 import cPickle
 import datetime
+import hashlib
 import logging
 import os
 import signal
@@ -188,9 +192,7 @@ def authenticate_for_db(db):
     d = read_pw()
     db.authenticate(d['username'], d['password'])
 
-##
-# Code stolen from Jobman
-#
+
 def parse_url(url, pwfile=None):
     """Unpacks a url of the form protocol://[username[:pw]]@hostname[:port]/db/collection
 
@@ -278,14 +280,18 @@ def connection_from_string(s):
 
 
 def coarse_utcnow():
+    """
     # MongoDB stores only to the nearest millisecond
     # This is mentioned in a footnote here:
     # http://api.mongodb.org/python/1.9%2B/api/bson/son.html#dt
+    """
     now = datetime.datetime.utcnow()
     microsec = (now.microsecond//10**3)*(10**3)
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
+
 class MongoJobs(object):
+    """
     # Interface to a Jobs database structured like this
     #
     # Collections:
@@ -296,6 +302,7 @@ class MongoJobs(object):
     #
     # db.gfs - file storage via gridFS for all collections
     #
+    """
     def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
         self.db = db
         self.jobs = jobs
@@ -563,14 +570,6 @@ class MongoJobs(object):
         self.gfs.delete(file_id)
 
 
-def get_obj(md, driver, name, obj, args=(), kwargs={}):
-	try:
-		blob = md.get_attachment(driver, name)
-	except OperationFailure:
-		blob = None
-	return utils.get_obj(obj, argstr=blob, args=args, kwargs=kwargs)
-
-
 class MongoExperiment(base.Experiment):
     """
     This experiment uses a Mongo collection to store
@@ -578,32 +577,26 @@ class MongoExperiment(base.Experiment):
     - self.results
 
     """
-    def __init__(self, bandit_json, bandit_algo_json, mongo_handle, workdir,
-            exp_key, poll_interval_secs = 10):
+    def __init__(self, bandit_algo, mongo_handle, workdir, exp_key, cmd,
+            poll_interval_secs=10):
+        # XXX: implement this: save_interval_secs=3.0)
 
         if isinstance(mongo_handle, str):
             self.mongo_handle = MongoJobs.new_from_connection_str(
                     mongo_handle,
                     config_name='spec')
         else:
+            #N.B. self.mongo_handle may be None.
+            #     This is the case if we're unpickling.
             self.mongo_handle = mongo_handle
-        driver = self.mongo_handle.db.drivers.find_one({'exp_key': exp_key})
-        bandit = get_obj(self.mongo_handle, driver, 'bandit_args', bandit_json)
-        bandit_algo = get_obj(self.mongo_handle, driver, 'bandit_algo_args',
-                              bandit_algo_json, args=(bandit,))
+
         base.Experiment.__init__(self, bandit_algo)
-        self.bandit_json = bandit_json
         self.workdir = workdir
-        config = self.mongo_handle.db.config.find_one()
-        if config is None:
-            logger.info('inserting config document')
-            config = {'workdir': self.workdir}
-            self.mongo_handle.db.config.insert(config)
-        else:
-            logger.info('found config document %s' % str(config))
         self.poll_interval_secs = poll_interval_secs
         self.min_queue_len = 1 # can be changed at any time
         self.exp_key = exp_key
+        self.cmd = cmd
+        self._locks = 0
 
     def __getstate__(self):
         rval = dict(self.__dict__)
@@ -645,12 +638,11 @@ class MongoExperiment(base.Experiment):
             trial_configs = new_configs
         rval = []
         # this tells the mongo-worker how to evaluate the job
-        cmd = ('bandit_json evaluate', self.bandit_json)
         for config in trial_configs:
             to_insert = dict(
                     state=STATE_NEW,
                     exp_key=self.exp_key,
-                    cmd=cmd,
+                    cmd=self.cmd,
                     owner=None,
                     spec=config,
                     result=self.bandit_algo.bandit.new_result(),
@@ -699,6 +691,121 @@ class MongoExperiment(base.Experiment):
 
         self.refresh_trials_results()
 
+    def owner_label(self):
+        # Don't make this an attribute, because after unpickling it has to be
+        # updated.
+        return '%s:%i:%i' % (socket.gethostname(), os.getpid(), id(self))
+
+    def ddoc_get(self):
+        """Get the document from the drivers collection for this experiment.
+
+        Returns None if no such document exists.
+        """
+        query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
+        assert query.count() < 2, query.count()
+        if query.count() == 0:
+            self.init_driver_doc()
+        return self.mongo_handle.db.drivers.find_one(
+                {'exp_key': self.exp_key})
+
+    def ddoc_clear(self):
+        ddoc = self.ddoc_get()
+        for name in self.mongo_handle.attachment_names(ddoc):
+            self.mongo_handle.delete_attachment(ddoc, name)
+
+    def ddoc_init(self):
+        """
+        Initializes the document in the drivers collection for this
+        experiment.
+        """
+        query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
+        assert query.count() == 0, query.count()
+        logger.info('inserting config document')
+        config = dict(
+                exp_key=self.exp_key,
+                owner=None,
+                workdir=self.workdir)
+        self.mongo_handle.db.drivers.insert(config)
+
+    def ddoc_lock(self, force=False):
+        """Acquire a lock on the drivers document
+        """
+        if self._locks == 0:
+            try:
+                self.mongo_handle.db.drivers.update(
+                        dict(exp_key=self.exp_key,
+                            owner=None),
+                        {'$set':
+                            { 'owner': self.owner_label() } },
+                        safe=True, upsert=False, multi=False)
+            except pymongo.errors.OperationFailure, e:
+                raise OperationFailure('failed to obtain lock (case 1)')
+            ddoc = self.mongo_handle.db.drivers.find_one(
+                    {'exp_key': self.exp_key, 'owner': self.owner_label()})
+            if ddoc is None:
+                raise OperationFailure('failed to obtain lock (case 2)')
+            self._locks = 1
+        else:
+            self._locks += 1
+
+    def ddoc_release(self):
+        """Release the lock """
+        if self._locks > 1:
+            self._locks -= 1
+        elif self._locks == 1:
+            ddoc = self.ddoc_get()
+            assert ddoc['owner'] == self.owner_label()
+            self.mongo_handle.db.drivers.update(
+                    {'exp_key': self.exp_key},
+                    {'$set': {'owner': None}},
+                    safe=True, upsert=False, multi=False)
+            self._locks = 0
+        else:
+            raise OperationFailure('no lock to release')
+
+    def exclusive_access(self):
+        class Context(object):
+            def __enter__(subself):
+                self.ddoc_lock()
+                return subself
+            def __exit__(subself, *args):
+                self.ddoc_release()
+        return Context()
+
+    def ddoc_set_workdir(self):
+        """
+        """
+        with self.exclusive_access() as foo:
+            logger.info('setting workdir: %s' % self.workdir)
+            ddoc = self.ddoc_get()
+            self.mongo_handle.update(ddoc, {'workdir': self.workdir})
+
+    def ddoc_attach_bandit_tuple(self, name, args, kwargs):
+        with self.exclusive_access() as foo:
+            logger.info('attaching bandit tuple')
+            ddoc = self.ddoc_get()
+            self.mongo_handle.set_attachment(config,
+                        cPickle.dumps((name, args, kwargs)),
+                        name='bandit_args_kwargs')
+
+    def save_to_db(self):
+        with self.exclusive_access() as foo:
+            logger.info('saving state to mongo')
+            ddoc = self.ddoc_get()
+            self.mongo_handle.set_attachment(ddoc,
+                    cPickle.dumps(self), name='pkl')
+
+    def load_from_db(self):
+        """
+        Return a MongoExperiments instance unpickled from DB
+
+        Raises OperationFailure if no such attachment exists
+        """
+        logger.info('loading state from mongo')
+        ddoc = self.ddoc_get()
+        blob = self.mongo_handle.get_attachment(ddoc, name='pkl')
+        return cPickle.loads(blob)
+
 
 class MongoWorker(object):
     poll_interval = 3.0            # seconds
@@ -738,8 +845,8 @@ class MongoWorker(object):
                 read_only_id=None,
                 )
         ctrl.current_job = job
+        config = mj.db.drivers.find_one({'exp_key': job['exp_key']})
         if self.workdir is None:
-            config = mj.db.config.find_one()
             workdir = os.path.join(config['workdir'], str(job['_id']))
         else:
             workdir = os.path.expanduser(self.workdir)
@@ -759,6 +866,8 @@ class MongoWorker(object):
             elif cmd_protocol == 'bandit_json evaluate':
                 bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
+            elif cmd_protocol == 'db_bandit_construct':
+                bandit_str = mj.get_attachment(['bandit_algo_args'])
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
@@ -942,10 +1051,15 @@ def main_worker():
                 cmd_module = '.'.join(cmd_toks[:-1])
                 worker_fn = exec_import(cmd_module, cmd)
             elif cmd_protocol == 'bandit_json evaluate':
-                exp_key = job['exp_key']
-                driver = md.coll.find_one({'exp_key': exp_key})
-                bandit = get_obj(md, driver, 'bandit_args', job['cmd'][1])
+                bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
+            elif cmd_protocol == 'driver_attachment':
+                driver = md.coll.find_one({'exp_key': job['exp_key']})
+                blob = md.get_attachment(driver, 'bandit_args_kwargs')
+                bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
+                worker_fn = utils.json_call(bandit_name,
+                        args=bandit_args,
+                        kwargs=bandit_kwargs)
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
@@ -1037,36 +1151,75 @@ def main_search():
         parser.print_help()
         return -1
 
+    #
+    # Construct bandit
+    #
+    bandit_name = args[0]
+    if options.bandit_argfile:
+        bandit_argfile_text = open(options.bandit_argfile).read()
+        bandit_argv, bandit_kwargs = cPickle.load(bandit_argfile_text)
+    else:
+        bandit_argfile_text = ''
+        bandit_argv, bandit_kwargs = (), {}
+    bandit = utils.json_call(bandit_name, bandit_argv, bandit_kwargs)
+
+    #
+    # Construct algo
+    #
+    algo_name = args[1]
+    if options.bandit_algo_argfile:
+        # in theory this is easy just as above.
+        # need tests though, and it's just not done yet.
+        raise NotImplementedError('Option: --bandit-algo-argfile')
+    else:
+        algo_argfile_text = ''
+        algo_argv, algo_kwargs = (), {}
+    algo = utils.json_call(algo_name, algo_argv, algo_kwargs)
+
+    #
+    # Determine exp_key
+    #
     if None is options.exp_key:
-        exp_key = args[0] + "/" + args[1]
+        if bandit_argfile_text or algo_argfile_text:
+            m = hashlib.md5()
+            m.update(bandit_argfile_text)
+            m.update(algo_argfile_text)
+            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.digest())
+            del m
+        else:
+            exp_key = '%s/%s' % (bandit_name, algo_name)
     else:
         exp_key = options.exp_key
 
+    #
+    # Construct MongoExperiment
+    #
+    if bandit_argfile_text or algo_argfile_text:
+        worker_cmd = ('driver_attachment', exp_key)
+    else:
+        worker_cmd = ('bandit_json_evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
+    self = MongoExperiment(
+        bandit_algo=algo,
+        mongo_handle=mj,
+        workdir=options.workdir,
+        exp_key=exp_key,
+        poll_interval_secs=(int(options.poll_interval))
+            if options.poll_interval else 5,
+        cmd=worker_cmd)
 
-    md = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/drivers')
+    self.ddoc_get()  # init the driver document if necessary
+    self.write_config_to_db(
+            bandit_args_kwargs=(
+                bandit_name, bandit_argv, bandit_kwargs))
+    with self.exclusive_access(force=options.force_lock) as _foo:
 
-    driver = md.coll.find_one({'exp_key': exp_key})
+        # TODO: uncomment this error when it happens again, and I can see
+        # where in the traceback to put it.
+        #logger.error('experiment in progress: %s' % str(driver['owner']))
+        #logger.error('(hint: run with --force-lock to proceed anyway.)')
 
-    if driver and driver['owner'] and not options.force_lock:
-        logger.error('experiment in progress: %s' % str(driver['owner']))
-        logger.error('(hint: run with --force-lock to proceed anyway.)')
-        return -1
-
-    owner = '%s:%i' % (socket.gethostname(), os.getpid())
-    if driver is None:
-        driver = md.insert(dict(exp_key=exp_key, owner=owner))
-    else:
-        driver = md.update(driver, dict(owner=owner))
-
-    # checkpoint: we have a driver document, and we are registered as owner
-    assert '_id' in driver
-    assert driver['owner'] == owner
-    assert driver['exp_key'] == exp_key
-
-    try:
         if options.clear_existing:
             print >> sys.stdout, "Are you sure you want to delete",
             print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
@@ -1078,58 +1231,39 @@ def main_search():
                 print >> sys.stdout, "aborting"
                 del self
                 return 1
-            # delete any saved driver
-            for name in md.attachment_names(driver):
-                md.delete_attachment(driver, name)
+
+            self.ddoc_clear()
 
             # delete any jobs from a previous driver
             mj.delete_all(cond={'exp_key': exp_key})
 
-        if 'pkl' in md.attachment_names(driver):
-            logger.info('loading from saved state')
-            blob = md.get_attachment(driver, 'pkl')
-            self = cPickle.loads(blob)
-            assert self.exp_key == exp_key
-            self.mongo_handle = mj
-            if options.workdir is not None:
-                self.workdir = options.workdir
-            if options.poll_interval is not None:
-                self.poll_interval = int(options.poll_interval)
-        else:
-            logger.info('loading new MongoExperiment')
-            if options.bandit_argfile:
-                argd = cPickle.load(open(options.bandit_argfile))
-                md.set_attachment(driver,
-                                  cPickle.dumps(argd),
-                                  name='bandit_args')
-            if options.bandit_algo_argfile:
-                argd = cPickle.load(open(options.bandit_algo_argfile))
-                md.set_attachment(driver,
-                                  cPickle.dumps(argd),
-                                  name='bandit_algo_args')
+    try:
+        #
+        # Replace the self we constructed earlier
+        # with the unpickled saved state
+        #
+        other = self.load_from_db()
+    except OperationFailure:
+        pass
+    else:
+        assert other.exp_key == exp_key
+        other.mongo_handle = mj
+        if options.workdir is not None:
+            other.workdir = self.workdir
+        if options.poll_interval is not None:
+            other.poll_interval_secs = self.poll_interval_secs
+        self = other
 
-            self = MongoExperiment(
-                bandit_json = args[0],
-                bandit_algo_json = args[1],
-                mongo_handle = mj,
-                workdir = options.workdir,
-                exp_key = exp_key,
-                poll_interval_secs = (int(options.poll_interval))
-                    if options.poll_interval else 5)
-
-        self.run(options.steps, block_until_done = options.block)
-    finally:
-        # if we still have a db connection, unregister ourselves as the active
-        # driver
-
-        # XXX: does this mess up the original exception traceback?
+    with self.exclusive_access(force=options.force_lock) as _foo:
         try:
-            if 'self' in locals() and options.save_on_exit:
-                logger.info('saving state to mongo')
-                md.set_attachment(driver, cPickle.dumps(self), name='pkl')
-            md.update(driver, dict(owner=None))
-        except pymongo.errors.OperationFailure:
-            pass
+            self.run(options.steps, block_until_done = options.block)
+        finally:
+            if options.save_on_exit:
+                # XXX: does this mess up the original exception traceback?
+                try:
+                    self.save_to_db()
+                except pymongo.errors.OperationFailure:
+                    pass
 
 
 def main_show():
@@ -1194,6 +1328,7 @@ def main_show():
         assert self.exp_key == exp_key
         self.mongo_handle = mj
     else:
+        logger.warn('showing empty experiment')
         self = MongoExperiment(
             bandit_json = options.bandit,
             bandit_algo_json = options.bandit_algo,
