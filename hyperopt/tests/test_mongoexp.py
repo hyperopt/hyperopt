@@ -20,11 +20,14 @@ import unittest
 
 import numpy
 
+from hyperopt.utils import json_call
 from hyperopt.base import Bandit, BanditAlgo, Experiment
-from hyperopt.mongoexp import MongoExperiment, MongoWorker
+from hyperopt.mongoexp import MongoExperiment
+from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import as_mongo_str
 from hyperopt.mongoexp import MongoJobs
-from hyperopt.bandits import TwoArms
+from hyperopt.mongoexp import OperationFailure
+from hyperopt.bandits import TwoArms, GaussWave2
 from hyperopt import bandit_algos
 from hyperopt.theano_gp import HGP
 
@@ -90,16 +93,18 @@ def test_mongo_exp_is_picklable():
             # this triggers if an old stale mongo is running
             assert len(TempMongo.mongo_jobs('foodb')) == 0
             print 'pickling MongoExperiment with', algo_json
+            bandit = json_call('hyperopt.bandits.GaussWave2')
+            bandit_algo = json_call(algo_json, args=(bandit,))
             exp = MongoExperiment(
-                bandit_json='hyperopt.bandits.GaussWave2',
-                bandit_algo_json=algo_json,
+                bandit_algo=bandit_algo,
                 mongo_handle=tm.mongo_jobs('foodb'),
                 workdir=tm.workdir,
                 exp_key='exp_key',
-                poll_interval_secs=1.0)
-            # XXX: implement this: save_interval_secs=3.0)
+                poll_interval_secs=1.0,
+                cmd=('asdf', None))
             exp_str = cPickle.dumps(exp)
             cpy = cPickle.loads(exp_str)
+
 
 def test_mongo_exp_with_threads():
     def worker(host_id, n_jobs, timeout):
@@ -116,13 +121,15 @@ def test_mongo_exp_with_threads():
             'hyperopt.dbn.Dummy_DBN_Base',):
         with TempMongo() as tm:
             assert len(TempMongo.mongo_jobs('foodb')) == 0
+            bandit = json_call(bandit_json)
             exp = MongoExperiment(
-                bandit_json=bandit_json,
-                bandit_algo_json='hyperopt.theano_gp.HGP',
+                bandit_algo=HGP(bandit),
                 mongo_handle=tm.mongo_jobs('foodb'),
                 workdir=tm.workdir,
                 exp_key='exp_key',
-                poll_interval_secs=1.0)
+                poll_interval_secs=1.0,
+                cmd=('bandit_json evaluate', bandit_json))
+            exp.ddoc_init()
             assert len(TempMongo.mongo_jobs('foodb')) == 0
             for asdf in exp.mongo_handle:
                 print asdf
@@ -147,6 +154,70 @@ def test_mongo_exp_with_threads():
             assert len(exp.results) == n_trials
 
             exp_str = cPickle.dumps(exp)
+
+
+class TestLock(unittest.TestCase):
+    def setUp(self):
+        self.ctxt = TempMongo().__enter__()
+        try:
+            self.a = MongoExperiment(
+                bandit_algo=bandit_algos.Random(TwoArms()),
+                mongo_handle=self.ctxt.mongo_jobs('foodb'),
+                workdir=self.ctxt.workdir,
+                exp_key='exp_key',
+                poll_interval_secs=1.0,
+                cmd=())
+            # create a second experiment with same key
+            self.b = MongoExperiment(
+                bandit_algo=bandit_algos.Random(GaussWave2()),
+                mongo_handle=self.ctxt.mongo_jobs('foodb'),
+                workdir=self.ctxt.workdir,
+                exp_key='exp_key',
+                poll_interval_secs=1.0,
+                cmd=())
+            self.c = MongoExperiment(
+                bandit_algo=bandit_algos.Random(GaussWave2()),
+                mongo_handle=self.ctxt.mongo_jobs('foodb'),
+                workdir=self.ctxt.workdir,
+                exp_key='exp_key_different',
+                poll_interval_secs=1.0,
+                cmd=())
+            self.a.ddoc_init()
+            self.c.ddoc_init()
+        except:
+            self.ctxt.__exit__(None)
+            raise
+
+    def tearDown(self):
+        self.ctxt.__exit__(None)
+
+    def test_lock_relock(self):
+        with self.a.exclusive_access() as foo:
+            self.assertRaises(OperationFailure, self.b.ddoc_lock)
+
+        with self.b.exclusive_access() as foo:
+            # test that c can still be acquired with b locked
+            self.assertRaises(OperationFailure, self.a.ddoc_lock)
+            with self.c.exclusive_access() as bar:
+                self.assertRaises(OperationFailure, self.a.ddoc_lock)
+
+        with self.a.exclusive_access() as foo:
+            with self.a.exclusive_access() as foo2:
+                with self.a.exclusive_access() as foo3:
+                    self.assertRaises(OperationFailure, self.b.ddoc_lock)
+                    assert self.a._locks == 3
+                assert self.a._locks == 2
+            self.assertRaises(OperationFailure, self.b.ddoc_lock)
+            assert self.a._locks == 1
+        assert self.a._locks == 0
+
+    def test_clear_requires_lock(self):
+        with self.a.exclusive_access() as foo:
+            self.assertRaises(OperationFailure, self.b.clear_from_db)
+
+# XXX: test blocking behaviour
+
+# XXX: Test clear_db only removes things matching exp_key
 
 
 # XXX: test that multiple experiments can run simultaneously on the same
