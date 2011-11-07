@@ -559,6 +559,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     # probability of using the GP when more than `local_improvement_patience`
     # iterations have elapsed since the last winning point was found.
 
+    liar_percentile = .2
+    # Attribute to jobs in progress the mean and variance of this quantile of
+    # finished jobs.  0 would be most optimistic, 1 would be least.
+
     def trace(self, msg, obj):
         """Keep a trace of actions and results, useful for debugging"""
         if self.trace_on:
@@ -901,8 +905,12 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         y_all_iv = ivls['losses']['ok'].as_list()
         y_var_iv = ivls['losses_variance']['ok'].as_list()
 
-        liar_y_mean = numpy.mean(ivls['losses']['ok'].vals)
-        liar_y_var = numpy.mean(ivls['losses_variance']['ok'].vals)
+        # -- HEURISTIC: assign running jobs the same performance as the
+        #    some percentile of the observed losses.
+        liar_y_pos = numpy.argsort(ivls['losses']['ok'].vals)[
+                int(self.liar_percentile * len(ivls['losses']['ok'].vals))]
+        liar_y_mean = ivls['losses']['ok'].vals[liar_y_pos]
+        liar_y_var = ivls['losses_variance']['ok'].vals[liar_y_pos]
 
         for pseudo_bad_status in 'new', 'running':
             logger.info('GM_BanditAlgo assigning bad scores to %i new jobs'
