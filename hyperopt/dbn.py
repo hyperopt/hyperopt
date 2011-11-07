@@ -596,7 +596,7 @@ class DBN_Base(Bandit):
             return None
 
     @classmethod
-    def status(cls, result):
+    def status(cls, result, config=None):
         """Extract the job status from a result document
         """
         if (result['status'] == 'ok' and
