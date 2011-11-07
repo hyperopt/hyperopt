@@ -21,6 +21,9 @@ def main_plot_history(self):
     """
     self - experiment
     """
+    bandit_algo = self.bandit_algo
+    bandit = self.bandit_algo.bandit
+
     # self is an Experiment
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs = self.trials
@@ -32,7 +35,7 @@ def main_plot_history(self):
     plt.xlabel('time')
     plt.ylabel('loss')
     try:
-        loss_target = self.bandit.loss_target()
+        loss_target = bandit.loss_target()
         have_losstarget = True
     except NotImplementedError:
         loss_target = numpy.min(Ys)
@@ -52,8 +55,8 @@ def main_plot_history(self):
         print "avg best error:", best_err
         plt.axhline(best_err, c='g')
     plt.title('bandit: %s algo: %s' % (
-        self.bandit.short_str(),
-        self.bandit_algo.short_str()))
+        bandit.short_str(),
+        bandit_algo.short_str()))
     plt.show()
 
 
