@@ -548,6 +548,17 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     trace_on = False
 
+    local_improvement_patience = 20
+    # For this many iterations after the suggestion of a new best point, this
+    # algorithm will use the GP (and not the GM).
+    # N.B. than in parallel search, this number must be overestimated because
+    # several time-steps will have elapsed by the time the best point switches
+    # to status 'ok'.
+
+    p_GP_during_exploration = .5
+    # probability of using the GP when more than `local_improvement_patience`
+    # iterations have elapsed since the last winning point was found.
+
     def trace(self, msg, obj):
         """Keep a trace of actions and results, useful for debugging"""
         if self.trace_on:
@@ -1233,8 +1244,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         assert initial == len(best_pt)
         return rval
 
-    def suggest_from_model(self, trials, results, N):
-        logger.debug('suggest_from_model')
+    def suggest_from_gp(self, trials, results, N):
+        logger.debug('suggest_from_gp')
+        if N != 1:
+            raise NotImplementedError('only N==1 is supported')
         ivls = self.idxs_vals_by_status(trials, results)
 
         candidates = self.gm_algo.suggest_from_model(ivls,
@@ -1262,7 +1275,13 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         rval = candidates_opt.numeric_take([best_idx])
         return rval
 
-    def suggest_from_prior(self, N):
+    def suggest_from_gm(self, trials, results, N):
+        logger.debug('suggest_from_gm')
+        ivls = self.idxs_vals_by_status(trials, results)
+        rval = self.gm_algo.suggest_from_model(ivls, N)
+        return rval
+
+    def suggest_from_prior(self, trials, results, N):
         logger.debug('suggest_from_prior')
         if not hasattr(self, '_prior_sampler'):
             self._prior_sampler = theano.function(
@@ -1274,20 +1293,34 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
     def suggest(self, trials, results, N):
         ivls = self.idxs_vals_by_status(trials, results)
-        t = time.time()
-        try:
-            if len(ivls['losses']['ok'].idxs) < self.n_startup_jobs:
-                return self.suggest_ivl(
-                        self.suggest_from_prior(N))
-            else:
-                return self.suggest_ivl(
-                        self.suggest_from_model(trials, results, N))
+        t0 = time.time()
+        n_ok = len(ivls['losses']['ok'].idxs)
 
+        # -- figure out how long (in iterations) it has been since picking a
+        #    winner: `winner_age`
+        assert (list(ivls['losses']['ok'].idxs)
+                == list(sorted(ivls['losses']['ok'].idxs)))
+        t_winner = numpy.asarray(ivls['losses']['ok'].vals).argmax()
+        winner_age = n_ok - t_winner
+
+        # -- choose the suggestion strategy (heuristic)
+        if n_ok < self.n_startup_jobs:
+            fn = self.suggest_from_prior
+        else:
+            if winner_age < self.local_improvement_patience:
+                fn = self.suggest_from_gp
+            else:
+                if self.numpy_rng.rand() < self.p_GP_during_exploration:
+                    fn = self.suggest_from_gp
+                else:
+                    fn = self.suggest_from_gm
+        try:
+            rval = self.suggest_ivl(fn(trials, results, N))
         finally:
             logger.info('suggest %i took %.2f seconds' % (
                     len(ivls['losses']['ok'].idxs),
-                    time.time() - t))
-
+                    time.time() - t0))
+        return rval
 
 
 def HGP(bandit):
