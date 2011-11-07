@@ -1333,17 +1333,16 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         t0 = time.time()
         n_ok = len(ivls['losses']['ok'].idxs)
 
-        # -- figure out how long (in iterations) it has been since picking a
-        #    winner: `winner_age`
-        assert (list(ivls['losses']['ok'].idxs)
-                == list(sorted(ivls['losses']['ok'].idxs)))
-        t_winner = numpy.asarray(ivls['losses']['ok'].vals).argmax()
-        winner_age = n_ok - t_winner
-
         # -- choose the suggestion strategy (heuristic)
         if n_ok < self.n_startup_jobs:
             fn = self.suggest_from_prior
         else:
+            # -- figure out how long (in iterations) it has been since picking a
+            #    winner: `winner_age`
+            assert (list(ivls['losses']['ok'].idxs)
+                    == list(sorted(ivls['losses']['ok'].idxs)))
+            t_winner = numpy.asarray(ivls['losses']['ok'].vals).argmin()
+            winner_age = n_ok - t_winner
             if winner_age < self.local_improvement_patience:
                 fn = self.suggest_from_gp
             else:
