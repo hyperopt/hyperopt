@@ -1245,44 +1245,63 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         return rval
 
     def suggest_from_gp(self, trials, results, N):
-        logger.debug('suggest_from_gp')
+        logger.info('suggest_from_gp')
         if N != 1:
             raise NotImplementedError('only N==1 is supported')
         ivls = self.idxs_vals_by_status(trials, results)
 
+        prepared_data = self.prepare_GP_training_data(ivls)
+        self.fit_GP(*prepared_data)
+
+        # -- draw some random candidates
         candidates = self.gm_algo.suggest_from_model(ivls,
-                self.n_candidates_to_draw)
+                self.n_candidates_to_draw // 2)
 
+        # -- add the best previous trials as candidates
+        n_to_opt = self.n_candidates_to_draw - self.n_candidates_to_draw // 2
+        best_idxs = numpy.asarray(ivls['losses']['ok'].idxs)[
+                numpy.argsort(ivls['losses']['ok'].vals)[:n_to_opt]]
+        best_IVLs = ivls['x_IVLs']['ok'].numeric_take(best_idxs)
+        # -- re-index the best_IVLs to ensure no collision during stack
+        cand_idxset = candidates.idxset()
+        best_idxset = best_IVLs.idxset()
+        idmap = {}
+        for i in best_idxset:
+            if i in cand_idxset:
+                idmap[i] = (max(cand_idxset) + max(best_idxset) +
+                        len(idmap) + 1)
+            else:
+                idmap[i] = i
+        assert (len(cand_idxset.union(idmap.values()))
+                == self.n_candidates_to_draw)
+        best_IVLs.reindex(idmap)
+        candidates.stack(best_IVLs)
+        assert len(candidates.idxset()) == self.n_candidates_to_draw
+
+        candidates_opt = self.GP_EI_optimize(candidates)
+
+        EI_opt = self.GP_EI(candidates_opt)
+        best_idx = numpy.argmax(EI_opt)
         if 1:
-            prepared_data = self.prepare_GP_training_data(ivls)
-            self.fit_GP(*prepared_data)
-            candidates_opt = self.GP_EI_optimize(candidates)
-
-            EI_opt = self.GP_EI(candidates_opt)
-            best_idx = numpy.argmax(EI_opt)
-            if 1:
-                # for DEBUGGING
-                EI = self.GP_EI(candidates)
-                if EI.max() > EI_opt.max():
-                    logger.warn(
-                        'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
-                            EI.max(), EI_opt.max()))
-        else:
-            best_idx = 0
-            candidates_opt = candidates
+            # for DEBUGGING
+            EI = self.GP_EI(candidates)
+            if EI.max() > EI_opt.max():
+                logger.warn(
+                    'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
+                        EI.max(), EI_opt.max()))
 
         self.post_refinement(candidates_opt)
         rval = candidates_opt.numeric_take([best_idx])
         return rval
 
     def suggest_from_gm(self, trials, results, N):
-        logger.debug('suggest_from_gm')
+        logger.info('suggest_from_gm')
         ivls = self.idxs_vals_by_status(trials, results)
         rval = self.gm_algo.suggest_from_model(ivls, N)
         return rval
 
     def suggest_from_prior(self, trials, results, N):
-        logger.debug('suggest_from_prior')
+        logger.info('suggest_from_prior')
         if not hasattr(self, '_prior_sampler'):
             self._prior_sampler = theano.function(
                     [self.s_N],
