@@ -201,17 +201,19 @@ class Experiment(object):
         For bandits with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
+        bandit = self.bandit_algo.bandit
+
         def fmap(f):
             rval = numpy.asarray([f(r, s)
                     for (r, s) in zip(self.results, self.trials)
-                    if self.bandit.status(r) == 'ok']).astype('float')
+                    if bandit.status(r) == 'ok']).astype('float')
             if not numpy.all(numpy.isfinite(rval)):
                 raise ValueError()
             return rval
-        loss = fmap(self.bandit.loss)
-        loss_v = fmap(self.bandit.loss_variance)
-        if self.bandit.true_loss is not Bandit.true_loss:
-            true_loss = fmap(self.bandit.true_loss)
+        loss = fmap(bandit.loss)
+        loss_v = fmap(bandit.loss_variance)
+        if bandit.true_loss is not Bandit.true_loss:
+            true_loss = fmap(bandit.true_loss)
             loss3 = zip(loss, loss_v, true_loss)
         else:
             loss3 = zip(loss, loss_v, loss)
