@@ -445,7 +445,7 @@ class TestGaussWave3(unittest.TestCase):
             if i > self.algo.n_startup_jobs:
                 print [k.lenscale() for k in self.algo.kernels]
                 d = numpy.diag(self.algo.GP_train_K())
-                print 'max abs err', numpy.max(abs(d - 1))
+                #print 'max abs err', numpy.max(abs(d - 1))
                 assert numpy.max(abs(d-1)) < .001
                 assert 'float64' == str(d.dtype)
         plt.plot(
@@ -637,7 +637,7 @@ class TestDummyDBN(unittest.TestCase):
                 #print 'LENSCALES',
                 #print [k.lenscale() for k in bandit_algo.kernels]
                 d = numpy.diag(bandit_algo.GP_train_K())
-                print 'max abs err', numpy.max(abs(d - 1))
+                #print 'max abs err', numpy.max(abs(d - 1))
                 assert numpy.max(abs(d - 1)) < .0001
                 assert 'float64' == str(d.dtype)
 
@@ -650,7 +650,7 @@ class TestDummyDBN(unittest.TestCase):
             serial_exp.run(1)
             if i > bandit_algo.n_startup_jobs:
                 d = numpy.diag(bandit_algo.GP_train_K())
-                print 'max abs err', numpy.max(abs(d - 1))
+                #print 'max abs err', numpy.max(abs(d - 1))
                 assert numpy.max(abs(d - 1)) < .0001
                 assert 'float64' == str(d.dtype)
 
@@ -663,7 +663,7 @@ class TestDummyDBN(unittest.TestCase):
             serial_exp.run(1)
             if i > bandit_algo.n_startup_jobs:
                 d = numpy.diag(bandit_algo.GP_train_K())
-                print 'max abs err', numpy.max(abs(d - 1))
+                #print 'max abs err', numpy.max(abs(d - 1))
                 assert numpy.max(abs(d - 1)) < .0001
                 assert 'float64' == str(d.dtype)
 
@@ -676,9 +676,11 @@ class TestDummyDBN(unittest.TestCase):
             serial_exp.run(1)
             if i > bandit_algo.n_startup_jobs:
                 d = numpy.diag(bandit_algo.GP_train_K())
-                print 'max abs err', numpy.max(abs(d - 1))
+                #print 'max abs err', numpy.max(abs(d - 1))
                 assert numpy.max(abs(d - 1)) < .0001
                 assert 'float64' == str(d.dtype)
+        # just getting to this point means that no NaNs were produced during
+        # the calculations.
 
 
 class TestPickle(unittest.TestCase):
