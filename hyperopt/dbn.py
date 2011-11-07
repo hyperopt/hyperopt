@@ -640,3 +640,5 @@ class Dummy_DBN_Base(Bandit):
         rval['loss'] = 1.0 - rval['best_epoch_valid']
         return rval
 
+    def loss_variance(self, result, config=None):
+        return 0.01**2
