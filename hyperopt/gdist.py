@@ -12,7 +12,7 @@ import bson
 from bson import SON, BSON
 import genson
 import genson.parser
-from genson.util import isdict
+from genson.util import isdict, set_global_seed
 import theano
 from theano import tensor
 import montetheano as MT
@@ -261,6 +261,7 @@ class gDist(gDict):
         self.genson_generator = genson.JSONGenerator(genson_obj)
 
     def sample(self, rng, reset=True):
+        set_global_seed(rng)
         try:
             return self.genson_generator.next()
         except StopIteration:
