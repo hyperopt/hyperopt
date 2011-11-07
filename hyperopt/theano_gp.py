@@ -1261,18 +1261,21 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         prepared_data = self.prepare_GP_training_data(ivls)
         self.fit_GP(*prepared_data)
 
-        # -- draw some random candidates
-        candidates = self.gm_algo.suggest_from_model(ivls,
-                self.n_candidates_to_draw // 2)
-
         # -- add the best previous trials as candidates
-        n_to_opt = self.n_candidates_to_draw - self.n_candidates_to_draw // 2
+        n_trials_to_opt = self.n_candidates_to_draw // 2
         best_idxs = numpy.asarray(ivls['losses']['ok'].idxs)[
-                numpy.argsort(ivls['losses']['ok'].vals)[:n_to_opt]]
+                numpy.argsort(ivls['losses']['ok'].vals)[:n_trials_to_opt]]
         best_IVLs = ivls['x_IVLs']['ok'].numeric_take(best_idxs)
+        best_idxset = best_IVLs.idxset()
+
+        # -- draw the remainder as random candidates
+        candidates = self.gm_algo.suggest_from_model(ivls,
+                self.n_candidates_to_draw - len(best_idxset))
+
         # -- re-index the best_IVLs to ensure no collision during stack
         cand_idxset = candidates.idxset()
-        best_idxset = best_IVLs.idxset()
+        assert (len(cand_idxset) + len(best_idxset)
+                == self.n_candidates_to_draw)
         idmap = {}
         for i in best_idxset:
             if i in cand_idxset:
@@ -1280,11 +1283,18 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         len(idmap) + 1)
             else:
                 idmap[i] = i
+            assert idmap[i] not in cand_idxset
         assert (len(cand_idxset.union(idmap.values()))
                 == self.n_candidates_to_draw)
         best_IVLs.reindex(idmap)
+        candidates = candidates.as_list()
         candidates.stack(best_IVLs)
         assert len(candidates.idxset()) == self.n_candidates_to_draw
+        # XXX: rather than reindex here, take advantage of fact that random
+        #      candidates were already contiguously indexed and stack
+        #      appropriately reindexed trials on top of them.
+        candidates.reindex()
+        candidates = candidates.as_numpy()
 
         candidates_opt = self.GP_EI_optimize(candidates)
 
