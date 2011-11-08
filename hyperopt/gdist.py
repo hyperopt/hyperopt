@@ -260,16 +260,25 @@ class gDist(gDict):
         super(gDist, self).__init__(genson_obj)
         self.genson_generator = genson.JSONGenerator(genson_obj)
 
-    def sample(self, rng, reset=True):
-        set_global_seed(rng)
+    def seed(self, seed):
+        """ Reset the generators used by `self.sample` """
         try:
-            return self.genson_generator.next()
-        except StopIteration:
-            if reset:
-                self.genson_generator.reset()
-                return self.genson_generator.next()
-            else:
-                raise StopIteration
+            self.genson_generator.seed(seed)
+        except AttributeError:
+            # -- currently there is no such function
+            #    self.genson_generator.seed()
+            #    But this is what it should probably do
+            seedgen = numpy.random.RandomState(seed)
+            for g in self.genson_generator.generators:
+                g.seed(int(seedgen.randint(2 ** 31)))
+
+    def sample(self, seed=None):
+        """ Return next random configuration template """
+        if seed is not None:
+            self.seed(seed)
+        for g in self.genson_generator.generators:
+            g.advance()
+        return genson.resolve(self.genson_generator.genson_dict)
 
     def theano_sampler(self, s_rng):
         """ Return Theano idxs, vals to sample from this rdist tree"""
