@@ -1241,15 +1241,20 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 iprint=-1)
         self.trace('best_pt', best_pt)
 
-        #print 'BEST_PT', best_pt
+        # print 'BEST_PT', best_pt
         rval = x.copy()
         initial = 0
         for (_ind, iv) in enumerate(x):
             if self.is_refinable[self.kernels[_ind]]:
                 diff = len(iv.vals)
+                # XXX: assumes vector-valued vals (scalar elements)
                 rval[_ind].vals = best_pt[initial:initial + diff]
                 initial += diff
+        # -- assert that all elements of best_pt have been used
         assert initial == len(best_pt)
+
+        # -- apply any quantization required by the distributions
+        self.post_refinement(rval)
         return rval
 
     def suggest_from_gp(self, trials, results, N):
@@ -1307,8 +1312,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 logger.warn(
                     'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
                         EI.max(), EI_opt.max()))
-
-        self.post_refinement(candidates_opt)
         rval = candidates_opt.numeric_take([best_idx])
         return rval
 
