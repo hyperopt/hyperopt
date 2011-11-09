@@ -443,6 +443,9 @@ class MongoJobs(object):
         safe=True means error-checking is done. safe=False means this function will succeed
         regardless of what happens with the db.
         """
+        if collection is None:
+            collection = self.coll
+
         dct = copy.deepcopy(dct)
         if '_id' in dct:
             raise ValueError('cannot update the _id field')
@@ -460,7 +463,7 @@ class MongoJobs(object):
         try:
             # warning - if doc matches nothing then this function succeeds
             # N.B. this matches *at most* one entry, and possibly zero
-            self.coll.update( 
+            collection.update(
                     doc_query,
                     {'$set': dct},
                     safe=True,
@@ -474,7 +477,7 @@ class MongoJobs(object):
         doc.update(dct)
 
         if safe:
-            server_doc = self.coll.find_one(
+            server_doc = collection.find_one(
                     dict(_id=doc['_id'], version=doc['version']))
             if server_doc is None:
                 raise OperationFailure('updated doc not found : %s'
@@ -501,7 +504,7 @@ class MongoJobs(object):
     def attachment_names(self, doc):
         return [a[0] for a in doc.get('_attachments', [])]
 
-    def set_attachment(self, doc, blob, name):
+    def set_attachment(self, doc, blob, name, collection=None):
         """Attach potentially large data string `blob` to `doc` by name `name`
 
         blob must be a string
@@ -528,10 +531,11 @@ class MongoJobs(object):
                 + [(name, new_file_id)])
 
         try:
-            doc = self.update(doc, {'_attachments': new_attachments})
+            ii = 0
+            doc = self.update(doc, {'_attachments': new_attachments},
+                    collection=collection)
             # there is a database leak until we actually delete the files that
             # are no longer pointed to by new_attachments
-            ii = 0
             while ii < len(name_matches):
                 self.gfs.delete(name_matches[ii][1])
                 ii += 1
@@ -559,7 +563,7 @@ class MongoJobs(object):
             raise OperationFailure('multiple name matches', (name, file_ids))
         return self.gfs.get(file_ids[0]).read()
 
-    def delete_attachment(self, doc, name):
+    def delete_attachment(self, doc, name, collection=None):
         attachments = doc.get('_attachments', [])
         file_id = None
         for i,a in enumerate(attachments):
@@ -570,7 +574,7 @@ class MongoJobs(object):
             raise OperationFailure('Attachment not found: %s' % name)
         #print "Deleting", file_id
         del attachments[i]
-        self.update(doc, {'_attachments':attachments})
+        self.update(doc, {'_attachments':attachments}, collection=collection)
         self.gfs.delete(file_id)
 
 
