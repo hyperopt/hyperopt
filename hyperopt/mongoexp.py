@@ -1238,7 +1238,7 @@ def main_search():
     if bandit_argfile_text or algo_argfile_text:
         worker_cmd = ('driver_attachment', exp_key)
     else:
-        worker_cmd = ('bandit_json_evaluate', bandit_name)
+        worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
     self = MongoExperiment(
