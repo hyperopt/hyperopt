@@ -1070,7 +1070,7 @@ def main_worker():
                 )
         ctrl.current_job = job
         if options.workdir is None:
-            config = mj.db.config.find_one()
+            config = mj.db.drivers.find_one({"exp_key": job["exp_key"]})
             workdir = os.path.join(config['workdir'], str(job['_id']))
         else:
             workdir = os.path.expanduser(options.workdir)
