@@ -1200,6 +1200,7 @@ def main_search():
     else:
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
+    algo_argv = (bandit,) + algo_argv
     algo = utils.json_call(algo_name, algo_argv, algo_kwargs)
 
     #
