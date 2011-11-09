@@ -443,6 +443,9 @@ class MongoJobs(object):
         safe=True means error-checking is done. safe=False means this function will succeed
         regardless of what happens with the db.
         """
+        if collection is None:
+            collection = self.coll
+
         dct = copy.deepcopy(dct)
         if '_id' in dct:
             raise ValueError('cannot update the _id field')
@@ -460,7 +463,7 @@ class MongoJobs(object):
         try:
             # warning - if doc matches nothing then this function succeeds
             # N.B. this matches *at most* one entry, and possibly zero
-            self.coll.update( 
+            collection.update(
                     doc_query,
                     {'$set': dct},
                     safe=True,
@@ -474,7 +477,7 @@ class MongoJobs(object):
         doc.update(dct)
 
         if safe:
-            server_doc = self.coll.find_one(
+            server_doc = collection.find_one(
                     dict(_id=doc['_id'], version=doc['version']))
             if server_doc is None:
                 raise OperationFailure('updated doc not found : %s'
@@ -501,7 +504,7 @@ class MongoJobs(object):
     def attachment_names(self, doc):
         return [a[0] for a in doc.get('_attachments', [])]
 
-    def set_attachment(self, doc, blob, name):
+    def set_attachment(self, doc, blob, name, collection=None):
         """Attach potentially large data string `blob` to `doc` by name `name`
 
         blob must be a string
@@ -528,10 +531,11 @@ class MongoJobs(object):
                 + [(name, new_file_id)])
 
         try:
-            doc = self.update(doc, {'_attachments': new_attachments})
+            ii = 0
+            doc = self.update(doc, {'_attachments': new_attachments},
+                    collection=collection)
             # there is a database leak until we actually delete the files that
             # are no longer pointed to by new_attachments
-            ii = 0
             while ii < len(name_matches):
                 self.gfs.delete(name_matches[ii][1])
                 ii += 1
@@ -559,7 +563,7 @@ class MongoJobs(object):
             raise OperationFailure('multiple name matches', (name, file_ids))
         return self.gfs.get(file_ids[0]).read()
 
-    def delete_attachment(self, doc, name):
+    def delete_attachment(self, doc, name, collection=None):
         attachments = doc.get('_attachments', [])
         file_id = None
         for i,a in enumerate(attachments):
@@ -570,7 +574,7 @@ class MongoJobs(object):
             raise OperationFailure('Attachment not found: %s' % name)
         #print "Deleting", file_id
         del attachments[i]
-        self.update(doc, {'_attachments':attachments})
+        self.update(doc, {'_attachments':attachments}, collection=collection)
         self.gfs.delete(file_id)
 
 
@@ -706,17 +710,25 @@ class MongoExperiment(base.Experiment):
         self.refresh_trials_results()
 
     def clear_from_db(self):
-        with self.exclusive_access() as foo:
-            ddoc = self.ddoc_get()
-            # remove attached states, bandits, etc.
-            for name in self.mongo_handle.attachment_names(ddoc):
-                self.mongo_handle.delete_attachment(ddoc, name)
+        if not self._locks:
+            raise OperationFailure('need lock to clear db')
 
-            # delete any jobs from a previous driver
-            self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
+        ddoc = self.ddoc_get()
+        # remove attached states, bandits, etc.
+        for name in self.mongo_handle.attachment_names(ddoc):
+            self.mongo_handle.delete_attachment(ddoc, name,
+                    collection=self.mongo_handle.db.drivers)
 
-            # remove the ddoc itself
-            self.mongo_handle.db.drivers.remove(ddoc, safe=True)
+        # delete any jobs from a previous driver
+        self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
+
+        # remove the ddoc itself
+        self.mongo_handle.db.drivers.remove(ddoc, safe=True)
+
+        # we deleted the document used for locking, so we no longer have a
+        # lock
+        self._locks = 0
+
 
     def owner_label(self):
         # Don't make this an attribute, because after unpickling it has to be
@@ -731,7 +743,7 @@ class MongoExperiment(base.Experiment):
         query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
         assert query.count() < 2, query.count()
         if query.count() == 0:
-            self.init_driver_doc()
+            self.ddoc_init()
         return self.mongo_handle.db.drivers.find_one(
                 {'exp_key': self.exp_key})
 
@@ -785,10 +797,10 @@ class MongoExperiment(base.Experiment):
         else:
             raise OperationFailure('no lock to release')
 
-    def exclusive_access(self):
+    def exclusive_access(self, force=False):
         class Context(object):
             def __enter__(subself):
-                self.ddoc_lock()
+                self.ddoc_lock(force=force)
                 return subself
             def __exit__(subself, *args):
                 self.ddoc_release()
@@ -806,16 +818,19 @@ class MongoExperiment(base.Experiment):
         with self.exclusive_access() as foo:
             logger.info('attaching bandit tuple')
             ddoc = self.ddoc_get()
-            self.mongo_handle.set_attachment(config,
+            self.mongo_handle.set_attachment(ddoc,
                         cPickle.dumps((name, args, kwargs)),
-                        name='bandit_args_kwargs')
+                        name='bandit_args_kwargs',
+                        collection=self.mongo_handle.db.drivers)
 
     def save_to_db(self):
         with self.exclusive_access() as foo:
             logger.info('saving state to mongo')
             ddoc = self.ddoc_get()
             self.mongo_handle.set_attachment(ddoc,
-                    cPickle.dumps(self), name='pkl')
+                    cPickle.dumps(self),
+                    name='pkl',
+                    collection=self.mongo_handle.db.drivers)
 
     def load_from_db(self):
         """
@@ -1200,8 +1215,8 @@ def main_search():
     else:
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
-    algo_argv = (bandit,) + algo_argv
-    algo = utils.json_call(algo_name, algo_argv, algo_kwargs)
+    algo = utils.json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+
 
     #
     # Determine exp_key
@@ -1224,7 +1239,7 @@ def main_search():
     if bandit_argfile_text or algo_argfile_text:
         worker_cmd = ('driver_attachment', exp_key)
     else:
-        worker_cmd = ('bandit_json_evaluate', bandit_name)
+        worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
     self = MongoExperiment(
@@ -1237,10 +1252,11 @@ def main_search():
         max_queue_len=options.max_queue_len,
         cmd=worker_cmd)
 
-    self.ddoc_get()  # init the driver document if necessary
-    self.write_config_to_db(
-            bandit_args_kwargs=(
-                bandit_name, bandit_argv, bandit_kwargs))
+    self.ddoc_get()  # init the driver document if necessary, and get it
+
+    # XXX: this is bad, better to check what bandit_tuple is already there
+    #      and assert that it matches if something is already there
+    self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
 
     if options.clear_existing:
         print >> sys.stdout, "Are you sure you want to delete",
@@ -1254,8 +1270,15 @@ def main_search():
             del self
             return 1
 
-    with self.exclusive_access(force=options.force_lock) as _foo:
+        self.ddoc_lock(force=options.force_lock)
         self.clear_from_db()
+        # -- clearing self from db deletes the document used for locking
+        #    so no need to release the lock
+
+        # -- re-insert a new driver document
+        self.ddoc_get()
+        self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
+
 
     # TODO: uncomment this error when it happens again, and I can see
     # where in the traceback to put it.

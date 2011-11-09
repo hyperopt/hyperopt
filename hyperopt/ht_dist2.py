@@ -174,6 +174,11 @@ class rdist(SON):
         """
         Make random choices for the nodes in template.
         """
+        # -- if rng is an int, use it as a seed
+        try:
+            rng = numpy.RandomState(int(rng))
+        except TypeError:
+            pass
         prior = bless(copy.deepcopy(self))
         #print type(self)
         #print type(prior)
