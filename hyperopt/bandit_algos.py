@@ -24,8 +24,9 @@ class Random(base.BanditAlgo):
         self.rng = numpy.random.RandomState(self.seed)
 
     def suggest(self, trials, results, N):
-        return [self.bandit.template.sample(self.rng)
-                for n in range(N)]
+        seeds = self.rng.randint(2**30, size=N)
+        return [self.bandit.template.sample(int(seed))
+                for seed in seeds]
 
 try:
     # imports theano
