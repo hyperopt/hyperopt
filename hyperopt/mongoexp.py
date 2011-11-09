@@ -1200,7 +1200,7 @@ def main_search():
     else:
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
-    algo = utils.json_call(algo_name, *algo_argv, **algo_kwargs)
+    algo = utils.json_call(algo_name, algo_argv, algo_kwargs)
 
     #
     # Determine exp_key
