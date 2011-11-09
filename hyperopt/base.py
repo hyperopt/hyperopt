@@ -79,7 +79,11 @@ class Bandit(object):
     def __setstate__(self, dct):
         self.__dict__.update(dct)
         # recursively change type in-place
-        ht_dist2.bless(self.template)
+        try:
+            ht_dist2.bless(self.template)
+        except ValueError, e:
+            if 'what to do with this?' not in str(e):
+                raise
 
 
     def short_str(self):
