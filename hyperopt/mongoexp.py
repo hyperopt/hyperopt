@@ -710,17 +710,25 @@ class MongoExperiment(base.Experiment):
         self.refresh_trials_results()
 
     def clear_from_db(self):
-        with self.exclusive_access() as foo:
-            ddoc = self.ddoc_get()
-            # remove attached states, bandits, etc.
-            for name in self.mongo_handle.attachment_names(ddoc):
-                self.mongo_handle.delete_attachment(ddoc, name)
+        if not self._locks:
+            raise OperationFailure('need lock to clear db')
 
-            # delete any jobs from a previous driver
-            self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
+        ddoc = self.ddoc_get()
+        # remove attached states, bandits, etc.
+        for name in self.mongo_handle.attachment_names(ddoc):
+            self.mongo_handle.delete_attachment(ddoc, name,
+                    collection=self.mongo_handle.db.drivers)
 
-            # remove the ddoc itself
-            self.mongo_handle.db.drivers.remove(ddoc, safe=True)
+        # delete any jobs from a previous driver
+        self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
+
+        # remove the ddoc itself
+        self.mongo_handle.db.drivers.remove(ddoc, safe=True)
+
+        # we deleted the document used for locking, so we no longer have a
+        # lock
+        self._locks = 0
+
 
     def owner_label(self):
         # Don't make this an attribute, because after unpickling it has to be
@@ -735,7 +743,7 @@ class MongoExperiment(base.Experiment):
         query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
         assert query.count() < 2, query.count()
         if query.count() == 0:
-            self.init_driver_doc()
+            self.ddoc_init()
         return self.mongo_handle.db.drivers.find_one(
                 {'exp_key': self.exp_key})
 
@@ -789,10 +797,10 @@ class MongoExperiment(base.Experiment):
         else:
             raise OperationFailure('no lock to release')
 
-    def exclusive_access(self):
+    def exclusive_access(self, force=False):
         class Context(object):
             def __enter__(subself):
-                self.ddoc_lock()
+                self.ddoc_lock(force=force)
                 return subself
             def __exit__(subself, *args):
                 self.ddoc_release()
@@ -810,16 +818,19 @@ class MongoExperiment(base.Experiment):
         with self.exclusive_access() as foo:
             logger.info('attaching bandit tuple')
             ddoc = self.ddoc_get()
-            self.mongo_handle.set_attachment(config,
+            self.mongo_handle.set_attachment(ddoc,
                         cPickle.dumps((name, args, kwargs)),
-                        name='bandit_args_kwargs')
+                        name='bandit_args_kwargs',
+                        collection=self.mongo_handle.db.drivers)
 
     def save_to_db(self):
         with self.exclusive_access() as foo:
             logger.info('saving state to mongo')
             ddoc = self.ddoc_get()
             self.mongo_handle.set_attachment(ddoc,
-                    cPickle.dumps(self), name='pkl')
+                    cPickle.dumps(self),
+                    name='pkl',
+                    collection=self.mongo_handle.db.drivers)
 
     def load_from_db(self):
         """
