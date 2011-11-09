@@ -1251,10 +1251,11 @@ def main_search():
         max_queue_len=options.max_queue_len,
         cmd=worker_cmd)
 
-    self.ddoc_get()  # init the driver document if necessary
-    self.write_config_to_db(
-            bandit_args_kwargs=(
-                bandit_name, bandit_argv, bandit_kwargs))
+    self.ddoc_get()  # init the driver document if necessary, and get it
+
+    # XXX: this is bad, better to check what bandit_tuple is already there
+    #      and assert that it matches if something is already there
+    self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
 
     if options.clear_existing:
         print >> sys.stdout, "Are you sure you want to delete",
@@ -1268,8 +1269,15 @@ def main_search():
             del self
             return 1
 
-    with self.exclusive_access(force=options.force_lock) as _foo:
+        self.ddoc_lock(force=options.force_lock)
         self.clear_from_db()
+        # -- clearing self from db deletes the document used for locking
+        #    so no need to release the lock
+
+        # -- re-insert a new driver document
+        self.ddoc_get()
+        self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
+
 
     # TODO: uncomment this error when it happens again, and I can see
     # where in the traceback to put it.
