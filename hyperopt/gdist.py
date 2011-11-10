@@ -28,6 +28,9 @@ class SetOp(theano.Op):
     def __init__(self, operation):
         self.operation = operation
 
+    def __str__(self):
+        return "SetOp{%s}" % self.operation
+
     def __eq__(self, other):
         return (type(self) == type(other)
                 and self.operation == other.operation)
