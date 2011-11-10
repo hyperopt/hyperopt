@@ -101,3 +101,12 @@ def test7():
                    'conf.p3[0]'],
               ['gUniform', 'gGauss', 'gChoice', 'gChoice'],
               idxs, vals, res)
+
+def test_no_redundant_unions():
+    s = """{"p0" : uniform(0, 1), "p1": gaussian(0, 1),
+    "p2":choice([1, this.p0]), "p3":choice([2, this.p1])}"""
+    template = gd.gDist(s)
+    idxs, vals, s_N = template.theano_sampler(123)
+    for v in theano.gof.graph.ancestors(idxs):
+        assert v.owner is None or not isinstance(v.owner.op, gd.SetOp)
+

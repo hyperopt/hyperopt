@@ -72,6 +72,29 @@ union = SetOp('union')
 #XXX: s/union/set_union
 set_difference = SetOp('difference')
 
+def smart_union(args):
+    """Return the union of args, making some attempt to avoid unnecessary
+    creation of a union op.
+
+    The union op makes graph analysis harder in the GP, for example.
+    """
+    #  -- eliminate duplicate without re-ordering
+    if len(args) == 0:
+        raise ValueError('empty args')
+    nodups = []
+    for a in args:
+        if a in nodups:
+            continue
+        # TODO: check to see if the elements of nodups are arranged in a tree
+        # of subtensors (constructed in gdist, they are).  It is guaranteed
+        # that the union of a child with an ancestor is the ancestor. So it
+        # would be correct to not add the child to nodups.
+        nodups.append(a)
+
+    if len(nodups) == 1:
+        return nodups[0]
+    else:
+        return union(*nodups)
 
 def gdistable(obj):
     return isinstance(obj, SON)
@@ -182,9 +205,9 @@ class gSON(SON):
                 child.correct_elems(memo, corrected_memo)
             elems = memo.pop(id(self))
             if elems is not None and hasattr(self, 'referenced_by'):
-                for c in self.referenced_by:
-                    ec = corrected_memo[id(c)]
-                    elems = union(elems, ec)
+                union_args = [corrected_memo[id(c)]
+                        for c in self.referenced_by]
+                elems = smart_union([elems] + union_args)
             corrected_memo[id(self)] = elems
 
     def nth_sample(self, k, n, idxdict, valdict):
@@ -555,8 +578,11 @@ class gChoice(gRandom):
         memo[id(self)] = (elems, self.casevar)
 
     def nth_theano_sample(self, n, idxdict, valdict):
-        v = numpy.where(idxdict[id(self)] == n)[0][0]
-        case = valdict[id(self)][v].tolist()
+        npyvals = numpy.asarray(valdict[id(self)])
+        npyidxs = numpy.asarray(idxdict[id(self)])
+        matching_cases = npyvals[npyidxs == n]
+        assert len(matching_cases) == 1
+        case = int(matching_cases[0])
         if self.vals[case] in self.children():
             return self.vals[case].nth_theano_sample(n, idxdict, valdict)
         else:
