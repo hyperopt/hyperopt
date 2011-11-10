@@ -132,7 +132,7 @@ class Bandit(object):
         raise NotImplementedError('override-me')
 
     @classmethod
-    def status(cls, result):
+    def status(cls, result, config=None):
         """Extract the job status from a result document
         """
         return result['status']
