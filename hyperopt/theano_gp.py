@@ -11,7 +11,7 @@ import logging
 import sys
 import time
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.INFO)
 
 import numpy
 from scipy.optimize import fmin_l_bfgs_b
@@ -1129,6 +1129,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
     def GP_train_K(self):
         return self.GP_mean_variance(self._GP_x_all, ret_K=True)
 
+    def GP_EI_thresh(self):
+        thresh = (self._GP_y_all
+                - self.EI_ambition * numpy.sqrt(self._GP_y_var)).min()
+        return thresh
+
     def GP_EI(self, x):
         x_idxset = x.idxset()
         if list(sorted(x_idxset)) != range(len(x_idxset)):
@@ -1145,8 +1150,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                     self.cand_EI,
                     allow_input_downcast=True)
 
-        thresh = (self._GP_y_all
-                - self.EI_ambition * numpy.sqrt(self._GP_y_var)).min()
+        thresh = self.GP_EI_thresh()
 
         rval = self._EI_fn(self._GP_n_train,
                 len(x_idxset),
@@ -1174,6 +1178,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         try:
             EI_fn_g = self._EI_fn_g
         except AttributeError:
+            criterion = -self.cand_EI.sum()
             EI_fn_g = self._EI_fn_g = theano.function(
                     [self.s_big_param_vec] +
                     [self.s_n_train, self.s_n_test,
@@ -1185,15 +1190,14 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                         + [v for (k, v) in zip(self.kernels,
                             self.cand_x.valslist())
                             if not self.is_refinable[k]],
-                    [-self.cand_EI.sum(),
-                        -tensor.grad(self.cand_EI.sum(),
+                    [criterion, tensor.grad(criterion,
                             self.s_big_param_vec)],
                     allow_input_downcast=True,
                     mode=self.mode)
             print('Compiled EI_fn_g with %i thunks' %
                     len(EI_fn_g.maker.env.toposort()))
 
-        thresh = (self._GP_y_all - numpy.sqrt(self._GP_y_var + 1e-8)).min()
+        thresh = self.GP_EI_thresh()
 
         start_pt = numpy.asarray(
                 numpy.concatenate(
@@ -1225,14 +1229,14 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 self.trace('f', f)
                 self.trace('df', df)
                 return f, df
+            self.trace('start_pt', start_pt)
+            for i, v in enumerate(args):
+                self.trace(('args', i), numpy.asarray(v))
+            self.trace('bounds', numpy.asarray(bounds))
+            self.trace('maxiter', numpy.asarray(maxiter))
         else:
             fff = EI_fn_g
 
-        self.trace('start_pt', start_pt)
-        for i, v in enumerate(args):
-            self.trace(('args', i), numpy.asarray(v))
-        self.trace('bounds', numpy.asarray(bounds))
-        self.trace('maxiter', numpy.asarray(maxiter))
         best_pt, best_value, best_d = fmin_l_bfgs_b(fff,
                 start_pt,
                 None,
@@ -1309,7 +1313,7 @@ class GP_BanditAlgo(TheanoBanditAlgo):
         if 1:
             # for DEBUGGING
             EI = self.GP_EI(candidates)
-            if EI.max() > EI_opt.max():
+            if EI.max() - 1e-4 > EI_opt.max():
                 logger.warn(
                     'Optimization actually *decreased* EI!? %.3f -> %.3f' % (
                         EI.max(), EI_opt.max()))
