@@ -826,10 +826,11 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 root_idxs = ii
                 cparent[ii] = None
             else:
-                assert isinstance(ii.owner.op,
-                        tensor.AdvancedSubtensor1)
-                assert ii.owner.inputs[0] in self.idxs_mulsets
-                cparent[ii] = categorical_parent(ii)
+                if isinstance(ii.owner.op, tensor.AdvancedSubtensor1):
+                    assert ii.owner.inputs[0] in self.idxs_mulsets
+                    cparent[ii] = categorical_parent(ii)
+                else:
+                    raise Exception('WHAT IS', ii)
 
         self.categorical_parent_of_idxs = cparent
         self.init_gram_weights_helper(root_idxs, as_tensor_variable(1.0), cparent)
