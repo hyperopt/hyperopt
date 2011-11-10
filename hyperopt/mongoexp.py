@@ -1330,11 +1330,28 @@ def main_show():
             default = None,
             metavar='json',
             help="identifier for the bandit solved by the experiment")
-    parser.add_option("--algo",
+    parser.add_option("--bandit-argfile",
+            dest="bandit_argfile",
+            default=None,
+            help="path to file containing arguments bandit constructor\n"
+                 "file format: pickle of dictionary containing two keys,\n"
+                 "  {'args' : tuple of positional arguments,\n"
+                 "   'kwargs' : dictionary of keyword arguments}")
+    parser.add_option("--bandit-algo",
             dest='bandit_algo',
             default = None,
             metavar='json',
             help="identifier for the optimization algorithm for experiment")
+    parser.add_option("--bandit-algo-argfile",
+            dest="bandit_algo_argfile",
+            default=None,
+            help="path to file containing arguments for bandit_algo "
+                  "constructor.  File format is pickled dictionary containing "
+                  "two keys:\n"
+                  "  'args', a tuple of positional arguments, and \n"
+                  "  'kwargs', a dictionary of keyword arguments. \n"
+                  "NOTE: instantiated bandit is pre-pended as first element"
+                  " of arg tuple.")
     parser.add_option("--mongo",
             dest='mongo',
             default='localhost/hyperopt',
@@ -1347,53 +1364,77 @@ def main_show():
 
     (options, args) = parser.parse_args()
 
+    try:
+        cmd = args[0]
+    except:
+        parser.print_help()
+        return -1
+
+
+    #
+    # Construct bandit
+    #
+    # XXX factor this code, shared with main_search
+    bandit_name = options.bandit
+    if options.bandit_argfile:
+        bandit_argfile_text = open(options.bandit_argfile).read()
+        bandit_argv, bandit_kwargs = cPickle.load(bandit_argfile_text)
+    else:
+        bandit_argfile_text = ''
+        bandit_argv, bandit_kwargs = (), {}
+    bandit = utils.json_call(bandit_name, bandit_argv, bandit_kwargs)
+
+    #
+    # Construct algo
+    #
+    # XXX factor this code, shared with main_search
+    algo_name = options.bandit_algo
+    if options.bandit_algo_argfile:
+        # in theory this is easy just as above.
+        # need tests though, and it's just not done yet.
+        raise NotImplementedError('Option: --bandit-algo-argfile')
+    else:
+        algo_argfile_text = ''
+        algo_argv, algo_kwargs = (), {}
+    algo = utils.json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+
+
+    #
+    # Determine exp_key
+    #
+    # XXX factor this code, shared with main_search
     if None is options.exp_key:
-        try:
-            exp_key = options.bandit + "/" + options.bandit_algo
-        except TypeError:
-            logger.error('exp_key or (bandit and algo) must be specified')
-            parser.print_help()
-            return -1
+        if bandit_argfile_text or algo_argfile_text:
+            m = hashlib.md5()
+            m.update(bandit_argfile_text)
+            m.update(algo_argfile_text)
+            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.digest())
+            del m
+        else:
+            exp_key = '%s/%s' % (bandit_name, algo_name)
     else:
         exp_key = options.exp_key
 
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
 
-    md = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/drivers')
-
-    driver = md.coll.find_one({'exp_key': exp_key})
-
-    assert exp_key == str(exp_key)
-    if driver is None:
-        logger.error('Experiment with key %s not found' %
-                exp_key)
-        return -1
-
-    if 'pkl' in md.attachment_names(driver):
-        logger.info('loading from saved state')
-        blob = md.get_attachment(driver, 'pkl')
-        self = cPickle.loads(blob)
-        assert self.exp_key == exp_key
-        self.mongo_handle = mj
-    else:
-        logger.warn('showing empty experiment')
-        self = MongoExperiment(
-            bandit_json = options.bandit,
-            bandit_algo_json = options.bandit_algo,
-            mongo_handle = mj,
-            workdir = options.workdir,
-            exp_key = exp_key,
-            poll_interval_secs = 5)
-
-    assert self is not None
+    self = MongoExperiment(
+        bandit_algo=algo,
+        mongo_handle=mj,
+        exp_key=exp_key,
+        workdir=None,
+        poll_interval_secs=0,
+        max_queue_len=0,
+        cmd=None)
 
     try:
-        cmd = args[0]
-    except:
-        parser.print_help()
-        return -1
+        other = self.load_from_db()
+    except OperationFailure:
+        pass
+    else:
+        assert other.exp_key == exp_key
+        other.mongo_handle = mj
+        self = other
 
     if 'history' == cmd:
         import plotting
