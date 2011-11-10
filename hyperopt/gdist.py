@@ -239,7 +239,7 @@ class gList(gSON):
 
     def theano_sampler_helper(self, memo, s_rng):
         for t in self.children():
-            t.theano_smapler_helper(memo, s_rng)
+            t.theano_sampler_helper(memo, s_rng)
         vals = [get_value(t, memo) for t in self['elements']]
         memo[id(self)] = (memo[id(self)], vals)
 
