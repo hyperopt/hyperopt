@@ -149,14 +149,13 @@ class gSON(SON):
     def __init__(self, genson_obj, path=[]):
         super(gSON, self).__init__()
         self.genson_obj = genson_obj
-        self.path = path
-        self.make_contents()
+        self.make_contents(path)
 
-    def make_contents(self):
+    def make_contents(self, path):
         if hasattr(self, 'params'):
             for k in self.params:
                 setattr(self, k, get_obj(getattr(self.genson_obj, k),
-                                         self.path))
+                                         path))
 
     def children(self):
         return [getattr(self, x) for x in self.params \
@@ -225,8 +224,8 @@ class gList(gSON):
     """List of elements that can be either constant or gdist
     """
 
-    def make_contents(self):
-        self['elements'] = [get_obj(t, self.path) for t in self.genson_obj]
+    def make_contents(self,path):
+        self['elements'] = [get_obj(t, path) for t in self.genson_obj]
 
     def children(self):
         return [t for t in self['elements'] if gdistable(t)]
@@ -251,9 +250,9 @@ class gDict(gSON):
     """Dictionary mapping strings to either constant or gdist
     """
 
-    def make_contents(self):
+    def make_contents(self, path):
         for k, t in self.genson_obj.items():
-            self[k] = get_obj(t, self.path + [self])
+            self[k] = get_obj(t, path + [self])
 
     def children(self):
         return [t for (k, t) in self.items() if gdistable(t)]
@@ -361,8 +360,8 @@ class gBinOp(gSON):
                     ('/', tensor.div_proxy),
                     ('**', tensor.pow)])
 
-    def make_contents(self):
-        super(gBinOp, self).make_contents()
+    def make_contents(self, path):
+        super(gBinOp, self).make_contents(path)
         self.op = self.op_dict[self.genson_obj.op]
 
     def theano_sampler_helper(self, memo, s_rng):
@@ -381,8 +380,8 @@ class gBinOp(gSON):
 class gFunc(gSON):
     params = ['args', 'kwargs']
 
-    def make_contents(self):
-        super(gFunc, self).make_contents()
+    def make_contents(self, path):
+        super(gFunc, self).make_contents(path)
         self.func = getattr(tensor, self.genson_obj.name)
 
     def theano_sampler_helper(self, memo, s_rng):
@@ -402,10 +401,10 @@ class gRef(gSON):
 
     params = []
 
-    def make_contents(self):
+    def make_contents(self, path):
         scope_list = self.genson_obj.scope_list
         self.reference = resolve_scoped_reference(scope_list[:],
-                                                  self.path[:])
+                                                  path[:])
         self.propagate_up(self.reference)
 
     def propagate_up(self, reference):
@@ -552,8 +551,8 @@ class gUniform(gRandom):
 
 class gChoice(gRandom):
 
-    def make_contents(self):
-        self.vals = [get_obj(t, self.path) for t in self.genson_obj.vals]
+    def make_contents(self, path):
+        self.vals = [get_obj(t, path) for t in self.genson_obj.vals]
 
     def children(self):
         return [x for x in (self.vals) if gdistable(x)]
