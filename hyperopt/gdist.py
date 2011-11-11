@@ -320,7 +320,10 @@ class gDist(gDict):
         memo = corrected_memo
         self.theano_sampler_helper(memo, s_rng)
         rnodes = self.random_nodes()
-        idxs, vals = zip(*[memo[id(n)] for n in rnodes])
+        if len(rnodes):
+            idxs, vals = zip(*[memo[id(n)] for n in rnodes])
+        else:
+            idxs, vals = [], []
         return idxs, vals, s_N
 
     def idxs_vals_to_dict_list(self, idxs, vals):
