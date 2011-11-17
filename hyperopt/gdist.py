@@ -99,7 +99,7 @@ def smart_union(args):
 def gdistable(obj):
     return isinstance(obj, SON)
 
-
+import pyparsing
 def get_obj_type(t):
     if isinstance(t, genson.internal_ops.GenSONBinaryOp):
         return gBinOp
@@ -117,6 +117,8 @@ def get_obj_type(t):
         return gLognormal
     elif isinstance(t, genson.functions.QuantizedLognormalRandomGenerator):
         return gQLognormal
+    elif isinstance(t, pyparsing.ParseResults):
+        return gList
     elif isinstance(t, genson.references.ScopedReference):
         return gRef
     elif hasattr(t, 'keys'):
@@ -528,7 +530,7 @@ class gQLognormal(gRandom):
         size = get_value(self.size, memo)
         round = get_value(self.round, memo)
         ds = get_size(size,elems)
-        vals = s_rng.quantized_lognormal(draw_shape=ds, mu=mu, sigma=sigma, 
+        vals = s_rng.quantized_lognormal(draw_shape=ds, mu=mu, sigma=sigma,
                                          step = round, dtype = 'int64')
         memo[id(self)] = (elems, vals)
 
@@ -594,7 +596,7 @@ class gChoice(gRandom):
 class gRandint(gRandom):
 
     params = ['min','max','size']
-    
+
     def theano_sampler_helper(self, memo, s_rng):
         low = get_value(self.min, memo)
         high = get_value(self.max, memo)
@@ -604,10 +606,10 @@ class gRandint(gRandom):
         ds = get_size(size,elems)
         casevar = s_rng.categorical(
                     p=[1.0 / n_options] * n_options,
-                    draw_shape=ds)       
+                    draw_shape=ds)
         elems = memo[id(self)]
         memo[id(self)] = (elems, casevar)
-  
+
     def nth_theano_sample(self, n, idxdict, valdict):
         v = numpy.where(idxdict[id(self)] == n)[0][0]
         case = valdict[id(self)][v].tolist()
@@ -621,7 +623,7 @@ class gRandint(gRandom):
                 return self.vals[case]
         else:
             return [self.unroll(c, n, idxdict, valdict) for c in case]
-            
+
 
 def get_size(size,elems):
     if isinstance(size, int):
