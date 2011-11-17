@@ -1348,5 +1348,6 @@ def HGP(bandit):
 
 
 def HGPTest(bandit):
-    BA = GP_BanditAlgo(bandit)
-    BA.n_startup_jobs = 3
+    bandit_algo = GP_BanditAlgo(bandit)
+    bandit_algo.n_startup_jobs = 3
+    return bandit_algo
