@@ -1345,3 +1345,8 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
 def HGP(bandit):
     return GP_BanditAlgo(bandit)
+
+
+def HGPTest(bandit):
+    BA = GP_BanditAlgo(bandit)
+    BA.n_startup_jobs = 3
