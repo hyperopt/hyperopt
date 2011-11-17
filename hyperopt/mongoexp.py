@@ -1417,7 +1417,7 @@ def main_show():
 
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
-
+            
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
@@ -1426,6 +1426,8 @@ def main_show():
         poll_interval_secs=0,
         max_queue_len=0,
         cmd=None)
+        
+    self.refresh_trials_results()
 
     try:
         other = self.load_from_db()
