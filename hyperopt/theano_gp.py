@@ -457,6 +457,7 @@ class GPR_math(object):
         delta = (thresh - mu) / (sqrt(2) * sigma)
         sbar = sigma / sqrt(2 * pi)
         rval = sbar * tensor.exp(-delta ** 2) - a * (1 + tensor.erf(delta))
+        rval = tensor.maximum(rval, 1e-7)
         
         if rval.dtype != self.dtype:
             raise TypeError('rval dtype', rval.dtype)
