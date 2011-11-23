@@ -176,7 +176,7 @@ class rdist(SON):
         """
         # -- if rng is an int, use it as a seed
         try:
-            rng = numpy.RandomState(int(rng))
+            rng = numpy.random.RandomState(int(rng))
         except TypeError:
             pass
         prior = bless(copy.deepcopy(self))
