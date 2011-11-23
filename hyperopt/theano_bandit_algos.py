@@ -275,4 +275,3 @@ class TheanoRandom(TheanoBanditAlgo):
                     rvals[:len(rvals)/2],
                     rvals[len(rvals)/2:]))
 
-from theano_gm import GM_BanditAlgo, AdaptiveParzenGM
