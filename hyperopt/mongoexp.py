@@ -294,14 +294,15 @@ def coarse_utcnow():
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
 
+ 
 class MongoJobs(object):
     """
     # Interface to a Jobs database structured like this
     #
     # Collections:
     #
-    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
-    #                       'error', 'result'}
+    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time',
+    #                  'refresh_time', 'state', 'exp_key', 'owner', 'result'}
     #    This is the collection that the worker nodes write to
     #
     # db.gfs - file storage via gridFS for all collections
@@ -314,7 +315,10 @@ class MongoJobs(object):
         self.conn=conn
         self.tunnel=tunnel
         self.config_name = config_name
-
+        self.jobs.ensure_index('exp_key')  # for fast search
+        self.jobs.ensure_index('result.loss')  # so you can sort on this
+        self.jobs.ensure_index('book_time')  # so you sort on this
+        
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
 
