@@ -631,14 +631,15 @@ class MongoExperiment(base.Experiment):
         self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
         self.results[:] = [j['result'] for (_id, j) in id_jobs]
 
-    def queue_extend(self, trial_configs, skip_dups=True):
+    def queue_extend(self, trial_configs, exp_key, skip_dups=True):
         if skip_dups:
             new_configs = []
             for config in trial_configs:
                 #XXX: This will basically never work
                 #     now that TheanoBanditAlgo puts a _config_id into
                 #     each suggestion
-                query = self.mongo_handle.jobs.find(dict(spec=config))
+                query = self.mongo_handle.jobs.find(dict(spec=config,
+                                                         exp_key=exp_key))
                 if query.count():
                     matches = list(query)
                     assert len(matches) == 1
@@ -689,7 +690,8 @@ class MongoExperiment(base.Experiment):
                 logger.info('algo suggested trial: %s (in %.2f seconds)'
                         % (str(suggestions[0]), t1 - t0))
                 try:
-                    new_suggestions = self.queue_extend(suggestions)
+                    new_suggestions = self.queue_extend(suggestions,
+                                                        self.exp_key)
                 except:
                     logger.error('Problem with suggestion: %s' % (
                         suggestions))
