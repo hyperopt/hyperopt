@@ -294,6 +294,15 @@ def coarse_utcnow():
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
 
+def create_jobs_indexes(jobs):
+    for k in ['exp_key', 'result.loss', 'book_time']:
+        jobs.create_index(k)
+
+
+def create_drivers_indexes(drivers):
+    for k in ['exp_key']:
+        drivers.create_index(k)
+
  
 class MongoJobs(object):
     """
@@ -315,9 +324,6 @@ class MongoJobs(object):
         self.conn=conn
         self.tunnel=tunnel
         self.config_name = config_name
-        self.jobs.ensure_index('exp_key')  # for fast search
-        self.jobs.ensure_index('result.loss')  # so you can sort on this
-        self.jobs.ensure_index('book_time')  # so you sort on this
         
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
