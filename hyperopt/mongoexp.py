@@ -295,11 +295,17 @@ def coarse_utcnow():
 
 
 def create_jobs_indexes(jobs):
+    """
+    # call this once to set up indexes on jobs collection
+    """
     for k in ['exp_key', 'result.loss', 'book_time']:
         jobs.create_index(k)
 
 
 def create_drivers_indexes(drivers):
+    """
+    # call this once to set up indexes on drivers collection
+    """
     for k in ['exp_key']:
         drivers.create_index(k)
 
