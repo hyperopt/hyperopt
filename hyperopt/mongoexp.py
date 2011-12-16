@@ -1226,7 +1226,7 @@ def main_search():
             m = hashlib.md5()
             m.update(bandit_argfile_text)
             m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.digest())
+            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.hexdigest())
             del m
         else:
             exp_key = '%s/%s' % (bandit_name, algo_name)
