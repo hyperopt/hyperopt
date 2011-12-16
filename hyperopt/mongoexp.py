@@ -240,13 +240,13 @@ def parse_url(url, pwfile=None):
 
 
 def connection_with_tunnel(host='localhost',
-            auth_dbname='admin', port=27017, 
+            auth_dbname='admin', port=27017,
             ssh=False, user='hyperopt', pw=None):
         if ssh:
             local_port=numpy.random.randint(low=27500, high=28000)
             # forward from local to remote machine
             ssh_tunnel = subprocess.Popen(['ssh', '-NTf', '-L', '%i:%s:%i'%(local_port,
-                '127.0.0.1', port), host], 
+                '127.0.0.1', port), host],
                     #stdin=subprocess.PIPE,
                     #stdout=subprocess.PIPE,
                     #stderr=subprocess.PIPE,
@@ -1198,7 +1198,7 @@ def main_search():
     bandit_name = args[0]
     if options.bandit_argfile:
         bandit_argfile_text = open(options.bandit_argfile).read()
-        bandit_argv, bandit_kwargs = cPickle.load(bandit_argfile_text)
+        bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
     else:
         bandit_argfile_text = ''
         bandit_argv, bandit_kwargs = (), {}
@@ -1417,7 +1417,7 @@ def main_show():
 
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
-            
+
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
@@ -1426,7 +1426,7 @@ def main_show():
         poll_interval_secs=0,
         max_queue_len=0,
         cmd=None)
-        
+
     self.refresh_trials_results()
 
     try:
