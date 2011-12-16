@@ -1096,7 +1096,7 @@ def main_worker():
                 bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
                 worker_fn = utils.json_call(bandit_name,
                         args=bandit_args,
-                        kwargs=bandit_kwargs)
+                        kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
