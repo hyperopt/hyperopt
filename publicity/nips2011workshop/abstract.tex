@@ -1,5 +1,6 @@
 \documentclass{article}
 \usepackage{nips11submit_e,times}
+\nipsfinalcopy
 %\usepackage{amsmath,amssymb,amsthm,enumerate,natbib,color,bbm,ifthen,graphicx,overpic}
 % JB: I don't have bbm and paper doesn't seem to need it. can we leave it out of the list?
 \usepackage{amsmath,amssymb,amsthm,enumerate,natbib,color,ifthen,graphicx,overpic}
@@ -13,28 +14,26 @@
 
 \title{Implementations of Algorithms for Hyper-Parameter Optimization}
 \author{
-James Bergstra\thanks{XXX Use footnote for providing further information
-about author (webpage, alternative address)---\emph{not} for acknowledging
-funding agencies.} \\
-Department of Computer Science\\
-Cranberry-Lemon University\\
-Pittsburgh, PA 15213 \\
+James Bergstra\\ %\thanks{\url{http://people.fas.harvard.edu/$\sim$bergstra}} \\
+The Rowland Institute\\
+Harvard University\\
+%Cambridge, MA 02142 \\
 \texttt{bergstra@rowland.harvard.edu} \\
 \And
 R{\'e}mi Bardenet \\
-XXX Affiliation \\
-XXX Address \\
-\texttt{email} \\
+Laboratoire de Recherche en Informatique\\
+Universit{\'e} Paris-Sud \\
+\texttt{bardenet@lri.fr} \\
 \AND
 Yoshua Bengio \\
-XXX Affiliation \\
-XXX Address \\
-\texttt{email} \\
+D{\'e}pt. d'Informatique et Recherche Op{\'e}rationelle \\
+Universit{\'e} de Montr{\'e}al\\
+\texttt{yoshua.bengio@umontreal.ca} \\
 \And
-Balazs K{\'e}gl \\
-XXX Affiliation \\
-XXX Address \\
-\texttt{email}
+Bal{\'a}zs K{\'e}gl \\
+Linear Accelerator Laboratory \\
+Universit{\'e} Paris-Sud, CNRS \\
+\texttt{balazs.kegl@gmail.com}
 }
 \newcommand{\fix}{}%{\marginpar{FIX}}
 \newcommand{\fixme}[1]{}%{{\bf FIXME: {#1}}} %unlike \fix, this works in captions
@@ -97,12 +96,7 @@ at optimizing DBN architectures.
 This abstract serves as a companion to \citet{nipspaper}
 and introduces \hyperopt, a free open-source platform (BSD license) for
 asynchronous distributed hyper-parameter optimization.\footnote{
-\hyperopt\ web page: \url{http://www.github.com/jaberg/hyperopt}\\
-Note to reviewers: the complete implementations of the GP and GM algorithms will be
-uploaded to the hyperopt repository by mid-October.
-The website for that project and API documentation will also be uploaded around that time.
-If you would like a draft of \citet{nipspaper} please contact me.
-}
+\hyperopt\ web page: \url{http://www.github.com/jaberg/hyperopt}}
 The \hyperopt\ package provides reusable implementations of the algorithms in \citet{nipspaper}, and an extensible platform for future work in hyper-parameter optimization algorithms.
 
 
@@ -386,7 +380,6 @@ and provides extensible platform for future work.
 For more information, please follow the development of \hyperopt\ online at
 \url{http://www.github.com/jaberg/hyperopt}.
 
-\newpage
 \small
 \bibliographystyle{unsrt}
 \bibliography{strings,strings-short,strings-shorter,jb,hyperoptim}
