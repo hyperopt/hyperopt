@@ -240,13 +240,13 @@ def parse_url(url, pwfile=None):
 
 
 def connection_with_tunnel(host='localhost',
-            auth_dbname='admin', port=27017, 
+            auth_dbname='admin', port=27017,
             ssh=False, user='hyperopt', pw=None):
         if ssh:
             local_port=numpy.random.randint(low=27500, high=28000)
             # forward from local to remote machine
             ssh_tunnel = subprocess.Popen(['ssh', '-NTf', '-L', '%i:%s:%i'%(local_port,
-                '127.0.0.1', port), host], 
+                '127.0.0.1', port), host],
                     #stdin=subprocess.PIPE,
                     #stdout=subprocess.PIPE,
                     #stderr=subprocess.PIPE,
@@ -945,18 +945,27 @@ class CtrlObj(object):
 
     def debug(self, *args, **kwargs):
         return logger.debug(*args, **kwargs)
+
     def info(self, *args, **kwargs):
         return logger.info(*args, **kwargs)
+
     def warn(self, *args, **kwargs):
         return logger.warn(*args, **kwargs)
+
     def error(self, *args, **kwargs):
         return logger.error(*args, **kwargs)
+
     def checkpoint(self, result=None):
         if not self.read_only:
             self.jobs.refresh(self.current_job)
             if result is not None:
                 return self.jobs.update(self.current_job, dict(result=result))
 
+    def set_attachment(self, blob, name):
+        self.jobs.set_attachment(self.current_job,
+                                 blob,
+                                 name,
+                                 collection=self.jobs.db.jobs)
 
 def exec_import(cmd_module, cmd):
     exec('import %s; worker_fn = %s' % (cmd_module, cmd))
@@ -1106,7 +1115,7 @@ def main_worker():
                 bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
                 worker_fn = utils.json_call(bandit_name,
                         args=bandit_args,
-                        kwargs=bandit_kwargs)
+                        kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
@@ -1208,7 +1217,7 @@ def main_search():
     bandit_name = args[0]
     if options.bandit_argfile:
         bandit_argfile_text = open(options.bandit_argfile).read()
-        bandit_argv, bandit_kwargs = cPickle.load(bandit_argfile_text)
+        bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
     else:
         bandit_argfile_text = ''
         bandit_argv, bandit_kwargs = (), {}
@@ -1236,7 +1245,7 @@ def main_search():
             m = hashlib.md5()
             m.update(bandit_argfile_text)
             m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.digest())
+            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.hexdigest())
             del m
         else:
             exp_key = '%s/%s' % (bandit_name, algo_name)
@@ -1427,7 +1436,7 @@ def main_show():
 
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
-            
+
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
@@ -1436,7 +1445,7 @@ def main_show():
         poll_interval_secs=0,
         max_queue_len=0,
         cmd=None)
-        
+
     self.refresh_trials_results()
 
     try:
