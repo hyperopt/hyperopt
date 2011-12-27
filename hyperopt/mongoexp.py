@@ -306,8 +306,7 @@ def create_drivers_indexes(drivers):
     """
     # call this once to set up indexes on drivers collection
     """
-    for k in ['exp_key']:
-        drivers.create_index(k)
+    drivers.create_index(k, unique=True)
 
  
 class MongoJobs(object):
@@ -1258,6 +1257,8 @@ def main_search():
         worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
+    create_jobs_indexes(mj.db.jobs)
+    create_drivers_indexes(mj.db.drivers)
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
