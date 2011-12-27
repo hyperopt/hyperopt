@@ -585,6 +585,14 @@ class MongoExperiment(base.Experiment):
     - self.results
 
     """
+    @staticmethod
+    def from_exp_key(mongo_handle, exp_key):
+        ddoc = mongo_handle.db.drivers.find_one({'exp_key': exp_key})
+        blob = mongo_handle.get_attachment(ddoc, name='pkl')
+        self = cPickle.loads(blob)
+        self.mongo_handle = mongo_handle
+        return self
+
     def __init__(self, bandit_algo, mongo_handle, workdir, exp_key, cmd,
             poll_interval_secs=10,
             save_interval_secs=3.0,
