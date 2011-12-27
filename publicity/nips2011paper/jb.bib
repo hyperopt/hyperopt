@@ -15,6 +15,7 @@
     number=3,
     pages={312-317},
     doi={10.1162/neco.1989.1.3.312},
+    annote={}
 }
 @article{AdelsonBergen1985,
     author={E. H. Adelson and J. R. Bergen},
@@ -25,6 +26,7 @@
 
     year=1985,
     pages={284--299},
+    annote={Introduces energy model of complex cell response.}
 }
 @article{allwein+shapire+singer:2000,
     author={E. L. Allwein and R. E. Shapire and Y. Singer},
@@ -33,6 +35,7 @@
     volume=1,
     pages={113-141},
     year=2000,
+    annote={}
 }
 @article{alonso+chen:2009,
     title={Receptive Field},
@@ -52,6 +55,7 @@
     number=2,
     pages={68-71},
     year=2010,
+    annote={}
 }
 @book{Anderson1990,
     title={The Adaptive Character of Thought},
@@ -67,6 +71,7 @@
     number=1,
     pages={252-256},
     year={1979},
+    annote={Introduces the Sobol low-discrepancy sequence.}
 }
 %bbb % search target
 @article{barlow:1961,
@@ -76,6 +81,7 @@
     journal={Sensory Communication},
     pages={217--234},
     year=1961,
+    annote={}
 }
 @article{barr+golden+kelly+resende+stewart:1995,
     author = {Barr, R. and Golden, B. and Kelly, J. and Resende, M. and Stewart, W.},
@@ -87,12 +93,23 @@
     number = {1},
     doi = {10.1007/BF02430363},
     year = {1995},
+    annote={A curious article - a guide to conducting and reporting empirical research on heuristic
+        optimization methods. It reads like a refresher course in the scientific
+            method as applied to operations research.  There is a note at the end of
+
+            the article that it is a response to their frustrations at being unable to
+            reproduce several results from the literature because insufficient detail was
+            provided by the original authors.}
 }
 @inproceedings{barrington+yazdani+turnbull+lanckriet:2008,
     author={L. Barrington and M. Yazdani and D. Turnbull and G. Lanckriet},
     title={Combining Feature Kernels For Semantic Music Retrieval},
     booktitle={{ISMIR}},
     year={2008},
+    annote={
+        Combines SVM kernels for several music features, and predicts tags on CAL500 music dataset.
+        Performance is measured using search criterion (ROC and mean average precision) instead of classification accuracy.
+    }
 }
 @BOOK{battiti+brunato+mascia:2008,
     AUTHOR = {R. Battiti and M. Brunato and F. Mascia},
@@ -101,6 +118,11 @@
     YEAR = 2008,
     series = {Operations research/Computer Science Interfaces},
     volume = 45,
+    annote={Outlines various heuristics for online adaptation of the parameters of
+    search methods.  This book is a companion to a second book aimed at Business
+
+    Intelligence, and a spin-off company.  There is companion software available
+    but it is not free or open.}
 }
 @book{bear+connors+paradiso:2007,
     author={M. F. Bear and B. Connors and M. Paradiso},
@@ -118,6 +140,8 @@
     number=2,
     pages={267--277},
     year={1993},
+    annote={Uses principle of spatial coherence (like slowness, but in space) to
+    guide learning.}
 }
 @InProceedings{behnel+bradshaw+seljebotn:2009,
     author =       {S. Behnel and R. W. Bradshaw and D. S. Seljebotn},
@@ -129,6 +153,7 @@
     year =      {2009},
     editor =    {G. Varoquaux and S. {van der Walt} and J. Millman},
     howpublished = "{\url{http://conference.scipy.org/proceedings/SciPy2009/paper_1}}",
+    annote = {This is the standard reference for Cython.}
 }
 @article{bell+sejnowski:1995,
     author={Bell, A. J. and Sejnowski, T. J.},
@@ -138,6 +163,7 @@
     volume=7,
     pages={1129--1159},
     year={1995},
+    annote={}
 }
 @article{bell+sejnowski:1997,
     author={A. J. Bell and T. J. Sejnowski},
@@ -147,6 +173,8 @@
     journal={Vision Research},
     volume=37,
     pages={3327-3338},
+
+    annote={}
 }
 @Book{bellman:1961,
     author =       "R. Bellman",
@@ -154,6 +182,7 @@
     publisher =    "Princeton University Press",
     address =      "New Jersey",
     year =         "1961",
+    annote = {This is often cited as coining the term ``Curse of Dimensionality.''},
 }
 @Article{Bengio-trnn93,
   author =       "Y. Bengio and P. Simard and P. Frasconi",
@@ -163,6 +192,21 @@
   number =       "2",
   pages =        "157--166",
   year =         "1994",
+  annote = {
+      Analysis of the Jacobian of iterated dynamical systems reveals a
+          fundamental tradeoff related to gradient-based learning of long-term
+          dependencies in recurrent neural networks.
+          If an iterated system latches information in a manner robust
+          to noise, then it must have an exponentially small Jacobian and be
+
+          un-trainable by gradient-based methods.
+          On the other hand, if the Jacobian is large enough for efficient learning
+          the iterated system will be unable to store information robustly for
+          may iterations.
+          Consequently, the phenomenon of remembering an event in a recurrent network 
+          actually attenuates the capacity to adjust the detection of that
+          event.
+  }
 }
 @article{bengio:2009,
     author={Y. Bengio},
@@ -186,6 +230,7 @@
     title = {Greedy Layer-Wise Training of Deep Networks},
     pages = {153--160},
     crossref={NIPS19},
+    annote={Describes Gaussian-Bernoulli RBM.}
 }
 @INPROCEEDINGS{bengio+glorot:2010,
      author = {Bengio, Y. and Glorot, X.},
@@ -254,12 +299,12 @@ l. Finally, we study how activations and gradients vary across layers and during
        howpublished=jmlr,
        note = {Submitted (11-077)}
 }
-@misc{bergstra+bengio:2011jmlrANON,
-     author = {Anonymous},
-      title = {Title omitted},
-       year = {2011},
+@misc{bergstra+bengio:2012accepted,
+     author = {J. Bergstra and Y. Bengio},
+      title = {Random Search for Hyper-parameter Optimization},
+       year = {2012},
        howpublished=jmlr,
-       note = {Submitted (11-077)}
+       note = {Accepted.}
 }
 @misc{bergstra+bengio:2011snowbird,
      author = {Bergstra, J. and Bengio, Y.},
@@ -314,7 +359,6 @@ l. Finally, we study how activations and gradients vary across layers and during
   booktitle = {Proceedings of the Python for Scientific Computing Conference ({SciPy})},
        year = {2010},
    location = {Austin, TX},
-       note = {Oral}
 }
 @misc{bergstra+etal:2011,
      author = {Bergstra, J. and Breuleux, O. and Bastien, F. and Lamblin, P. and Pascanu, R. and Desjardins, G. and Turian, J. and Bengio, Y.},
@@ -341,6 +385,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=6013,
     pages={83-87},
     doi={10.1126/science.1195870},
+    annote={Evidence for Bayesian prior in visual cortex. Experiments on young, awake ferrets using both natural and artificial video. Not sure what specific prior is proposed, if any (TODO).} 
 }
 @article{berkes+turner+sahani:2009,
     author={P. Berkes and R. E. Turner and M. Sahani},
@@ -366,6 +411,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     number = {6},
     pages = {579-602},
     year = {2005},
+    abstract = {In this study we investigate temporal slowness as a learning principle for receptive fields using slow feature analysis, a new algorithm to determine functions that extract slowly varying signals from the input data. We find a good qualitative and quantitative match between the set of learned functions trained on image sequences and the population of complex cells in the primary visual cortex (V1). The functions show many properties found also experimentally in complex cells, such as direction selectivity, non-orthogonal inhibition, end-inhibition, and side-inhibition. Our results demonstrate that a single unsupervised learning principle can account for such a rich repertoire of receptive field properties.},
+    annote = {This article examines features learned by SFA in terms of the
+        qualitative and quantitative similarity to complex cells in V1.
+            The discussion section (6.3) includes insightful comparisons with the
+            slow-feature criteria of~\cite{kording:2004}, Einh{\"a}user2002 and
+            Hurri2003.
+            See also Appendix (A.7) for comparison to temporal coherence.
+    }
 }
 @ARTICLE{bertinmahieux+eck+maillet+lamere:2008,
     AUTHOR = {T. Bertin-Mahieux and D. Eck and F. Maillet and P. Lamere},
@@ -378,6 +431,12 @@ l. Finally, we study how activations and gradients vary across layers and during
     PDF = {papers/2008_jnmr.pdf},
     SOURCE = {OwnPublication},
     NOTE = {To appear.},
+    annote = {
+        Proposes and evalutes FilterBoost for large-scale prediction of social tags (from last.fm).
+        Includes a break-down of what's in last.fm: main ingredients are 68\% genre, 12\% locale 5\% mood.
+        Section 6 includes comparison with "small and clean" dataset used to test the hierarchical Gaussian mixture model.
+        Section 7 includes discussion of utility in music similarity.
+    }
 }
 @Book{bishop:1995,
   author =       "C. Bishop",
@@ -393,6 +452,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Nature},
     volume=321,
     pages={579-585},
+    annote={Has really nice illustration of pinwheel organization in V1.},
 }
 @article{bonds:1989,
     author={A. B. Bonds},
@@ -402,6 +462,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={2},
     pages={41--55},
     year=1989,
+    annote={},
 }
 @article{bordes+bottou+gallinari:2009,
     author={A. Bordes and L. Bottou and P. Gallinari},
@@ -410,6 +471,10 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=10,
     pages={1737-1754},
     year={2009},
+    annote={Fast quasi-newton algo that is shown to work well for linear SVM.
+        Makes use of sparse data vectors, good implementation, a diagonal
+            rescaling matrix inspired by oLBFGS.
+        This algorithm won a Pascal 'Wild Track' Challenge.  },
     note={See also \cite{bordes+etal:2010err}}
 }
 @article{bordes+etal:2010err,
@@ -435,6 +500,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     year={2007},
     title={Representing Shape with a Spatial Pyramid Kernel},
     booktitle={International Conference on Image and Video Retrieval ({CIVR})},
+    annote={Describes Pyramid Histogram of Oriented Gradients (PHOG) image
+        features.}
 }
 @incollection{bottou:1998,
     author = {Bottou, L.},
@@ -469,6 +536,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number={3},
     pages={195--213},
     year={1992},
+    annote={Introduces the Niederreiter low-discrepancy sequence.},
 }
 @article{BredfeldtRingach2002,
     author = {Bredfeldt, C. E. and Ringach, D. L.},
@@ -488,6 +556,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     address={Cardiff, Wales},
     month=sep,
     pages={656-665},
+    annote={Describes filtering techniques to be used in SIFT interest point
+        detection. Referenced in (Lowe 2004).}
 }
 @article{BuiaTiesinga2006,
     author={C. C. Buia and P. P. Tiesinga},
@@ -528,6 +598,8 @@ l. Finally, we study how activations and gradients vary across layers and during
         Machines},
     year=2010,
     howpublished={arXiv:1011.4058v1},
+    annote={Presents an energy model similar to the mcRBM for training a
+        phase-based model. Borrows HMC trick for sampling.}
 }
 @incollection{cadieu+olshausen:2009,
      title = {Learning Transformational Invariants from Natural Movies},
@@ -537,7 +609,18 @@ l. Finally, we study how activations and gradients vary across layers and during
          pages = {209--216},
           year = {2009},
      publisher = {MIT Press},
-}
+    annote={
+        Proposes a two-layer, sparse coding generative model for image sequences
+            in which the lower level explains the image at time t by the real
+            part of a complex coefficient times a complex filter.  There is a
+            sparsity penalty is on the amplitude of the coefficients.  There is
+            also a slowness penalty on the amplitude of the coefficients through
+            time.  The second layer imposes a joint prior over *derivatives* of
+            the angular parts of the coefficients by multiplying a second-level
+            units by a weight matrix.  There is again a sparsity prior on these
+            second-level units, but not a slowness prior (it's a prior over
+                    derivatives after all).
+    }}
 @misc{caflisch+morokoff+owen:1997,
     author = {R. E. Caflisch and W. Morokoff and A. Owen},
     title = {Valuation of Mortgage Backed Securities Using Brownian Bridges to Reduce Effective Dimension},
@@ -572,6 +655,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Journal of Physiology},
     volume={577},
     pages={463--466},
+    annote={}
 }
 @article{cavanaugh+bair+movshon:2002,
     author={Cavanaugh, J. R. and Bair, W. and Movshon, J. A.},
@@ -581,6 +665,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={88},
     pages={2530--2546},
     year={2002},
+    annote={},
 }
 @Manual{chang+lin:2001,
     author =   {C. Chang and C. Lin},
@@ -597,6 +682,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=9,
     number=9,
     pages={1--17},
+    annote={},
 }
 @article{chen+garcia+gupta+rahimi+cazzanti:2009,
     title={Similarity-based Classification: Concepts and Algorithms},
@@ -616,6 +702,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   pages =        "153--158",
   year =         "2003",
   doi = {10.1049/ip-vis:20030362},
+  annote = {Uses CD to train a continuous-valued RBM that is based on injective noise and diffusion. I do not think this is the same as Gaussian RBM, but the paper is hard to read.}
 }
 @misc{coates+lee+ng:2010,
     title={An Analysis of Single-Layer Networks in Unsupervised Feature Learning},
@@ -640,6 +727,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=17,
     pages={140--147},
     year={2007},
+    annote={},
 }
 @inproceedings{collobert+weston:2008,
     title = {A Unified Architecture for Natural Language Processing: Deep Neural Networks with Multitask Learning},
@@ -654,6 +742,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=20,
     year=1995,
     pages={273--297},
+    annote={Introduces kernel SVMs, hinge loss (soft margin) and kernel trick.}
 }
 @misc{courville+bergstra+bengio:2010,
     title={The Spike and Slab Restricted {Boltzmann} Machine},
@@ -683,6 +772,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=40,
     pages={10045--10055},
     year={2008},
+    annote={Physiological measurements in carefully trained monkeys shows that it does not. Authors hypothesize instead that the ability to generalize is learned (from experience) rather than hard-wired.}
 }
 @article{cox+meier+oertelt+dicarlo:2005,
     author={Cox, D. D. and Meier, P. and Oertelt, N. and {DiCarlo}, J. J.},
@@ -691,6 +781,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=8,
     pages={1145--1147},
     year={2005},
+    annote = {Shows that 1 hour of exposure to object changes during saccades is enough to confuse people when objects are placed at those same retinal positions. This is evidence that low level vision is adapting to environment statistics, but also that object properties are not learned in a way that automatically generalizes across retinal positions.},
 }
 @unpublished{cox+pinto+doukhan+cordas+dicarlo:2008,
     author={D. D. Cox and N. Pinto and D. Doukan and B. Cordas and J. J.
@@ -709,6 +800,12 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=300,
     number=1,
     page={5--25},
+    annote={Foveal cell density: 32K to 38K cells/mm2 in a horizontally
+        elliptical ring 0.4-2.0mm from the foveal center.
+    Number of ganglion cells ranges from 700 thousand to 1.5 million. They
+    estimate that cones may not only be wired directly (1-1) to V1, but that
+    actually in humans there might be multiple ganglion axons for each foveal
+    cone - possibly to have both center-on and center-off responses.}
 }
 @techreport{czogiel+luebke+weihs:2005,
     author={I. Czogiel and K. Luebke and C. Weihs},
@@ -716,6 +813,10 @@ l. Finally, we study how activations and gradients vary across layers and during
     institution={Universit{\"a}t Dortmund Fachbereich Statistik},
     year={2005},
     month={September},
+    annote={Shows that on a small problem involving the optimization of SVM
+        hyper-parameters, their algorithm outperforms Nelder-Mead. It appears
+        that their algorithm is not easy to parallelize.},
+    path={reading/2005/czogiel_luebke_weihs.pdf}
 }
 %ddd % search target 
 @inproceedings{dahl+ranzato+mohamed+hinton:2010,
@@ -726,6 +827,12 @@ l. Finally, we study how activations and gradients vary across layers and during
     editor=nips23ed,
     pages = {469--477},
     year={2010},
+    annote={
+        An mc-RBM with some RBMs stacked on top scores new state-of-the-art 20.7\% error on speaker-independent TIMIT.
+        (Bests previous state-of-the-art normal DBN on TIMIT.)
+        Must ask George about juicy details, because the paper makes it sound
+        like everything just worked out of the box.
+    }
 }
 @article{dasgupta:2009,
     author={S. Dasgupta and A. T. Kalai and C. Monteleoni},
@@ -749,6 +856,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   volume =       "46",
   pages =        "161--190",
   year =         "2002",
+  annote = {Reports Gaussian SVM score of 1.5\% on MNIST.},
   doi={10.1023/A:1012454411458},
 }
 @article{doi2003,
@@ -774,6 +882,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=16,
     pages={18--28},
     year=1990,
+    annote={This is a reference for BLAS interface and routines.}
 }
 @ARTICLE{dowling:2007,
     AUTHOR = {Dowling, J. },
@@ -791,6 +900,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     booktitle={Proc. of the 38th Conference on Winter Simulation},
     year=2006,
     pages={774 - 782},
+    annote={Presents an algorithm for optimization that divides dimensions of search space into important and unimportant - uses QMC to cover important dimensions, and pseudo-random samples to cover rest.}
 }
 @inproceedings{druckmann+chklovskii:2010,
     title={Over-complete Representations on Recurrent Neural Networks can
@@ -798,6 +908,18 @@ l. Finally, we study how activations and gradients vary across layers and during
     author={S. Druckmann and D. B. Chklovskii},
     booktitle={{NIPS}},
     year={2010},
+    annote={
+        Describes a recipe and motivation for coming up with a permutation-type
+            matrix $L$ that can cycle through good (but not optimal) solutions to the sparse coding
+            problem.  This model offers to accounts for how/why individual
+            neurons do not stay active even though a percept is held constant.
+            Although it was not presented this way, this algorithm might provide
+            a way to overcome the representational instability that is inherent
+            in the sparse coding framework.
+        From the question period after the talk: ``In order for
+        a neuron to communicate it needs to spike.  But spiking resets the
+        neuron.  So a neuron loses its information in sending it.''
+    }
 }
 %eeeeeee  % search target
 @unpublished{edelman+intrator+poggio:1997,
@@ -849,6 +971,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal=nc,
     volume=6,
     pages={559--601},
+    annote={}
 }
 @article{finn+ferster:2007,
     author={I. M. Finn and D. Ferster},
@@ -859,6 +982,19 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={27},
     number={36},
     pages={9638--9648},
+    annote={A comparison of MAX-like and energy-type models for intracellular
+        recordings in V1 finds that both kinds of responses exist.  Cells used
+            in the study are described as spanning a range of behaviours,
+               rather than conforming to either model type.
+                   "Classical responses emerged when a single pair of simple
+                   cells with matched statial frequencies was used. More
+                   MAX-like behavior was observed when two pairs of cells
+                   with different spatial-frequency selectivities provided
+                   input to the model complex cell. Thus, it may be the case
+                   that complex cells participate in a variety of image
+                   processing computations dependent in part on the spatial-
+                   frequency preferences of the inputs they receive."
+    }
 }
 @article{fisher:1936,
     author={R. A. Fisher},
@@ -895,6 +1031,8 @@ l. Finally, we study how activations and gradients vary across layers and during
   number =       "UCSC-CRL-94-25",
   institution =  "University of California, Santa Cruz",
   year =         "1994",
+  annote = {Discusses and derives free energy for binary and and continuous RBMs, suggests training them by using optimization methods to find the points in input space for which the probability is highest.  Misses the connection to Gibbs sampling that Hinton later builds on.}
+  }
 }
 %ggg % search target
 @manual{galassi+etal:2009,
@@ -910,6 +1048,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=76,
     pages={2718--2739},
     year={1996},
+    annote={},
 }
 @inproceedings{garrigues+olshausen:2009,
     author={P. J. Garrigues and B. A. Olshausen},
@@ -917,6 +1056,9 @@ l. Finally, we study how activations and gradients vary across layers and during
         Images},
     pages={505--512},
     crossref={NIPS20},
+    annote={Sparse coding with a fully-interconnected hidden layer. Weights are
+    visualized and some probabilities are plotted. It looks like MAP estimation
+    of $z$ in the model is hard, but I don't see right away why.}
 }
 @inproceedings{gerdzhev+al:2010,
     author={M. Gerdzhev and J. Tran and A. Ferworn and K. Barnum and M. Dolderman},
@@ -959,6 +1101,17 @@ l. Finally, we study how activations and gradients vary across layers and during
     author={D. F. M. Goodman and R. Brette},
     booktitle={{NIPS}},
     year={2010},
+    annote={
+        Describe a neural network architecture in in which supervised learning
+        is used to learn complements to head-related transfer functions
+        (HRTFs) for single sources at various positions in the acoustic
+        environment.
+        They use a mesh grid (aka lattice) of filters that can cancel out the
+        effect of HRTFs, and then learn to match the responses of that family
+        (composed with the unknown HRTF) to a known acoustic positions.  This
+        method is tested on synthetic and recorded sounds.  Experiments are done
+        with both spiking and non-spiking models.
+    }
 }
 @article{gray:1999,
     author={C. M. Gray},
@@ -997,6 +1150,16 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Learning Features by Contrasting Natural Images with Noise},
     booktitle={{ICANN}},
     year={2009},
+    annote={
+        Neural networks with a variety of hidden-layer non-linearities were
+            trained to discriminate noise from real images.  The noise images
+            were sampled with the same first- and second-order spatial
+            statistics as the true images.
+            They introduce a non-symmetric non-linearity with an optimized
+            exponent, and it does well compared to sigmoid and tanh.
+        Guillaume wrote to me that this is basically a quadratic unit, but I don't
+        see the connection.
+    },
 }
 %hhh % search target
 @inproceedings{hadsell+chopra+lecun:2006,
@@ -1004,6 +1167,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Dimensionality Reduction by Learning an Invariant Mapping},
     booktitle=cvpr,
     year={2006},
+    annote={Introduces contrastive algorithm for learning a non-linear embedding
+        function such that similar points are grouped according to Euclidean
+            Distance, and dissimilar ones are further away. This is the DrLIM
+            algorithm.  The algorithm works on pairs of points.  The loss
+            function is a decreasing quadratic function of the distance, down to
+    0 at some 'margin' distance.  The loss function is an increasing quadratic
+    function of the distance between similar points. Good results are shown on
+    MNIST with artificial translations, and the airplane pictures from NORB.}
 }
 @article{halton:1960,
     title={On the Efficiency of Certain Quasi-Random Sequences of Points in
@@ -1014,6 +1185,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={2},
     pages={84-90},
     year=1960,
+    annote={Introduces the Halton low-discrepancy sequence.}
 }
 @article{hartman+keeler+kowalski:1990,
     author={E. J. Hartman and J. D. Keeler and J. M. Kowalski},
@@ -1023,6 +1195,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=2,
     number=2,
     pages={210-215},
+    annote={See also (Hornik, 1989).}
 }
 @article{hausser+mel:2003,
     author = {M. Ha{\"u}sser and B. Mel},
@@ -1040,6 +1213,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={20},
     pages={1--6},
     year={2000},
+    annote={}
 }
 @article{heeger:1992a,
     author={D. J. Heeger},
@@ -1065,6 +1239,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=14,
     pages={1771-1800},
     year=2002,
+    annote={Introduces Contrastive Divergence (CD) for training
+        product-of-experts models such as the RBM.}
 }
 @incollection{hinton:2007,
     author={G. E. Hinton},
@@ -1089,6 +1265,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number={2010-003},
     year={2010},
     note={version 1},
+    annote={Similar to Yann's tricks of the trade paper for neural networks, but for RBMs.}
 }
 @article{hinton+osindero+teh:2006,
     author={G. E. Hinton and S. Osindero and Y. Teh},
@@ -1097,6 +1274,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal=nc,
     volume=18,
     pages={1527-1554},
+    annote={Stacking RBMs trained by Contrastive Divergence, pre-training.}
 }
 @article{hinton+salakhutdinov:2006,
     author={G. E. Hinton and R. R. Salakhutdinov},
@@ -1123,6 +1301,15 @@ l. Finally, we study how activations and gradients vary across layers and during
     doi = {10.1007/BF02430364},
     note = {10.1007/BF02430364},
     year = {1995},
+    annote={Distinguishes between scientific testing and competitive testing.
+    Scientific testing is testing that gives insight into the strengths and
+        weaknesses of an empirical heuristic algorithm.
+    Competitive testing is benchmarking race sort of testing.  His first section
+    outlines many evils of competitive testing.  Most significant to the ML and
+    computer vision communities he points out the selection bias of benchmark
+    problems - they are most often chosen because at least one algorithm (the first)
+    did well on it. ``Worse than this, it is unclear that we would even be able to recognize
+    a representative problem set if we had one.''}
 }
 @article{hornik:1989,
     author={K. Hornik},
@@ -1134,6 +1321,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     year=1989,
     doi={10.1016/0893-6080(89)90020-8},
     abstract = {This paper rigorously establishes that standard multilayer feedforward networks with as few as one hidden layer using arbitrary squashing functions are capable of approximating any Borel measurable function from one finite dimensional space to another to any desired degree of accuracy, provided sufficiently many hidden units are available. In this sense, multilayer feedforward networks are a class of universal approximators.},
+    annote={See also (Hartman et al. 1990).}
 }
 @article{horton:2006,
     author={J. C. Horton},
@@ -1142,6 +1330,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Canadian. Journal of Ophthalmology},
     volume={41},
     pages={584-593},
+    annote={Has a nice picture of retinotopy in V1.}
 }
 @article{hoyer+hyvarinen:2000,
     author={P. O. Hoyer and A. Hyv{\"a}rinen},
@@ -1152,6 +1341,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     number={3},
     pages={191--210},
     year={2000},
+    annote={Shows that the independent components of colour and stereo images
+        are quite similar to the corresponding V1 receptive fields.}
 }
 @incollection{hsu+kakade+zhang:2008,
     author={Hsu, D. and Kakade, S. M. and Zhang, T.},
@@ -1167,6 +1358,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={160},
     number={1},
     pages={106--154},
+    annote={}
 }
 @article{HubelWiesel1968,
     author={D. Hubel and T. N. Wiesel},
@@ -1184,6 +1376,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={310},
     pages={863--866},
     year={2005},
+    annote={Show that feedforward model rivals human performance in strictly
+        feedforward image classification setting.}
 }
 @inproceedings{hurri+hyvarinen:2003,
     author={Hurri, J. and Hyv{\"a}rinen, A.},
@@ -1197,6 +1391,9 @@ l. Finally, we study how activations and gradients vary across layers and during
         Problems},
     year=2009,
     school={University of British Columbia},
+    annote={Evaluates model-based and model-free approaches to program
+        configuration.  This work is relevant to the tuning of learning
+            algorithm hyper-parameters.}
 }
 @inproceedings{hutter+hoos+leyton+brown:2011,
     author={F. Hutter and H. Hoos and K. Leyton-Brown},
@@ -1220,6 +1417,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Topics in Cognitive Science},
     volume=2,
     pages={251--264},
+    annote={Review of sparse coding and ICA models for V1.}
 }
 @article{hyvarinen+hoyer:2001,
     author={A. Hyv{\"a}rinen and P. O. Hoyer},
@@ -1238,6 +1436,11 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=7,
     pages={1527-1558},
     year=2001,
+    annote={Introduces an extension of ICA. The dependencies of the estimated
+        independent components are visualized as a topographic order. A new
+            principle for topographic organization, based on higher-order
+            statistics. Applied on image data, both topography and complex cell
+    properties emerge.}
 }
 @book{hyvarinen+hurri+hoyer:2009,
     author={A. Hyv{\"a}rinen and J. Hurri and P. O. Hoyer},
@@ -1251,6 +1454,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Independent Component Analysis},
     year={2001},
     publisher={John Wiley \& Sons},
+    annote={}
 }
 @article{hyvarinen+koster:2007,
     author={A. Hyv{\"a}rinen and U. K{\"o}ster},
@@ -1259,6 +1463,11 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=18,
     pages={81--100},
     year={2007},
+    annote={Repeats subspace-ICA work with looser architecture constraints.
+        Uses fully-connected units, experiments with linear filter exponent and
+            pool size (number of filters). Finds that the optimal pool size is
+            quite large (i.e. 16-32) and finds that the best exponent is 2.
+    },
 }
 @article{hyvarinen+oja:2000,
     author={A. Hyv{\"a}rinen and E. Oja},
@@ -1269,6 +1478,19 @@ l. Finally, we study how activations and gradients vary across layers and during
     number={4--5},
     pages={411--430},
     year=2000,
+    annote={ICA tutorial. The difference between PCA and ICA is that ICA
+        maximizes the marginal non-gaussian-ness of each latent variable. The
+            assumption is that when two non-gaussian latent variables (the
+                    sources) are combined linearly (by mixing) then the result
+            is close to Gaussian than either of the original sources. ICA seeks
+    to undo this mixing by maximizing the un-gaussian-ness of each latent
+    variable.  When the sources are indeed scalars being combined linearly, it
+    seems like a good idea and algorithm. ICA is not a particular algorithm.
+    Different techniques estimate non-Gaussian-ness, such as maximizing
+    abs or square of kurtosis for given variance, and minimizing entropy.
+    Several criteria are listed. This tutorial also describes the EVD-based
+    whitening procedure (aka ZCA) in Section 5.2. Section 6 presents the FastICA
+    algorithm.}
 }
 %iii  % search target
 %jjj  % search target
@@ -1277,6 +1499,15 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Structured Sparse Principal Component Analysis},
     crossref={AISTATS:2010},
     pages={366-373},
+    annote={
+        Discusses the use of mixed L1 and L2 norms to express a prior of group
+            sparsity on coefficients, and also a prior that dictionary elements
+            should tend to have some standard non-zero patterns.
+        Good notation and analysis of the runtime requirements.
+        Not much discussion of when one should adopt such a prior, but perhaps
+        that has been developed in related papers.  This one seems like part of
+        a line of research on the subject coming out of Francis Bach's group.
+    }
 }
 @article{jones+wang+sillito:2002,
     author={H. E. Jones and W. Wang and A. M. Sillito},
@@ -1286,6 +1517,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={88},
     pages={2796--2808},
     year=2002,
+    annote={},
 }
 %kkkkk  % search target
 @article{kapadia:1995,
@@ -1304,6 +1536,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=14,
     pages={483--499},
     year=2003,
+    annote={Describes a two-layer ICA model.  The first layer is ICA. The second layer uses sparse coding to encode correlations in variance of the first layer units. Figure 8 is my favorite - it shows that if you color-code a large image by the maximally-active higher-order feature, that you get a nice segmentation of the image into abstract visual structure that groups textures.}
 }
 @article{karklin+lewicki:2005,
     author={Y. Karklin and M. S. Lewicki},
@@ -1314,6 +1547,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=17,
     number=2,
     pages={397--423},
+    annote={Seems like same model as 2003 paper, not sure what the contribution is compared to \cite{karklin+lewicki:2003}.}
 }
 @article{karklin+lewicki:2008,
     author={Y. Karklin and M. S. Lewicki},
@@ -1325,6 +1559,15 @@ l. Finally, we study how activations and gradients vary across layers and during
     month=nov,
     volume=457,
     pages={83--86},
+    annote={Generalizes the hierarchical model of \cite{karklin+lewicki:2005} in
+        allowing the topmost units to modulate not the {\em variance} of
+            individual ICA coefficients, but rather than {\em covariance} among
+            all coefficients.
+        Shows that statistical models inferred from natural image patches
+            develop common aspects of the neural response in complex cells in
+            cortical area V1. They are highly tuned to the grating's
+            orientation, but insensitive to its phase.
+            TODO: understand masking results (Figure 3).}
 }
 @article{kastener+ungerleider:2000,
     author={Kastner, S. and Ungerleider, L. G.},
@@ -1338,6 +1581,16 @@ l. Finally, we study how activations and gradients vary across layers and during
     author={K. Kavukcuoglu and M. Ranzato and R. Fergus and Y.
         {LeCun}},
     title={Learning Invariant Features through Topographic Filter Maps},
+    annote={Uses encoder-decoder framework to learn filters.  Filters are
+        arranged *logically* into a grid, and nearby filters in this grid are
+            allowed to cooperate (via a sum-of-squares activation).  The result
+            is the unsupervised learning of features that competes well with
+            SIFT on CalTech and TinyImages.  The model is very similar to
+            complex cell-like models.  One of the principles of pre-training in
+            this model is that pooled features should compute *similar*
+            (correlated?) features rather than independent (uncorrelated?) ones,
+        but this is not explicit in the training criterion.
+    },
     crossref={CVPR:2009},
 }
 @inproceedings{kavukcuoglu+etal:2010,
@@ -1346,12 +1599,22 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Learning Convolutional Feature Hierarchies for Visual Recognition},
     booktitle={{NIPS}},
     year={2010},
+    annote={Describes the challenge when doing sparse coding when the
+        generative model just matches the image size - there are boundary
+        effects that are undesirable.  But why not just generate a region
+        larger than the image and only apply the reconstruction error to the
+        subregion corresponding to the actual image?
+        This paper also includes the 'learning to encode' work that Karol presented
+        at Snowbird last year.
+    }
 }
 @inproceedings{kingma+lecun:2010,
     author={D. P. Kingma and Y. {LeCun}},
     title={Regularized estimation of image statistics by Score Matching},
     booktitle={{NIPS}},
     year={2010},
+    annote={This is very similar to Pascal's score matching for denoising, not
+    sure what the difference is.},
 }
 @article{kirkpatrick+gelatt+vecchi:1983,
     title = {Optimization by Simulated Annealing},
@@ -1363,6 +1626,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages = {671-680},
     year = {1983},
     publisher = {American Association for the Advancement of Science},
+    annote={Introduces the technique of simulated annealing for global
+        optimization.}
 }
 @article{kobatake+tanaka:1994,
     author={Kobatake, E. and Tanaka, K.},
@@ -1372,6 +1637,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=71,
     pages={856--867},
     year={1994},
+    annote={}
 }
 @article{kohonen:1996,
     author={T. Kohonen},
@@ -1383,6 +1649,9 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=4,
     doi={10.1007/s004220050295},
     pages={281--291},
+    annote={Presents the ``Adaptive Subspace Self-Organizing Map'' ASSOM
+        algorithm, which is like the SOM, but for learning linear transforms.
+    This is one of the first 'quadratic unit' models, as far as I know.}
 }
 @article{kording+etal:2004,
     author={K. P. K{\"o}rding and C. Kayser and W.
@@ -1393,6 +1662,21 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal = "Journal of Neurophysiology",
     volume = 91,
     pages = {206--212},
+    annote = {
+        Computer simulations show that two principles suffice to explain the
+            responses of V1 complex cells: the maximization of temporal
+            correlation in each cell, and the minimization of correlation
+            between cells.
+            They optimize the parameters of an Adelson and Bergen model by
+            gradient descent on this cost function, considering 32x32 pixel
+            image patches from adjacent video frames.
+            The response of model neurons is evaluated on drifting gratings.
+            The neurons learn to be localized, and selective to orientation and
+            spatial frequency.  Most neurons learn filters that are offset by 90 degrees
+            to implement translation invariance.
+            Authors argue that sparsity explains simple cells, but stability
+            over time explains complex cells.
+    }
 }
 @article{kording+konig:2001,
     author = {K. P. K{\"o}rding and P. K{\"o}nig},
@@ -1410,6 +1694,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     location={Paraty, Brazil},
     year={2009},
     tag={TransformationLearning},
+    annote={}
 }
 @article{kouh+poggio:2008,
     author={M. M. Kouh and T. T. Poggio},
@@ -1444,12 +1729,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Learning Multiple Layers of Features from Tiny Images},
     author={A. Krizhevsky},
     year={2009},
+    annote={GRBM results on {CIFAR}-10},
     institution={University of Toronto},
 }
 @techreport{krizhevsky:2010,
     title={Convolutional Deep Belief Networks on {CIFAR}-10},
     author={A. Krizhevsky},
     year={2010},
+    annote={Convolutional Rectified-linear unit GRBM results on CIFAR-10},
     institution={University of Toronto},
 }
 @inproceedings{kumar+packer+koller:2010,
@@ -1457,6 +1744,23 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Self-Paced Learning for Latent Variable Models},
     booktitle={{NIPS}},
     year={2010},
+    annote={
+        Follows up on curriculum learning (Bengio et al., 2009) with the idea
+        that the curriculum should be inferred from the trouble the model is
+        having with the examples.
+        Trouble is defined as 'has difficulty classifying correctly'.
+        Introduces a reformulation of the learning problem of the "Latent SSVM"
+        model in which binary variables are introduced for each element of the
+        training set.  At every iteration the model can either make a prediction
+        for an example, or pay fixed price (1/K in paper).  The price of
+        skipping examples is annealed *by hand* during learning so that at
+        the beginning about half of the dataset is used, and at the end
+        all of the dataset it used.  Results are ok but neither thorough
+        nor impressive (e.g. only 4 binary decisions regarding MNIST digits
+        are shown - why?).
+        TODO: Compare with another paper here: "Trading off Mistakes and
+        Don't-Know Predictions"
+    }
 }
 %lll % search target
 @article{langford+li+zhang:2009,
@@ -1475,12 +1779,18 @@ l. Finally, we study how activations and gradients vary across layers and during
     editor=icml09ed,
     publisher=icml09publ,
     year={2009},
+    annote={Presents a novel interpretation that reintroduces recurrent neural networks as a means of modeling timeseries data.
+        Training is done by backprop through time.
+        Experiments show that this method outperforms HMM in modeling motion capture data used in Taylor et al. 2006.
+        Long-range predictions (exponential) are to be made using a hierarchical set of temporal predictors, but no experiments demonstrate this.
+    }
 }
 @inproceedings{larochelle+bengio:2008,
     author = "H. Larochelle and Y. Bengio",
     title = {Classification using Discriminative Restricted {Boltzmann} Machines},
     pages = {536--543},
     crossref={ICML:2008},
+    annote={}
 }
 @INPROCEEDINGS{larochelle+etal:2007,
     author = {Larochelle, H. and Erhan, D. and Courville, A. and Bergstra, J. and Bengio, Y.},
@@ -1501,12 +1811,28 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Beyond Bags of Features: Spatial Pyramid Matching for Recognizing
         Natural Scene Categories},
     booktitle=cvpr06,
+    annote={Describes Pyramid Histogram of Words (PHOW) image features (also known as the
+            Spatial Pyramid).}
 }
 @inproceedings{le+ngiam+chen+chia+koh+ng:2010,
     title={Tiled Convolutional Neural Networks},
     author={Q. V. Le and J. Ngiam and Z. Chen and D. Chia and P. W. Koh and A. Y. Ng},
     booktitle={{NIPS}},
     year={2010},
+    annote={
+        Uses Topographic ICA to train a so-called "tiled" convolutional model in which
+        filters are shifted by K pixels instead of 1 pixel, and started at
+        position 0 <= (x,y) < (K,K).
+        The results are good, given for NORB and CIFAR-10, where they are just
+        above state of art for NORB (96\%) and just below state of art for
+        CIFAR-10 (73\%).
+        There are some technical details given for how and why filters are orthogonalized.
+        (TODO)
+        I would like to ask Yann LeCun or Koray or Marc'Aurelio about the tiling
+        idea - because it seems to me that they already did this.  Not sure what
+        else is new here other than a combination of criterion and model that
+        gives good results on these datasets.
+    }
 }
 @inproceedings{lecun:1985,
     author={Y. {LeCun}},
@@ -1521,6 +1847,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={The {MNIST} Database of Handwritten Digits},
     howpublished={{\url{http://yann.lecun.com/exdb/mnist/}}},
     year={1998-},
+    annote={This is supposed to refer to the website.
+        The dataset is introduced in~\cite{lecun+bottou+bengio+haffner:1998}.}
 }
 @article{lecun+etal:1989,
     author={Y. {LeCun} and B. Boser and J. S. Denker and D. Henderson and R. E.
@@ -1531,6 +1859,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=4,
     pages={541-551},
     year=1989,
+    annote={Introduces convolutional neural network.}
 }
 @article{lecun+bottou+bengio+haffner:1998,
     author =    {{LeCun}, Y. and Bottou, L. and Bengio, Y. and Haffner, P.},
@@ -1541,6 +1870,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number =        11,
     pages =  {2278--2324},
     year =      1998,
+    annote = {This is the standard citation for MNIST and the LeNet5 architecture.}
 }
 @incollection{lecun+bottou+orr+muller:1998,
     author={Y. {LeCun} and L. Bottou and G. Orr and K. Muller},
@@ -1560,6 +1890,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   doi = {10.1109/CVPR.2004.144},
   publisher = {IEEE Computer Society},
   address = {Los Alamitos, CA, USA},
+  annote={Introduces NORB dataset.}
 }
 @article{lecuyer+blouin+couture:1993,
     author={P. L'Ecuyer and F. Blouin and R. Couture},
@@ -1568,6 +1899,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=3,
     pages={87--98},
     year=1993,
+    annote={Defines the MRG generator that was implemented in Theano to have random numbers on the GPU.}
 }
 @InCollection{lee+battle+raina+ng:2008,
     title = "Efficient Sparse Coding Algorithms",
@@ -1597,6 +1929,20 @@ l. Finally, we study how activations and gradients vary across layers and during
     editor=icml09ed,
     publisher=icml09publ,
     year={2009},
+    annote={Introduces Convolutional Deep Belief Network, which is an
+        adaptation of LeNet5 to support bottom-up and top-down inference, as
+            well as learning by Contrastive Divergence.
+            Introduces "probabilistic max-pooling", a variation on max-pooling
+            that carries a sensible generative interpretation: a pooling unit is
+            on iff any of its inputs is on, and at most one of its inputs can be
+            on.
+            Classification accuracies reported: 57.7\% on caltech-101 using 15
+            training images per class; 65.4\% on caltech-101 using 30 training
+            images per class; 0.8\% on MNIST.
+            They tested the generative modeling ability by zero-ing out testing
+            images, and then filling them in using either second layer (not so good) or
+            repeated Gibbs sampling throughout the model (better).
+    }
 }
 @inproceedings{lee+largman+pham+ng:2009,
     author={H. Lee and Y. Largman and P. Pham and A. Y. Ng},
@@ -1604,6 +1950,13 @@ l. Finally, we study how activations and gradients vary across layers and during
         Convolutional Deep Belief Networks},
     booktitle={{NIPS} 2009},
     year={2009},
+    annote={
+        Extends Lee et al. ICML2009 to  work on audio - speech and music.
+        It is a convolution through time, not frequency.
+            Speech tasks: speaker id., gender id., phone classification.
+            Music tasks: genre, artist.
+        On several tasks, second-layer features outperform first-layer features.
+    }
 }
 @incollection{leroux+manzagol+bengio:2008,
  title = {Topmoumoute Online Natural Gradient Algorithm},
@@ -1624,6 +1977,13 @@ l. Finally, we study how activations and gradients vary across layers and during
     editor={W. C. Corning and M. Balaban},
     pages={233--258},
     year={1968},
+    annote={Frogs seem to respond only to motion, not to still images. The eyes
+        do not move except to stabilize the image perceived by a moving frog. The
+        retinal ganglion cells of the frog are studied. Four kinds of fibers
+            are characterized. (1) sustained contrast detection (i.e. edge
+                    detection). (2) net convexity detectors (i.e. fly
+                        detectors!). (3) moving edge detectors. (4) net dimming
+    detection (light-off detector).}
 }
 @article{leuba+kraftsik:1994,
     author={G. Leuba and R. Kraftsik},
@@ -1634,6 +1994,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=4,
     pages={351--366},
     doi={10.1007/BF00187293},
+    annote={Estimates the number of V1 neurons in right hemisphere at roughly
+        140 million.}
 }
 @article{li+dicarlo:2008,
     author={Li, N. and {DiCarlo}, J. J.},
@@ -1644,6 +2006,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number={5895},
     pages={1502--1507},
     year={2008},
+    annote={Shows that just 1 hour of unsupervised experience is enough for IT neurons to start grouping novel artificial patterns in temporal correlation.},
 }
 @inproceedings{liang+klein:2009,
     author={P. Liang and D. Klein},
@@ -1653,6 +2016,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     year={2009},
     month={June},
     address={Boulder, Colorado},
+    annote={Reminder that EM can be performed as an online algorithm.  Offers an empirical comparison of Incremental EM (Neal and Hinton 1998) and Stepwise EM (Sato and Ishii 2000, Cappe and Moulines 2009) on NLP tasks.  Stepwise EM is compared to SGD, Incremental EM compared to exponentiated gradient.  Stepwise EM is found to be faster than both batch and incremental EM, and to converge to better solutions as well.}
 }
 @article{lodhi+saunders+shawe-taylor+cristianini+watkins:2002,
     title={Text Classification using String Kernels},
@@ -1663,6 +2027,9 @@ l. Finally, we study how activations and gradients vary across layers and during
     month=Feb,
     pages={419-444},
     year=2002,
+    annote={Introduces a DP algorithm for rapid evaluation of a substring-based
+        distance between strings.  Shows that this is a valid kernel and posts
+        results with SVM classifier.}
 }
 @incollection{loosli+canu+bottou:2006,
     author={G. Loosli and S. Canu and L. Bottou},
@@ -1673,6 +2040,12 @@ l. Finally, we study how activations and gradients vary across layers and during
     publisher = {MIT Press},
     address = {Cambridge, MA.},
     year = {2007},
+    annote={Introduces InfiniteMNIST, a dataset of 8 million points derived from
+        MNIST by applying random sub-pixel level deformations, and pixel-level
+            translations.  Evaluates a strategy for online-learning of SVMs to
+            take advantage of data-driven invariance. Shows that online SVM can
+    handle really large datasets. Using larger dataset yields MNIST error rate
+    of 0.67\%, after 8 days of training.}
 }
 @inproceedings{lowe:1999,
     author={D. G. Lowe},
@@ -1682,6 +2055,7 @@ l. Finally, we study how activations and gradients vary across layers and during
         Vision 2 ({ICCV})},
     pages={1150--1157},
     doi={10.1109/ICCV.1999.790410},
+    annote={Describes SIFT feature.}
 }
 @article{lowe:2004,
     author={D. G. Lowe},
@@ -1691,6 +2065,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=2,
     year=2004,
     pages={91-110},
+    annote={Describes the SIFT feature.}
 }
 @inproceedings{lyu+simoncelli:2007spie,
     author={S. Lyu and E. P. Simoncelli},
@@ -1699,12 +2074,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     doi={10.1117/12.729071},
     pages= "67--91",
     crossref={spie:2007},
+    annote={},
 }
 @inproceedings{lyu+simoncelli:2007nips,
     author={S. Lyu and E. P. Simoncelli},
     title={Statistical Modeling of Images with Fields of {Gaussian} Scale
         Mixtures},
     crossref={NIPS19},
+    annote={}
 }
 @inproceedings{lyu+simoncelli:2008cvpr,
     author={S. Lyu and E. P. Simoncelli},
@@ -1712,12 +2089,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages={1--8},
     crossref={CVPR:2008},
     doi={10.1109/CVPR.2008.4587821},
+    annote={}
 }
 @INPROCEEDINGS{lyu+simoncelli:2009nips,
     TITLE= "Reducing Statistical Dependencies in Natural Signals using Radial {Gaussianization}",
     AUTHOR= "S. Lyu and E. P. Simoncelli",
     PAGES= "1009--1016",
     crossref={NIPS21},
+    annote={}
 }
 @ARTICLE{lyu+simoncelli:2009pami,
     AUTHOR= "S. Lyu and E. P. Simoncelli",
@@ -1742,6 +2121,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     MONTH= "Jun",
     YEAR= "2009",
     DOI="10.1162/neco.2009.04-08-773",
+    annote={},
 }
 %mmm % search target
 @article{maes:2009,
@@ -1760,6 +2140,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=11,
     pages={10-60},
     year={2010},
+    annote={Presents a fast online algorithm for L1 sparse coding.},
 }
 @inproceedings{martens:2010,
     title={Deep Learning via Hessian-free Optimization},
@@ -1793,6 +2174,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Science},
     volume=149,
     pages={1115--1116},
+    annote = {Describes McCullough Effect.}
 }
 @article{mcfee+lanckriet:2011,
     title={Learning Multi-modal Similarity},
@@ -1802,6 +2184,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=12,
     pages={491--523},
     year={2011},
+    annote={TODO ``We present a novel multiple kernel learning technique for integrating heterogeneous data into a single, unified similarity space.''}
 }
 @article{memisevic+hinton:2010,
     author={Memisevic, R. and Hinton, G. E.},
@@ -1827,6 +2210,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   volume =    {83},
   number =    {404},
   pages =     {1023-1032},
+  annote = {Introduces ``Spike and Slab'' term.}
 }
 @inproceedings{mobahi+collobert+weston:2009,
     author={M. Mobahi and R. Collobert and J. Weston},
@@ -1835,6 +2219,12 @@ l. Finally, we study how activations and gradients vary across layers and during
     editor=icml09ed,
     publisher=icml09publ,
     year={2009},
+    annote={
+        Introduces a temporal coherence criterion (L1 on the feature differences) as a regularization of the LeNet architecture.
+        Temporal coherence enforced only at the next-to-last layer of the deep net.
+        Evaluation is done using COIL100, a COIL100-like homemade DB, a homemade db of pictures of rubber animals similar to Small-NORB, and the ORL face dataset.
+        There is mention of the Spin-Glass MRF (***).
+    }
 }
 @article{movshon+thompson+tolhurst:1978,
     author={Movshon, J. A. and Thompson, I. D. and Tolhurst, D. J.},
@@ -1844,6 +2234,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=283,
     pages={79--99},
     year={1978},
+    annote={}
 }
 @article{mutch+lowe:2008,
     author={Mutch, J. and Lowe, D. G.},
@@ -1853,6 +2244,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={International Journal of Computer Vision ({IJCV})},
     volume=80,
     pages={45--57},
+    annote={Describes Sparse Localized Features (SLF) for images.}
 }
 %nnn % search target
 @incollection{nair+hinton:2009,
@@ -1891,6 +2283,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   title =        "Bayesian Learning for Neural Networks",
   school =       "Dept. of Computer Science, University of Toronto",
   year =         "1994",
+  annote = {Introduces Hybrid Monte Carlo (HMC) sampling for energy models, among other things.}
 }
 @InCollection{neal:1998,
     author =       "R. M. Neal",
@@ -1900,6 +2293,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     publisher =    "Springer-Verlag",
     pages =        "97--129",
     year =         1998,
+    annote = {Introduces Automatic Relevance Determination (ARD).}
 }
 
 @article{nelder+mead:1965,
@@ -1909,6 +2303,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=7,
     year=1965,
     pages={308--313},
+    annote={Describes Nelder-Mead Simplex algorithm for derivative free
+        optimization of a unimodal function.},
 }
 @article{NykampRingach2002,
     author={D. Q. Nykamp and D. L. Ringach},
@@ -1926,6 +2322,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=9,
     pages=10,
     year=2007,
+    annote={This is the reference for NumPy.}
 }
 @inproceedings{olshausen:2003,
     author  = {B. A. Olshausen},
@@ -1948,6 +2345,15 @@ l. Finally, we study how activations and gradients vary across layers and during
         K. Warland},
     title={Bilinear Models of Natural Images},
     crossref={spie:2007},
+    annote={Introduces a sparse coding approach to learning transformations,
+    which is shown to be similar to the sort of bilinear modeling advanced by
+        \cite{grimes+rao:2005} and \cite{tenenbaum+freeman:2000}.
+        Olshausen is interested in bilinear models also known as routing models,
+    since apparently his PhD dissertation which was about dynamic routing.
+        One of the terms in the bilinear decomposition is penalized with a
+        slowness criterion, which seems similar to Cadieu's later
+        articles on phase variables in the sparse coding of motion.
+    }
 }
 @article{olshausen+field:1996,
     author = {B. A. Olshausen and D. J. Field},
@@ -1956,6 +2362,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume = {381},
     pages = {607-691},
     year = {1996},
+  annote = {TODO: diff with 1997?}
 }
 @Article{olshausen+field:1997,
   author =       "B. A. Olshausen and D. J. Field",
@@ -1965,6 +2372,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   pages =        "3311--3325",
   year =         "1997",
   month = dec,
+  annote = {TODO: diff with 1996?}
 }
 @article{olshausen+field:2005,
     author = {B. A. Olshausen and D. J. Field},
@@ -1973,6 +2381,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume = {17},
     pages = {1665-1699},
     year = {2005},
+    annote={Epic review of failures of standard V1 models to account for what happens when subjects are tested on natural stimuli rather than bars and gratings.  First half of article reviews 5 major problems: biased sampling of neurons, biased stimuli to test them, oversimplified theories, unexplained effects of interdependence and context, and the fact that current models only explain about 15\% of the variance in what can be measured about V1. The second half of the article outlines 5 directions where the authors would like to see more research: studying many neurons at once, something about sparse coding, contour integration, surface representation, top-down feedback and disambiguation, and dynamic routing (bilinear models).}
 }
 @book{Oreilly2000,
     author={R. C. O'Reilly and Y. Munakata},
@@ -1998,6 +2407,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages={269--339},
     publisher={Academic},
     address={Orlando},
+    annote = {Referenced by \cite{olshausen+anderson+vanessen:1993} for the idea that ``the process of attending to an object places it in some canonical, or object-based reference frame''.}
 }
 @article{pasupathy+connor:2001,
     author={Pasupathy, A. and Connor, C. E.},
@@ -2007,6 +2417,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume={86},
     pages={2505--2519},
     year=2001,
+    annote={}
 }
 @InProceedings{perpinan+hinton:2005,
   author =       "M. A. Carreira-Perpi{\~{n}}an and G. E. Hinton",
@@ -2033,6 +2444,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=4,
     pages={215--229},
     year=1994,
+    annote = {Referenced by \cite{olshausen+field:2005} because it shows how relatively little input V1 receives from LGN compared to from itself and other regions.}
 }
 @article{pinto+cox+dicarlo:2008,
     author={N. Pinto and D. D. Cox and J. J. {DiCarlo}},
@@ -2042,6 +2454,19 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=1,
     doi={doi:10.1371/journal.pcbi.0040027},
     year={2008},
+    annote={Presents a classification model that is V1-like elements with a
+        linear SVM classifier on top.  This model achieves results on
+            Caltech-101 and Caltech-256, but fails to recognize objects that
+            have been super-imposed on a white-noise background.  The conclusion
+            is that backgrounds in photographs are being used by the model.
+    The paper includes instructions for how to implement a V1-like
+    hidden layer of simple cells, including contrast gain-normalization in both
+    the input (retinal ganglion) and output (simple cell response).
+    This paper points out the problem of sample bias in using un-controlled
+    data for high-dimensional problems with many factors of variation.  It is
+    not possible to gather enough data to make systematic tests.  These
+    difficulties are very similar to the motivation behind the BabyAI-related
+    projects in our lab.}
 }
 @article{pinto+doukhan+dicarlo+cox:2009,
   author = {Pinto, N. and Doukhan, D. and {DiCarlo}, J. J. and Cox, D. D.},
@@ -2078,6 +2503,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     publisher={Julius Springer Verlag},
     address={Vienna},
     year=1935,
+    annote={Introduces Karl Popper's doctrine of falsifiability as the foundation of good scientific theory.}
 }
 @article{powell:1994,
     author={M. J. D. Powell},
@@ -2088,6 +2514,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     address={Dordrecht},
     year=1994,
     pages={51--67},
+    annote={Describes COBYLA algorithm for derivative free optimization of a
+        function over a constrained domain.},
 }
 %rrrrrrrrrrrrr
 @inproceedings{raina+battle+lee+packer+ng:2007,
@@ -2108,12 +2536,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     booktitle=NIPS20,
     editor=NIPS20ed,
     publisher=NIPS20publ,
+    annote={Introduces the SESM model (aka SPD?)},
 }
 @InProceedings{ranzato+hinton:2010,
   author =       {M. Ranzato and G. E. Hinton},
   title =        {Modeling Pixel Means and Covariance using Factorized Third-order {B}oltzmann Machines},
   crossref={CVPR:2010},
   pages = {},
+  annote= {Introduces mcRBM, with good results on CIFAR-10, by extending previous cRBM model (Ranzato, Krizhevsky, Hinton 2010).}
 }
 @InProceedings{ranzato+krizhevsky+hinton:2010,
   author =       {M. Ranzato and A. Krizhevsky and G. E. Hinton},
@@ -2150,6 +2580,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     year=2006,
     publisher={{MIT} Press},
     path={reading/2006/RW.pdf},
+    annote={Gaussian process textbook.}
 }
 @inproceedings{reid:1989,
     title = {Rapid Training of Higher-Order Neural Networks for Invariant Pattern
@@ -2173,6 +2604,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     year={1999},
     volume=2,
     pages={1019--1025},
+    annote={Describes HMAX model.}
 }
 @book{rosenblatt:1962,
     author={F. Rosenblatt},
@@ -2188,6 +2620,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal=nc,
     volume={20},
     pages={2526--2563},
+    annote={
+        Introduces a dynamical system to solve a variety of sparse-coding
+            problems.  Different sparsity constraints lead to different
+            non-linearities.  The work also considers neuron stability over time as an
+            important objective.  Coding strategies are evaluated on videos.
+            ***FINDINGS
+            ***ALGORITHMS
+    }
 }
 @Book{Rumelhart86a,
   author =       "D. E. Rumelhart and J. L. McClelland and the PDP
@@ -2244,6 +2684,7 @@ l. Finally, we study how activations and gradients vary across layers and during
   title =        "Deep {B}oltzmann Machines",
   pages =        "448--455",
   crossref = {AISTATS:2009},
+  annote={Describes technique of variational positive-phase inference and PCD negative-phase inference along with stacking to train 2-layers of RBM together. Gives likelihood and classification (0.95\%) on MNIST, classification on NORB (10.8\%)}
 }
 @inproceedings{salakhutdinov+larochelle:2010,
  author = {R. Salakhutdinov and H. Larochelle},
@@ -2322,6 +2763,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Nature Neuroscience},
     month=aug,
     year={2001},
+    annote={},
 }
 @inproceedings{sermanet+kavukcuoglu+lecun:2009,
     title = "{EBLearn}: Open-Source Energy-Based Learning in {C++}",
@@ -2351,6 +2793,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=15,
     pages={6424--6429},
     year={2007},
+    annote={}
 }
 @article{shams+malsburg:2002,
     author={L. Shams and C. {von der Malsburg}},
@@ -2360,6 +2803,15 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=22,
     pages={2547--2554},
     year=2002,
+    annote={Uses a filter bank of Gabor energy models of V1 complex cells to
+        represent images.  For several realistic images, the work shows that
+            the internal representation can be decoded using a gradient-based
+            inversion algorithm, and the recovered image is readily
+            recognizeable.
+            The representation is robust to changes in polarity, which the
+            authors argue is important because changes in lighting and
+            background often induce polarity reversals.
+    }
 }
 @article{shannon:1948,
     author={C. E. Shannon},
@@ -2392,6 +2844,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     year=2001,
     volume=24,
     pages={1193--1216},
+    annote={Review of ICA, sparse coding, dependence of codes, includes discussion at end of fast adaptation by nervous system.}
 }
 @incollection{smolensky:1986,
     author={P. Smolensky},
@@ -2432,6 +2885,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     month=feb,
     pages={627--662},
     year={2011},
+    annote={Advocates response surface modeling for ILP hyper-parameter optimization.
+    They use linear models, show some results on problems that I don't recognize.}
 }
 @article{stevenson+cronin+sur+kording:2010,
     author={Stevenson, I. H. and Cronin, B. and Sur, M. and K{\"o}rding, K. P.},
@@ -2465,6 +2920,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=6,
     pages=4607,
     doi={10.4249/scholarpedia.4607},
+    annote={}
 }
 %ttt
 @InProceedings{taylor+hinton:2009,
@@ -2500,6 +2956,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages={902--904},
     year=1982,
     doi={10.1126/science.7134981},
+    annote={Has a really cool image of the V1 retinotopic map, which was reprinted in the Dayan and Abbott book.}
 }
 @article{torralba+fergus+freeman:2008,
     author={A. Torralba and R. Fergus and W. T. Freeman},
@@ -2509,6 +2966,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=11,
     pages={1958--1970},
     year=2008,
+    annote = {Introduces the Tiny Images dataset - see also CIFAR-10 (Krizhevsky,2009).},
 }
 @article{tresp:2000,
     title={A Bayesian Committee Machine},
@@ -2517,12 +2975,28 @@ l. Finally, we study how activations and gradients vary across layers and during
     journal={Neural Computation},
     volume={12},
     year=2000,
+    annote={Iain Murray said that this works (says George Dahl).  Later, Iain explained
+        the principle at the whiteboard: ask members of an ensemble to jointly
+            produce estimates for several test points.  The posterior over
+            functions is the *product* of the posteriors from the members.  This
+            works out very conveniently for Gaussian Process Regression.
+    }
 }
 @inproceedings{triefenbach+jalalvand+schrauwen+martens:2010,
     title={Phoneme Recognition with Large Hierarchical Reservoirs},
     author={F. Triefenbach and A. Jalalvand and B. Schrauwen and J. Martens},
     booktitle={{NIPS}},
     year={2010},
+    annote={
+        Solid application paper explains how Multi-layer Reservoir approach is
+        used to good results on TIMIT.
+        There are nice figures to illustrate the advantage of depth, for
+        reservoirs of various sizes.
+        Their own results are not as good as the other scores that they include
+        in Table 2 though!  Also, the model appears very slow, requiring 2 days
+        to train and 2 seconds to decode just 1 second of speech on a 3GHz
+        machine.
+    },
 }
 @INPROCEEDINGS{turian+bergstra+bengio:2009,
      author = {Turian, J. and Bergstra, J. and Bengio, Y.},
@@ -2543,6 +3017,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=59,
     number=236,
     pages={433--60},
+    annote = {Introduces the Turing Test.}
 }
 @article{turnbull+elkan:2005,
     author={D. Turnbull and C. Elkan},
@@ -2552,6 +3027,11 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=17,
     number=4,
     month={April},
+    annote = {Used clustering to initialize the means and variances of an RBF
+        network.  Scored 72\% on the Tzanetakis Dataset.  Used "Forward Stepwise
+            Feature Selection" to select features, and had good results with
+            10-15 features.
+    }
 }
 @misc{turner+sahani:2007,
     author={R. Turner and M. Sahani},
@@ -2561,6 +3041,14 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=19,
     number=4,
     pages={1022-1038},
+    annote={
+        Derivation similar to probabilistic PCA for SFA.
+        They show that learning with a slow feature prior
+        results in a model similar to a Kalman filter or hidden Markov model.
+        Extensions are proposed,
+        including one about bilinear modeling, but not explored
+        empirically.
+    }
 }
 %uuu
 @incollection{ueberhuber:1997,
@@ -2570,6 +3058,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages={325--335},
     year={1997},
     publisher={Springer},
+    annote= {Description of conjugate gradient and BFGS minimization methods implemented in GNU Scientific Library.},
 }
 @incollection{ungerleider+mishkin:1982,
     author={Ungerleider and Mishkin},
@@ -2591,6 +3080,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     title={Statistical Learning Theory},
     year=1989,
     publisher={Wiley-Interscience},
+    annote={Describes VC theory}
 }
 @Book{vapnik:1995,
   author =       "V. N. Vapnik",
@@ -2644,6 +3134,8 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume=404,
     pages={871--876},
     year={2000},
+    annote = {Describes the experiment in which the optic and auditory nerves of baby ferrets are switched,
+        but the animals still develop with senses of sight and hearing (though with poorer visual acuity).}
 }
 @article{vorontsov:2004,
     author={K. V. Vorontsov},
@@ -2653,6 +3145,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     number=11,
     pages={1997--2009},
     year=2004,
+    annote = {Transductive approach to data- and algorithm-dependent generalization bounds.}
 }
 @article{vural:2009,
     author={V. Vural and G. Fung and B. Krishnapuram and J. G. Dy and B. Rao},
@@ -2675,10 +3168,11 @@ l. Finally, we study how activations and gradients vary across layers and during
     year={2002},
 }
 @inproceedings{wainright+simoncelli:2000,
-    AUTHOR= "M. J. Wainwright and E. P. Simoncelli",
-    TITLE= "Scale Mixtures of {Gaussians} and the Statistics of Natural Images",
-    PAGES= "855--861",
-    crossref={NIPS12},
+AUTHOR= "M. J. Wainwright and E. P. Simoncelli",
+TITLE= "Scale Mixtures of {Gaussians} and the Statistics of Natural Images",
+PAGES= "855--861",
+crossref={NIPS12},
+annote={Introduces Gaussian Scale Mixture Model},
 }
 @article{wang+shen+pan:2009,
     title={On Efficient Large Margin Semisupervised Learning: Method and
@@ -2701,18 +3195,29 @@ l. Finally, we study how activations and gradients vary across layers and during
     publisher = {Self-Published},
     copyright = {Copyright (c) 2006-2009 Thomas Weise, licensed under GNU FDL},
     note={Online available at http://www.it-weise.de/},
+    annote={Survey introduction to global optimization, especially evolutionary
+        methods (heuristic and metaheuristic methods).}
 }
 @inproceedings{weiss:2007,
     title = {Learning Compressed Sensing},
     author = {Y. Weiss and H. S. Chang and W. T. Freeman},
     year = {2007},
     booktitle = {Allerton},
+    annote = {
+        Introduces {\em uncertain components analysis} (UCA) as an alternative to PCA,
+        ICA, and random projections.  This technique (based on the InfoMax
+        principle) produces a more efficient measurement matrix for images.
+    },
 }
 @article{welling:2002,
     author={M. Welling and S. Osindero and G. E. Hinton},
     year = {2002},
     title = {Learning Sparse Topographic Representations with Products of Student-t Distributions},
     booktitle = {NIPS},
+    annote = {Introduces POT algorithm (product of student-t), for fitting Energy models with quadratic
+        inputs.  This algorithm learns beautiful filters; arranged
+        topographically they form pinwheels.
+    }
 }
 @inproceedings{welling+hinton+osindero:2003,
   author =       {Welling, M. and Hinton, G. E. and Osindero, S.},
@@ -2792,6 +3297,44 @@ l. Finally, we study how activations and gradients vary across layers and during
     volume =       "14",
     number =       "4",
     pages =        "715--770",
+    abstract =     "Invariant features of temporally varying signals are useful for
+        analysis and classification. Slow feature analysis (SFA) is a new method for
+        learning invariant or slowly varying features from a vectorial input signal.
+        SFA is based on a non-linear expansion of the input signal and application
+        of principal component analysis to this expanded signal and its time
+        derivative.  It is guaranteed to find the optimal solution within a family
+        of functions directly and can learn to extract a large number of
+        decorrelated features, which are ordered by their degree of invariance. SFA
+        can be applied hierarchically to process high dimensional input signals and
+        to extract complex features. Slow feature analysis is applied first to
+        complex cell tuning properties based on simple cell output including
+        disparity and motion.  Then, more complicated input-output functions are
+        learned by repeated application of SFA. Finally, a hierarchical network of
+        SFA-modules is presented as a simple model of the visual system.  The same
+        unstructured network can learn translation, size, rotation, contrast, or, to
+        a lesser degree, illumination invariance for one-dimensional objects,
+        depending only on the training stimulus. Surprisingly, only a few training
+        objects sufficed to achieve good generalization to new objects.  The
+        generated representation is suitable for object recognition.  Performance
+        degrades, if the network is trained to learn multiple invariances
+        simultaneously.",
+    annote={{
+        Algorithm:
+        \begin{enumerate}
+            \item Normalize the data (mean 0, variance 1)
+            \item Project normalized data into large feature space (they used 1st and 2nd order monomials)
+            \item Whiten/sphere the feature space
+            \item Identify eigenvectors in the covariance of feature derivatives
+            \item Output uses the eigenvectors to produce the SFA embedding of the features.
+        \end{enumerate}
+        The algorithm is stackable: it might make sense to repeat it on the embedding.
+
+        The algorithm identifies the slowest-moving components in the feature
+        space.
+
+        This algorithm does not include or require any backpropagation from
+        higher layers to lower ones.
+    }}
 }
 @article{wyss+konig+verschure:2006,
     author={Wyss, R. and K{\"o}nig, P. and Verschure, P.},
@@ -2810,6 +3353,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     booktitle = {Stochastics and Stochastics Models},
     year = {1998},
     pages = {177--228},
+    annote = {Introduces Persistent Contrastive Divergence (PCD) earlier than Tieleman, 2008.}
 }
 %zzzzzz
 @inproceedings{zemel+williams+mozer:1993,
@@ -2817,6 +3361,7 @@ l. Finally, we study how activations and gradients vary across layers and during
  title = {Directional-Unit {Boltzmann} Machines},
  pages = {172--179},
  crossref = {NIPS5},
+ annote = {}
 }
 @article{zetzsche+krieger+wegmann:1999,
     title={The Atoms of Vision: {Cartesian} or Polar?},
@@ -2827,6 +3372,7 @@ l. Finally, we study how activations and gradients vary across layers and during
     pages={1554--1565},
     year={1999},
     doi={10.1364/JOSAA.16.001554},
+    annote={}
 }
 @article{zilles+etal:2011,
     title={Models of Cooperative Teaching and Learning},
@@ -2836,11 +3382,25 @@ l. Finally, we study how activations and gradients vary across layers and during
     month=feb,
     pages={349--384},
     year={2011},
+    annote={}
 }
 @inproceedings{zinkevich+etal:2010,
     author={M. A. Zinkevich and M. Weimer and A. Smola and L. Li},
     title={Parallelized Stochastic Gradient Descent},
     crossref={NIPS23},
+    annote={
+        Proof that a simple parallel implementation of SGD is just as efficient
+        as a long-running serial implementation of SGD for optimizing a
+        convex loss function in wx+b.
+        The proof (and algorithm too it seems) relies heavily on the convexity of
+        the problem, so that solutions obtained on different computers (even
+        intermediate ones) can be averaged together.
+        This sort of algorithm does present itself for the training of
+        non-convex functions, but it would seem that the population of current
+        estimates must converge to a locally-convex region of the space before
+        the algorithm would {\it work} in any way.  But at that point, it would
+        still permit training a single model on huge (linear in number of computers) amounts of data.
+    }
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
