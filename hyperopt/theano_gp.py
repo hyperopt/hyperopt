@@ -13,6 +13,8 @@ import time
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+from math import sqrt, pi
+
 import numpy
 from scipy.optimize import fmin_l_bfgs_b
 import theano
@@ -441,31 +443,26 @@ class GPR_math(object):
 
     def s_expectation_lt_thresh(self, x, thresh):
         """
-        return \int_{-inf}^{thresh} y p(y|x) dy
+        return \int_{-inf}^{thresh} (thresh-y)*p(y|x) dy
+        
+        p(y | x) = gaussian with center mu(x) and variance sigma(x)**2
+
         """
 
         mu = self.s_mean(x)
         sigma = tensor.sqrt(
                 tensor.maximum(self.s_variance(x),
-                    self.min_variance))
-        rval = 0.5 + 0.5 * tensor.erf((thresh - mu) / sigma)
+                    self.min_variance))        
+        a = 0.5 * (mu - thresh) 
+        delta = (thresh - mu) / (sqrt(2) * sigma)
+        sbar = sigma / sqrt(2 * pi)
+        rval = sbar * tensor.exp(-delta ** 2) - a * (1 + tensor.erf(delta))
+        rval = tensor.maximum(rval, 1e-7)
+        
         if rval.dtype != self.dtype:
             raise TypeError('rval dtype', rval.dtype)
         return rval
 
-    def softplus_hack(self, x, thresh):
-        """
-        return approximation of \log(\int_{-inf}^{thresh} y p(y|x) dy)
-        """
-
-        mu = self.s_mean(x)
-        sigma = tensor.sqrt(
-                tensor.maximum(self.s_variance(x),
-                    self.min_variance))
-        rval = tensor.log1p(tensor.exp((thresh - mu) / sigma))
-        if rval.dtype != self.dtype:
-            raise TypeError('rval dtype', rval.dtype)
-        return rval
 
 
 def get_refinability(v, dist_name):
@@ -523,20 +520,6 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                          # should be bandit-agnostic
 
     y_minvar = 1e-6      # minimum variance to permit for observations
-
-    # EI_criterion can be
-    #   'EI' for expected improvement
-    #       - numerically terrible
-    #       - unusable in practice because gradient is mostly near 0
-    #   'log_EI' for the logarithm of EI
-    #       - mathematically equivalent to optimizing EI
-    #       - numerically good (in theory)
-    #       - not implemented
-    #   'softplus_hack' log(1 + sigmoid((mu-thresh)/sigma))
-    #       - mathematically approximate (logistic sigmoid \approx erf)
-    #       - numerically good
-    #       - analytic form, fast computation
-    EI_criterion = 'softplus_hack'
 
     EI_ambition = 0.75
 
@@ -656,17 +639,10 @@ class GP_BanditAlgo(TheanoBanditAlgo):
                 min_variance=self.y_minvar)
 
         self.nll_obs = self.gprmath.s_nll()
-
-        if self.EI_criterion == 'EI':
-            self.cand_EI = self.gprmath.s_expectation_lt_thresh(
+            
+        self.cand_EI = tensor.log(self.gprmath.s_expectation_lt_thresh(
                     self.cand_x,
-                    self.cand_EI_thresh)
-        elif self.EI_criterion == 'softplus_hack':
-            self.cand_EI = self.gprmath.softplus_hack(
-                    self.cand_x,
-                    self.cand_EI_thresh)
-        else:
-            raise ValueError('EI_criterion', self.EI_criterion)
+                    self.cand_EI_thresh))
 
         # self.gm_algo is used to draw candidates for subsequent refinement
         # It is also entirely responsible for choosing categorical variables.
@@ -1369,3 +1345,9 @@ class GP_BanditAlgo(TheanoBanditAlgo):
 
 def HGP(bandit):
     return GP_BanditAlgo(bandit)
+
+
+def HGPTest(bandit):
+    bandit_algo = GP_BanditAlgo(bandit)
+    bandit_algo.n_startup_jobs = 3
+    return bandit_algo
