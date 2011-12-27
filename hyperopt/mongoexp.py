@@ -349,7 +349,7 @@ class MongoJobs(object):
             jobs.create_index(k)
     def create_drivers_indexes(self):
         drivers = self.db.drivers
-        drivers.create_index(k, unique=True)
+        drivers.create_index('exp_key', unique=True)
     def create_indexes(self):
         self.create_jobs_indexes()
         self.create_drivers_indexes()
