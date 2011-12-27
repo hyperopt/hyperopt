@@ -945,18 +945,27 @@ class CtrlObj(object):
 
     def debug(self, *args, **kwargs):
         return logger.debug(*args, **kwargs)
+
     def info(self, *args, **kwargs):
         return logger.info(*args, **kwargs)
+
     def warn(self, *args, **kwargs):
         return logger.warn(*args, **kwargs)
+
     def error(self, *args, **kwargs):
         return logger.error(*args, **kwargs)
+
     def checkpoint(self, result=None):
         if not self.read_only:
             self.jobs.refresh(self.current_job)
             if result is not None:
                 return self.jobs.update(self.current_job, dict(result=result))
 
+    def set_attachment(self, blob, name):
+        self.jobs.set_attachment(self.current_job,
+                                 blob,
+                                 name,
+                                 collection=self.jobs.db.jobs)
 
 def exec_import(cmd_module, cmd):
     exec('import %s; worker_fn = %s' % (cmd_module, cmd))
