@@ -585,6 +585,14 @@ class MongoExperiment(base.Experiment):
     - self.results
 
     """
+    @staticmethod
+    def from_exp_key(mongo_handle, exp_key):
+        ddoc = mongo_handle.db.drivers.find_one({'exp_key': exp_key})
+        blob = mongo_handle.get_attachment(ddoc, name='pkl')
+        self = cPickle.loads(blob)
+        self.mongo_handle = mongo_handle
+        return self
+
     def __init__(self, bandit_algo, mongo_handle, workdir, exp_key, cmd,
             poll_interval_secs=10,
             save_interval_secs=3.0,
@@ -631,14 +639,15 @@ class MongoExperiment(base.Experiment):
         self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
         self.results[:] = [j['result'] for (_id, j) in id_jobs]
 
-    def queue_extend(self, trial_configs, skip_dups=True):
+    def queue_extend(self, trial_configs, exp_key, skip_dups=True):
         if skip_dups:
             new_configs = []
             for config in trial_configs:
                 #XXX: This will basically never work
                 #     now that TheanoBanditAlgo puts a _config_id into
                 #     each suggestion
-                query = self.mongo_handle.jobs.find(dict(spec=config))
+                query = self.mongo_handle.jobs.find(dict(spec=config,
+                                                         exp_key=exp_key))
                 if query.count():
                     matches = list(query)
                     assert len(matches) == 1
@@ -689,7 +698,8 @@ class MongoExperiment(base.Experiment):
                 logger.info('algo suggested trial: %s (in %.2f seconds)'
                         % (str(suggestions[0]), t1 - t0))
                 try:
-                    new_suggestions = self.queue_extend(suggestions)
+                    new_suggestions = self.queue_extend(suggestions,
+                                                        self.exp_key)
                 except:
                     logger.error('Problem with suggestion: %s' % (
                         suggestions))

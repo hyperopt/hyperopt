@@ -52,7 +52,7 @@ def main_search():
             help="pickle experiment to here on exit")
     parser.add_option("--steps",
             dest='steps',
-            default=100,
+            default='100',
             metavar='N',
             help="exit after queuing this many jobs (default: 100)")
     parser.add_option("--workdir",
@@ -97,7 +97,7 @@ def main_search():
         self = SerialExperiment(bandit_algo)
 
     try:
-        self.run(options.steps)
+        self.run(int(options.steps))
     finally:
         if options.save:
             cPickle.dump(self, open(options.save, 'wb'))
