@@ -347,18 +347,23 @@ class MongoJobs(object):
         jobs = self.db.jobs
         for k in ['exp_key', 'result.loss', 'book_time']:
             jobs.create_index(k)
+
     def create_drivers_indexes(self):
         drivers = self.db.drivers
         drivers.create_index('exp_key', unique=True)
+
     def create_indexes(self):
         self.create_jobs_indexes()
         self.create_drivers_indexes()
+
     def jobs_complete(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_DONE))
         return c if cursor else list(c)
+
     def jobs_error(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_ERROR))
         return c if cursor else list(c)
+
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
@@ -366,6 +371,7 @@ class MongoJobs(object):
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
+
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
@@ -373,6 +379,7 @@ class MongoJobs(object):
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
+
     def jobs_queued(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_NEW))
         return c if cursor else list(c)
