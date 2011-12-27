@@ -293,21 +293,6 @@ def coarse_utcnow():
     microsec = (now.microsecond//10**3)*(10**3)
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
-
-def create_jobs_indexes(jobs):
-    """
-    # call this once to set up indexes on jobs collection
-    """
-    for k in ['exp_key', 'result.loss', 'book_time']:
-        jobs.create_index(k)
-
-
-def create_drivers_indexes(drivers):
-    """
-    # call this once to set up indexes on drivers collection
-    """
-    drivers.create_index(k, unique=True)
-
  
 class MongoJobs(object):
     """
@@ -357,6 +342,15 @@ class MongoJobs(object):
             return self.jobs.count()
         except:
             return 0
+
+    def create_jobs_indexes(self):
+        jobs = self.db.jobs
+        for k in ['exp_key', 'result.loss', 'book_time']:
+            jobs.create_index(k)
+
+    def create_drivers_indexes(self):
+        drivers = self.db.drivers
+        drivers.create_index(k, unique=True)
 
     def jobs_complete(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_DONE))
@@ -1257,8 +1251,8 @@ def main_search():
         worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
-    create_jobs_indexes(mj.db.jobs)
-    create_drivers_indexes(mj.db.drivers)
+    mj.create_jobs_indexes()
+    mj.create_drivers_indexes()
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
