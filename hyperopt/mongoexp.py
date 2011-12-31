@@ -399,12 +399,15 @@ class MongoJobs(object):
     def delete_all_error_jobs(self, safe=True):
         return self.delete_all(cond={'state': STATE_ERROR}, safe=safe)
 
-    def reserve(self, host_id, cond=None):
+    def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
         if cond is None:
             cond = {}
         else:
             cond = copy.copy(cond) #copy is important, will be modified, but only the top-level
+            
+        if exp_key is not None:
+            cond['exp_key'] = exp_key
 
         if 'owner' not in cond:
             cond['owner'] = None
@@ -685,6 +688,12 @@ class MongoExperiment(base.Experiment):
         logger.debug('Queue len: %i' % rval)
         return rval
 
+    def block_until_done(self):
+        while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
+            msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
+            logger.info(msg)
+            time.sleep(self.poll_interval_secs)
+              
     def run(self, N, block_until_done=False):
         algo = self.bandit_algo
         n_queued = 0
@@ -762,8 +771,8 @@ class MongoExperiment(base.Experiment):
         Initializes the document in the drivers collection for this
         experiment.
         """
-        query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
-        assert query.count() == 0, query.count()
+        cursor = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
+        assert cursor.count() == 0, '%s count %d:' % (self.exp_key, cursor.count())
         logger.info('inserting config document')
         config = dict(
                 exp_key=self.exp_key,
@@ -860,10 +869,12 @@ class MongoWorker(object):
 
     def __init__(self, mj,
             poll_interval=poll_interval,
-            workdir=workdir):
+            workdir=workdir,
+            exp_key=None):
         self.mj = mj
         self.poll_interval = poll_interval
         self.workdir = workdir
+        self.exp_key = exp_key
 
     def run_one(self, host_id=None, reserve_timeout=None):
         if host_id == None:
@@ -874,7 +885,7 @@ class MongoWorker(object):
         while job is None:
             if (time.time() - start_time) > reserve_timeout:
                 raise ReserveTimeout()
-            job = mj.reserve(host_id)
+            job = mj.reserve(host_id, exp_key=self.exp_key)
             if not job:
                 interval = (1 +
                         numpy.random.rand()
@@ -989,6 +1000,11 @@ def main_worker():
             default=4,
             help="stop if N consecutive jobs fail (default: 4)",
             )
+    parser.add_option("--exp-key",
+            dest='exp_key',
+            default = None,
+            metavar='str',
+            help="identifier for this workers's jobs")
     parser.add_option("--poll-interval",
             dest='poll_interval',
             metavar='N',
@@ -1066,10 +1082,12 @@ def main_worker():
         md = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/drivers')
 
+        exp_key = options.exp_key
         job = None
         while job is None:
             job = mj.reserve(
-                    host_id = '%s:%i'%(socket.gethostname(), os.getpid()),
+                    '%s:%i'%(socket.gethostname(), os.getpid()),
+                    exp_key=exp_key
                     )
             if not job:
                 interval = (1 +

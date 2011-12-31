@@ -30,6 +30,7 @@ from hyperopt.mongoexp import OperationFailure
 from hyperopt.bandits import TwoArms, GaussWave2
 from hyperopt import bandit_algos
 from hyperopt.theano_gp import HGP
+from hyperopt.theano_bandit_algos import TheanoRandom
 
 
 class TempMongo(object):
@@ -68,7 +69,7 @@ class TempMongo(object):
     def mongo_jobs(self, name):
         return MongoJobs.new_from_connection_str(
                 as_mongo_str('localhost:22334/%s' % name) + '/jobs')
-
+                        
 
 def test_handles_are_independent():
     with TempMongo() as tm:
@@ -106,6 +107,75 @@ def test_mongo_exp_is_picklable():
             cpy = cPickle.loads(exp_str)
 
 
+def test_multiple_mongo_exps_with_threads():
+    def worker(host_id, n_jobs, timeout, exp_key):
+        mw = MongoWorker(
+            mj=TempMongo.mongo_jobs('foodb'),
+            exp_key=exp_key
+            )
+        t0 = time.time()
+        while n_jobs:
+            mw.run_one(host_id, timeout)
+            print 'worker: ran job'
+            n_jobs -= 1
+
+    bandit_jsons = ('hyperopt.bandits.GaussWave2',
+                   'hyperopt.dbn.Dummy_DBN_Base',)
+                   
+    with TempMongo() as tm:
+        mj = tm.mongo_jobs('foodb')
+        mj.conn.drop_database('foodb')  #need to clean stuff out! should this be in a TempMongo method?
+        assert len(mj) == 0, len(mj)
+        
+        bandits = map(json_call, bandit_jsons)
+        
+        exps = []
+        for bj, bandit in zip(bandit_jsons, bandits):
+            exp = MongoExperiment(
+                bandit_algo=TheanoRandom(bandit),
+                mongo_handle=mj,
+                workdir=tm.workdir,
+                exp_key=bj,
+                poll_interval_secs=1.0,
+                cmd=('bandit_json evaluate', bj))
+            print ('Initializing', exp.exp_key)
+            exp.ddoc_init() 
+            assert len(exp.mongo_handle) == 0
+            exps.append(exp)
+
+        n_trials = 5
+
+        wthreads = []
+        for bj, exp in zip(bandit_jsons, exps):
+            wthread = threading.Thread(target=worker,
+                                       args=(('worker_' + bj, 0), 
+                                              n_trials, 660.0),
+                                       kwargs={'exp_key': bj})
+            wthread.start()  
+            wthreads.append(wthread)
+        
+        try:
+            print 'running experiments'
+            for exp in exps:
+                exp.run(n_trials)
+            for exp in exps:
+                exp.block_until_done()
+        finally:
+            print 'joining worker threads...'
+            for wthread in wthreads:
+                wthread.join()
+    
+        for bj, exp in zip(bandit_jsons, exps):
+            assert len(exp.trials) == n_trials, '%d %d' % (len(exp.trials), 
+                                                           n_trials)
+            assert len(exp.results) == n_trials, '%d %d' % (len(exp.results),
+                                                           n_trials)
+            js = list(mj.db.jobs.find({'exp_key':bj}))
+            hosts = set([_j['owner'][0] for _j in js])
+            print 'hosts for exp %s: %s' % (exp.exp_key, ','.join(list(hosts)))
+            assert hosts == set(['worker_' + bj])
+            
+
 def test_mongo_exp_with_threads():
     def worker(host_id, n_jobs, timeout):
         mw = MongoWorker(
@@ -120,7 +190,9 @@ def test_mongo_exp_with_threads():
     for bandit_json in ('hyperopt.bandits.GaussWave2',
             'hyperopt.dbn.Dummy_DBN_Base',):
         with TempMongo() as tm:
-            assert len(TempMongo.mongo_jobs('foodb')) == 0
+            mj = tm.mongo_jobs('foodb')
+            mj.conn.drop_database('foodb')  #need to clean stuff out! should this be in a TempMongo method?
+            assert len(mj) == 0, len(mj)
             bandit = json_call(bandit_json)
             exp = MongoExperiment(
                 bandit_algo=HGP(bandit),
@@ -141,6 +213,7 @@ def test_mongo_exp_with_threads():
             wthread = threading.Thread(target=worker,
                     args=(('hostname', 0), n_trials, 660.0))
             wthread.start()
+            
             try:
                 print 'running experiment'
                 exp.run(n_trials, block_until_done=True)
@@ -148,12 +221,12 @@ def test_mongo_exp_with_threads():
                 print 'joining worker thread...'
                 wthread.join()
 
-            print exp.trials
-            print exp.results
-            assert len(exp.trials) == n_trials
-            assert len(exp.results) == n_trials
+            #print exp.trials
+            #print exp.results
+            assert len(exp.trials) == n_trials, 'trials failure %d %d ' % (len(exp.trials) , n_trials)
+            assert len(exp.results) == n_trials, 'results failure %d %d ' % (len(exp.results) , n_trials)
 
-            exp_str = cPickle.dumps(exp)
+            exp_str = cPickle.dumps(exp)  #is anything done with this exp_str?
 
 
 class TestLock(unittest.TestCase):
