@@ -679,6 +679,12 @@ class MongoExperiment(base.Experiment):
         logger.debug('Queue len: %i' % rval)
         return rval
 
+    def block_until_done(self):
+        while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
+            msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
+            logger.info(msg)
+            time.sleep(self.poll_interval_secs)
+              
     def run(self, N, block_until_done=False):
         algo = self.bandit_algo
         n_queued = 0
@@ -755,8 +761,8 @@ class MongoExperiment(base.Experiment):
         Initializes the document in the drivers collection for this
         experiment.
         """
-        query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
-        assert query.count() == 0, query.count()
+        cursor = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
+        assert cursor.count() == 0, '%s count %d:' % (self.exp_key, cursor.count())
         logger.info('inserting config document')
         config = dict(
                 exp_key=self.exp_key,
