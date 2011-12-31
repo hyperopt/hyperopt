@@ -627,6 +627,7 @@ class MongoExperiment(base.Experiment):
             #     This is the case if we're unpickling.
             self.mongo_handle = mongo_handle
 
+        self.mongo_handle.create_indexes()
         base.Experiment.__init__(self, bandit_algo)
         self.workdir = workdir               # can be changed
         self.poll_interval_secs = poll_interval_secs  # can be changed
@@ -1296,7 +1297,7 @@ def main_search():
         worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
-    mj.create_indexes()
+
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
