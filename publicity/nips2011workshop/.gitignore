@@ -1,0 +1,7 @@
+
+*.bbl
+*.blg
+*.aux
+*.log
+abstract.out
+abstract.pdf
