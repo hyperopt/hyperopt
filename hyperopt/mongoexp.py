@@ -1086,8 +1086,6 @@ def main_worker():
                 as_mongo_str(options.mongo) + '/drivers')
 
         exp_key = options.exp_key
-        print exp_key
-        return
         job = None
         while job is None:
             job = mj.reserve(
