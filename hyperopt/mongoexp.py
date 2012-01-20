@@ -405,7 +405,7 @@ class MongoJobs(object):
             cond = {}
         else:
             cond = copy.copy(cond) #copy is important, will be modified, but only the top-level
-            
+
         if exp_key is not None:
             cond['exp_key'] = exp_key
 
@@ -693,7 +693,7 @@ class MongoExperiment(base.Experiment):
             msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
             logger.info(msg)
             time.sleep(self.poll_interval_secs)
-              
+
     def run(self, N, block_until_done=False):
         algo = self.bandit_algo
         n_queued = 0
@@ -1032,6 +1032,7 @@ def main_worker():
 
     N = int(options.max_jobs)
 
+
     if N > 1:
         def sighandler_shutdown(signum, frame):
             logger.info('Caught signal %i, shutting down.' % signum)
@@ -1055,6 +1056,8 @@ def main_worker():
                         '--mongo=%s' % options.mongo]
                 if options.workdir is not None:
                     sub_argv.append('--workdir=%s' % options.workdir)
+                if options.exp_key is not None:
+                    sub_argv.append('--exp-key=%s' % options.exp_key)
                 proc = subprocess.Popen(sub_argv)
                 retcode = proc.wait()
                 proc = None
