@@ -14,14 +14,12 @@ import cPickle
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 import unittest
 
-import numpy
-
 from hyperopt.utils import json_call
-from hyperopt.base import Bandit, BanditAlgo, Experiment
 from hyperopt.mongoexp import MongoExperiment
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import as_mongo_str
