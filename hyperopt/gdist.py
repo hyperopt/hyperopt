@@ -3,16 +3,12 @@ Utilities for converting between genson descriptions to theano samplers.
 Basic idea is to create a gDist object from a genson string; and then pass
 the gDist object as a template to a (theano) bandit.
 """
-import copy
-import logging
-import sys
 
 import numpy
-import bson
 from bson import SON, BSON
 import genson
 import genson.parser
-from genson.util import isdict, set_global_seed
+from genson.util import isdict
 import theano
 from theano import tensor
 import montetheano as MT
