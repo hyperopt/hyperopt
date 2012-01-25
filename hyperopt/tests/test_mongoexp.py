@@ -48,26 +48,63 @@ class TempMongo(object):
         except IOError:
             subprocess.call(["mkdir", "-p", '%s/db' % self.workdir])
             proc_args = [ "mongod",
-                    "--dbpath=%s/db" % self.workdir,
-                    "--port=22334"]
+                        "--dbpath=%s/db" % self.workdir,
+                        "--nojournal",
+                         "--noprealloc",
+                        "--port=22334"]
             #print "starting mongod", proc_args
-            self.mongo_proc = subprocess.Popen(proc_args,
+            self.mongo_proc = subprocess.Popen(
+                    proc_args,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
-            time.sleep(.25) # wait for mongo to start up
-            return self
+                    stderr=subprocess.PIPE,
+                    cwd=self.workdir,
+                    )
+            try:
+                interval = .125
+                while interval <= 2:
+                    if interval > .125:
+                        print "Waiting for mongo to come up"
+                    time.sleep(interval)
+                    interval *= 2
+                    if  self.db_up():
+                        break
+                if self.db_up():
+                    return self
+                else:
+                    try:
+                        os.kill(self.mongo_proc.pid, signal.SIGTERM)
+                    except OSError:
+                        pass # if it crashed there is no such process
+                    out, err = self.mongo_proc.communicate()
+                    print >> sys.stderr, out
+                    print >> sys.stderr, err
+                    raise RuntimeError('No database connection', proc_args)
+            except Exception, e:
+                try:
+                    os.kill(self.mongo_proc.pid, signal.SIGTERM)
+                except OSError:
+                    pass # if it crashed there is no such process
+                raise e
 
     def __exit__(self, *args):
-        #print 'CLEANING UP MONGO'
+        #print 'CLEANING UP MONGO ...'
         os.kill(self.mongo_proc.pid, signal.SIGTERM)
         self.mongo_proc.wait()
         subprocess.call(["rm", "-Rf", self.workdir])
+        #print 'CLEANING UP MONGO DONE'
 
     @classmethod
     def mongo_jobs(self, name):
         return MongoJobs.new_from_connection_str(
                 as_mongo_str('localhost:22334/%s' % name) + '/jobs')
-                        
+
+    def db_up(self):
+        try:
+            self.mongo_jobs('__test_db')
+            return True
+        except:  # XXX: don't know what exceptions to put here
+            return False
+
 
 def test_handles_are_independent():
     with TempMongo() as tm:
