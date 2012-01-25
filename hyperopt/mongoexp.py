@@ -717,10 +717,7 @@ class MongoExperiment(base.Experiment):
             time.sleep(self.poll_interval_secs)
 
         if block_until_done:
-            while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
-                msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
-                logger.info(msg)
-                time.sleep(self.poll_interval_secs)
+            self.block_until_done()
             logger.info('Queue empty, exiting run.')
         else:
             msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
