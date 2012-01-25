@@ -18,7 +18,6 @@ from math import sqrt, pi
 import numpy
 from scipy.optimize import fmin_l_bfgs_b
 import theano
-from theano.printing import Print
 from theano import tensor
 from theano.tensor import as_tensor_variable
 from theano.sandbox.linalg import (diag, matrix_inverse, det, psd, trace)

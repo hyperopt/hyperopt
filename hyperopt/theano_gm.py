@@ -7,7 +7,6 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
-import sys
 import logging
 logger = logging.getLogger(__name__)
 
@@ -15,14 +14,8 @@ import numpy
 import theano
 from theano import tensor
 
-import base
-import ht_dist2
-
 import montetheano
-from montetheano.for_theano import ancestors
 from montetheano.for_theano import argsort
-from montetheano.for_theano import as_variable
-from montetheano.for_theano import clone_keep_replacements
 from montetheano.for_theano import where
 
 import idxs_vals_rnd
