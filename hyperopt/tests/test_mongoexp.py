@@ -139,7 +139,7 @@ def test_mongo_exp_is_picklable():
                 poll_interval_secs=1.0,
                 cmd=('asdf', None))
             exp_str = cPickle.dumps(exp)
-            cpy = cPickle.loads(exp_str)
+            cPickle.loads(exp_str)
 
 
 def test_multiple_mongo_exps_with_threads():
@@ -148,7 +148,6 @@ def test_multiple_mongo_exps_with_threads():
             mj=TempMongo.mongo_jobs('foodb'),
             exp_key=exp_key
             )
-        t0 = time.time()
         while n_jobs:
             mw.run_one(host_id, timeout)
             print 'worker: ran job'
@@ -209,24 +208,35 @@ def test_multiple_mongo_exps_with_threads():
             hosts = set([_j['owner'][0] for _j in js])
             print 'hosts for exp %s: %s' % (exp.exp_key, ','.join(list(hosts)))
             assert hosts == set(['worker_' + bj])
-            
+
+
+def worker_thread_fn(host_id, n_jobs, timeout):
+    mw = MongoWorker(
+        mj=TempMongo.mongo_jobs('foodb'),
+        )
+    while n_jobs:
+        mw.run_one(host_id, timeout)
+        print 'worker: ran job'
+        n_jobs -= 1
+
 
 def test_mongo_exp_with_threads():
-    def worker(host_id, n_jobs, timeout):
-        mw = MongoWorker(
-            mj=TempMongo.mongo_jobs('foodb'),
-            )
-        t0 = time.time()
-        while n_jobs:
-            mw.run_one(host_id, timeout)
-            print 'worker: ran job'
-            n_jobs -= 1
+    """
+    Run a small experiment with several workers running in parallel
+    using Python threads.
+    """
+    n_trials = 5  # each worker performs this many trials
+    n_startup_jobs = 3 # use the HGP algo after this many trials are done
 
-    for bandit_json in ('hyperopt.bandits.GaussWave2',
-            'hyperopt.dbn.Dummy_DBN_Base',):
+    for bandit_json in (
+            'hyperopt.bandits.GaussWave2',
+            'hyperopt.dbn.Dummy_DBN_Base',
+            ):
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
-            mj.conn.drop_database('foodb')  #need to clean stuff out! should this be in a TempMongo method?
+            mj.conn.drop_database('foodb')
+            #need to clean stuff out! should this be in a TempMongo method?
+
             assert len(mj) == 0, len(mj)
             bandit = json_call(bandit_json)
             exp = MongoExperiment(
@@ -242,11 +252,11 @@ def test_mongo_exp_with_threads():
                 print asdf
             assert len(exp.mongo_handle) == 0
 
-            n_trials = 5
-            exp.bandit_algo.n_startup_jobs = 3
 
-            wthread = threading.Thread(target=worker,
-                    args=(('hostname', 0), n_trials, 660.0))
+            exp.bandit_algo.n_startup_jobs = n_startup_jobs
+
+            wthread = threading.Thread(target=worker_thread_fn,
+                    args=(('hostname', 0), n_trials, 600.0))
             wthread.start()
             
             try:
@@ -258,10 +268,12 @@ def test_mongo_exp_with_threads():
 
             #print exp.trials
             #print exp.results
-            assert len(exp.trials) == n_trials, 'trials failure %d %d ' % (len(exp.trials) , n_trials)
-            assert len(exp.results) == n_trials, 'results failure %d %d ' % (len(exp.results) , n_trials)
+            assert len(exp.trials) == n_trials, (
+                'trials failure %d %d ' % (len(exp.trials) , n_trials))
+            assert len(exp.results) == n_trials, (
+                'results failure %d %d ' % (len(exp.results) , n_trials))
 
-            exp_str = cPickle.dumps(exp)  #is anything done with this exp_str?
+            cPickle.dumps(exp)  # Ensure exp is picklable
 
 
 class TestLock(unittest.TestCase):
