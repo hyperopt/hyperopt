@@ -29,12 +29,15 @@ class GM_BanditAlgo(TheanoBanditAlgo):
     """
     Graphical Model (GM) algo described in NIPS2011 paper.
     """
+
+    mode = None
+
     n_startup_jobs = 30  # enough to estimate mean and variance in Y | prior(X)
                          # should be bandit-agnostic
 
     n_EI_candidates = 256
 
-    gamma = 0.15         # fraction of trials to consider as good
+    gamma = 0.20         # fraction of trials to consider as good
                          # this is should in theory be bandit-dependent
 
     def __init__(self, bandit, good_estimator, bad_estimator):
@@ -59,7 +62,7 @@ class GM_BanditAlgo(TheanoBanditAlgo):
             if hasattr(self, name):
                 delattr(self, name)
 
-    def build_helpers(self, mode=None):
+    def build_helpers(self):
         s_prior = IdxsValsList.fromlists(self.s_idxs, self.s_vals)
         s_obs = s_prior.new_like_self()
 
@@ -104,16 +107,17 @@ class GM_BanditAlgo(TheanoBanditAlgo):
             prior_sampler = self._prior_sampler = theano.function(
                     [self.helper_locals['n_to_draw']],
                     self.helper_locals['s_prior'].flatten(),
-                    mode=self.helper_locals['mode'])
+                    mode=self.mode)
         rvals = prior_sampler(N)
         return IdxsValsList.fromflattened(rvals)
 
-    def suggest_from_model(self, ivls, N):
+    @property
+    def _suggest_from_model_fn(self):
         try:
             helper = self._helper
         except AttributeError:
             def asdf(n_to_draw, n_to_keep, y_thresh, yvals, s_obs, Gsamples,
-                    keep_idxs, Gobs, Bobs, mode, **kwargs):
+                    keep_idxs, Gobs, Bobs, **kwargs):
                 return theano.function(
                     [n_to_draw, n_to_keep, y_thresh, yvals] + s_obs.flatten(),
                     (Gsamples.symbolic_take(keep_idxs).flatten()
@@ -121,9 +125,14 @@ class GM_BanditAlgo(TheanoBanditAlgo):
                         + Bobs.flatten()
                         ),
                     allow_input_downcast=True,
-                    mode=mode,
+                    mode=self.mode,
                     )
             helper = self._helper = asdf(**self.helper_locals)
+        return helper
+
+
+    def suggest_from_model(self, ivls, N):
+        helper = self._suggest_from_model_fn
 
         ylist = numpy.asarray(sorted(ivls['losses']['ok'].vals), dtype='float')
         y_thresh_idx = int(self.gamma * len(ylist))

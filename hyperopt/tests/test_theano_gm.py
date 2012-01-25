@@ -1,6 +1,4 @@
-import logging
 import unittest
-import sys
 
 import numpy
 import theano
@@ -11,12 +9,13 @@ from montetheano.for_theano import where
 
 import hyperopt
 import hyperopt.bandits
-from hyperopt.bandit_algos import GM_BanditAlgo, TheanoRandom
+from hyperopt.bandit_algos import GM_BanditAlgo
 from hyperopt.experiments import SerialExperiment
 from hyperopt import idxs_vals_rnd
 from hyperopt.idxs_vals_rnd import IndependentAdaptiveParzenEstimator
 from hyperopt.dbn import Dummy_DBN_Base
 import hyperopt.plotting
+
 
 def ops(fn, OpCls):
     if isinstance(fn, list):
@@ -66,7 +65,8 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
             return [ap for ap in fn.maker.env.toposort()
                 if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
 
-        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        # touch property to compile fn
+        self.experiment.bandit_algo._suggest_from_model_fn
         HL = self.experiment.bandit_algo.helper_locals
         if 1:
             f = theano.function(
@@ -91,16 +91,14 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 2
 
-        self.experiment.bandit_algo.build_helpers(do_compile=True)
-        _helper = self.experiment.bandit_algo._helper
-        assert len(gmms(_helper)) == 1
-        assert len(adaptive_parzens(_helper)) == 2
+        helper = self.experiment.bandit_algo._suggest_from_model_fn
+        assert len(gmms(helper)) == 1
+        assert len(adaptive_parzens(helper)) == 2
 
 
     def test_optimize_20(self):
         self.experiment.run(50)
 
-        import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
         plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
@@ -131,7 +129,7 @@ class TestGM_TwoArms(unittest.TestCase): # Tests one_of
         Gpseudocounts = HL['Gsamples'][0].vals.owner.inputs[1]
         Bpseudocounts = HL['Bsamples'][0].vals.owner.inputs[1]
 
-        f = self.experiment.bandit_algo._helper
+        f = self.experiment.bandit_algo._suggest_from_model_fn
         debug = theano.function(
             [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
                 + HL['s_obs'].flatten(),
@@ -209,7 +207,8 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
             return [ap for ap in fn.maker.env.toposort()
                 if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
 
-        self.experiment.bandit_algo.build_helpers(do_compile=True)
+        # touch property to compile fn
+        self.experiment.bandit_algo._suggest_from_model_fn
         HL = self.experiment.bandit_algo.helper_locals
         if 1:
             f = theano.function(
@@ -234,8 +233,8 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
             assert len(gmms(f)) == 1
             assert len(adaptive_parzens(f)) == 2
 
-        self.experiment.bandit_algo.build_helpers(do_compile=True)
-        _helper = self.experiment.bandit_algo._helper
+        # touch property to compile fn
+        _helper = self.experiment.bandit_algo._suggest_from_model_fn
         assert len(gmms(_helper)) == 1
         assert len(adaptive_parzens(_helper)) == 2
 
@@ -243,7 +242,6 @@ class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
     def test_optimize_20(self):
         self.experiment.run(50)
 
-        import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
         plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
@@ -274,7 +272,6 @@ class TestGM_Q1Lognormal(unittest.TestCase): # Tests lognormal
     def test_optimize_20(self):
         self.experiment.run(50)
 
-        import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
         plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
@@ -302,7 +299,6 @@ class TestGaussWave2(unittest.TestCase): # Tests nested search
                     bad_estimator=IndependentAdaptiveParzenEstimator()))
 
     def test_op_counts_in_llik(self):
-        self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
         HL = self.experiment.bandit_algo.helper_locals
         f = theano.function(
                 [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
@@ -320,7 +316,6 @@ class TestGaussWave2(unittest.TestCase): # Tests nested search
             raise
 
     def test_op_counts_in_Gsamples(self):
-        self.experiment.bandit_algo.build_helpers(do_compile=True, mode='FAST_RUN')
         HL = self.experiment.bandit_algo.helper_locals
         f = theano.function(
                 [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
@@ -341,7 +336,6 @@ class TestGaussWave2(unittest.TestCase): # Tests nested search
     def test_optimize_20(self):
         self.experiment.run(50)
 
-        import matplotlib.pyplot as plt
         plt.subplot(1,2,1)
         plt.plot(self.experiment.losses())
         plt.subplot(1,2,2)
@@ -397,8 +391,8 @@ class TestGM_DummyDBN(unittest.TestCase):
         mode = theano.Mode(
                 optimizer='fast_compile',
                 linker=theano.gof.vm.VM_Linker(callback=callback))
-        self.experiment.bandit_algo.build_helpers(mode=mode)
-        _helper = self.experiment.bandit_algo._helper
+        self.experiment.bandit_algo.mode = mode
+        _helper = self.experiment.bandit_algo._suggest_from_model_fn
         theano.printing.debugprint(_helper)
         for i in range(50):
             print 'ITER', i
@@ -409,7 +403,6 @@ class TestGM_DummyDBN(unittest.TestCase):
                 raise
 
         if 0:
-            import matplotlib.pyplot as plt
             plt.subplot(1,2,1)
             plt.plot(self.experiment.losses())
             plt.subplot(1,2,2)
