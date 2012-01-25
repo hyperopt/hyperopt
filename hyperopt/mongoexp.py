@@ -649,8 +649,14 @@ class MongoExperiment(base.Experiment):
                 #XXX: This will basically never work
                 #     now that TheanoBanditAlgo puts a _config_id into
                 #     each suggestion
-                query = self.mongo_handle.jobs.find(dict(spec=config,
-                                                         exp_key=exp_key))
+                #query = self.mongo_handle.jobs.find(dict(spec=config,
+                #                                         exp_key=exp_key))
+                irrelevant_list = ['_config_id']
+                mod_q = dict(exp_key=exp_key)
+                for _k in config.keys():
+                    if _k not in irrelevant_list:
+                        mod_q['spec.' + _k] = config[_k]
+                query = self.mongo_handle.jobs.find(mod_q)
                 if query.count():
                     matches = list(query)
                     assert len(matches) == 1
