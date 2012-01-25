@@ -27,7 +27,7 @@ from hyperopt.mongoexp import MongoJobs
 from hyperopt.mongoexp import OperationFailure
 from hyperopt.bandits import TwoArms, GaussWave2
 from hyperopt import bandit_algos
-from hyperopt.theano_gp import HGP
+from hyperopt.theano_gm import AdaptiveParzenGM
 from hyperopt.theano_bandit_algos import TheanoRandom
 
 
@@ -57,7 +57,7 @@ class TempMongo(object):
                     proc_args,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    cwd=self.workdir,
+                    cwd=self.workdir, # this prevented mongod assertion fail 
                     )
             try:
                 interval = .125
@@ -226,7 +226,7 @@ def test_mongo_exp_with_threads():
     using Python threads.
     """
     n_trials = 5  # each worker performs this many trials
-    n_startup_jobs = 3 # use the HGP algo after this many trials are done
+    n_startup_jobs = 3 # use smart algo after this many trials are done
 
     for bandit_json in (
             'hyperopt.bandits.GaussWave2',
@@ -240,7 +240,7 @@ def test_mongo_exp_with_threads():
             assert len(mj) == 0, len(mj)
             bandit = json_call(bandit_json)
             exp = MongoExperiment(
-                bandit_algo=HGP(bandit),
+                bandit_algo=AdaptiveParzenGM(bandit),
                 mongo_handle=tm.mongo_jobs('foodb'),
                 workdir=tm.workdir,
                 exp_key='exp_key',
