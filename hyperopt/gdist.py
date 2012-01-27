@@ -13,8 +13,6 @@ import theano
 from theano import tensor
 import montetheano as MT
 
-import base
-
 
 class SetOp(theano.Op):
     """
@@ -637,8 +635,3 @@ def get_value(x, memo):
     else:
         return x
 
-
-class GensonBandit(base.Bandit):
-    def __init__(self, genson_file):
-        template = gDist(open(genson_file).read())
-        base.Bandit.__init__(self.template)

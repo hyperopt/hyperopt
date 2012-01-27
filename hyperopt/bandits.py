@@ -3,19 +3,10 @@ Sample problems on which to test algorithms.
 
 """
 import numpy
-import theano
-import genson
-
-from theano import tensor
 
 import base
-from ht_dist2 import rSON2, rlist2, one_of, uniform, normal, lognormal, ceil_lognormal
+from .ht_dist2 import rSON2, one_of, uniform, normal, lognormal
 
-
-class GensonBandit(base.Bandit):
-    def __init__(self,genson_file):
-        template = genson.load(open(genson_file))
-        base.Bandit.__init__(self.template)
 
 class Base(base.Bandit):
     def __init__(self, template):
