@@ -36,19 +36,12 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
-import cPickle
 import logging
-import sys
 
 import numpy
-try:
-    from bson import SON
-except ImportError:
-    SON = dict
 
 import ht_dist2
 import utils
-import idxs_vals_rnd
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +53,14 @@ class Ctrl(object):
     warn = logger.warn
     error = logger.error
     debug = logger.debug
+
+    def __init__(self):
+        # -- attachments should be used like
+        #      attachments[key]
+        #      attachments[key] = value
+        #    where key and value are strings. Client code should not
+        #    expect any dictionary-like behaviour beyond that (no update)
+        self.attachments = {}
 
     def checkpoint(self, r=None):
         pass
