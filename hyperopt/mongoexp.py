@@ -903,9 +903,8 @@ class MongoWorker(object):
         ctrl = CtrlObj(
                 jobs=mj,
                 read_only=False,
-                read_only_id=None,
+                current_job = job,
                 )
-        ctrl.current_job = job
         config = mj.db.drivers.find_one({'exp_key': job['exp_key']})
         if self.workdir is None:
             workdir = os.path.join(config['workdir'], str(job['_id']))
@@ -929,6 +928,7 @@ class MongoWorker(object):
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'db_bandit_construct':
                 bandit_str = mj.get_attachment(['bandit_algo_args'])
+                #XXX: what is this bandit_str for??
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
@@ -950,38 +950,74 @@ class MongoWorker(object):
 
 
 class CtrlObj(object):
-    def __init__(self, read_only=False, read_only_id=None, **kwargs):
+    """
+    Attributes:
+
+    current_job - current job document
+    jobs - MongoJobs object in which current_job resides
+    read_only - True means don't change the db
+
+    """
+    def __init__(self, read_only=False, **kwargs):
         self.current_job = None
         self.__dict__.update(kwargs)
-        self.read_only=read_only
-        self.read_only_id=read_only_id
+        self.read_only = read_only
         # self.jobs is a MongoJobs reference
 
     def debug(self, *args, **kwargs):
+        # XXX: This is supposed to log to db
         return logger.debug(*args, **kwargs)
 
     def info(self, *args, **kwargs):
+        # XXX: This is supposed to log to db
         return logger.info(*args, **kwargs)
 
     def warn(self, *args, **kwargs):
+        # XXX: This is supposed to log to db
         return logger.warn(*args, **kwargs)
 
     def error(self, *args, **kwargs):
+        # XXX: This is supposed to log to db
         return logger.error(*args, **kwargs)
 
     def checkpoint(self, result=None):
         if not self.read_only:
             self.jobs.refresh(self.current_job)
             if result is not None:
-                return self.jobs.update(self.current_job, dict(result=result))
+                return self.jobs.update(self.current_job,
+                                        dict(result=result))
 
-    def set_attachment(self, blob, name):
-        self.jobs.set_attachment(self.current_job,
-                                 blob,
-                                 name,
-                                 collection=self.jobs.db.jobs)
+    @property
+    def attachments(self):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
+        class Attachments(object):
+            def __getitem__(_self, name):
+                return self.jobs.get_attachment(
+                    job=self.current_job,
+                    name=name,
+                    collection=self.jobs.db.jobs)
+
+            def __setitem__(self, name, value):
+                self.jobs.set_attachment(
+                    job=self.current_job,
+                    blob=value,
+                    name=name,
+                    collection=self.jobs.db.jobs)
+
+        return Attachments()
+
+    @property
+    def set_attachment(self):
+        # XXX: Is there a better deprecation error?
+        raise RuntimeError(
+            'set_attachment deprecated. Use `self.attachments[name] = value`')
+
 
 def exec_import(cmd_module, cmd):
+    worker_fn = None
     exec('import %s; worker_fn = %s' % (cmd_module, cmd))
     return worker_fn
 
@@ -1104,14 +1140,14 @@ def main_worker():
 
         logger.info('job found: %s' % str(job))
 
-        spec = copy.deepcopy(job['spec']) # don't let the cmd mess up our trial object
+        # -- don't let the cmd mess up our trial object
+        spec = copy.deepcopy(job['spec'])
 
         ctrl = CtrlObj(
                 jobs=mj,
                 read_only=False,
-                read_only_id=None,
+                current_job = job
                 )
-        ctrl.current_job = job
         if options.workdir is None:
             config = mj.db.drivers.find_one({"exp_key": job["exp_key"]})
             workdir = os.path.join(config['workdir'], str(job['_id']))
@@ -1127,9 +1163,9 @@ def main_worker():
                 bandit = cPickle.loads(job['cmd'][1])
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'token_load':
-                cmd_toks = cmd.split('.')
+                cmd_toks = job['cmd'][1].split('.')
                 cmd_module = '.'.join(cmd_toks[:-1])
-                worker_fn = exec_import(cmd_module, cmd)
+                worker_fn = exec_import(cmd_module, job['cmd'][1])
             elif cmd_protocol == 'bandit_json evaluate':
                 bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
@@ -1145,8 +1181,8 @@ def main_worker():
 
             result = worker_fn(spec, ctrl)
         except Exception, e:
-            #TODO: save exception to database, but if this fails, then at least raise the original
-            # traceback properly
+            #TODO: save exception to database, but if this fails, then
+            #      at least raise the original traceback properly
             ctrl.checkpoint()
             mj.update(job,
                     {'state': STATE_ERROR,
