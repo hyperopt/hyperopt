@@ -1007,13 +1007,12 @@ class CtrlObj(object):
         class Attachments(object):
             def __getitem__(_self, name):
                 return self.jobs.get_attachment(
-                    job=self.current_job,
-                    name=name,
-                    collection=self.jobs.db.jobs)
+                    doc=self.current_job,
+                    name=name)
 
             def __setitem__(self, name, value):
                 self.jobs.set_attachment(
-                    job=self.current_job,
+                    doc=self.current_job,
                     blob=value,
                     name=name,
                     collection=self.jobs.db.jobs)
