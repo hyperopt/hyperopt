@@ -873,11 +873,20 @@ class MongoWorker(object):
     def __init__(self, mj,
             poll_interval=poll_interval,
             workdir=workdir,
-            exp_key=None):
+            exp_key=None,
+            md=None):
+        """
+        mj - MongoJobs interface to jobs collection
+        poll_interval - seconds
+        workdir - string
+        exp_key - 
+        md - MongoJobs interface to drivers collection
+        """
         self.mj = mj
         self.poll_interval = poll_interval
         self.workdir = workdir
         self.exp_key = exp_key
+        self.md = md
 
     def run_one(self, host_id=None, reserve_timeout=None):
         if host_id == None:
@@ -886,7 +895,8 @@ class MongoWorker(object):
         start_time = time.time()
         mj = self.mj
         while job is None:
-            if (time.time() - start_time) > reserve_timeout:
+            if (reserve_timeout
+                    and (time.time() - start_time) > reserve_timeout):
                 raise ReserveTimeout()
             job = mj.reserve(host_id, exp_key=self.exp_key)
             if not job:
@@ -898,13 +908,10 @@ class MongoWorker(object):
 
         logger.info('job found: %s' % str(job))
 
-        spec = copy.deepcopy(job['spec']) # don't let the cmd mess up our trial object
+        # -- don't let the cmd mess up our trial object
+        spec = copy.deepcopy(job['spec'])
 
-        ctrl = CtrlObj(
-                jobs=mj,
-                read_only=False,
-                current_job = job,
-                )
+        ctrl = CtrlObj(jobs=mj, read_only=False, current_job=job)
         config = mj.db.drivers.find_one({'exp_key': job['exp_key']})
         if self.workdir is None:
             workdir = os.path.join(config['workdir'], str(job['_id']))
@@ -920,23 +927,27 @@ class MongoWorker(object):
                 bandit = cPickle.loads(job['cmd'][1])
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'token_load':
-                cmd_toks = cmd.split('.')
+                cmd_toks = job['cmd'][1].split('.')
                 cmd_module = '.'.join(cmd_toks[:-1])
-                worker_fn = exec_import(cmd_module, cmd)
+                worker_fn = exec_import(cmd_module, job['cmd'][1])
             elif cmd_protocol == 'bandit_json evaluate':
                 bandit = utils.json_call(job['cmd'][1])
                 worker_fn = bandit.evaluate
-            elif cmd_protocol == 'db_bandit_construct':
-                bandit_str = mj.get_attachment(['bandit_algo_args'])
-                #XXX: what is this bandit_str for??
+            elif cmd_protocol == 'driver_attachment':
+                driver = md.coll.find_one({'exp_key': job['exp_key']})
+                blob = md.get_attachment(driver, 'bandit_args_kwargs')
+                bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
+                worker_fn = utils.json_call(bandit_name,
+                        args=bandit_args,
+                        kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
             result = worker_fn(spec, ctrl)
             logger.info('job returned: %s' % str(result))
         except Exception, e:
-            #TODO: save exception to database, but if this fails, then at least raise the original
-            # traceback properly
+            #XXX: save exception to database, but if this fails, then
+            #      at least raise the original traceback properly
             logger.info('job exception: %s' % str(e))
             ctrl.checkpoint()
             mj.update(job,
@@ -1057,6 +1068,11 @@ def main_worker():
             dest='mongo',
             default='localhost/hyperopt',
             help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--reserve-timeout",
+            dest='reserve_timeout',
+            metavar='T',
+            default=120.0,
+            help="poll database for up to T seconds to reserve a job")
     parser.add_option("--workdir",
             dest="workdir",
             default=None,
@@ -1117,80 +1133,20 @@ def main_worker():
         logger.info("exiting with N=%i after %i consecutive exceptions" %(
             N, cons_errs))
     elif N == 1:
-        # XXX: the name of the jobs collection is a parameter elsewhere
+        # XXX: the name of the jobs collection is a parameter elsewhere,
+        #      so '/jobs' should not be hard-coded here
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
 
         md = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/drivers')
 
-        exp_key = options.exp_key
-        job = None
-        while job is None:
-            job = mj.reserve(
-                    '%s:%i'%(socket.gethostname(), os.getpid()),
-                    exp_key=exp_key
-                    )
-            if not job:
-                interval = (1 +
-                        numpy.random.rand()
-                        * (float(options.poll_interval) - 1.0))
-                logger.info('no job found, sleeping for %.1fs' % interval)
-                time.sleep(interval)
-
-        logger.info('job found: %s' % str(job))
-
-        # -- don't let the cmd mess up our trial object
-        spec = copy.deepcopy(job['spec'])
-
-        ctrl = CtrlObj(
-                jobs=mj,
-                read_only=False,
-                current_job = job
-                )
-        if options.workdir is None:
-            config = mj.db.drivers.find_one({"exp_key": job["exp_key"]})
-            workdir = os.path.join(config['workdir'], str(job['_id']))
-        else:
-            workdir = os.path.expanduser(options.workdir)
-        os.makedirs(workdir)
-        os.chdir(workdir)
-        cmd_protocol = job['cmd'][0]
-        try:
-            if cmd_protocol == 'cpickled fn':
-                worker_fn = cPickle.loads(job['cmd'][1])
-            elif cmd_protocol == 'call evaluate':
-                bandit = cPickle.loads(job['cmd'][1])
-                worker_fn = bandit.evaluate
-            elif cmd_protocol == 'token_load':
-                cmd_toks = job['cmd'][1].split('.')
-                cmd_module = '.'.join(cmd_toks[:-1])
-                worker_fn = exec_import(cmd_module, job['cmd'][1])
-            elif cmd_protocol == 'bandit_json evaluate':
-                bandit = utils.json_call(job['cmd'][1])
-                worker_fn = bandit.evaluate
-            elif cmd_protocol == 'driver_attachment':
-                driver = md.coll.find_one({'exp_key': job['exp_key']})
-                blob = md.get_attachment(driver, 'bandit_args_kwargs')
-                bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
-                worker_fn = utils.json_call(bandit_name,
-                        args=bandit_args,
-                        kwargs=bandit_kwargs).evaluate
-            else:
-                raise ValueError('Unrecognized cmd protocol', cmd_protocol)
-
-            result = worker_fn(spec, ctrl)
-        except Exception, e:
-            #TODO: save exception to database, but if this fails, then
-            #      at least raise the original traceback properly
-            ctrl.checkpoint()
-            mj.update(job,
-                    {'state': STATE_ERROR,
-                    'error': (str(type(e)), str(e))},
-                    safe=True)
-            raise
-        ctrl.checkpoint(result)
-        mj.update(job, {'state': STATE_DONE}, safe=True)
+        mworker = MongoWorker(mj,
+                float(options.poll_interval),
+                workdir=options.workdir,
+                exp_key=options.exp_key,
+                md=md)
+        mworker.run_one(reserve_timeout=float(options.reserve_timeout))
     else:
         parser.print_help()
         return -1
