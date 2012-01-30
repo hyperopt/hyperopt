@@ -911,7 +911,8 @@ class MongoWorker(object):
             workdir = os.path.join(config['workdir'], str(job['_id']))
         else:
             workdir = os.path.expanduser(self.workdir)
-        os.makedirs(workdir)
+        if not os.path.isdir(workdir):
+            os.makedirs(workdir)
         os.chdir(workdir)
         cmd_protocol = job['cmd'][0]
         try:
