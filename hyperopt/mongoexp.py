@@ -1010,7 +1010,7 @@ class CtrlObj(object):
                     doc=self.current_job,
                     name=name)
 
-            def __setitem__(self, name, value):
+            def __setitem__(_self, name, value):
                 self.jobs.set_attachment(
                     doc=self.current_job,
                     blob=value,
