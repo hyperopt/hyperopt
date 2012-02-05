@@ -1006,10 +1006,18 @@ class CtrlObj(object):
         Support syntax for store: self.attachments[name] = value
         """
         class Attachments(object):
+            def __contains__(_self, name):
+                names = self.jobs.attachment_names(
+                        doc=self.current_job)
+                return name in names
+
             def __getitem__(_self, name):
-                return self.jobs.get_attachment(
-                    doc=self.current_job,
-                    name=name)
+                try:
+                    return self.jobs.get_attachment(
+                        doc=self.current_job,
+                        name=name)
+                except OperationFailure:
+                    raise KeyError(name)
 
             def __setitem__(_self, name, value):
                 self.jobs.set_attachment(
