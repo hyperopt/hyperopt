@@ -40,7 +40,6 @@ import logging
 
 import numpy
 
-import ht_dist2
 import utils
 
 logger = logging.getLogger(__name__)
@@ -81,6 +80,8 @@ class Bandit(object):
         self.__dict__.update(dct)
         # recursively change type in-place
         try:
+            # XXX: get rid of ht_dist2 and use genson
+            import ht_dist2
             ht_dist2.bless(self.template)
         except ValueError, e:
             if 'what to do with this?' not in str(e):
@@ -171,6 +172,8 @@ class BanditAlgo(object):
         self.__dict__.update(dct)
         # recursively change type in-place
         if 'template' in dct:
+            # XXX: ditch ht_dist2, use genson
+            import ht_dist2
             ht_dist2.bless(self.template)
 
     def short_str(self):
@@ -178,6 +181,20 @@ class BanditAlgo(object):
 
     def suggest(self, trials, results, N):
         raise NotImplementedError('override me')
+
+
+class Random(BanditAlgo):
+    """Random search algorithm
+    """
+
+    def __init__(self, bandit):
+        BanditAlgo.__init__(self, bandit)
+        self.rng = numpy.random.RandomState(self.seed)
+
+    def suggest(self, trials, results, N):
+        seeds = self.rng.randint(2**30, size=N)
+        return [self.bandit.template.sample(int(seed))
+                for seed in seeds]
 
 
 class Experiment(object):
