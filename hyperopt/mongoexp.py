@@ -293,15 +293,15 @@ def coarse_utcnow():
     microsec = (now.microsecond//10**3)*(10**3)
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
-
+ 
 class MongoJobs(object):
     """
     # Interface to a Jobs database structured like this
     #
     # Collections:
     #
-    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time', 'refresh_time', 'state',
-    #                       'error', 'result'}
+    # db.jobs - structured {config_name, 'cmd', 'owner', 'book_time',
+    #                  'refresh_time', 'state', 'exp_key', 'owner', 'result'}
     #    This is the collection that the worker nodes write to
     #
     # db.gfs - file storage via gridFS for all collections
@@ -314,7 +314,7 @@ class MongoJobs(object):
         self.conn=conn
         self.tunnel=tunnel
         self.config_name = config_name
-
+        
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
 
@@ -343,12 +343,27 @@ class MongoJobs(object):
         except:
             return 0
 
+    def create_jobs_indexes(self):
+        jobs = self.db.jobs
+        for k in ['exp_key', 'result.loss', 'book_time']:
+            jobs.create_index(k)
+
+    def create_drivers_indexes(self):
+        drivers = self.db.drivers
+        drivers.create_index('exp_key', unique=True)
+
+    def create_indexes(self):
+        self.create_jobs_indexes()
+        self.create_drivers_indexes()
+
     def jobs_complete(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_DONE))
         return c if cursor else list(c)
+
     def jobs_error(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_ERROR))
         return c if cursor else list(c)
+
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
@@ -356,6 +371,7 @@ class MongoJobs(object):
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
+
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
@@ -363,6 +379,7 @@ class MongoJobs(object):
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
+
     def jobs_queued(self, cursor=False):
         c = self.jobs.find(spec=dict(state=STATE_NEW))
         return c if cursor else list(c)
@@ -610,6 +627,7 @@ class MongoExperiment(base.Experiment):
             #     This is the case if we're unpickling.
             self.mongo_handle = mongo_handle
 
+        self.mongo_handle.create_indexes()
         base.Experiment.__init__(self, bandit_algo)
         self.workdir = workdir               # can be changed
         self.poll_interval_secs = poll_interval_secs  # can be changed
@@ -1286,6 +1304,7 @@ def main_search():
         worker_cmd = ('bandit_json evaluate', bandit_name)
     mj = MongoJobs.new_from_connection_str(
             as_mongo_str(options.mongo) + '/jobs')
+
     self = MongoExperiment(
         bandit_algo=algo,
         mongo_handle=mj,
