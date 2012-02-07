@@ -1489,6 +1489,9 @@ def main_show():
             for y, r in zip(self.losses(), self.results) if y is not None])
         plt.scatter(range(len(yvals)), yvals, c=colors)
         return plotting.main_plot_history(self)
+    elif 'histogram' == cmd:
+        import plotting
+        return plotting.main_plot_histogram(self)
     elif 'dump' == cmd:
         raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
     elif 'dump_pickle' == cmd:
@@ -1500,4 +1503,6 @@ def main_show():
     else:
         logger.error("Invalid cmd %s" % cmd)
         parser.print_help()
+        print """Current supported commands are history, histogram, vars
+        """
         return -1

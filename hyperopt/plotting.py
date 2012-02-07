@@ -60,6 +60,31 @@ def main_plot_history(self):
     plt.show()
 
 
+def main_plot_histogram(self):
+    """
+    self - experiment
+    """
+    bandit_algo = self.bandit_algo
+    bandit = self.bandit_algo.bandit
+
+    status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
+    Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
+        for (x, y, s) in zip(self.trials, self.losses(), self.statuses())
+        if y is not None ])
+
+
+    # XXX: deal with ok vs. un-finished vs. error trials
+    print 'Showing Histogram of %i jobs' % len(Ys)
+    plt.hist(Ys)
+    plt.xlabel('loss')
+    plt.ylabel('frequency')
+
+    plt.title('bandit: %s algo: %s' % (
+        bandit.short_str(),
+        bandit_algo.short_str()))
+    plt.show()
+
+
 def main_plot_vars(self, end_with_show=True):
     import montetheano.rstreams
     # this requires a TheanoBanditAlgo, which has the sample history recorded as
