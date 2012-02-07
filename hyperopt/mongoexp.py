@@ -150,7 +150,7 @@ import urlparse
 import numpy
 import pymongo
 import gridfs
-from bson import BSON, SON
+from bson import SON
 
 import base
 import utils
@@ -916,7 +916,8 @@ class MongoWorker(object):
         if self.workdir is None:
             workdir = os.path.join(config['workdir'], str(job['_id']))
         else:
-            workdir = os.path.expanduser(self.workdir)
+            workdir = self.workdir
+        workdir = os.path.expanduser(workdir)
         if not os.path.isdir(workdir):
             os.makedirs(workdir)
         os.chdir(workdir)
