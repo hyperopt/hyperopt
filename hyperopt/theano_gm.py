@@ -171,7 +171,7 @@ class GM_BanditAlgo(TheanoBanditAlgo):
                 x_all.idxset())
 
         assert numpy.all(y_all_iv.idxs == numpy.arange(len(y_all_iv.idxs))), (
-                y_all._iv.idxs)
+                y_all_iv.idxs)
 
         y_all = y_all_iv.as_numpy(vdtype=theano.config.floatX).vals
         x_all = x_all.as_numpy_floatX()
