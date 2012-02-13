@@ -1,6 +1,11 @@
 import unittest
 import numpy as np
 
+from pyll import as_apply, scope, rec_eval, clone, dfs
+uniform = scope.uniform
+normal = scope.normal
+one_of = scope.one_of
+
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
 from hyperopt.base import Ctrl
@@ -11,8 +16,8 @@ from hyperopt.base import Experiment
 from hyperopt.base import Bandit
 from hyperopt.vectorize import pretty_names
 
-class BanditMixin(object):
 
+class BanditMixin(object):
     def test_dry_run(self):
         rval = self.bandit_cls.main_dryrun()
         assert 'loss' in rval
@@ -65,10 +70,9 @@ class TestRandom(unittest.TestCase):
         assert idxs['node_4'] == new_ids
         assert np.all(vals['node_4'] == [0, 1, 0, 0, 0])
 
+
 # XXX: Test experiment loss code
-
 class TestCoinFlipExperiment(unittest.TestCase):
-
     def setUp(self):
         self.bandit = CoinFlip()
         self.algo = Random(self.bandit)
@@ -97,12 +101,6 @@ class ZeroBandit(Bandit):
 
     def evaluate(self, config, ctrl):
         return dict(loss=0.0, status=STATUS_OK)
-
-
-from pyll import as_apply, scope, rec_eval, clone, dfs
-uniform = scope.uniform
-normal = scope.normal
-one_of = scope.one_of
 
 
 
