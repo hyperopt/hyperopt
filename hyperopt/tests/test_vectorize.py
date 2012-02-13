@@ -1,3 +1,4 @@
+import unittest
 import numpy as np
 
 from pyll import as_apply, scope, rec_eval, clone, dfs
@@ -5,7 +6,7 @@ from pyll.stochastic import replace_implicit_stochastic_nodes
 from pyll.stochastic import replace_repeat_stochastic
 
 from hyperopt.vectorize import VectorizeHelper
-
+from hyperopt.vectorize import node_names
 
 def test_replace_implicit_stochastic_nodes():
     a = scope.uniform(-2, -1)
@@ -135,3 +136,4 @@ def test_vectorize_config0():
             assert foo[ii]['p3'] == vals[vh.node_id[p1]][list(idxs[vh.node_id[p1]]).index(ii)]
         else:
             assert foo[ii]['p3'] == -2, foo[ii]['p3']
+

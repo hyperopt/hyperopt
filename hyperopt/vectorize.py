@@ -1,5 +1,6 @@
 import sys
 
+from pyll import Apply
 from pyll import as_apply
 from pyll import dfs
 from pyll import scope
@@ -94,10 +95,12 @@ class VectorizeHelper(object):
 
     def merge(self, idxs, node):
         if node in self.idxs_memo:
-            self.idxs_memo[node] = scope.array_union(idxs, self.idxs_memo[node])
+            other = self.idxs_memo[node]
+            if other is not idxs:
+                self.idxs_memo[node] = scope.array_union(idxs, self.idxs_memo[node])
         else:
             self.idxs_memo[node] = idxs
-        
+
     # -- separate method for testing
     def build_idxs(self):
         for node in reversed(self.dfs_nodes):
@@ -106,6 +109,7 @@ class VectorizeHelper(object):
                 n_options  = len(node.pos_args)
                 choices = scope.randint(n_options, size=scope.len(node_idxs))
                 self.choice_memo[node] = choices
+                self.merge(node_idxs, choices)
                 self.node_id[choices] = 'node_%i' % len(self.node_id)
                 sub_idxs = scope.vchoice_split(node_idxs, choices, n_options)
                 for ii, arg in enumerate(node.pos_args):
@@ -121,6 +125,11 @@ class VectorizeHelper(object):
                 n_times = scope.len(self.idxs_memo[node])
                 vnode = scope.repeat(n_times, node)
             elif node in self.choice_memo:
+                # -- choices are natively vectorized
+                choices = self.choice_memo[node]
+                self.vals_memo[choices] = choices
+                # -- this stitches together the various sub-graphs
+                #    to define the original node
                 vnode = scope.vchoice_merge(
                         self.idxs_memo[node],
                         self.choice_memo[node])
@@ -143,19 +152,61 @@ class VectorizeHelper(object):
     def idxs_by_id(self):
         rval = dict([(self.node_id[node], idxs)
             for node, idxs in self.idxs_memo.items()])
-        rval.update(dict([(self.node_id[node], self.idxs_memo[node])
-            for node, choices in self.choice_memo.items()]))
         return rval
 
     def vals_by_id(self):
         rval = dict([(self.node_id[node], idxs)
             for node, idxs in self.vals_memo.items()])
-        rval.update(dict([(self.node_id[node], choices)
-            for node, choices in self.choice_memo.items()]))
         return rval
 
     def name_by_id(self):
         rval = dict([(nid, node.name)
             for (node, nid) in self.node_id.items()])
         return rval
+
+    def pretty_by_id(self):
+        names = node_names(self.expr)
+        rval = dict([(nid, names.get(node, 'missing'))
+            for (node, nid) in self.node_id.items()])
+        return rval
+
+
+def pretty_names_helper(expr, seq, seqset, prefixes, names):
+    if expr in seqset:
+        return
+    assert isinstance(expr, Apply)
+    seqset.add(expr)
+    if expr.name == 'dict':
+        for ii, (aname, aval) in enumerate(expr.named_args):
+            pretty_names_helper(aval, seq, seqset,
+                    prefixes + (('%s' % aname),),
+                    names)
+    else:
+        for ii, aval in enumerate(expr.pos_args):
+            pretty_names_helper(aval, seq, seqset,
+                    prefixes + ('arg:%i' % (ii,),),
+                    names)
+        for ii, (aname, aval) in enumerate(expr.named_args):
+            pretty_names_helper(aval, seq, seqset,
+                    prefixes + ('kw:%s' % (aname,),),
+                    names)
+    names.append('.'.join(prefixes))
+    seq.append(expr)
+
+def pretty_names(expr, prefix=None):
+    dfs_order = dfs(expr)
+    # -- compute the seq like pyll.dfs just to ensure that
+    #    the order of our names matches the dfs order.
+    #    It's not clear to me right now that the match is important,
+    #    but it's certainly suspicious if not.
+    seq = []
+    names = []
+    seqset = set()
+    if prefix is None:
+        prefixes = ()
+    else:
+        prefixes = prefix,
+    pretty_names_helper(expr, seq, seqset, prefixes, names)
+    assert seq == dfs_order
+    return dict(zip(seq, names))
 

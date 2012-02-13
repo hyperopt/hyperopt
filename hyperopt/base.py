@@ -47,7 +47,7 @@ from pyll.stochastic import replace_repeat_stochastic
 from pyll.stochastic import replace_implicit_stochastic_nodes
 
 from .utils import pmin_sampled
-from .vectorize import VectorizeHelper
+from .vectorize import VectorizeHelper, pretty_names
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,9 @@ class Trials(object):
     def __init__(self):
         self._trials = []
         self.refresh()
+
+    def __iter__(self):
+        return iter(self._trials)
 
     def refresh_specs_results_idxs_vals(self):
         self._specs = [tt['spec'] for tt in self._trials]
@@ -300,16 +303,20 @@ class BanditAlgo(object):
     def __init__(self, bandit):
         self.bandit = bandit
         self.rng = np.random.RandomState(self.seed)
-        self.new_ids = []
+        self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
         idx_range = pyll.Literal(self.new_ids)
-        template = pyll.clone(self.bandit.template)
-        vh = VectorizeHelper(template, idx_range)
+        self.template_clone_memo = {}
+        template = pyll.clone(self.bandit.template, self.template_clone_memo)
+        vh = self.vh = VectorizeHelper(template, idx_range)
         vh.build_idxs()
         vh.build_vals()
         idxs_by_id = vh.idxs_by_id()
         vals_by_id = vh.vals_by_id()
         name_by_id = vh.name_by_id()
+        assert set(idxs_by_id.keys()) == set(vals_by_id.keys())
+        assert set(name_by_id.keys()) == set(vals_by_id.keys())
+
         # -- remove non-stochastic nodes from the idxs and vals
         #    because (a) they should be irrelevant for BanditAlgo operation
         #    and (b) they can be reconstructed from the template and the
@@ -319,15 +326,38 @@ class BanditAlgo(object):
                 del name_by_id[node_id]
                 del vals_by_id[node_id]
                 del idxs_by_id[node_id]
-        # -- make the pretty graph runnable
+            if name == 'one_of':
+                # -- one_of nodes too, because they are duplicates of randint
+                del name_by_id[node_id]
+                del vals_by_id[node_id]
+                del idxs_by_id[node_id]
+
+        # -- make the graph runnable
         specs_idxs_vals_0 = pyll.as_apply([
             vh.vals_memo[template], idxs_by_id, vals_by_id])
         specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
         specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
                 specs_idxs_vals_1,
                 pyll.as_apply(self.rng))
+
         # -- represents symbolic specs/idxs/vals
         self.s_specs_idxs_vals = specs_idxs_vals_2
+
+        # -- compute some document coordinate strings for the node_ids
+        pnames = pretty_names(bandit.template, prefix=None)
+        doc_coords = self.doc_coords = {}
+        for node, pname in pnames.items():
+            cnode = self.template_clone_memo[node]
+            if cnode.name == 'one_of':
+                choice_node = vh.choice_memo[cnode]
+                doc_coords[vh.node_id[choice_node]] = pname
+            if cnode in vh.node_id and vh.node_id[cnode] in name_by_id:
+                doc_coords[vh.node_id[cnode]] = pname
+            else:
+                #print 'DROPPING', node
+                pass
+        #print 'DOC_COORDS'
+        #print doc_coords
 
     def short_str(self):
         return self.__class__.__name__
