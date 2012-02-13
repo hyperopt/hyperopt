@@ -40,7 +40,7 @@ import logging
 
 import numpy as np
 
-from pymongo import SON
+from bson import SON  # -- from pymongo
 
 import pyll
 from pyll.stochastic import replace_repeat_stochastic
@@ -87,14 +87,14 @@ class Trials(object):
 
     def __init__(self):
         self._trials = []
-        self.refresh_trials()
+        self.refresh()
 
     def refresh_specs_results_idxs_vals(self):
         self._specs = [tt['spec'] for tt in self._trials]
         self._results = [tt['result'] for tt in self._trials]
         self._idxs = idxs = {}
         self._vals = vals = {}
-        for trial in _trials:
+        for trial in self._trials:
             tid = trial['tid']
             tidxs = trial['idxs']
             tvals = trial['vals']
@@ -176,6 +176,7 @@ class Trials(object):
                     trial['vals'][node_id] = []
             rval.append(trial)
         return rval
+
 
 class Ctrl(object):
     """Control object for interruptible, checkpoint-able evaluation
@@ -386,9 +387,18 @@ class Experiment(object):
                     result = self.bandit.evaluate(spec, ctrl)
                     # XXX verify result is SON-encodable
                     trial['result'] = result
+                    trial['serial_status'] = 'DONE'
+
+    def block_until_done(self):
+        if self.async:
+            raise NotImplementedError()
+        else:
+            self.serial_evaluate()
 
     def enqueue(self, new_trials):
         for trial in new_trials:
+            assert 'serial_status' not in trial
+            trial['serial_status'] = 'TODO'
             self.trials.insert_trial(trial)
 
     def run(self, N, block_until_done=True):
@@ -412,6 +422,7 @@ class Experiment(object):
                         new_idxs, new_vals)
                 self.enqueue(new_trials)
                 self.trials.refresh()
+                n_queued += len(new_ids)
             self.serial_evaluate()
 
         if block_until_done:
@@ -421,8 +432,6 @@ class Experiment(object):
         else:
             msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
             logger.info(msg)
-
-
 
     def losses(self):
         return map(self.bandit_algo.bandit.loss, self.results, self.trials)

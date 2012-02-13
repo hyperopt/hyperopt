@@ -1,6 +1,6 @@
 import numpy as np
 
-from pyll import as_apply, vectorize, scope, rec_eval, clone, dfs
+from pyll import as_apply, scope, rec_eval, clone, dfs
 from pyll.stochastic import replace_implicit_stochastic_nodes
 from pyll.stochastic import replace_repeat_stochastic
 

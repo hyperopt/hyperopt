@@ -3,9 +3,10 @@ import numpy as np
 
 from hyperopt import STATUS_STRINGS
 from hyperopt.base import Ctrl
+from hyperopt.base import Trials
 from hyperopt.base import CoinFlip
 from hyperopt.base import Random
-from hyperopt.base import SerialExperiment
+from hyperopt.base import Experiment
 
 class BanditMixin(object):
 
@@ -63,13 +64,27 @@ class TestRandom(unittest.TestCase):
 
 # XXX: Test experiment loss code
 
-class TestSerialExperiment(unittest.TestCase):
+class TestCoinFlipExperiment(unittest.TestCase):
 
     def setUp(self):
         self.bandit = CoinFlip()
         self.algo = Random(self.bandit)
-        self.experiment = SerialExperiment(self.algo)
+        self.trials = Trials()
+        self.experiment = Experiment(self.trials, self.algo, async=False)
         self.ctrl = Ctrl()
 
     def test_run_1(self):
         self.experiment.run(1)
+        assert len(self.trials._trials) == 1
+
+    def test_run_1_1_1(self):
+        self.experiment.run(1)
+        self.experiment.run(1)
+        self.experiment.run(1)
+        assert len(self.trials._trials) == 3
+        print self.trials.idxs
+        print self.trials.vals
+        assert self.trials.idxs['node_2'] == [0, 1, 2]
+        assert self.trials.vals['node_2'] == [0, 1, 0]
+
+
