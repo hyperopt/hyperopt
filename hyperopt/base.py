@@ -350,7 +350,8 @@ class BanditAlgo(object):
             cnode = self.template_clone_memo[node]
             if cnode.name == 'one_of':
                 choice_node = vh.choice_memo[cnode]
-                doc_coords[vh.node_id[choice_node]] = pname
+                assert choice_node.name == 'randint'
+                doc_coords[vh.node_id[choice_node]] = pname + '.randint'
             if cnode in vh.node_id and vh.node_id[cnode] in name_by_id:
                 doc_coords[vh.node_id[cnode]] = pname
             else:
