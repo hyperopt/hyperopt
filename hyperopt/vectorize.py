@@ -106,6 +106,7 @@ class VectorizeHelper(object):
                 n_options  = len(node.pos_args)
                 choices = scope.randint(n_options, size=scope.len(node_idxs))
                 self.choice_memo[node] = choices
+                self.node_id[choices] = 'node_%i' % len(self.node_id)
                 sub_idxs = scope.vchoice_split(node_idxs, choices, n_options)
                 for ii, arg in enumerate(node.pos_args):
                     self.merge(sub_idxs[ii], arg)
@@ -140,10 +141,21 @@ class VectorizeHelper(object):
             self.vals_memo[node] = vnode
 
     def idxs_by_id(self):
-        return dict([(self.node_id[node], idxs)
+        rval = dict([(self.node_id[node], idxs)
             for node, idxs in self.idxs_memo.items()])
+        rval.update(dict([(self.node_id[node], self.idxs_memo[node])
+            for node, choices in self.choice_memo.items()]))
+        return rval
 
     def vals_by_id(self):
-        return dict([(self.node_id[node], idxs)
+        rval = dict([(self.node_id[node], idxs)
             for node, idxs in self.vals_memo.items()])
+        rval.update(dict([(self.node_id[node], choices)
+            for node, choices in self.choice_memo.items()]))
+        return rval
+
+    def name_by_id(self):
+        rval = dict([(nid, node.name)
+            for (node, nid) in self.node_id.items()])
+        return rval
 

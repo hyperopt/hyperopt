@@ -45,6 +45,7 @@ from pyll.stochastic import replace_repeat_stochastic
 from pyll.stochastic import replace_implicit_stochastic_nodes
 
 from .utils import pmin_sampled
+from .vectorize import VectorizeHelper
 
 logger = logging.getLogger(__name__)
 
@@ -211,17 +212,24 @@ class BanditAlgo(object):
         self.idx_range = [0, 1]
         N0 = pyll.Literal(self.idx_range)
         idx_range = pyll.scope.range(N0[0], N0[1])
-        vh = vectorize.VectorizeHelper(
-                pyll.clone(self.bandit.template),
-                idx_range)
+        template = pyll.clone(self.bandit.template)
+        vh = VectorizeHelper(template, idx_range)
         vh.build_idxs()
         vh.build_vals()
-        docs_idxs_vals_0 = pyll.as_apply([vh.vals_memo[template],
-            vh.idxs_by_id(),
-            vh.vals_by_id()])
+        idxs_by_id = vh.idxs_by_id()
+        vals_by_id = vh.vals_by_id()
+        name_by_id = vh.name_by_id()
+        for node_id, name in name_by_id.items():
+            if name not in pyll.stochastic.implicit_stochastic_symbols:
+                del name_by_id[node_id]
+                del vals_by_id[node_id]
+                del idxs_by_id[node_id]
+
+        docs_idxs_vals_0 = pyll.as_apply([
+            vh.vals_memo[template], idxs_by_id, vals_by_id])
         docs_idxs_vals_1 = replace_repeat_stochastic(docs_idxs_vals_0)
         docs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
-                outputs1,
+                docs_idxs_vals_1,
                 pyll.as_apply(self.rng))
         # -- symbolic docs/idxs/vals
         self.s_docs_idxs_vals = docs_idxs_vals_2
@@ -229,17 +237,19 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def suggest(self, trials, results, N):
-        return self.suggest_idxs_vals(trials, results, N)[0]
-
-    def suggest_docs_idxs_vals(self, trials, results, N):
+    def suggest_docs_idxs_vals(self, trials, results,
+            stochastic_idxs, stochastic_vals, N):
         raise NotImplementedError('override me')
 
 
 class Random(BanditAlgo):
     """Random search algorithm
     """
-    def suggest_docs_idxs_vals(self, trials, results, N):
+    def suggest_docs_idxs_vals(self, trials, results,
+            stochastic_idxs,
+            stochastic_vals,
+            N):
+        self.idx_range[1] = N
         docs, idxs, vals = pyll.rec_eval(self.s_docs_idxs_vals)
         return docs, idxs, vals
 
