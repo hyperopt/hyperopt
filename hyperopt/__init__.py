@@ -4,6 +4,10 @@
 #    for itself.
 
 
+from base import STATUS_STRINGS
+from base import (STATUS_NEW, STATUS_RUNNING, STATUS_SUSPENDED, STATUS_OK,
+        STATUS_FAIL)
+
 from base import Bandit
 from base import Ctrl
 from base import Random

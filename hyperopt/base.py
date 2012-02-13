@@ -41,10 +41,34 @@ import logging
 import numpy as np
 
 import pyll
+from pyll.stochastic import replace_repeat_stochastic
+from pyll.stochastic import replace_implicit_stochastic_nodes
 
 from .utils import pmin_sampled
 
 logger = logging.getLogger(__name__)
+
+
+# -- STATUS values
+# These are used to store job status in a backend-agnostic way, for the
+# purpose of communicating between Bandit, BanditAlgo, and any
+# visualization/monitoring code.
+
+STATUS_STRINGS = (
+    'new',        # computations have not started
+    'running',    # computations are in prog
+    'suspended',  # computations have been suspended, job is not finished
+    'ok',         # computations are finished, terminated normally
+    'fail')       # computations are finished, terminated with error
+                  #   - result['status_fail'] should contain more info
+
+# -- named constants for status possibilities
+STATUS_NEW = 'new'
+STATUS_RUNNING = 'running'
+STATUS_SUSPENDED = 'suspended'
+STATUS_OK = 'ok'
+STATUS_FAIL = 'fail'
+
 
 
 class Ctrl(object):
@@ -66,6 +90,14 @@ class Ctrl(object):
     def checkpoint(self, r=None):
         pass
 
+    def get_trials(self):
+        # TODO
+        raise NotImplementedError()
+
+    def insert_trials(self):
+        # TODO
+        raise NotImplementedError()
+
 
 class Bandit(object):
     """Specification of bandit problem.
@@ -75,20 +107,9 @@ class Bandit(object):
     evaluate - interruptible/checkpt calling convention for evaluation routine
 
     """
+
     def __init__(self, template):
-        self.template = template
-
-    def __setstate__(self, dct):
-        self.__dict__.update(dct)
-        # recursively change type in-place
-        try:
-            # XXX: get rid of ht_dist2 and use genson
-            import ht_dist2
-            ht_dist2.bless(self.template)
-        except ValueError, e:
-            if 'what to do with this?' not in str(e):
-                raise
-
+        self.template = pyll.as_apply(template)
 
     def short_str(self):
         return self.__class__.__name__
@@ -97,7 +118,12 @@ class Bandit(object):
         """Return a point that could have been drawn from the template
         that is useful for small trial debugging.
         """
-        raise NotImplementedError('override me')
+        rng = np.random.RandomState(1)
+        template = pyll.clone(self.template)
+        runnable, lrng = pyll.stochastic.replace_implicit_stochastic_nodes(
+                template, pyll.as_apply(rng))
+        rval = pyll.rec_eval(runnable)
+        return rval
 
     @classmethod
     def evaluate(cls, config, ctrl):
@@ -145,14 +171,26 @@ class Bandit(object):
         """Return a JSON-encodable object
         to serve as the 'result' for new jobs.
         """
-        return {'status': 'new'}
+        return {'status': STATUS_NEW}
 
     @classmethod
     def main_dryrun(cls):
         self = cls()
         ctrl = Ctrl()
         config = self.dryrun_config()
-        self.evaluate(config, ctrl)
+        return self.evaluate(config, ctrl)
+
+
+class CoinFlip(Bandit):
+    """ Possibly the simplest possible Bandit implementation
+    """
+
+    def __init__(self):
+        Bandit.__init__(self, dict(flip=pyll.scope.one_of('heads', 'tails')))
+
+    def evaluate(self, config, ctrl):
+        scores = dict(heads=1.0, tails=0.0)
+        return dict(loss=scores[config['flip']], status=STATUS_OK)
 
 
 class BanditAlgo(object):
@@ -169,38 +207,40 @@ class BanditAlgo(object):
 
     def __init__(self, bandit):
         self.bandit = bandit
+        self.rng = np.random.RandomState(self.seed)
+        self.idx_range = [0, 1]
+        N0 = pyll.Literal(self.idx_range)
+        idx_range = pyll.scope.range(N0[0], N0[1])
+        vh = vectorize.VectorizeHelper(
+                pyll.clone(self.bandit.template),
+                idx_range)
+        vh.build_idxs()
+        vh.build_vals()
+        docs_idxs_vals_0 = pyll.as_apply([vh.vals_memo[template],
+            vh.idxs_by_id(),
+            vh.vals_by_id()])
+        docs_idxs_vals_1 = replace_repeat_stochastic(docs_idxs_vals_0)
+        docs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
+                outputs1,
+                pyll.as_apply(self.rng))
+        # -- symbolic docs/idxs/vals
+        self.s_docs_idxs_vals = docs_idxs_vals_2
 
     def short_str(self):
         return self.__class__.__name__
 
     def suggest(self, trials, results, N):
+        return self.suggest_idxs_vals(trials, results, N)[0]
+
+    def suggest_docs_idxs_vals(self, trials, results, N):
         raise NotImplementedError('override me')
 
 
 class Random(BanditAlgo):
     """Random search algorithm
     """
-
-    def __init__(self, bandit):
-        BanditAlgo.__init__(self, bandit)
-        self.rng = np.random.RandomState(self.seed)
-        template = pyll.clone(self.bandit.template)
-        self.idx_range = [0, 1]
-        N0 = pyll.Literal(self.idx_range)
-        idx_range = pyll.scope.range(N0[0], N0[1])
-        vh = vectorize.VectorizeHelper(template, idx_range)
-        vh.build_idxs()
-        vh.build_vals()
-        sampled_docs = vh.vals_memo[template]
-        outputs0 = as_apply([sampled_docs, vh.idxs_by_id(), vh.vals_by_id()])
-        outputs1 = pyll.stochastic.replace_repeat_stochastic(outputs0)
-        outputs2, lrng = pyll.stochastic.replace_implicit_stochastic_nodes(
-                outputs1,
-                as_apply(self.rng))
-        self.outputs2 = outputs2
-
-    def suggest(self, trials, results, N):
-        docs, idxs, vals = pyll.rec_eval(self.outputs2)
+    def suggest_docs_idxs_vals(self, trials, results, N):
+        docs, idxs, vals = pyll.rec_eval(self.s_docs_idxs_vals)
         return docs, idxs, vals
 
 
