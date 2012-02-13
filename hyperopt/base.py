@@ -38,9 +38,11 @@ __contact__   = "github.com/jaberg/hyperopt"
 
 import logging
 
-import numpy
+import numpy as np
 
-import utils
+import pyll
+
+from .utils import pmin_sampled
 
 logger = logging.getLogger(__name__)
 
@@ -168,14 +170,6 @@ class BanditAlgo(object):
     def __init__(self, bandit):
         self.bandit = bandit
 
-    def __setstate__(self, dct):
-        self.__dict__.update(dct)
-        # recursively change type in-place
-        if 'template' in dct:
-            # XXX: ditch ht_dist2, use genson
-            import ht_dist2
-            ht_dist2.bless(self.template)
-
     def short_str(self):
         return self.__class__.__name__
 
@@ -189,12 +183,25 @@ class Random(BanditAlgo):
 
     def __init__(self, bandit):
         BanditAlgo.__init__(self, bandit)
-        self.rng = numpy.random.RandomState(self.seed)
+        self.rng = np.random.RandomState(self.seed)
+        template = pyll.clone(self.bandit.template)
+        self.idx_range = [0, 1]
+        N0 = pyll.Literal(self.idx_range)
+        idx_range = pyll.scope.range(N0[0], N0[1])
+        vh = vectorize.VectorizeHelper(template, idx_range)
+        vh.build_idxs()
+        vh.build_vals()
+        sampled_docs = vh.vals_memo[template]
+        outputs0 = as_apply([sampled_docs, vh.idxs_by_id(), vh.vals_by_id()])
+        outputs1 = pyll.stochastic.replace_repeat_stochastic(outputs0)
+        outputs2, lrng = pyll.stochastic.replace_implicit_stochastic_nodes(
+                outputs1,
+                as_apply(self.rng))
+        self.outputs2 = outputs2
 
     def suggest(self, trials, results, N):
-        seeds = self.rng.randint(2**30, size=N)
-        return [self.bandit.template.sample(int(seed))
-                for seed in seeds]
+        docs, idxs, vals = pyll.rec_eval(self.outputs2)
+        return docs, idxs, vals
 
 
 class Experiment(object):
@@ -227,10 +234,10 @@ class Experiment(object):
         bandit = self.bandit_algo.bandit
 
         def fmap(f):
-            rval = numpy.asarray([f(r, s)
+            rval = np.asarray([f(r, s)
                     for (r, s) in zip(self.results, self.trials)
                     if bandit.status(r) == 'ok']).astype('float')
-            if not numpy.all(numpy.isfinite(rval)):
+            if not np.all(np.isfinite(rval)):
                 raise ValueError()
             return rval
         loss = fmap(bandit.loss)
@@ -241,21 +248,40 @@ class Experiment(object):
         else:
             loss3 = zip(loss, loss_v, loss)
         loss3.sort()
-        loss3 = numpy.asarray(loss3)
-        if numpy.all(loss3[:, 1] == 0):
-            best_idx = numpy.argmin(loss3[:, 0])
+        loss3 = np.asarray(loss3)
+        if np.all(loss3[:, 1] == 0):
+            best_idx = np.argmin(loss3[:, 0])
             return loss3[best_idx, 2]
         else:
             cutoff = 0
-            sigma = numpy.sqrt(loss3[0][1])
+            sigma = np.sqrt(loss3[0][1])
             while (cutoff < len(loss3)
                     and loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
                 cutoff += 1
-            pmin = utils.pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
+            pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
             #print pmin
             #print loss3[:cutoff, 0]
             #print loss3[:cutoff, 1]
             #print loss3[:cutoff, 2]
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
             return avg_true_loss
+
+
+class SerialExperiment(Experiment):
+    """
+    """
+
+    def run(self, N):
+        algo = self.bandit_algo
+        bandit = algo.bandit
+
+        for n in xrange(N):
+            trial = algo.suggest(self.trials, self.results, 1)[0]
+            result = bandit.evaluate(trial, base.Ctrl())
+            if not isinstance(result, (dict, base.SON)):
+                raise TypeError('result should be dict-like', result)
+            logger.debug('trial: %s' % str(trial))
+            logger.debug('result: %s' % str(result))
+            self.trials.append(trial)
+            self.results.append(result)
 

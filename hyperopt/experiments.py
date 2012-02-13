@@ -17,23 +17,7 @@ import utils
 
 logger = logging.getLogger(__name__)
 
-class SerialExperiment(base.Experiment):
-    """
-    """
-
-    def run(self, N):
-        algo = self.bandit_algo
-        bandit = algo.bandit
-
-        for n in xrange(N):
-            trial = algo.suggest(self.trials, self.results, 1)[0]
-            result = bandit.evaluate(trial, base.Ctrl())
-            if not isinstance(result, (dict, base.SON)):
-                raise TypeError('result should be dict-like', result)
-            logger.debug('trial: %s' % str(trial))
-            logger.debug('result: %s' % str(result))
-            self.trials.append(trial)
-            self.results.append(result)
+from .base import SerialExperiment
 
 
 def main_search():
