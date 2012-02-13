@@ -28,7 +28,7 @@ class SerialExperiment(base.Experiment):
         for n in xrange(N):
             trial = algo.suggest(self.trials, self.results, 1)[0]
             result = bandit.evaluate(trial, base.Ctrl())
-            if not isinstance(result, (dict, base.SON)):
+            if not (hasattr(result, 'keys') and hasattr(result, 'values')):
                 raise TypeError('result should be dict-like', result)
             logger.debug('trial: %s' % str(trial))
             logger.debug('result: %s' % str(result))
