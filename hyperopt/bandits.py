@@ -5,7 +5,8 @@ Sample problems on which to test algorithms.
 import numpy
 
 import base
-from .ht_dist2 import rSON2, one_of, uniform, normal, lognormal
+from pyll import scope
+#from .ht_dist2 import rSON2, one_of, uniform, normal, lognormal
 
 
 class Base(base.Bandit):
@@ -31,7 +32,7 @@ class Quadratic1(Base):
     loss_target = 0
 
     def __init__(self):
-        Base.__init__(self, rSON2('x', uniform(-5, 5)))
+        Base.__init__(self, dict(x=scope.uniform(-5, 5)))
 
     def score(self, config):
         return -(config['x'] - 3)**2
@@ -46,7 +47,7 @@ class Q1Lognormal(Base):
     loss_target = 0
 
     def __init__(self):
-        Base.__init__(self, rSON2('x', lognormal(0, 2)))
+        Base.__init__(self, dict(x=scope.lognormal(0, 2)))
 
     def score(self, config):
         return max(-(config['x'] - 3)**2, -100)
@@ -62,7 +63,7 @@ class TwoArms(Base):
     loss_target = -1
 
     def __init__(self):
-        Base.__init__(self, rSON2('x', one_of(0, 1)))
+        Base.__init__(self, dict(x=scope.one_of(0, 1)))
 
     def score(self, config):
         arms = 2
@@ -91,7 +92,7 @@ class Distractor(Base):
         The second peak is at x=-10.
         The prior mean is 0.
         """
-        Base.__init__(self, rSON2('x', normal(0, sigma)))
+        Base.__init__(self, dict(x=scope.normal(0, sigma)))
 
     def score(self, config):
         f1 = 1.0 / (1.0 + numpy.exp(-config['x']))    # climbs rightward from 0.0 to 1.0
@@ -117,9 +118,9 @@ class GaussWave(Base):
     loss_target = -1
 
     def __init__(self):
-        Base.__init__(self, rSON2(
-            'curve', one_of(0, 1),
-            'x', uniform(-20, 20)))
+        Base.__init__(self, dict(
+            curve=scope.one_of(0, 1),
+            x=scope.uniform(-20, 20)))
 
     def score(self, config):
         if config['curve']:
@@ -148,14 +149,11 @@ class GaussWave2(Base):
     loss_target = -3
 
     def __init__(self):
-        Base.__init__(self, rSON2(
-            'x', uniform(-20, 20),
-            'hf', one_of(
-                rSON2(
-                    'kind', 'raw'),
-                rSON2(
-                    'kind', 'negcos',
-                    'amp', uniform(0, 1)))))
+        Base.__init__(self, dict(
+            x=scope.uniform(-20, 20),
+            hf=scope.one_of(
+                dict(kind='raw'),
+                dict(kind='negcos', amp=scope.uniform(0, 1)))))
 
     def score(self, config):
         r = self.rng.randn() * .1

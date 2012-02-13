@@ -40,6 +40,8 @@ import logging
 
 import numpy as np
 
+from pymongo import SON
+
 import pyll
 from pyll.stochastic import replace_repeat_stochastic
 from pyll.stochastic import replace_implicit_stochastic_nodes
@@ -71,6 +73,109 @@ STATUS_OK = 'ok'
 STATUS_FAIL = 'fail'
 
 
+class Trials(object):
+    """
+    Trials are documents (dict-like) with *at least* the following keys:
+        - spec: an instantiation of a Bandit template
+        - tid: a unique trial identification integer within `self.trials`
+        - result: sub-document returned by Bandit.evaluate
+        - idxs:  sub-document mapping stochastic node names
+                    to either [] or [tid]
+        - vals:  sub-document mapping stochastic node names
+                    to either [] or [<val>]
+    """
+
+    def __init__(self):
+        self._trials = []
+        self.refresh_trials()
+
+    def refresh_specs_results_idxs_vals(self):
+        self._specs = [tt['spec'] for tt in self._trials]
+        self._results = [tt['result'] for tt in self._trials]
+        self._idxs = idxs = {}
+        self._vals = vals = {}
+        for trial in _trials:
+            tid = trial['tid']
+            tidxs = trial['idxs']
+            tvals = trial['vals']
+            assert set(tidxs.keys()) == set(tvals.keys())
+            for node_name, tidx in tidxs.items():
+                assert tidx == [] or tidx == [tid]
+                assert len(tidx) == len(tvals[node_name])
+                if tidx:
+                    if node_name in idxs:
+                        idxs[node_name].append(tid)
+                        vals[node_name].append(tvals[node_name][0])
+                    else:
+                        idxs[node_name] = [tid]
+                        vals[node_name] = [tvals[node_name][0]]
+
+    def refresh(self):
+        # any syncing to persistent storage would happen here
+        self.refresh_specs_results_idxs_vals()
+
+    @property
+    def specs(self):
+        return self._specs
+
+    @property
+    def results(self):
+        return self._results
+
+    @property
+    def idxs(self):
+        return self._idxs
+
+    @property
+    def vals(self):
+        return self._vals
+
+    def assert_valid_trial(self, trial):
+        # XXX: assert trial is SON-encodable
+        for key in 'tid', 'spec', 'result', 'idxs', 'vals':
+            if key not in trial:
+                raise ValueError('trial missing key', key)
+        if not isinstance(trial['result'], (dict, SON)):
+            raise TypeError('trial["result"] should be dict-like', result)
+
+    def _insert_trial(self, trial):
+        """insert with no error checking
+        """
+        self._trials.append(trial)
+
+    def insert_trial(self, trial):
+        """insert trial after error checking
+
+        Does not refresh. Call self.refresh() for the trial to appear in
+        self.specs, self.results, etc.
+        """
+        self.assert_valid_trial(trial)
+        self._insert_trial(trial)
+        # refreshing could be done fast in this base implementation, but with
+        # a real DB the steps should be separated.
+
+    def new_trial_ids(self, N):
+        return range(
+                len(self._trials),
+                len(self._trials) + N)
+
+    def new_trials(self, tids, specs, results, idxs, vals):
+        assert len(tids) == len(specs) == len(results)
+        assert set(idxs.keys()) == set(vals.keys())
+        rval = []
+        for tid, spec, result in zip(tids, specs, results):
+            trial = dict(tid=tid, spec=spec, result=result, idxs={}, vals={})
+            for node_id in idxs:
+                node_idxs = list(idxs[node_id])
+                node_vals = vals[node_id]
+                if tid in node_idxs:
+                    trial['idxs'][node_id] = [tid]
+                    trial['vals'][node_id] = [node_vals[node_idxs.index(tid)]]
+                else:
+                    trial['idxs'][node_id] = []
+                    trial['vals'][node_id] = []
+            rval.append(trial)
+        return rval
 
 class Ctrl(object):
     """Control object for interruptible, checkpoint-able evaluation
@@ -90,14 +195,6 @@ class Ctrl(object):
 
     def checkpoint(self, r=None):
         pass
-
-    def get_trials(self):
-        # TODO
-        raise NotImplementedError()
-
-    def insert_trials(self):
-        # TODO
-        raise NotImplementedError()
 
 
 class Bandit(object):
@@ -126,14 +223,12 @@ class Bandit(object):
         rval = pyll.rec_eval(runnable)
         return rval
 
-    @classmethod
-    def evaluate(cls, config, ctrl):
+    def evaluate(self, config, ctrl):
         """Return a result document
         """
         raise NotImplementedError('override me')
 
-    @classmethod
-    def loss(cls, result, config=None):
+    def loss(self, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
         try:
@@ -141,29 +236,24 @@ class Bandit(object):
         except KeyError:
             return None
 
-    @classmethod
-    def loss_variance(cls, result, config=None):
+    def loss_variance(self, result, config=None):
         """Return the variance in the estimate of the loss"""
         return 0
 
-    @classmethod
-    def true_loss(cls, result, config=None):
+    def true_loss(self, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
         return cls.loss(result, config=config)
 
-    @classmethod
-    def true_loss_variance(cls, result, config=None):
+    def true_loss_variance(self, config=None):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
         return 0
 
-    @classmethod
-    def loss_target(cls):
+    def loss_target(self):
         raise NotImplementedError('override-me')
 
-    @classmethod
-    def status(cls, result, config=None):
+    def status(self, result, config=None):
         """Extract the job status from a result document
         """
         return result['status']
@@ -209,9 +299,9 @@ class BanditAlgo(object):
     def __init__(self, bandit):
         self.bandit = bandit
         self.rng = np.random.RandomState(self.seed)
-        self.idx_range = [0, 1]
-        N0 = pyll.Literal(self.idx_range)
-        idx_range = pyll.scope.range(N0[0], N0[1])
+        self.new_ids = []
+        # -- N.B. not necessarily actually a range
+        idx_range = pyll.Literal(self.new_ids)
         template = pyll.clone(self.bandit.template)
         vh = VectorizeHelper(template, idx_range)
         vh.build_idxs()
@@ -219,52 +309,120 @@ class BanditAlgo(object):
         idxs_by_id = vh.idxs_by_id()
         vals_by_id = vh.vals_by_id()
         name_by_id = vh.name_by_id()
+        # -- remove non-stochastic nodes from the idxs and vals
+        #    because (a) they should be irrelevant for BanditAlgo operation
+        #    and (b) they can be reconstructed from the template and the
+        #    stochastic choices.
         for node_id, name in name_by_id.items():
             if name not in pyll.stochastic.implicit_stochastic_symbols:
                 del name_by_id[node_id]
                 del vals_by_id[node_id]
                 del idxs_by_id[node_id]
-
-        docs_idxs_vals_0 = pyll.as_apply([
+        # -- make the pretty graph runnable
+        specs_idxs_vals_0 = pyll.as_apply([
             vh.vals_memo[template], idxs_by_id, vals_by_id])
-        docs_idxs_vals_1 = replace_repeat_stochastic(docs_idxs_vals_0)
-        docs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
-                docs_idxs_vals_1,
+        specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
+        specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
+                specs_idxs_vals_1,
                 pyll.as_apply(self.rng))
-        # -- symbolic docs/idxs/vals
-        self.s_docs_idxs_vals = docs_idxs_vals_2
+        # -- represents symbolic specs/idxs/vals
+        self.s_specs_idxs_vals = specs_idxs_vals_2
 
     def short_str(self):
         return self.__class__.__name__
 
-    def suggest_docs_idxs_vals(self, trials, results,
-            stochastic_idxs, stochastic_vals, N):
+    def suggest(self,
+            new_ids,
+            specs,
+            results,
+            stochastic_idxs,
+            stochastic_vals):
         raise NotImplementedError('override me')
 
 
 class Random(BanditAlgo):
     """Random search algorithm
     """
-    def suggest_docs_idxs_vals(self, trials, results,
+
+    def suggest(self,
+            new_ids,
+            specs,
+            results,
             stochastic_idxs,
-            stochastic_vals,
-            N):
-        self.idx_range[1] = N
-        docs, idxs, vals = pyll.rec_eval(self.s_docs_idxs_vals)
-        return docs, idxs, vals
+            stochastic_vals):
+        self.new_ids[:] = new_ids
+        specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
+        return specs, idxs, vals
 
 
 class Experiment(object):
     """Object for conducting search experiments.
     """
-    def __init__(self, bandit_algo):
+    max_queue_len = 1
+    poll_interval_secs = 0.5
+
+    def __init__(self, trials, bandit_algo, async=False):
+        self.trials = trials
         self.bandit_algo = bandit_algo
         self.bandit = bandit_algo.bandit
-        self.trials = []
-        self.results = []
+        self.async = async
 
-    def run(self, N):
-        raise NotImplementedError('override-me')
+    def queue_len(self):
+        if self.async:
+            raise NotImplementedError('override-me')
+        else:
+            return len([tt for tt in self.trials._trials
+                if tt['serial_status'] == 'TODO'])
+
+    # -- override this method in async. experiment to be no-op
+    def serial_evaluate(self):
+        if self.async:
+            time.sleep(self.poll_interval_secs)
+        else:
+            for trial in self.trials._trials:
+                if trial['serial_status'] == 'TODO':
+                    spec = trial['spec']
+                    ctrl = Ctrl() # TODO - give access to self.trials
+                    result = self.bandit.evaluate(spec, ctrl)
+                    # XXX verify result is SON-encodable
+                    trial['result'] = result
+
+    def enqueue(self, new_trials):
+        for trial in new_trials:
+            self.trials.insert_trial(trial)
+
+    def run(self, N, block_until_done=True):
+        trials = self.trials
+        algo = self.bandit_algo
+        bandit = algo.bandit
+        n_queued = 0
+
+        self.trials.refresh()
+        while n_queued < N:
+            while self.queue_len() < self.max_queue_len:
+                n_to_enqueue = self.max_queue_len - self.queue_len()
+                new_ids = trials.new_trial_ids(n_to_enqueue)
+                new_specs, new_idxs, new_vals = algo.suggest(
+                        new_ids,
+                        trials.specs, trials.results,
+                        trials.idxs, trials.vals)
+                new_results = [bandit.new_result() for ii in new_ids]
+                new_trials = trials.new_trials(new_ids,
+                        new_specs, new_results,
+                        new_idxs, new_vals)
+                self.enqueue(new_trials)
+                self.trials.refresh()
+            self.serial_evaluate()
+
+        if block_until_done:
+            self.block_until_done()
+            self.trials.refresh()
+            logger.info('Queue empty, exiting run.')
+        else:
+            msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
+            logger.info(msg)
+
+
 
     def losses(self):
         return map(self.bandit_algo.bandit.loss, self.results, self.trials)
@@ -315,23 +473,4 @@ class Experiment(object):
             #print loss3[:cutoff, 2]
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
             return avg_true_loss
-
-
-class SerialExperiment(Experiment):
-    """
-    """
-
-    def run(self, N):
-        algo = self.bandit_algo
-        bandit = algo.bandit
-
-        for n in xrange(N):
-            trial = algo.suggest(self.trials, self.results, 1)[0]
-            result = bandit.evaluate(trial, base.Ctrl())
-            if not isinstance(result, (dict, base.SON)):
-                raise TypeError('result should be dict-like', result)
-            logger.debug('trial: %s' % str(trial))
-            logger.debug('result: %s' % str(result))
-            self.trials.append(trial)
-            self.results.append(result)
 
