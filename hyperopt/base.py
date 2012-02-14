@@ -87,6 +87,9 @@ class Trials(object):
     def __iter__(self):
         return iter(self._trials)
 
+    def __len__(self):
+        return len(self._trials)
+
     def refresh_specs_results_idxs_vals(self):
         self._specs = [tt['spec'] for tt in self._trials]
         self._results = [tt['result'] for tt in self._trials]
