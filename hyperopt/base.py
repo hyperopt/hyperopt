@@ -2,32 +2,27 @@
 
 The design is that there are three components fitting together in this project:
 
+- Trials - a list of documents including at least sub-documents:
+    ['spec'] - the specification of hyper-parameters for a job
+    ['result'] - the result of Bandit.evaluate(). Typically includes:
+        ['status'] - one of the STATUS_STRINGS
+        ['loss'] - real-valued scalar that hyperopt is trying to minimize
+    ['idxs'] - compressed representation of spec
+    ['vals'] - compressed representation of spec
+    ['tid'] - trial id (unique in Trials list)
+
 - Bandit - specifies a search problem
 
 - BanditAlgo - an algorithm for solving a Bandit search problem
 
-- Experiment - uses a Bandit and a BanditAlgo to carry out a search on some
-               number of computers. (Includes CLI)
+- Experiment - uses a Bandit and a BanditAlgo to carry out a search by
+         interacting with a Trials object.
 
 - Ctrl - a channel for two-way communication
          between an Experiment and Bandit.evaluate.
          Experiment subclasses may subclass Ctrl to match. For example, if an
          experiment is going to dispatch jobs in other threads, then an
          appropriate thread-aware Ctrl subclass should go with it.
-
-- Template - an rSON hierarchy (see ht_dist2.py)
-
-- TrialSpec - a JSON-encodable document used to specify the computation of a
-  Trial.
-
-- Result - a JSON-encodable document describing the results of a Trial.
-    'status' - a string describing what happened to this trial
-                (BanditAlgo-dependent, see e.g.
-                theano_bandit_algos.STATUS_STRINGS)
-    'loss' - a scalar saying how bad this trial was, or None if unknown / NA.
-
-The modules communicate with trials in nested dictionary form.
-TheanoBanditAlgo translates nested dictionary form into idxs, vals form.
 
 """
 
@@ -466,7 +461,7 @@ class Experiment(object):
         if self.async:
             time.sleep(self.poll_interval_secs)
         else:
-            for trial in self.trials._trials:
+            for trial in self.trials:
                 if trial['serial_status'] == 'TODO':
                     spec = trial['spec']
                     ctrl = Ctrl() # TODO - give access to self.trials
@@ -474,6 +469,8 @@ class Experiment(object):
                     # XXX verify result is SON-encodable
                     trial['result'] = result
                     trial['serial_status'] = 'DONE'
+            self.trials.refresh()
+
 
     def block_until_done(self):
         if self.async:
