@@ -1,2 +1,1 @@
 theano
-git+https://github.com/npinto/MonteTheano.git

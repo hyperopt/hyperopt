@@ -259,7 +259,7 @@ class Ctrl(object):
 class Bandit(object):
     """Specification of bandit problem.
 
-    template - htdist2 specification of search domain
+    template - pyll specification of search domain
 
     evaluate - interruptible/checkpt calling convention for evaluation routine
 
