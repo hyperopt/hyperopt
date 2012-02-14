@@ -11,7 +11,6 @@ __contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
 import cPickle
 import math
 import sys
-import nose
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -91,7 +90,6 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
         plt.show()
 
 
-@nose.SkipTest
 def main_plot_vars(trials, bandit=None, algo=None, do_show=True):
     if bandit is None:
         bandit = Bandit(None)
