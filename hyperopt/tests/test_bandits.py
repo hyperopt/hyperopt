@@ -18,8 +18,8 @@ class BanditExperimentMixin(object):
         print
         print self._bandit_cls
         print bandit.loss_target
-        print experiment.average_best_error()
-        assert experiment.average_best_error() - bandit.loss_target  < .2
+        print trials.average_best_error(bandit)
+        assert trials.average_best_error(bandit) - bandit.loss_target  < .2
         print
 
 

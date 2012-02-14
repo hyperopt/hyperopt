@@ -180,6 +180,61 @@ class Trials(object):
             rval.append(trial)
         return rval
 
+    def losses(self, bandit=None):
+        if bandit is None:
+            bandit = Bandit(None)
+        return map(bandit.loss, self.results, self.specs)
+
+    def statuses(self, bandit=None):
+        if bandit is None:
+            bandit = Bandit(None)
+        return map(bandit.status, self.results, self.specs)
+
+    def average_best_error(self, bandit=None):
+        """Return the average best error of the experiment
+
+        Average best error is defined as the average of bandit.true_loss,
+        weighted by the probability that the corresponding bandit.loss is best.
+
+        For bandits with loss measurement variance of 0, this function simply
+        returns the true_loss corresponding to the result with the lowest loss.
+        """
+        if bandit is None:
+            bandit = Bandit(None)
+
+        def fmap(f):
+            rval = np.asarray([f(r, s)
+                    for (r, s) in zip(self.results, self.specs)
+                    if bandit.status(r) == STATUS_OK]).astype('float')
+            if not np.all(np.isfinite(rval)):
+                raise ValueError()
+            return rval
+        loss = fmap(bandit.loss)
+        loss_v = fmap(bandit.loss_variance)
+        if bandit.true_loss is not Bandit.true_loss:
+            true_loss = fmap(bandit.true_loss)
+            loss3 = zip(loss, loss_v, true_loss)
+        else:
+            loss3 = zip(loss, loss_v, loss)
+        loss3.sort()
+        loss3 = np.asarray(loss3)
+        if np.all(loss3[:, 1] == 0):
+            best_idx = np.argmin(loss3[:, 0])
+            return loss3[best_idx, 2]
+        else:
+            cutoff = 0
+            sigma = np.sqrt(loss3[0][1])
+            while (cutoff < len(loss3)
+                    and loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
+                cutoff += 1
+            pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
+            #print pmin
+            #print loss3[:cutoff, 0]
+            #print loss3[:cutoff, 1]
+            #print loss3[:cutoff, 2]
+            avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
+            return avg_true_loss
+
 
 class Ctrl(object):
     """Control object for interruptible, checkpoint-able evaluation
@@ -463,54 +518,4 @@ class Experiment(object):
         else:
             msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
             logger.info(msg)
-
-    def losses(self):
-        return map(self.bandit_algo.bandit.loss, self.trials.results, self.trials.specs)
-
-    def statuses(self):
-        return map(self.bandit_algo.bandit.status, self.trials.results, self.trials.trials)
-
-    def average_best_error(self):
-        """Return the average best error of the experiment
-
-        Average best error is defined as the average of bandit.true_loss,
-        weighted by the probability that the corresponding bandit.loss is best.
-
-        For bandits with loss measurement variance of 0, this function simply
-        returns the true_loss corresponding to the result with the lowest loss.
-        """
-        bandit = self.bandit_algo.bandit
-
-        def fmap(f):
-            rval = np.asarray([f(r, s)
-                    for (r, s) in zip(self.trials.results, self.trials.specs)
-                    if bandit.status(r) == 'ok']).astype('float')
-            if not np.all(np.isfinite(rval)):
-                raise ValueError()
-            return rval
-        loss = fmap(bandit.loss)
-        loss_v = fmap(bandit.loss_variance)
-        if bandit.true_loss is not Bandit.true_loss:
-            true_loss = fmap(bandit.true_loss)
-            loss3 = zip(loss, loss_v, true_loss)
-        else:
-            loss3 = zip(loss, loss_v, loss)
-        loss3.sort()
-        loss3 = np.asarray(loss3)
-        if np.all(loss3[:, 1] == 0):
-            best_idx = np.argmin(loss3[:, 0])
-            return loss3[best_idx, 2]
-        else:
-            cutoff = 0
-            sigma = np.sqrt(loss3[0][1])
-            while (cutoff < len(loss3)
-                    and loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
-                cutoff += 1
-            pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
-            #print pmin
-            #print loss3[:cutoff, 0]
-            #print loss3[:cutoff, 1]
-            #print loss3[:cutoff, 2]
-            avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
-            return avg_true_loss
 

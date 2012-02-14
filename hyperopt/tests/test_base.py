@@ -93,10 +93,6 @@ class TestCoinFlipExperiment(unittest.TestCase):
         assert self.trials.idxs['node_4'] == [0, 1, 2]
         assert self.trials.vals['node_4'] == [0, 1, 0]
 
-    def test_average_best_error(self):
-        # experiment loss code is tested in test_bandits.py
-        pass
-
 
 class ZeroBandit(Bandit):
     def __init__(self, template):
