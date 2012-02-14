@@ -134,12 +134,12 @@ class Trials(object):
         return self._vals
 
     def assert_valid_trial(self, trial):
-        # XXX: assert trial is SON-encodable
+        if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
+            raise TypeError('trial should be dict-like', trial)
         for key in 'tid', 'spec', 'result', 'idxs', 'vals':
             if key not in trial:
                 raise ValueError('trial missing key', key)
-        if not isinstance(trial['result'], (dict, SON)):
-            raise TypeError('trial["result"] should be dict-like', result)
+        # XXX check for SON-encodable
 
     def _insert_trial(self, trial):
         """insert with no error checking
@@ -246,7 +246,7 @@ class Bandit(object):
 
     def true_loss(self, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
-        return cls.loss(result, config=config)
+        return self.loss(result, config=config)
 
     def true_loss_variance(self, config=None):
         """Return the variance in  true loss,
@@ -465,10 +465,10 @@ class Experiment(object):
             logger.info(msg)
 
     def losses(self):
-        return map(self.bandit_algo.bandit.loss, self.results, self.trials)
+        return map(self.bandit_algo.bandit.loss, self.trials.results, self.trials.specs)
 
     def statuses(self):
-        return map(self.bandit_algo.bandit.status, self.results, self.trials)
+        return map(self.bandit_algo.bandit.status, self.trials.results, self.trials.trials)
 
     def average_best_error(self):
         """Return the average best error of the experiment
@@ -483,7 +483,7 @@ class Experiment(object):
 
         def fmap(f):
             rval = np.asarray([f(r, s)
-                    for (r, s) in zip(self.results, self.trials)
+                    for (r, s) in zip(self.trials.results, self.trials.specs)
                     if bandit.status(r) == 'ok']).astype('float')
             if not np.all(np.isfinite(rval)):
                 raise ValueError()

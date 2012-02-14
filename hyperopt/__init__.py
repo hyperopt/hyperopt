@@ -9,7 +9,8 @@ from base import (STATUS_NEW, STATUS_RUNNING, STATUS_SUSPENDED, STATUS_OK,
         STATUS_FAIL)
 
 from base import Bandit
+from base import BanditAlgo
 from base import Ctrl
+from base import Experiment
 from base import Random
-#from genson_bandits import GensonBandit
-#from bandit_algos import Random
+from base import Trials

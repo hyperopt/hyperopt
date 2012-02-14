@@ -6,7 +6,6 @@ import numpy
 
 import base
 from pyll import scope
-#from .ht_dist2 import rSON2, one_of, uniform, normal, lognormal
 
 
 class Base(base.Bandit):
@@ -47,7 +46,7 @@ class Q1Lognormal(Base):
     loss_target = 0
 
     def __init__(self):
-        Base.__init__(self, dict(x=scope.lognormal(0, 2)))
+        Base.__init__(self, dict(x=scope.exp_normal(0, 2)))
 
     def score(self, config):
         return max(-(config['x'] - 3)**2, -100)
@@ -60,7 +59,7 @@ class TwoArms(Base):
     How long does it take the algorithm to identify the best arm?
     """
 
-    loss_target = -1
+    loss_target = -2
 
     def __init__(self):
         Base.__init__(self, dict(x=scope.one_of(0, 1)))

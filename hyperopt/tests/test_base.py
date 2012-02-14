@@ -71,7 +71,6 @@ class TestRandom(unittest.TestCase):
         assert np.all(vals['node_4'] == [0, 1, 0, 0, 0])
 
 
-# XXX: Test experiment loss code
 class TestCoinFlipExperiment(unittest.TestCase):
     def setUp(self):
         self.bandit = CoinFlip()
@@ -93,6 +92,10 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.vals
         assert self.trials.idxs['node_4'] == [0, 1, 2]
         assert self.trials.vals['node_4'] == [0, 1, 0]
+
+    def test_average_best_error(self):
+        # experiment loss code is tested in test_bandits.py
+        pass
 
 
 class ZeroBandit(Bandit):
