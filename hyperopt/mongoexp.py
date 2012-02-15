@@ -130,7 +130,7 @@ finalize the job in the database.
 
 """
 
-__authors__ = "James Bergstra"
+__authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
@@ -157,14 +157,17 @@ import utils
 
 logger = logging.getLogger(__name__)
 
-STATE_NEW = 0
-STATE_RUNNING = 1
-STATE_DONE = 2
-STATE_ERROR = 3
-JOB_STATES = [STATE_NEW,
-              STATE_RUNNING,
-              STATE_DONE,
-              STATE_ERROR]
+from .base import InvalidTrial
+from .base import Trials
+
+MONGO_NEW = 0
+MONGO_RUNNING = 1
+MONGO_DONE = 2
+MONGO_ERROR = 3
+JOB_STATES = [MONGO_NEW,
+              MONGO_RUNNING,
+              MONGO_DONE,
+              MONGO_ERROR]
 
 
 class OperationFailure(Exception):
@@ -177,6 +180,10 @@ class Shutdown(Exception):
     """
     Exception for telling mongo_worker loop to quit
     """
+
+
+class InvalidMongoTrial(InvalidTrial):
+    pass
 
 
 class ReserveTimeout(Exception):
@@ -198,20 +205,23 @@ def authenticate_for_db(db):
 
 
 def parse_url(url, pwfile=None):
-    """Unpacks a url of the form protocol://[username[:pw]]@hostname[:port]/db/collection
+    """Unpacks a url of the form
+        protocol://[username[:pw]]@hostname[:port]/db/collection
 
     :rtype: tuple of strings
     :returns: protocol, username, password, hostname, port, dbname, collection
 
-    :note: If the password is not given in the url but the username is, then this function
-    will read the password from file by calling ``open(pwfile).read()[:-1]``
+    :note:
+    If the password is not given in the url but the username is, then
+    this function will read the password from file by calling
+    ``open(pwfile).read()[:-1]``
 
     """
 
     protocol=url[:url.find(':')]
     ftp_url='ftp'+url[url.find(':'):]
 
-    #parse the string as if it were an ftp address
+    # -- parse the string as if it were an ftp address
     tmp = urlparse.urlparse(ftp_url)
 
     logger.info( 'PROTOCOL %s'% protocol)
@@ -236,7 +246,8 @@ def parse_url(url, pwfile=None):
         password = tmp.password
     logger.info( 'PASS %s'% password)
 
-    return protocol, tmp.username, password, tmp.hostname, tmp.port, dbname, collection
+    return (protocol, tmp.username, password, tmp.hostname, tmp.port, dbname,
+            collection)
 
 
 def connection_with_tunnel(host='localhost',
@@ -244,15 +255,19 @@ def connection_with_tunnel(host='localhost',
             ssh=False, user='hyperopt', pw=None):
         if ssh:
             local_port=numpy.random.randint(low=27500, high=28000)
-            # forward from local to remote machine
-            ssh_tunnel = subprocess.Popen(['ssh', '-NTf', '-L', '%i:%s:%i'%(local_port,
-                '127.0.0.1', port), host],
+            # -- forward from local to remote machine
+            ssh_tunnel = subprocess.Popen(
+                    ['ssh', '-NTf', '-L',
+                        '%i:%s:%i'%(local_port, '127.0.0.1', port),
+                        host],
                     #stdin=subprocess.PIPE,
                     #stdout=subprocess.PIPE,
                     #stderr=subprocess.PIPE,
                     )
-            time.sleep(.5) # give the subprocess time to set up
-            connection = pymongo.Connection('127.0.0.1', local_port, document_class=SON)
+            # -- give the subprocess time to set up
+            time.sleep(.5)
+            connection = pymongo.Connection('127.0.0.1', local_port,
+                    document_class=SON)
         else:
             connection = pymongo.Connection(host, port, document_class=SON)
             if user:
@@ -293,8 +308,8 @@ def coarse_utcnow():
     microsec = (now.microsecond//10**3)*(10**3)
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
- 
-class MongoJobs(object):
+
+class _MongoJobs(object):
     """
     # Interface to a Jobs database structured like this
     #
@@ -314,7 +329,7 @@ class MongoJobs(object):
         self.conn=conn
         self.tunnel=tunnel
         self.config_name = config_name
-        
+
     # TODO: rename jobs -> coll throughout
     coll = property(lambda s : s.jobs)
 
@@ -598,6 +613,73 @@ class MongoJobs(object):
         self.gfs.delete(file_id)
 
 
+MONGO_TRIAL_KEYS = ['owner', 'book_time', 'state', 'refresh_time', 'cmd', 'exp_key']
+
+class MongoTrials(Trials):
+    """Trials maps on to an entire mongo collection. It's basically a wrapper
+    around MongoJobs for now.
+
+    As a concession to performance, this object permits trial filtering based
+    on the exp_key, but I feel that's a hack. The case of `cmd` is similar--
+    the exp_key and cmd are semantically coupled.
+    """
+    def __init__(self, connection_string, cmd, exp_key):
+        self.connection_string = connection_string
+        self.handle = _MongoJobs.new_from_connection_str(connection_string)
+        self.exp_key = exp_key
+        self.cmd = cmd
+        self.refresh()
+
+    def refresh(self):
+        if self.exp_key != None:
+            query = {'exp_key' : self.exp_key}
+        else:
+            query = {}
+        all_jobs = list(self.handle.jobs.find(query))
+        id_jobs = [(j['_id'], j)
+            for j in all_jobs
+            if j['state'] != MONGO_ERROR]
+        logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
+        id_jobs.sort()
+        self._trials = [j for j in id_jobs]
+        self._specs = [j['spec'] for (_id, j) in id_jobs]
+        self._results = [j['result'] for (_id, j) in id_jobs]
+        self._miscs = [j['misc'] for (_id, j) in id_jobs]
+
+    def assert_valid_trial(self, trial):
+        Trials.assert_valid_trial(self, trial)
+        for key in MONGO_TRIAL_KEYS:
+            if key not in trial:
+                raise InvalidMongoTrial('missing key %s' % key)
+
+    def _insert_trial_docs(self, docs):
+        rval = []
+        for doc in docs:
+            rval.append(self.handle.jobs.insert(doc, safe=True))
+        return rval
+
+    def new_trials(self, tids, specs, results, miscs):
+        # -- fill in the basic document
+        rval = Trials.new_trials(self, tids, specs, results, miscs)
+
+        # -- overlay mongo-specific fields
+        for doc in rval:
+
+            # -- ensure we do not clobber anything
+            for key in MONGO_TRIAL_KEYS:
+                assert key not in doc
+
+            doc['state'] = MONGO_NEW
+            doc['exp_key'] = self.exp_key
+            doc['cmd'] = self.cmd
+            doc['owner'] = None
+            doc['version'] = 0
+            doc['book_time'] = None
+            doc['refresh_time'] = None
+
+        return rval
+
+
 class MongoExperiment(base.Experiment):
     """
     This experiment uses a Mongo collection to store
@@ -649,17 +731,6 @@ class MongoExperiment(base.Experiment):
             self.trials = []
             self.results = []
 
-    def refresh_trials_results(self):
-        query = {'exp_key': self.exp_key}
-        all_jobs = list(self.mongo_handle.jobs.find(query))
-        logger.info('skipping %i error jobs'
-                % len([j for j in all_jobs if j['state'] == STATE_ERROR]))
-        id_jobs = [(j['_id'], j)
-            for j in all_jobs if j['state'] != STATE_ERROR]
-        id_jobs.sort()
-        self.trials[:] = [j['spec'] for (_id, j) in id_jobs]
-        self.results[:] = [j['result'] for (_id, j) in id_jobs]
-
     def queue_extend(self, trial_configs, exp_key, skip_dups=True):
         if skip_dups:
             new_configs = []
@@ -697,7 +768,7 @@ class MongoExperiment(base.Experiment):
             rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
         return rval
 
-    def queue_len(self, states=STATE_NEW):
+    def queue_len(self, states=MONGO_NEW):
         # TODO: consider searching by SON rather than dict
         if isinstance(states,int):
             assert states in JOB_STATES

@@ -205,7 +205,7 @@ class Trials(object):
         """
         for doc in docs:
             self.assert_valid_trial(doc)
-        return self._insert_trial_docs(trial_docs)
+        return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
         return range(
