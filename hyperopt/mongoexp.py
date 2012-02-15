@@ -666,9 +666,47 @@ class MongoTrials(Trials):
         rval = self.handle.jobs.find(query).count()
         return rval
 
+    def clear_all(self):
+        if self._exp_key:
+            cond = cond={'exp_key': self._exp_key}
+        else:
+            cond = {}
+        self.handle.delete_all(cond)
+
+        # XXX: delete attached gfs files
+
+    @property
+    def attachments(self):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
+        gfs = self.handle.gfs
+        class Attachments(object):
+            def __contains__(_self, name):
+                return gfs.exists(filename=name)
+
+            def __getitem__(_self, name):
+                try:
+                    rval = gfs.get_version(name).read()
+                    return rval
+                except gridfs.NoFile, e:
+                    raise KeyError(name)
+
+            def __setitem__(_self, name, value):
+                if gfs.exists(filename=name):
+                    gout = gfs.get_last_version(name)
+                    gfs.delete(gout._id)
+                gfs.put(value, filename=name)
+
+            def __delitem__(_self, name):
+                gout = gfs.get_last_version(name)
+                gfs.delete(gout._id)
+
+        return Attachments()
 
 class MongoWorker(object):
-    poll_interval = 3.0            # seconds
+    poll_interval = 3.0  # -- seconds
     workdir = None
 
     def __init__(self, mj,
@@ -713,6 +751,7 @@ class MongoWorker(object):
         spec = copy.deepcopy(job['spec'])
 
         ctrl = MongoCtrl(
+                # XXX: should the job's exp_key be used here?
                 trials=MongoTrials(mj, exp_key=self.exp_key),
                 read_only=False,
                 current_job=job)
@@ -741,13 +780,8 @@ class MongoWorker(object):
                 bandit = json_call(cmd[1])
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'driver_attachment':
-                # There is no driver table anymore.
-                # use a new mechanism to support this protocol
-                # write it straight to gridfs with a filename related to
-                # exp_key
-                raise NotImplementedError()
-                driver = md.coll.find_one({'exp_key': job['exp_key']})
-                blob = md.get_attachment(driver, 'bandit_args_kwargs')
+                #name = 'driver_attachment_%s' % job['exp_key']
+                blob = ctrl.trials.attachments[cmd[1]]
                 bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
                 worker_fn = json_call(bandit_name,
                         args=bandit_args,

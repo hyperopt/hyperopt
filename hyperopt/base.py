@@ -180,6 +180,7 @@ class Trials(object):
         self._trials = []
         self._exp_key = exp_key
         self.refresh()
+        self.attachments = {}
 
     def __iter__(self):
         return izip(self._specs, self._results, self._miscs)
@@ -298,13 +299,6 @@ class Trials(object):
         called refresh() first.
         """
         return self.count_by_state_synced(arg)
-
-    def clear_all(self):
-        if self.exp_key:
-            cond = cond={'exp_key': self.exp_key}
-        else:
-            cond = {}
-        self.handle.delete_all(cond)
 
     def losses(self, bandit=None):
         if bandit is None:
@@ -646,8 +640,8 @@ class Experiment(object):
 
         while n_queued < N:
             qlen = get_queue_len()
-            while qlen < self.max_queue_len:
-                n_to_enqueue = self.max_queue_len - qlen
+            while qlen < self.max_queue_len and n_queued < N:
+                n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
                 new_specs, new_results, new_miscs = algo.suggest(
@@ -679,7 +673,8 @@ class Experiment(object):
             self.trials.refresh()
             logger.info('Queue empty, exiting run.')
         else:
-            qlen = self.trials.queue_len()
+            qlen = get_queue_len()
             msg = 'Exiting run, not waiting for %d jobs.' % qlen
             logger.info(msg)
+            print msg
 

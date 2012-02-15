@@ -127,6 +127,24 @@ def with_mongo_trials(f):
 def test_with_temp_mongo(trials):
     pass # -- just verify that the decorator can run
 
+@with_mongo_trials
+def test_attachments(trials):
+    blob = 'abcde'
+    assert 'aname' not in trials.attachments
+    trials.attachments['aname'] = blob
+    assert 'aname' in trials.attachments
+    assert trials.attachments[u'aname'] == blob
+    assert trials.attachments['aname'] == blob
+
+    blob2 = 'zzz'
+    trials.attachments['aname'] = blob2
+    assert 'aname' in trials.attachments
+    assert trials.attachments['aname'] == blob2
+    assert trials.attachments[u'aname'] == blob2
+
+    del trials.attachments['aname']
+    assert 'aname' not in trials.attachments
+
 def test_handles_are_independent():
     with TempMongo() as tm:
         t1 = tm.mongo_jobs('t1')
@@ -141,58 +159,109 @@ def test_handles_are_independent():
 
 
 class TestExperimentWithThreads(unittest.TestCase):
+    """
+    Test one or more experiments running simultaneously on a single database,
+    with multiple threads evaluating jobs.
+    """
 
     @staticmethod
     def worker_thread_fn(host_id, n_jobs, timeout):
         mw = MongoWorker(mj=TempMongo.mongo_jobs('foodb'))
         while n_jobs:
             mw.run_one(host_id, timeout)
-            print 'worker: ran job'
+            print 'worker: %s ran job' % str(host_id)
             n_jobs -= 1
 
-    def work(self, bandit):
+    def work(self):
         """
         Run a small experiment with several workers running in parallel
         using Python threads.
         """
         n_threads = 3
         jobs_per_thread = 2
-        n_trials = n_threads * jobs_per_thread
+        n_trials_per_exp = n_threads * jobs_per_thread
+        n_trials_total = n_trials_per_exp * len(self.exp_keys)
+
+        bandit = self.bandit
+        bandit_algo = Random(bandit)
 
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
-            trials = MongoTrials(tm.connection_string('foodb'))
-            assert len(trials) == 0
-
-            bandit_algo = Random(bandit)
-            exp = Experiment(trials, bandit_algo, cmd=self.cmd)
-
-            def newth():
+            def newth(ii):
+                n_jobs = jobs_per_thread * len(self.exp_keys)
                 return threading.Thread(
                         target=self.worker_thread_fn,
-                        args=(('hostname', 0), jobs_per_thread, 600.0))
-            threads = [newth() for ii in range(n_threads)]
+                        args=(('hostname', ii), n_jobs, 600.0))
+            threads = map(newth, range(n_threads))
             [th.start() for th in threads]
 
+            exp_list = []
+            trials_list = []
             try:
-                print 'running experiment'
-                exp.run(n_trials, block_until_done=True)
+                for key in self.exp_keys:
+                    print 'running experiment'
+                    trials = MongoTrials(tm.connection_string('foodb'), key)
+                    assert len(trials) == 0
+                    if hasattr(self, 'prep_trials'):
+                        self.prep_trials(trials)
+                    exp = Experiment(trials, bandit_algo, cmd=self.cmd,
+                            max_queue_len=10000)
+                    exp.run(n_threads * jobs_per_thread,
+                            block_until_done=(len(self.exp_keys) == 1))
+                    exp_list.append(exp)
+                    trials_list.append(trials)
             finally:
                 print 'joining worker thread...'
                 [th.join() for th in threads]
 
+            for exp in exp_list:
+                exp.block_until_done()
 
-            assert trials.count_by_state_synced(JOB_STATE_DONE) == n_trials
-            assert trials.count_by_state_unsynced(JOB_STATE_DONE) == n_trials
-            assert len(trials) == n_trials, (
-                'trials failure %d %d ' % (len(trials) , n_trials))
-            assert len(trials.results) == n_trials, (
-                'results failure %d %d ' % (len(trials.results) , n_trials))
+            for trials in trials_list:
+                assert trials.count_by_state_synced(JOB_STATE_DONE)\
+                        == n_trials_per_exp
+                assert trials.count_by_state_unsynced(JOB_STATE_DONE)\
+                        == n_trials_per_exp
+                assert len(trials) == n_trials_per_exp, (
+                    'trials failure %d %d ' % (len(trials) , n_trials_per_exp))
+                assert len(trials.results) == n_trials_per_exp, (
+                    'results failure %d %d ' % (len(trials.results),
+                        n_trials_per_exp))
+            all_trials = MongoTrials(tm.connection_string('foodb'))
+            assert len(all_trials) == n_trials_total
 
-    def test_bandit_json(self):
+
+    def test_bandit_json_1(self):
         self.cmd = ('bandit_json evaluate',
                 'hyperopt.bandits.GaussWave2')
-        self.work(GaussWave2())
+        self.exp_keys = ['key0']
+        self.bandit = GaussWave2()
+        self.work()
+
+    def test_bandit_json_2(self):
+        self.cmd = ('bandit_json evaluate',
+                'hyperopt.bandits.GaussWave2')
+        self.exp_keys = ['key0', 'key1']
+        self.bandit = GaussWave2()
+        self.work()
+
+    def test_driver_attachment_1(self):
+        bandit_name = 'hyperopt.bandits.GaussWave2'
+        bandit_args = ()
+        bandit_kwargs = {}
+        blob = cPickle.dumps((bandit_name, bandit_args, bandit_kwargs))
+        def prep_trials(trials):
+            print 'storing attachment'
+            trials.attachments['aname'] = blob
+            assert trials.attachments['aname'] == blob
+            assert trials.attachments[u'aname'] == blob
+        self.prep_trials = prep_trials
+        self.cmd = ('driver_attachment', 'aname')
+        self.exp_keys = ['key0']
+        self.bandit = GaussWave2()
+        self.work()
+
+
 
 # XXX: test each of the bandit calling protocols
 
@@ -207,19 +276,6 @@ class TestExperimentWithThreads(unittest.TestCase):
 # XXX: find old mongoexp unit tests and put them in here
 
 def test_multiple_mongo_exps_with_threads():
-    raise nose.SkipTest()
-    def worker(host_id, n_jobs, timeout, exp_key):
-        mw = MongoWorker(
-            mj=TempMongo.mongo_jobs('foodb'),
-            exp_key=exp_key
-            )
-        while n_jobs:
-            mw.run_one(host_id, timeout)
-            print 'worker: ran job'
-            n_jobs -= 1
-
-    bandit_jsons = ('hyperopt.bandits.GaussWave2',
-                   'hyperopt.dbn.Dummy_DBN_Base',)
 
     with TempMongo() as tm:
         mj = tm.mongo_jobs('foodb')
