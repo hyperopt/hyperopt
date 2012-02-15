@@ -9,6 +9,9 @@ one_of = scope.one_of
 
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
+from hyperopt.base import JOB_STATE_NEW
+from hyperopt.base import TRIAL_KEYS
+from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import Ctrl
 from hyperopt.base import InvalidTrial
 from hyperopt.base import Trials
@@ -20,38 +23,48 @@ from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.vectorize import pretty_names
 
 
+def ok_trial(tid, *args, **kwargs):
+    return dict(
+        tid=tid,
+        result={'status': 'algo, ok'},
+        spec={'a':1, 'foo': (args, kwargs)},
+        misc={
+            'tid':tid,
+            'cmd':("some cmd",),
+            'idxs':{'z':[tid]},
+            'vals':{'z':[1]}},
+        extra='extra', # -- more stuff here is ok
+        owner=None,
+        state=JOB_STATE_NEW,
+        version=0,
+        book_time=None,
+        refresh_time=None,
+        exp_key='my_experiment',
+        )
+
 class TestTrials(unittest.TestCase):
     def test_valid(self):
         trials = Trials()
         f = trials.insert_trial_doc
-        fine = dict(
-                tid='ID',
-                result={'status': STATUS_OK},
-                spec={'a':1},
-                misc={
-                    'tid':'ID',
-                    'foo':'bar',
-                    'idxs':{'z':['ID']},
-                    'vals':{'z':[1]}},
-                extra='extra', # -- more stuff here is ok
-                )
+        fine = ok_trial('ID', 1, 2, 3)
 
         # --original runs fine
         f(fine)
 
-        # -- these are not ok
+        # -- take out each mandatory root key
         def knockout(key):
             rval = copy.deepcopy(fine)
             del rval[key]
             return rval
-        for key in 'tid', 'result', 'spec', 'misc':
+        for key in TRIAL_KEYS:
             self.assertRaises(InvalidTrial, f, knockout(key))
 
+        # -- take out each mandatory misc key
         def knockout2(key):
             rval = copy.deepcopy(fine)
             del rval['misc'][key]
             return rval
-        for key in 'idxs', 'tid', 'vals':
+        for key in TRIAL_MISC_KEYS:
             self.assertRaises(InvalidTrial, f, knockout2(key))
 
 
