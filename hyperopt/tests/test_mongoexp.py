@@ -20,15 +20,17 @@ import time
 import unittest
 
 from hyperopt.utils import json_call
+
+from hyperopt.mongoexp import MONGO_NEW
+
+from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoExperiment
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import as_mongo_str
-from hyperopt.mongoexp import MongoJobs
+from hyperopt.mongoexp import _MongoJobs
+
 from hyperopt.mongoexp import OperationFailure
 from hyperopt.bandits import TwoArms, GaussWave2
-from hyperopt import bandit_algos
-from hyperopt.theano_gm import AdaptiveParzenGM
-from hyperopt.theano_bandit_algos import TheanoRandom
 
 
 class TempMongo(object):
@@ -93,10 +95,14 @@ class TempMongo(object):
         subprocess.call(["rm", "-Rf", self.workdir])
         #print 'CLEANING UP MONGO DONE'
 
-    @classmethod
-    def mongo_jobs(self, name):
-        return MongoJobs.new_from_connection_str(
-                as_mongo_str('localhost:22334/%s' % name) + '/jobs')
+    @staticmethod
+    def connection_string(dbname):
+        return as_mongo_str('localhost:22334/%s' % dbname) + '/jobs'
+
+    @staticmethod
+    def mongo_jobs(dbname):
+        return _MongoJobs.new_from_connection_str(
+                TempMongo.connection_string(dbname))
 
     def db_up(self):
         try:
@@ -104,6 +110,78 @@ class TempMongo(object):
             return True
         except:  # XXX: don't know what exceptions to put here
             return False
+
+
+def with_mongo_trials(f):
+    def wrapper():
+        with TempMongo() as temp_mongo:
+            trials = MongoTrials(temp_mongo.connection_string('foo'),
+                    exp_key=None,
+                    cmd='some cmd')
+            f(trials)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+
+@with_mongo_trials
+def test_with_temp_mongo(trials):
+    pass # -- just verify that the decorator can run
+
+def ok_trial(tid, *args, **kwargs):
+    return dict(
+        tid=tid,
+        result={'status': 'algo, ok'},
+        spec={'a':1, 'foo': (args, kwargs)},
+        misc={
+            'tid':tid,
+            'idxs':{'z':[tid]},
+            'vals':{'z':[1]}},
+        extra='extra', # -- more stuff here is ok
+        owner=None,
+        state=MONGO_NEW,
+        version=0,
+        cmd="something",
+        book_time=None,
+        refresh_time=None,
+        exp_key='my_experiment',
+        )
+
+@with_mongo_trials
+def test_trials_insert(trials):
+    assert len(trials) == 0
+    trials.insert_trial_doc(ok_trial('a', 8))
+    assert len(trials) == 0
+    trials.insert_trial_doc(ok_trial(5, a=1, b=3))
+    assert len(trials) == 0
+    trials.insert_trial_docs(
+            [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
+    assert len(trials) == 0
+    trials.refresh()
+
+    assert len(trials) == 4, len(trials)
+    assert len(trials) == len(trials.specs)
+    assert len(trials) == len(trials.results)
+    assert len(trials) == len(trials.miscs)
+
+    trials.insert_trial_docs(
+            trials.new_trials(
+                ['id0', 'id1'],
+                [dict(a=1), dict(a=2)],
+                [dict(status='new'), dict(status='new')],
+                [dict(tid='id0', idxs={}, vals={}),
+                dict(tid='id1', idxs={}, vals={})],))
+
+    assert len(trials) == 4
+    assert len(trials) == len(trials.specs)
+    assert len(trials) == len(trials.results)
+    assert len(trials) == len(trials.miscs)
+
+    trials.refresh()
+    assert len(trials) == 6
+    assert len(trials) == len(trials.specs)
+    assert len(trials) == len(trials.results)
+    assert len(trials) == len(trials.miscs)
+
 
 
 def test_handles_are_independent():

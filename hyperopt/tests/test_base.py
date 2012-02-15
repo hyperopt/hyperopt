@@ -1,3 +1,4 @@
+import copy
 import unittest
 import numpy as np
 
@@ -9,12 +10,49 @@ one_of = scope.one_of
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
 from hyperopt.base import Ctrl
+from hyperopt.base import InvalidTrial
 from hyperopt.base import Trials
 from hyperopt.base import CoinFlip
 from hyperopt.base import Random
 from hyperopt.base import Experiment
 from hyperopt.base import Bandit
+from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.vectorize import pretty_names
+
+
+class TestTrials(unittest.TestCase):
+    def test_valid(self):
+        trials = Trials()
+        f = trials.insert_trial_doc
+        fine = dict(
+                tid='ID',
+                result={'status': STATUS_OK},
+                spec={'a':1},
+                misc={
+                    'tid':'ID',
+                    'foo':'bar',
+                    'idxs':{'z':['ID']},
+                    'vals':{'z':[1]}},
+                extra='extra', # -- more stuff here is ok
+                )
+
+        # --original runs fine
+        f(fine)
+
+        # -- these are not ok
+        def knockout(key):
+            rval = copy.deepcopy(fine)
+            del rval[key]
+            return rval
+        for key in 'tid', 'result', 'spec', 'misc':
+            self.assertRaises(InvalidTrial, f, knockout(key))
+
+        def knockout2(key):
+            rval = copy.deepcopy(fine)
+            del rval['misc'][key]
+            return rval
+        for key in 'idxs', 'tid', 'vals':
+            self.assertRaises(InvalidTrial, f, knockout2(key))
 
 
 class BanditMixin(object):
@@ -41,21 +79,23 @@ class TestRandom(unittest.TestCase):
         self.algo = Random(self.bandit)
 
     def test_suggest_1(self):
-        specs, idxs, vals = self.algo.suggest([0], [], [], [], [])
+        specs, results, miscs = self.algo.suggest([0], [], [], [])
         print specs
-        print idxs
-        print vals
-        assert len(specs) == 1
-        assert len(idxs) == 1
-        assert len(vals) == 1
-        idxs['node_4'] == [0]
+        print results
+        print miscs
+        assert len(specs) == len(results) == len(miscs) == 1
+        assert miscs[0]['idxs']['node_4'] == [0]
+        idxs, vals = miscs_to_idxs_vals(miscs)
+        assert idxs['node_4'] == [0]
 
     def test_suggest_5(self):
-        specs, idxs, vals = self.algo.suggest(range(5), [], [], [], [])
+        specs, results, miscs = self.algo.suggest(range(5), [], [], [])
         print specs
+        print miscs
+        assert len(specs) == len(results) == len(miscs) == 5
+        idxs, vals = miscs_to_idxs_vals(miscs)
         print idxs
         print vals
-        assert len(specs) == 5
         assert len(idxs) == 1
         assert len(vals) == 1
         assert idxs['node_4'] == range(5)
@@ -63,8 +103,9 @@ class TestRandom(unittest.TestCase):
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
-        specs, idxs, vals = self.algo.suggest(new_ids, [], [], [], [])
-        assert len(specs) == 5
+        specs, results, miscs = self.algo.suggest(new_ids, [], [], [])
+        idxs, vals = miscs_to_idxs_vals(miscs)
+        assert len(specs) == len(results) == len(miscs) == 5
         assert len(idxs) == 1
         assert len(vals) == 1
         assert idxs['node_4'] == new_ids
@@ -88,6 +129,7 @@ class TestCoinFlipExperiment(unittest.TestCase):
         self.experiment.run(1)
         self.experiment.run(1)
         assert len(self.trials._trials) == 3
+        print self.trials.miscs
         print self.trials.idxs
         print self.trials.vals
         assert self.trials.idxs['node_4'] == [0, 1, 2]
@@ -100,7 +142,6 @@ class ZeroBandit(Bandit):
 
     def evaluate(self, config, ctrl):
         return dict(loss=0.0, status=STATUS_OK)
-
 
 
 class TestConfigs(unittest.TestCase):
@@ -120,8 +161,8 @@ class TestConfigs(unittest.TestCase):
         for trial in trials:
             print ''
             tmp = []
-            for nid in trial['idxs']:
-                thing = self.algo.doc_coords[nid], trial['idxs'][nid], trial['vals'][nid]
+            for nid in trial['misc']['idxs']:
+                thing = self.algo.doc_coords[nid], trial['misc']['idxs'][nid], trial['misc']['vals'][nid]
                 print thing
                 tmp.append(thing)
             tmp.sort()

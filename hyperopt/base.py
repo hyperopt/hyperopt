@@ -31,6 +31,7 @@ __copyright__ = "(c) 2011, James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
+import copy
 import logging
 
 import numpy as np
@@ -68,6 +69,56 @@ STATUS_OK = 'ok'
 STATUS_FAIL = 'fail'
 
 
+def miscs_update_idxs_vals(miscs, idxs, vals):
+    """
+    Unpack the idxs-vals format into the list of dictionaries that is
+    `misc`.
+    """
+    assert set(idxs.keys()) == set(vals.keys())
+    misc_by_id = dict([(m['tid'], m) for m in miscs])
+
+    # -- assert that the idxs and vals correspond to the misc docs
+    all_ids = set()
+    for idxlist in idxs.values():
+        all_ids.update(idxlist)
+    assert all_ids == set(misc_by_id.keys())
+
+    for tid, misc_tid in misc_by_id.items():
+        misc_tid['idxs'] = {}
+        misc_tid['vals'] = {}
+        for node_id in idxs:
+            node_idxs = list(idxs[node_id])
+            node_vals = vals[node_id]
+            if tid in node_idxs:
+                misc_tid['idxs'][node_id] = [tid]
+                pos = node_idxs.index(tid)
+                misc_tid['vals'][node_id] = [node_vals[pos]]
+                # -- assert that tid occurs only once
+                assert tid not in node_idxs[pos+1:]
+            else:
+                misc_tid['idxs'][node_id] = []
+                misc_tid['vals'][node_id] = []
+    return miscs
+
+
+def miscs_to_idxs_vals(miscs):
+    idxs = copy.deepcopy(miscs[0]['idxs'])
+    vals = copy.deepcopy(miscs[0]['vals'])
+    for misc in miscs[1:]:
+        for node_id in idxs:
+            t_idxs = misc['idxs'][node_id]
+            t_vals = misc['vals'][node_id]
+            assert len(t_idxs) == len(t_vals)
+            assert t_idxs == [] or t_idxs == [misc['tid']]
+            idxs[node_id].extend(t_idxs)
+            vals[node_id].extend(t_vals)
+    return idxs, vals
+
+
+class InvalidTrial(Exception):
+    pass
+
+
 class Trials(object):
     """
     Trials are documents (dict-like) with *at least* the following keys:
@@ -90,30 +141,11 @@ class Trials(object):
     def __len__(self):
         return len(self._trials)
 
-    def refresh_specs_results_idxs_vals(self):
-        self._specs = [tt['spec'] for tt in self._trials]
-        self._results = [tt['result'] for tt in self._trials]
-        self._idxs = idxs = {}
-        self._vals = vals = {}
-        for trial in self._trials:
-            tid = trial['tid']
-            tidxs = trial['idxs']
-            tvals = trial['vals']
-            assert set(tidxs.keys()) == set(tvals.keys())
-            for node_name, tidx in tidxs.items():
-                assert tidx == [] or tidx == [tid]
-                assert len(tidx) == len(tvals[node_name])
-                if tidx:
-                    if node_name in idxs:
-                        idxs[node_name].append(tid)
-                        vals[node_name].append(tvals[node_name][0])
-                    else:
-                        idxs[node_name] = [tid]
-                        vals[node_name] = [tvals[node_name][0]]
-
     def refresh(self):
         # any syncing to persistent storage would happen here
-        self.refresh_specs_results_idxs_vals()
+        self._specs = [tt['spec'] for tt in self._trials]
+        self._results = [tt['result'] for tt in self._trials]
+        self._miscs = [tt['misc'] for tt in self._trials]
 
     @property
     def specs(self):
@@ -124,57 +156,67 @@ class Trials(object):
         return self._results
 
     @property
+    def miscs(self):
+        return self._miscs
+
+    @property
     def idxs(self):
-        return self._idxs
+        return miscs_to_idxs_vals(self._miscs)[0]
 
     @property
     def vals(self):
-        return self._vals
+        return miscs_to_idxs_vals(self._miscs)[1]
 
     def assert_valid_trial(self, trial):
         if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
-            raise TypeError('trial should be dict-like', trial)
-        for key in 'tid', 'spec', 'result', 'idxs', 'vals':
+            raise InvalidTrial('trial should be dict-like', trial)
+        for key in 'tid', 'spec', 'result', 'misc':
             if key not in trial:
-                raise ValueError('trial missing key', key)
+                raise InvalidTrial('trial missing key', key)
+        for key in 'tid', 'idxs', 'vals':
+            if key not in trial['misc']:
+                raise InvalidTrial('trial["misc"] missing key', key)
+        if trial['tid'] != trial['misc']['tid']:
+            raise InvalidTrial('tid mismatch between root and misc',
+                    (trial['tid'], trial['misc']['tid']))
         # XXX check for SON-encodable
+        # XXX how to assert that tids are unique?
 
-    def _insert_trial(self, trial):
+    def _insert_trial_docs(self, docs):
         """insert with no error checking
         """
-        self._trials.append(trial)
+        rval = [doc['tid'] for doc in docs]
+        self._trials.extend(docs)
+        return rval
 
-    def insert_trial(self, trial):
+    def insert_trial_doc(self, doc):
         """insert trial after error checking
 
         Does not refresh. Call self.refresh() for the trial to appear in
         self.specs, self.results, etc.
         """
-        self.assert_valid_trial(trial)
-        self._insert_trial(trial)
+        self.assert_valid_trial(doc)
+        return self._insert_trial_docs([doc])[0]
         # refreshing could be done fast in this base implementation, but with
         # a real DB the steps should be separated.
+
+    def insert_trial_docs(self, docs):
+        """ trials - something like is returned by self.new_trials()
+        """
+        for doc in docs:
+            self.assert_valid_trial(doc)
+        return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
         return range(
                 len(self._trials),
                 len(self._trials) + N)
 
-    def new_trials(self, tids, specs, results, idxs, vals):
-        assert len(tids) == len(specs) == len(results)
-        assert set(idxs.keys()) == set(vals.keys())
+    def new_trials(self, tids, specs, results, miscs):
+        assert len(tids) == len(specs) == len(results) == len(miscs)
         rval = []
-        for tid, spec, result in zip(tids, specs, results):
-            trial = dict(tid=tid, spec=spec, result=result, idxs={}, vals={})
-            for node_id in idxs:
-                node_idxs = list(idxs[node_id])
-                node_vals = vals[node_id]
-                if tid in node_idxs:
-                    trial['idxs'][node_id] = [tid]
-                    trial['vals'][node_id] = [node_vals[node_idxs.index(tid)]]
-                else:
-                    trial['idxs'][node_id] = []
-                    trial['vals'][node_id] = []
+        for tid, spec, result, misc in zip(tids, specs, results, miscs):
+            trial = dict(tid=tid, spec=spec, result=result, misc=misc)
             rval.append(trial)
         return rval
 
@@ -420,8 +462,14 @@ class BanditAlgo(object):
             new_ids,
             specs,
             results,
-            stochastic_idxs,
-            stochastic_vals):
+            misc):
+        """
+        specs is list of all specification documents from current Trial
+        results is a list of result documents returned by Bandit.evaluate
+        misc is a list of documents with other information about each job.
+
+        All lists have the same length.
+        """
         raise NotImplementedError('override me')
 
 
@@ -433,11 +481,18 @@ class Random(BanditAlgo):
             new_ids,
             specs,
             results,
-            stochastic_idxs,
-            stochastic_vals):
+            misc):
+        # -- install new_ids as program arguments
         self.new_ids[:] = new_ids
-        specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
-        return specs, idxs, vals
+        # -- sample new specs, idxs, vals
+        new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
+        # -- normally the caller would do this checking
+        #    but just so the reader knows what this function is supposed
+        #    to return...
+        new_results = [self.bandit.new_result() for ii in new_ids]
+        new_miscs = [dict(tid=ii) for ii in new_ids]
+        miscs_update_idxs_vals(new_miscs, idxs, vals)
+        return new_specs, new_results, new_miscs
 
 
 class Experiment(object):
@@ -485,7 +540,7 @@ class Experiment(object):
         for trial in new_trials:
             assert 'serial_status' not in trial
             trial['serial_status'] = 'TODO'
-            self.trials.insert_trial(trial)
+            self.trials.insert_trial_doc(trial)
 
     def run(self, N, block_until_done=True):
         trials = self.trials
@@ -498,14 +553,12 @@ class Experiment(object):
             while self.queue_len() < self.max_queue_len:
                 n_to_enqueue = self.max_queue_len - self.queue_len()
                 new_ids = trials.new_trial_ids(n_to_enqueue)
-                new_specs, new_idxs, new_vals = algo.suggest(
+                new_specs, new_results, new_miscs = algo.suggest(
                         new_ids,
                         trials.specs, trials.results,
-                        trials.idxs, trials.vals)
-                new_results = [bandit.new_result() for ii in new_ids]
+                        trials.miscs)
                 new_trials = trials.new_trials(new_ids,
-                        new_specs, new_results,
-                        new_idxs, new_vals)
+                        new_specs, new_results, new_miscs)
                 self.enqueue(new_trials)
                 self.trials.refresh()
                 n_queued += len(new_ids)
