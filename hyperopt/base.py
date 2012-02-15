@@ -435,9 +435,23 @@ class Random(BanditAlgo):
             results,
             stochastic_idxs,
             stochastic_vals):
+        # -- argument validation
+        assert len(specs) == len(results)
+        assert set(stochastic_idxs.keys()) == set(stochastic_vals.keys())
+        for key in stochastic_idxs:
+            assert len(stochastic_idxs[key]) == len(stochastic_vals[key])
+        # -- install new_ids as program arguments
         self.new_ids[:] = new_ids
-        specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
-        return specs, idxs, vals
+        # -- sample new specs, idxs, vals
+        new_specs, new_idxs, new_vals = pyll.rec_eval(self.s_specs_idxs_vals)
+        # -- normally the caller would do this checking
+        #    but just so the reader knows what this function is supposed
+        #    to return...
+        assert len(new_specs) == len(new_ids)
+        assert set(new_idxs.keys()) == set(new_vals.keys())
+        for key in new_idxs:
+            assert len(new_idxs[key]) == len(new_vals[key])
+        return new_specs, new_idxs, new_vals
 
 
 class Experiment(object):

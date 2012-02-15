@@ -41,7 +41,7 @@ class TestRandom(unittest.TestCase):
         self.algo = Random(self.bandit)
 
     def test_suggest_1(self):
-        specs, idxs, vals = self.algo.suggest([0], [], [], [], [])
+        specs, idxs, vals = self.algo.suggest([0], [], [], {}, {})
         print specs
         print idxs
         print vals
@@ -51,7 +51,7 @@ class TestRandom(unittest.TestCase):
         idxs['node_4'] == [0]
 
     def test_suggest_5(self):
-        specs, idxs, vals = self.algo.suggest(range(5), [], [], [], [])
+        specs, idxs, vals = self.algo.suggest(range(5), [], [], {}, {})
         print specs
         print idxs
         print vals
@@ -63,7 +63,7 @@ class TestRandom(unittest.TestCase):
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
-        specs, idxs, vals = self.algo.suggest(new_ids, [], [], [], [])
+        specs, idxs, vals = self.algo.suggest(new_ids, [], [], {}, {})
         assert len(specs) == 5
         assert len(idxs) == 1
         assert len(vals) == 1
