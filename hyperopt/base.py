@@ -115,6 +115,10 @@ def miscs_to_idxs_vals(miscs):
     return idxs, vals
 
 
+class InvalidTrial(Exception):
+    pass
+
+
 class Trials(object):
     """
     Trials are documents (dict-like) with *at least* the following keys:
@@ -165,30 +169,43 @@ class Trials(object):
 
     def assert_valid_trial(self, trial):
         if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
-            raise TypeError('trial should be dict-like', trial)
+            raise InvalidTrial('trial should be dict-like', trial)
         for key in 'tid', 'spec', 'result', 'misc':
             if key not in trial:
-                raise ValueError('trial missing key', key)
+                raise InvalidTrial('trial missing key', key)
         for key in 'tid', 'idxs', 'vals':
             if key not in trial['misc']:
-                raise ValueError('trial["misc"] missing key', key)
+                raise InvalidTrial('trial["misc"] missing key', key)
+        if trial['tid'] != trial['misc']['tid']:
+            raise InvalidTrial('tid mismatch between root and misc',
+                    (trial['tid'], trial['misc']['tid']))
         # XXX check for SON-encodable
+        # XXX how to assert that tids are unique?
 
-    def _insert_trial(self, trial):
+    def _insert_trial_docs(self, docs):
         """insert with no error checking
         """
-        self._trials.append(trial)
+        rval = [doc['tid'] for doc in docs]
+        self._trials.extend(docs)
+        return rval
 
-    def insert_trial(self, trial):
+    def insert_trial_doc(self, doc):
         """insert trial after error checking
 
         Does not refresh. Call self.refresh() for the trial to appear in
         self.specs, self.results, etc.
         """
-        self.assert_valid_trial(trial)
-        self._insert_trial(trial)
+        self.assert_valid_trial(doc)
+        return self._insert_trial_docs([doc])[0]
         # refreshing could be done fast in this base implementation, but with
         # a real DB the steps should be separated.
+
+    def insert_trial_docs(self, docs):
+        """ trials - something like is returned by self.new_trials()
+        """
+        for doc in docs:
+            self.assert_valid_trial(doc)
+        return self._insert_trial_docs(trial_docs)
 
     def new_trial_ids(self, N):
         return range(
@@ -523,7 +540,7 @@ class Experiment(object):
         for trial in new_trials:
             assert 'serial_status' not in trial
             trial['serial_status'] = 'TODO'
-            self.trials.insert_trial(trial)
+            self.trials.insert_trial_doc(trial)
 
     def run(self, N, block_until_done=True):
         trials = self.trials

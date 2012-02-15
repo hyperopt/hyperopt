@@ -1,3 +1,4 @@
+import copy
 import unittest
 import numpy as np
 
@@ -9,6 +10,7 @@ one_of = scope.one_of
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
 from hyperopt.base import Ctrl
+from hyperopt.base import InvalidTrial
 from hyperopt.base import Trials
 from hyperopt.base import CoinFlip
 from hyperopt.base import Random
@@ -16,6 +18,41 @@ from hyperopt.base import Experiment
 from hyperopt.base import Bandit
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.vectorize import pretty_names
+
+
+class TestTrials(unittest.TestCase):
+    def test_valid(self):
+        trials = Trials()
+        f = trials.insert_trial_doc
+        fine = dict(
+                tid='ID',
+                result={'status': STATUS_OK},
+                spec={'a':1},
+                misc={
+                    'tid':'ID',
+                    'foo':'bar',
+                    'idxs':{'z':['ID']},
+                    'vals':{'z':[1]}},
+                extra='extra', # -- more stuff here is ok
+                )
+
+        # --original runs fine
+        f(fine)
+
+        # -- these are not ok
+        def knockout(key):
+            rval = copy.deepcopy(fine)
+            del rval[key]
+            return rval
+        for key in 'tid', 'result', 'spec', 'misc':
+            self.assertRaises(InvalidTrial, f, knockout(key))
+
+        def knockout2(key):
+            rval = copy.deepcopy(fine)
+            del rval['misc'][key]
+            return rval
+        for key in 'idxs', 'tid', 'vals':
+            self.assertRaises(InvalidTrial, f, knockout2(key))
 
 
 class BanditMixin(object):
@@ -105,7 +142,6 @@ class ZeroBandit(Bandit):
 
     def evaluate(self, config, ctrl):
         return dict(loss=0.0, status=STATUS_OK)
-
 
 
 class TestConfigs(unittest.TestCase):
