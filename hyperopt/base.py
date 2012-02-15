@@ -32,11 +32,13 @@ __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
 import copy
+from itertools import izip
 import logging
+import time
 
 import numpy as np
 
-from bson import SON  # -- from pymongo
+import bson # -- comes with pymongo
 
 import pyll
 from pyll.stochastic import replace_repeat_stochastic
@@ -102,6 +104,12 @@ TRIAL_MISC_KEYS = [
         'vals',
         ]
 
+def np_to_py_number(a):
+    if isinstance(a, np.floating):
+        return float(a)
+    if isinstance(a, np.integer):
+        return int(a)
+    return a
 
 def miscs_update_idxs_vals(miscs, idxs, vals):
     """
@@ -124,9 +132,10 @@ def miscs_update_idxs_vals(miscs, idxs, vals):
             node_idxs = list(idxs[node_id])
             node_vals = vals[node_id]
             if tid in node_idxs:
-                misc_tid['idxs'][node_id] = [tid]
                 pos = node_idxs.index(tid)
-                misc_tid['vals'][node_id] = [node_vals[pos]]
+                misc_tid['idxs'][node_id] = [np_to_py_number(tid)]
+                misc_tid['vals'][node_id] = [np_to_py_number(node_vals[pos])]
+
                 # -- assert that tid occurs only once
                 assert tid not in node_idxs[pos+1:]
             else:
@@ -165,16 +174,18 @@ class Trials(object):
                     to either [] or [<val>]
     """
 
+    async = False
+
     def __init__(self, exp_key=None):
         self._trials = []
         self._exp_key = exp_key
         self.refresh()
 
     def __iter__(self):
-        return iter(self._trials)
+        return izip(self._specs, self._results, self._miscs)
 
     def __len__(self):
-        return len(self._trials)
+        return len(self._specs)
 
     def refresh(self):
         # any syncing to persistent storage would happen here
@@ -214,7 +225,8 @@ class Trials(object):
         if trial['tid'] != trial['misc']['tid']:
             raise InvalidTrial('tid mismatch between root and misc',
                     (trial['tid'], trial['misc']['tid']))
-        # XXX check for SON-encodable
+        # -- check for SON-encodable
+        bson.BSON.encode(trial)
         # XXX how to assert that tids are unique?
 
     def _insert_trial_docs(self, docs):
@@ -236,7 +248,7 @@ class Trials(object):
         # a real DB the steps should be separated.
 
     def insert_trial_docs(self, docs):
-        """ trials - something like is returned by self.new_trials()
+        """ trials - something like is returned by self.new_trial_docs()
         """
         for doc in docs:
             self.assert_valid_trial(doc)
@@ -247,7 +259,7 @@ class Trials(object):
                 len(self._trials),
                 len(self._trials) + N)
 
-    def new_trials(self, tids, specs, results, miscs):
+    def new_trial_docs(self, tids, specs, results, miscs):
         assert len(tids) == len(specs) == len(results) == len(miscs)
         rval = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
@@ -286,6 +298,13 @@ class Trials(object):
         called refresh() first.
         """
         return self.count_by_state_synced(arg)
+
+    def clear_all(self):
+        if self.exp_key:
+            cond = cond={'exp_key': self.exp_key}
+        else:
+            cond = {}
+        self.handle.delete_all(cond)
 
     def losses(self, bandit=None):
         if bandit is None:
@@ -351,12 +370,13 @@ class Ctrl(object):
     error = logger.error
     debug = logger.debug
 
-    def __init__(self):
+    def __init__(self, trials):
         # -- attachments should be used like
         #      attachments[key]
         #      attachments[key] = value
         #    where key and value are strings. Client code should not
         #    expect any dictionary-like behaviour beyond that (no update)
+        self.trials = trials
         self.attachments = {}
 
     def checkpoint(self, r=None):
@@ -433,7 +453,7 @@ class Bandit(object):
     @classmethod
     def main_dryrun(cls):
         self = cls()
-        ctrl = Ctrl()
+        ctrl = Ctrl(Trials())
         config = self.dryrun_config()
         return self.evaluate(config, ctrl)
 
@@ -567,31 +587,43 @@ class Random(BanditAlgo):
 class Experiment(object):
     """Object for conducting search experiments.
     """
-    max_queue_len = 1
-    poll_interval_secs = 0.5
-
-    def __init__(self, trials, bandit_algo, async=False, cmd=None):
+    def __init__(self, trials, bandit_algo, async=None, cmd=None,
+            max_queue_len=1,
+            poll_interval_secs=1.0,
+            workdir=None,
+            ):
         self.trials = trials
         self.bandit_algo = bandit_algo
         self.bandit = bandit_algo.bandit
-        self.async = async
+        if async is None:
+            self.async = trials.async
+        else:
+            self.async = async
         self.cmd = cmd
+        self.workdir = workdir
+        self.poll_interval_secs = poll_interval_secs
+        self.max_queue_len = max_queue_len
 
     def serial_evaluate(self):
-        for trial in self.trials:
+        for trial in self.trials._trials:
             if trial['state'] == JOB_STATE_NEW:
-                spec = trial['spec']
-                ctrl = Ctrl() # TODO - give access to self.trials
-                result = self.bandit.evaluate(spec, ctrl)
-                # XXX verify result is SON-encodable
-                trial['result'] = result
-                trial['state'] = JOB_STATE_DONE
-                # XXX put try-except block and handle failures
+                spec = copy.deepcopy(trial['spec'])
+                ctrl = Ctrl(self.trials)
+                try:
+                    result = self.bandit.evaluate(spec, ctrl)
+                except Exception, e:
+                    logger.info('job exception: %s' % str(e))
+                    trial['state'] = JOB_STATE_ERROR
+                    trial['misc']['error'] = (str(type(e)), str(e))
+                else:
+                    logger.debug('job returned: %s' % str(result))
+                    trial['state'] = JOB_STATE_DONE
+                    trial['result'] = result
         self.trials.refresh()
 
     def block_until_done(self):
         if self.async:
-            unfinished_states = [JOB_STATE_NEW, STATE_RUNNING]
+            unfinished_states = [JOB_STATE_NEW, JOB_STATE_RUNNING]
             def get_queue_len():
                 return self.trials.count_by_state_unsynced(unfinished_states)
             qlen = get_queue_len()
@@ -622,11 +654,14 @@ class Experiment(object):
                         new_ids,
                         trials.specs, trials.results,
                         trials.miscs)
-                new_trials = trials.new_trials(new_ids,
+                new_trials = trials.new_trial_docs(new_ids,
                         new_specs, new_results, new_miscs)
                 for doc in new_trials:
                     assert 'cmd' not in doc['misc']
                     doc['misc']['cmd'] = self.cmd
+                    if self.workdir:
+                        assert 'workdir' not in doc['misc']
+                        doc['misc']['workdir'] = self.workdir
                 self.trials.insert_trial_docs(new_trials)
                 n_queued += len(new_ids)
                 qlen = get_queue_len()

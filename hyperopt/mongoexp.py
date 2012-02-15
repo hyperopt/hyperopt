@@ -152,22 +152,15 @@ import pymongo
 import gridfs
 from bson import SON
 
-import base
-import utils
 
 logger = logging.getLogger(__name__)
 
 from .base import InvalidTrial
 from .base import Trials
-
-MONGO_NEW = 0
-MONGO_RUNNING = 1
-MONGO_DONE = 2
-MONGO_ERROR = 3
-JOB_STATES = [MONGO_NEW,
-              MONGO_RUNNING,
-              MONGO_DONE,
-              MONGO_ERROR]
+from .base import JOB_STATES
+from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
+        JOB_STATE_ERROR)
+from .utils import json_call
 
 
 class OperationFailure(Exception):
@@ -372,17 +365,17 @@ class _MongoJobs(object):
         self.create_drivers_indexes()
 
     def jobs_complete(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=STATE_DONE))
+        c = self.jobs.find(spec=dict(state=JOB_STATE_DONE))
         return c if cursor else list(c)
 
     def jobs_error(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=STATE_ERROR))
+        c = self.jobs.find(spec=dict(state=JOB_STATE_ERROR))
         return c if cursor else list(c)
 
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
+        rval = list(self.jobs.find(spec=dict(state=JOB_STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
@@ -390,13 +383,13 @@ class _MongoJobs(object):
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=STATE_RUNNING)))
+        rval = list(self.jobs.find(spec=dict(state=JOB_STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
 
     def jobs_queued(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=STATE_NEW))
+        c = self.jobs.find(spec=dict(state=JOB_STATE_NEW))
         return c if cursor else list(c)
 
     def insert(self, job, safe=True):
@@ -429,7 +422,7 @@ class _MongoJobs(object):
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
     def delete_all_error_jobs(self, safe=True):
-        return self.delete_all(cond={'state': STATE_ERROR}, safe=safe)
+        return self.delete_all(cond={'state': JOB_STATE_ERROR}, safe=safe)
 
     def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
@@ -452,7 +445,7 @@ class _MongoJobs(object):
                 {'$set':
                     {'owner': host_id,
                      'book_time': now,
-                     'state': STATE_RUNNING,
+                     'state': JOB_STATE_RUNNING,
                      'refresh_time': now,
                      }
                  },
@@ -613,8 +606,6 @@ class _MongoJobs(object):
         self.gfs.delete(file_id)
 
 
-MONGO_TRIAL_KEYS = ['owner', 'book_time', 'state', 'refresh_time', 'cmd', 'exp_key']
-
 class MongoTrials(Trials):
     """Trials maps on to an entire mongo collection. It's basically a wrapper
     around MongoJobs for now.
@@ -623,34 +614,34 @@ class MongoTrials(Trials):
     on the exp_key, but I feel that's a hack. The case of `cmd` is similar--
     the exp_key and cmd are semantically coupled.
     """
-    def __init__(self, connection_string, cmd, exp_key):
-        self.connection_string = connection_string
-        self.handle = _MongoJobs.new_from_connection_str(connection_string)
-        self.exp_key = exp_key
-        self.cmd = cmd
+    async = True
+
+    def __init__(self, handle, exp_key=None):
+        if isinstance(handle, _MongoJobs):
+            self.handle = handle
+        else:
+            connection_string = handle
+            self.handle = _MongoJobs.new_from_connection_str(connection_string)
+        self.handle.create_indexes()
+        self._exp_key = exp_key
         self.refresh()
 
     def refresh(self):
-        if self.exp_key != None:
-            query = {'exp_key' : self.exp_key}
+        exp_key = self._exp_key
+        if exp_key != None:
+            query = {'exp_key' : exp_key}
         else:
             query = {}
         all_jobs = list(self.handle.jobs.find(query))
         id_jobs = [(j['_id'], j)
             for j in all_jobs
-            if j['state'] != MONGO_ERROR]
+            if j['state'] != JOB_STATE_ERROR]
         logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
         id_jobs.sort()
-        self._trials = [j for j in id_jobs]
+        self._trials = [j for (_id, j) in id_jobs]
         self._specs = [j['spec'] for (_id, j) in id_jobs]
         self._results = [j['result'] for (_id, j) in id_jobs]
         self._miscs = [j['misc'] for (_id, j) in id_jobs]
-
-    def assert_valid_trial(self, trial):
-        Trials.assert_valid_trial(self, trial)
-        for key in MONGO_TRIAL_KEYS:
-            if key not in trial:
-                raise InvalidMongoTrial('missing key %s' % key)
 
     def _insert_trial_docs(self, docs):
         rval = []
@@ -658,301 +649,22 @@ class MongoTrials(Trials):
             rval.append(self.handle.jobs.insert(doc, safe=True))
         return rval
 
-    def new_trials(self, tids, specs, results, miscs):
-        # -- fill in the basic document
-        rval = Trials.new_trials(self, tids, specs, results, miscs)
-
-        # -- overlay mongo-specific fields
-        for doc in rval:
-
-            # -- ensure we do not clobber anything
-            for key in MONGO_TRIAL_KEYS:
-                assert key not in doc
-
-            doc['state'] = MONGO_NEW
-            doc['exp_key'] = self.exp_key
-            doc['cmd'] = self.cmd
-            doc['owner'] = None
-            doc['version'] = 0
-            doc['book_time'] = None
-            doc['refresh_time'] = None
-
-        return rval
-
-
-class MongoExperiment(base.Experiment):
-    """
-    This experiment uses a Mongo collection to store
-    - self.trials
-    - self.results
-
-    """
-    @staticmethod
-    def from_exp_key(mongo_handle, exp_key):
-        ddoc = mongo_handle.db.drivers.find_one({'exp_key': exp_key})
-        blob = mongo_handle.get_attachment(ddoc, name='pkl')
-        self = cPickle.loads(blob)
-        self.mongo_handle = mongo_handle
-        return self
-
-    def __init__(self, bandit_algo, mongo_handle, workdir, exp_key, cmd,
-            poll_interval_secs=10,
-            save_interval_secs=3.0,
-            max_queue_len=1):
-
-        if isinstance(mongo_handle, str):
-            self.mongo_handle = MongoJobs.new_from_connection_str(
-                    mongo_handle,
-                    config_name='spec')
-        else:
-            #N.B. self.mongo_handle may be None.
-            #     This is the case if we're unpickling.
-            self.mongo_handle = mongo_handle
-
-        self.mongo_handle.create_indexes()
-        base.Experiment.__init__(self, bandit_algo)
-        self.workdir = workdir               # can be changed
-        self.poll_interval_secs = poll_interval_secs  # can be changed
-        self.save_interval_secs = save_interval_secs
-        self.max_queue_len = max_queue_len   # can be changed
-        self.exp_key = exp_key               # don't change this
-        self.cmd = cmd                       # don't change this
-        self._locks = 0                      # this is managed internally
-
-    def __getstate__(self):
-        rval = dict(self.__dict__)
-        del rval['mongo_handle']
-        return rval
-
-    def __setstate__(self, dct):
-        self.__dict__.update(dct)
-        if 'trials' not in dct:
-            assert 'results' not in dct
-            self.trials = []
-            self.results = []
-
-    def queue_extend(self, trial_configs, exp_key, skip_dups=True):
-        if skip_dups:
-            new_configs = []
-            for config in trial_configs:
-                #XXX: This will basically never work
-                #     now that TheanoBanditAlgo puts a _config_id into
-                #     each suggestion
-                #query = self.mongo_handle.jobs.find(dict(spec=config,
-                #                                         exp_key=exp_key))
-                irrelevant_list = ['_config_id']
-                mod_q = dict(exp_key=exp_key)
-                for _k in config.keys():
-                    if _k not in irrelevant_list:
-                        mod_q['spec.' + _k] = config[_k]
-                query = self.mongo_handle.jobs.find(mod_q)
-                if query.count():
-                    matches = list(query)
-                    assert len(matches) == 1
-                    logger.info('Skipping duplicate trial')
-                else:
-                    new_configs.append(config)
-            trial_configs = new_configs
-        rval = []
-        # this tells the mongo-worker how to evaluate the job
-        for config in trial_configs:
-            to_insert = dict(
-                    state=STATE_NEW,
-                    exp_key=self.exp_key,
-                    cmd=self.cmd,
-                    owner=None,
-                    spec=config,
-                    result=self.bandit_algo.bandit.new_result(),
-                    version=0,
-                    )
-            rval.append(self.mongo_handle.jobs.insert(to_insert, safe=True))
-        return rval
-
-    def queue_len(self, states=MONGO_NEW):
+    def count_by_state_unsynced(self, arg):
+        exp_key = self._exp_key
         # TODO: consider searching by SON rather than dict
-        if isinstance(states,int):
-            assert states in JOB_STATES
-            query = dict(state=states, exp_key=self.exp_key)
+        if isinstance(arg, int):
+            if arg not in JOB_STATES:
+                raise ValueError('invalid state', arg)
+            query = dict(state=arg)
         else:
-            assert hasattr(states, '__iter__')
-            states = list(states)
+            assert hasattr(arg, '__iter__')
+            states = list(arg)
             assert all([x in JOB_STATES for x in states])
-            query = dict(state={'$in': states},
-                         exp_key=self.exp_key)
-        rval = self.mongo_handle.jobs.find(query).count()
-        logger.debug('Queue len: %i' % rval)
+            query = dict(state={'$in': states})
+        if exp_key != None:
+            query['exp_key'] = exp_key
+        rval = self.handle.jobs.find(query).count()
         return rval
-
-    def block_until_done(self):
-        while self.queue_len(states=[STATE_NEW, STATE_RUNNING]) > 0:
-            msg = 'Waiting for %d jobs to finish ...' % self.queue_len()
-            logger.info(msg)
-            time.sleep(self.poll_interval_secs)
-
-    def run(self, N, block_until_done=False):
-        algo = self.bandit_algo
-        n_queued = 0
-        while n_queued < N:
-            while self.queue_len() < self.max_queue_len:
-                self.refresh_trials_results()
-                t0 = time.time()
-                # just ask for one job at a time
-                suggestions = algo.suggest(self.trials, self.results, 1)
-                t1 = time.time()
-                logger.info('algo suggested trial: %s (in %.2f seconds)'
-                        % (str(suggestions[0]), t1 - t0))
-                try:
-                    new_suggestions = self.queue_extend(suggestions,
-                                                        self.exp_key)
-                except:
-                    logger.error('Problem with suggestion: %s' % (
-                        suggestions))
-                    raise
-                n_queued += len(new_suggestions)
-            time.sleep(self.poll_interval_secs)
-
-        if block_until_done:
-            self.block_until_done()
-            logger.info('Queue empty, exiting run.')
-        else:
-            msg = 'Exiting run, not waiting for %d jobs.' % self.queue_len()
-            logger.info(msg)
-
-        self.refresh_trials_results()
-
-    def clear_from_db(self):
-        if not self._locks:
-            raise OperationFailure('need lock to clear db')
-
-        ddoc = self.ddoc_get()
-        # remove attached states, bandits, etc.
-        for name in self.mongo_handle.attachment_names(ddoc):
-            self.mongo_handle.delete_attachment(ddoc, name,
-                    collection=self.mongo_handle.db.drivers)
-
-        # delete any jobs from a previous driver
-        self.mongo_handle.delete_all(cond={'exp_key': self.exp_key})
-
-        # remove the ddoc itself
-        self.mongo_handle.db.drivers.remove(ddoc, safe=True)
-
-        # we deleted the document used for locking, so we no longer have a
-        # lock
-        self._locks = 0
-
-
-    def owner_label(self):
-        # Don't make this an attribute, because after unpickling it has to be
-        # updated.
-        return '%s:%i:%i' % (socket.gethostname(), os.getpid(), id(self))
-
-    def ddoc_get(self):
-        """Get the document from the drivers collection for this experiment.
-
-        Returns None if no such document exists.
-        """
-        query = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
-        assert query.count() < 2, query.count()
-        if query.count() == 0:
-            self.ddoc_init()
-        return self.mongo_handle.db.drivers.find_one(
-                {'exp_key': self.exp_key})
-
-    def ddoc_init(self):
-        """
-        Initializes the document in the drivers collection for this
-        experiment.
-        """
-        cursor = self.mongo_handle.db.drivers.find(dict(exp_key=self.exp_key))
-        assert cursor.count() == 0, '%s count %d:' % (self.exp_key, cursor.count())
-        logger.info('inserting config document')
-        config = dict(
-                exp_key=self.exp_key,
-                owner=None,
-                workdir=self.workdir)
-        self.mongo_handle.db.drivers.insert(config)
-
-    def ddoc_lock(self, force=False):
-        """Acquire a lock on the drivers document
-        """
-        if self._locks == 0:
-            try:
-                self.mongo_handle.db.drivers.update(
-                        dict(exp_key=self.exp_key,
-                            owner=None),
-                        {'$set':
-                            { 'owner': self.owner_label() } },
-                        safe=True, upsert=False, multi=False)
-            except pymongo.errors.OperationFailure, e:
-                raise OperationFailure('failed to obtain lock (case 1)')
-            ddoc = self.mongo_handle.db.drivers.find_one(
-                    {'exp_key': self.exp_key, 'owner': self.owner_label()})
-            if ddoc is None:
-                raise OperationFailure('failed to obtain lock (case 2)')
-            self._locks = 1
-        else:
-            self._locks += 1
-
-    def ddoc_release(self):
-        """Release the lock """
-        if self._locks > 1:
-            self._locks -= 1
-        elif self._locks == 1:
-            ddoc = self.ddoc_get()
-            assert ddoc['owner'] == self.owner_label()
-            self.mongo_handle.db.drivers.update(
-                    {'exp_key': self.exp_key},
-                    {'$set': {'owner': None}},
-                    safe=True, upsert=False, multi=False)
-            self._locks = 0
-        else:
-            raise OperationFailure('no lock to release')
-
-    def exclusive_access(self, force=False):
-        class Context(object):
-            def __enter__(subself):
-                self.ddoc_lock(force=force)
-                return subself
-            def __exit__(subself, *args):
-                self.ddoc_release()
-        return Context()
-
-    def ddoc_set_workdir(self):
-        """
-        """
-        with self.exclusive_access() as foo:
-            logger.info('setting workdir: %s' % self.workdir)
-            ddoc = self.ddoc_get()
-            self.mongo_handle.update(ddoc, {'workdir': self.workdir})
-
-    def ddoc_attach_bandit_tuple(self, name, args, kwargs):
-        with self.exclusive_access() as foo:
-            logger.info('attaching bandit tuple')
-            ddoc = self.ddoc_get()
-            self.mongo_handle.set_attachment(ddoc,
-                        cPickle.dumps((name, args, kwargs)),
-                        name='bandit_args_kwargs',
-                        collection=self.mongo_handle.db.drivers)
-
-    def save_to_db(self):
-        with self.exclusive_access() as foo:
-            logger.info('saving state to mongo')
-            ddoc = self.ddoc_get()
-            self.mongo_handle.set_attachment(ddoc,
-                    cPickle.dumps(self),
-                    name='pkl',
-                    collection=self.mongo_handle.db.drivers)
-
-    def load_from_db(self):
-        """
-        Return a MongoExperiments instance unpickled from DB
-
-        Raises OperationFailure if no such attachment exists
-        """
-        logger.info('loading state from mongo')
-        ddoc = self.ddoc_get()
-        blob = self.mongo_handle.get_attachment(ddoc, name='pkl')
-        return cPickle.loads(blob)
 
 
 class MongoWorker(object):
@@ -1000,35 +712,44 @@ class MongoWorker(object):
         # -- don't let the cmd mess up our trial object
         spec = copy.deepcopy(job['spec'])
 
-        ctrl = CtrlObj(jobs=mj, read_only=False, current_job=job)
-        config = mj.db.drivers.find_one({'exp_key': job['exp_key']})
+        ctrl = MongoCtrl(
+                trials=MongoTrials(mj, exp_key=self.exp_key),
+                read_only=False,
+                current_job=job)
         if self.workdir is None:
-            workdir = os.path.join(config['workdir'], str(job['_id']))
+            workdir = job['misc'].get('workdir', os.getcwd())
+            workdir = os.path.join(workdir, str(job['_id']))
         else:
             workdir = self.workdir
         workdir = os.path.expanduser(workdir)
         if not os.path.isdir(workdir):
             os.makedirs(workdir)
         os.chdir(workdir)
-        cmd_protocol = job['cmd'][0]
+        cmd = job['misc']['cmd']
+        cmd_protocol = cmd[0]
         try:
             if cmd_protocol == 'cpickled fn':
-                worker_fn = cPickle.loads(job['cmd'][1])
+                worker_fn = cPickle.loads(cmd[1])
             elif cmd_protocol == 'call evaluate':
-                bandit = cPickle.loads(job['cmd'][1])
+                bandit = cPickle.loads(cmd[1])
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'token_load':
-                cmd_toks = job['cmd'][1].split('.')
+                cmd_toks = cmd[1].split('.')
                 cmd_module = '.'.join(cmd_toks[:-1])
-                worker_fn = exec_import(cmd_module, job['cmd'][1])
+                worker_fn = exec_import(cmd_module, cmd[1])
             elif cmd_protocol == 'bandit_json evaluate':
-                bandit = utils.json_call(job['cmd'][1])
+                bandit = json_call(cmd[1])
                 worker_fn = bandit.evaluate
             elif cmd_protocol == 'driver_attachment':
+                # There is no driver table anymore.
+                # use a new mechanism to support this protocol
+                # write it straight to gridfs with a filename related to
+                # exp_key
+                raise NotImplementedError()
                 driver = md.coll.find_one({'exp_key': job['exp_key']})
                 blob = md.get_attachment(driver, 'bandit_args_kwargs')
                 bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
-                worker_fn = utils.json_call(bandit_name,
+                worker_fn = json_call(bandit_name,
                         args=bandit_args,
                         kwargs=bandit_kwargs).evaluate
             else:
@@ -1042,16 +763,16 @@ class MongoWorker(object):
             logger.info('job exception: %s' % str(e))
             ctrl.checkpoint()
             mj.update(job,
-                    {'state': STATE_ERROR,
+                    {'state': JOB_STATE_ERROR,
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
         logger.info('job finished: %s' % str(job['_id']))
         ctrl.checkpoint(result)
-        mj.update(job, {'state': STATE_DONE}, safe=True)
+        mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
 
 
-class CtrlObj(object):
+class MongoCtrl(object):
     """
     Attributes:
 
@@ -1060,11 +781,10 @@ class CtrlObj(object):
     read_only - True means don't change the db
 
     """
-    def __init__(self, read_only=False, **kwargs):
-        self.current_job = None
-        self.__dict__.update(kwargs)
+    def __init__(self, trials, current_job, read_only):
+        self.trials = trials
+        self.current_job = current_job
         self.read_only = read_only
-        # self.jobs is a MongoJobs reference
 
     def debug(self, *args, **kwargs):
         # XXX: This is supposed to log to db
@@ -1084,10 +804,11 @@ class CtrlObj(object):
 
     def checkpoint(self, result=None):
         if not self.read_only:
-            self.jobs.refresh(self.current_job)
+            handle = self.trials.handle
+            handle.refresh(self.current_job)
             if result is not None:
-                return self.jobs.update(self.current_job,
-                                        dict(result=result))
+                return handle.update(self.current_job,
+                        dict(result=result))
 
     @property
     def attachments(self):
@@ -1335,7 +1056,7 @@ def main_search():
     else:
         bandit_argfile_text = ''
         bandit_argv, bandit_kwargs = (), {}
-    bandit = utils.json_call(bandit_name, bandit_argv, bandit_kwargs)
+    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
 
     #
     # Construct algo
@@ -1348,7 +1069,7 @@ def main_search():
     else:
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
-    algo = utils.json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
 
 
     #
@@ -1516,7 +1237,7 @@ def main_show():
     else:
         bandit_argfile_text = ''
         bandit_argv, bandit_kwargs = (), {}
-    bandit = utils.json_call(bandit_name, bandit_argv, bandit_kwargs)
+    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
 
     #
     # Construct algo
@@ -1530,7 +1251,7 @@ def main_show():
     else:
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
-    algo = utils.json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
 
 
     #

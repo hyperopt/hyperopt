@@ -43,8 +43,11 @@ def ok_trial(tid, *args, **kwargs):
         )
 
 class TestTrials(unittest.TestCase):
+    def setUp(self):
+        self.trials = Trials()
+
     def test_valid(self):
-        trials = Trials()
+        trials = self.trials
         f = trials.insert_trial_doc
         fine = ok_trial('ID', 1, 2, 3)
 
@@ -66,6 +69,43 @@ class TestTrials(unittest.TestCase):
             return rval
         for key in TRIAL_MISC_KEYS:
             self.assertRaises(InvalidTrial, f, knockout2(key))
+
+    def test_insert_sync(self):
+        trials = self.trials
+        assert len(trials) == 0
+        trials.insert_trial_doc(ok_trial('a', 8))
+        assert len(trials) == 0
+        trials.insert_trial_doc(ok_trial(5, a=1, b=3))
+        assert len(trials) == 0
+        trials.insert_trial_docs(
+                [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
+        assert len(trials) == 0
+        trials.refresh()
+
+        assert len(trials) == 4, len(trials)
+        assert len(trials) == len(trials.specs)
+        assert len(trials) == len(trials.results)
+        assert len(trials) == len(trials.miscs)
+
+        trials.insert_trial_docs(
+                trials.new_trial_docs(
+                    ['id0', 'id1'],
+                    [dict(a=1), dict(a=2)],
+                    [dict(status='new'), dict(status='new')],
+                    [dict(tid='id0', idxs={}, vals={}, cmd=None),
+                        dict(tid='id1', idxs={}, vals={}, cmd=None)],))
+
+        assert len(trials) == 4
+        assert len(trials) == len(trials.specs)
+        assert len(trials) == len(trials.results)
+        assert len(trials) == len(trials.miscs)
+
+        trials.refresh()
+        assert len(trials) == 6
+        assert len(trials) == len(trials.specs)
+        assert len(trials) == len(trials.results)
+        assert len(trials) == len(trials.miscs)
+
 
 
 class BanditMixin(object):
@@ -131,7 +171,7 @@ class TestCoinFlipExperiment(unittest.TestCase):
         self.algo = Random(self.bandit)
         self.trials = Trials()
         self.experiment = Experiment(self.trials, self.algo, async=False)
-        self.ctrl = Ctrl()
+        self.ctrl = Ctrl(self.trials)
 
     def test_run_1(self):
         self.experiment.run(1)
@@ -169,7 +209,7 @@ class TestConfigs(unittest.TestCase):
         self.trials = trials = Trials()
         self.experiment = Experiment(trials, algo, async=False)
         self.experiment.run(5)
-        trials = list(self.trials)
+        trials = self.trials._trials
         self.output = output = []
         for trial in trials:
             print ''

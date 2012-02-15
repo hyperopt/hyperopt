@@ -19,12 +19,13 @@ import threading
 import time
 import unittest
 
+import nose
+
+from hyperopt import Experiment
+from hyperopt import Random
+from hyperopt.base import JOB_STATE_DONE
 from hyperopt.utils import json_call
-
-from hyperopt.mongoexp import MONGO_NEW
-
 from hyperopt.mongoexp import MongoTrials
-from hyperopt.mongoexp import MongoExperiment
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import as_mongo_str
 from hyperopt.mongoexp import _MongoJobs
@@ -116,8 +117,7 @@ def with_mongo_trials(f):
     def wrapper():
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
-                    exp_key=None,
-                    cmd='some cmd')
+                    exp_key=None)
             f(trials)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -126,63 +126,6 @@ def with_mongo_trials(f):
 @with_mongo_trials
 def test_with_temp_mongo(trials):
     pass # -- just verify that the decorator can run
-
-def ok_trial(tid, *args, **kwargs):
-    return dict(
-        tid=tid,
-        result={'status': 'algo, ok'},
-        spec={'a':1, 'foo': (args, kwargs)},
-        misc={
-            'tid':tid,
-            'idxs':{'z':[tid]},
-            'vals':{'z':[1]}},
-        extra='extra', # -- more stuff here is ok
-        owner=None,
-        state=MONGO_NEW,
-        version=0,
-        cmd="something",
-        book_time=None,
-        refresh_time=None,
-        exp_key='my_experiment',
-        )
-
-@with_mongo_trials
-def test_trials_insert(trials):
-    assert len(trials) == 0
-    trials.insert_trial_doc(ok_trial('a', 8))
-    assert len(trials) == 0
-    trials.insert_trial_doc(ok_trial(5, a=1, b=3))
-    assert len(trials) == 0
-    trials.insert_trial_docs(
-            [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
-    assert len(trials) == 0
-    trials.refresh()
-
-    assert len(trials) == 4, len(trials)
-    assert len(trials) == len(trials.specs)
-    assert len(trials) == len(trials.results)
-    assert len(trials) == len(trials.miscs)
-
-    trials.insert_trial_docs(
-            trials.new_trials(
-                ['id0', 'id1'],
-                [dict(a=1), dict(a=2)],
-                [dict(status='new'), dict(status='new')],
-                [dict(tid='id0', idxs={}, vals={}),
-                dict(tid='id1', idxs={}, vals={})],))
-
-    assert len(trials) == 4
-    assert len(trials) == len(trials.specs)
-    assert len(trials) == len(trials.results)
-    assert len(trials) == len(trials.miscs)
-
-    trials.refresh()
-    assert len(trials) == 6
-    assert len(trials) == len(trials.specs)
-    assert len(trials) == len(trials.results)
-    assert len(trials) == len(trials.miscs)
-
-
 
 def test_handles_are_independent():
     with TempMongo() as tm:
@@ -197,30 +140,74 @@ def test_handles_are_independent():
         assert len(t2) == 0
 
 
-def test_mongo_exp_is_picklable():
-    algo_jsons = []
-    algo_jsons.append('hyperopt.bandit_algos.Random')
-    algo_jsons.append('hyperopt.theano_gp.HGP')
-    algo_jsons.append('hyperopt.theano_gm.AdaptiveParzenGM')
-    for algo_json in algo_jsons:
-        with TempMongo() as tm:
-            # this triggers if an old stale mongo is running
-            assert len(TempMongo.mongo_jobs('foodb')) == 0
-            print 'pickling MongoExperiment with', algo_json
-            bandit = json_call('hyperopt.bandits.GaussWave2')
-            bandit_algo = json_call(algo_json, args=(bandit,))
-            exp = MongoExperiment(
-                bandit_algo=bandit_algo,
-                mongo_handle=tm.mongo_jobs('foodb'),
-                workdir=tm.workdir,
-                exp_key='exp_key',
-                poll_interval_secs=1.0,
-                cmd=('asdf', None))
-            exp_str = cPickle.dumps(exp)
-            cPickle.loads(exp_str)
+class TestExperimentWithThreads(unittest.TestCase):
 
+    @staticmethod
+    def worker_thread_fn(host_id, n_jobs, timeout):
+        mw = MongoWorker(mj=TempMongo.mongo_jobs('foodb'))
+        while n_jobs:
+            mw.run_one(host_id, timeout)
+            print 'worker: ran job'
+            n_jobs -= 1
+
+    def work(self, bandit):
+        """
+        Run a small experiment with several workers running in parallel
+        using Python threads.
+        """
+        n_threads = 3
+        jobs_per_thread = 2
+        n_trials = n_threads * jobs_per_thread
+
+        with TempMongo() as tm:
+            mj = tm.mongo_jobs('foodb')
+            trials = MongoTrials(tm.connection_string('foodb'))
+            assert len(trials) == 0
+
+            bandit_algo = Random(bandit)
+            exp = Experiment(trials, bandit_algo, cmd=self.cmd)
+
+            def newth():
+                return threading.Thread(
+                        target=self.worker_thread_fn,
+                        args=(('hostname', 0), jobs_per_thread, 600.0))
+            threads = [newth() for ii in range(n_threads)]
+            [th.start() for th in threads]
+
+            try:
+                print 'running experiment'
+                exp.run(n_trials, block_until_done=True)
+            finally:
+                print 'joining worker thread...'
+                [th.join() for th in threads]
+
+
+            assert trials.count_by_state_synced(JOB_STATE_DONE) == n_trials
+            assert trials.count_by_state_unsynced(JOB_STATE_DONE) == n_trials
+            assert len(trials) == n_trials, (
+                'trials failure %d %d ' % (len(trials) , n_trials))
+            assert len(trials.results) == n_trials, (
+                'results failure %d %d ' % (len(trials.results) , n_trials))
+
+    def test_bandit_json(self):
+        self.cmd = ('bandit_json evaluate',
+                'hyperopt.bandits.GaussWave2')
+        self.work(GaussWave2())
+
+# XXX: test each of the bandit calling protocols
+
+# XXX: test blocking behaviour
+
+# XXX: Test clear_db only removes things matching exp_key
+
+# XXX: test that multiple experiments can run simultaneously on the same
+#      jobs table using threads
+
+
+# XXX: find old mongoexp unit tests and put them in here
 
 def test_multiple_mongo_exps_with_threads():
+    raise nose.SkipTest()
     def worker(host_id, n_jobs, timeout, exp_key):
         mw = MongoWorker(
             mj=TempMongo.mongo_jobs('foodb'),
@@ -233,14 +220,14 @@ def test_multiple_mongo_exps_with_threads():
 
     bandit_jsons = ('hyperopt.bandits.GaussWave2',
                    'hyperopt.dbn.Dummy_DBN_Base',)
-                   
+
     with TempMongo() as tm:
         mj = tm.mongo_jobs('foodb')
         mj.conn.drop_database('foodb')  #need to clean stuff out! should this be in a TempMongo method?
         assert len(mj) == 0, len(mj)
-        
+
         bandits = map(json_call, bandit_jsons)
-        
+
         exps = []
         for bj, bandit in zip(bandit_jsons, bandits):
             exp = MongoExperiment(
@@ -265,7 +252,7 @@ def test_multiple_mongo_exps_with_threads():
                                        kwargs={'exp_key': bj})
             wthread.start()  
             wthreads.append(wthread)
-        
+
         try:
             print 'running experiments'
             for exp in exps:
@@ -288,138 +275,3 @@ def test_multiple_mongo_exps_with_threads():
             assert hosts == set(['worker_' + bj])
 
 
-def worker_thread_fn(host_id, n_jobs, timeout):
-    mw = MongoWorker(
-        mj=TempMongo.mongo_jobs('foodb'),
-        )
-    while n_jobs:
-        mw.run_one(host_id, timeout)
-        print 'worker: ran job'
-        n_jobs -= 1
-
-
-def test_mongo_exp_with_threads():
-    """
-    Run a small experiment with several workers running in parallel
-    using Python threads.
-    """
-    n_trials = 5  # each worker performs this many trials
-    n_startup_jobs = 3 # use smart algo after this many trials are done
-
-    for bandit_json in (
-            'hyperopt.bandits.GaussWave2',
-            'hyperopt.dbn.Dummy_DBN_Base',
-            ):
-        with TempMongo() as tm:
-            mj = tm.mongo_jobs('foodb')
-            mj.conn.drop_database('foodb')
-            #need to clean stuff out! should this be in a TempMongo method?
-
-            assert len(mj) == 0, len(mj)
-            bandit = json_call(bandit_json)
-            exp = MongoExperiment(
-                bandit_algo=AdaptiveParzenGM(bandit),
-                mongo_handle=tm.mongo_jobs('foodb'),
-                workdir=tm.workdir,
-                exp_key='exp_key',
-                poll_interval_secs=1.0,
-                cmd=('bandit_json evaluate', bandit_json))
-            exp.ddoc_init()
-            assert len(TempMongo.mongo_jobs('foodb')) == 0
-            for asdf in exp.mongo_handle:
-                print asdf
-            assert len(exp.mongo_handle) == 0
-
-
-            exp.bandit_algo.n_startup_jobs = n_startup_jobs
-
-            wthread = threading.Thread(target=worker_thread_fn,
-                    args=(('hostname', 0), n_trials, 600.0))
-            wthread.start()
-            
-            try:
-                print 'running experiment'
-                exp.run(n_trials, block_until_done=True)
-            finally:
-                print 'joining worker thread...'
-                wthread.join()
-
-            #print exp.trials
-            #print exp.results
-            assert len(exp.trials) == n_trials, (
-                'trials failure %d %d ' % (len(exp.trials) , n_trials))
-            assert len(exp.results) == n_trials, (
-                'results failure %d %d ' % (len(exp.results) , n_trials))
-
-            cPickle.dumps(exp)  # Ensure exp is picklable
-
-
-class TestLock(unittest.TestCase):
-    def setUp(self):
-        self.ctxt = TempMongo().__enter__()
-        try:
-            self.a = MongoExperiment(
-                bandit_algo=bandit_algos.Random(TwoArms()),
-                mongo_handle=self.ctxt.mongo_jobs('foodb'),
-                workdir=self.ctxt.workdir,
-                exp_key='exp_key',
-                poll_interval_secs=1.0,
-                cmd=())
-            # create a second experiment with same key
-            self.b = MongoExperiment(
-                bandit_algo=bandit_algos.Random(GaussWave2()),
-                mongo_handle=self.ctxt.mongo_jobs('foodb'),
-                workdir=self.ctxt.workdir,
-                exp_key='exp_key',
-                poll_interval_secs=1.0,
-                cmd=())
-            self.c = MongoExperiment(
-                bandit_algo=bandit_algos.Random(GaussWave2()),
-                mongo_handle=self.ctxt.mongo_jobs('foodb'),
-                workdir=self.ctxt.workdir,
-                exp_key='exp_key_different',
-                poll_interval_secs=1.0,
-                cmd=())
-            self.a.ddoc_init()
-            self.c.ddoc_init()
-        except:
-            self.ctxt.__exit__(None)
-            raise
-
-    def tearDown(self):
-        self.ctxt.__exit__(None)
-
-    def test_lock_relock(self):
-        with self.a.exclusive_access() as foo:
-            self.assertRaises(OperationFailure, self.b.ddoc_lock)
-
-        with self.b.exclusive_access() as foo:
-            # test that c can still be acquired with b locked
-            self.assertRaises(OperationFailure, self.a.ddoc_lock)
-            with self.c.exclusive_access() as bar:
-                self.assertRaises(OperationFailure, self.a.ddoc_lock)
-
-        with self.a.exclusive_access() as foo:
-            with self.a.exclusive_access() as foo2:
-                with self.a.exclusive_access() as foo3:
-                    self.assertRaises(OperationFailure, self.b.ddoc_lock)
-                    assert self.a._locks == 3
-                assert self.a._locks == 2
-            self.assertRaises(OperationFailure, self.b.ddoc_lock)
-            assert self.a._locks == 1
-        assert self.a._locks == 0
-
-    def test_clear_requires_lock(self):
-        with self.a.exclusive_access() as foo:
-            self.assertRaises(OperationFailure, self.b.clear_from_db)
-
-# XXX: test blocking behaviour
-
-# XXX: Test clear_db only removes things matching exp_key
-
-
-# XXX: test that multiple experiments can run simultaneously on the same
-#      jobs table using threads
-
-
-# XXX: find old mongoexp unit tests and put them in here
