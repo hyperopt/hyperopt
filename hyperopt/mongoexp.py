@@ -155,11 +155,12 @@ from bson import SON
 
 logger = logging.getLogger(__name__)
 
-from .base import InvalidTrial
-from .base import Trials
 from .base import JOB_STATES
 from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
         JOB_STATE_ERROR)
+from .base import Experiment
+from .base import Trials
+from .base import InvalidTrial
 from .utils import json_call
 
 
@@ -177,6 +178,12 @@ class Shutdown(Exception):
 
 class InvalidMongoTrial(InvalidTrial):
     pass
+
+
+class BanditSwapError(Exception):
+    """Raised when the search program tries to change the bandit attached to
+    an experiment.
+    """
 
 
 class ReserveTimeout(Exception):
@@ -302,7 +309,7 @@ def coarse_utcnow():
     return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
 
-class _MongoJobs(object):
+class MongoJobs(object):
     """
     # Interface to a Jobs database structured like this
     #
@@ -617,12 +624,12 @@ class MongoTrials(Trials):
     """
     async = True
 
-    def __init__(self, handle, exp_key=None):
-        if isinstance(handle, _MongoJobs):
-            self.handle = handle
+    def __init__(self, arg, exp_key=None):
+        if isinstance(arg, MongoJobs):
+            self.handle = arg
         else:
-            connection_string = handle
-            self.handle = _MongoJobs.new_from_connection_str(connection_string)
+            connection_string = arg
+            self.handle = MongoJobs.new_from_connection_str(connection_string)
         self.handle.create_indexes()
         self._exp_key = exp_key
         self.refresh()
@@ -716,20 +723,17 @@ class MongoWorker(object):
     def __init__(self, mj,
             poll_interval=poll_interval,
             workdir=workdir,
-            exp_key=None,
-            md=None):
+            exp_key=None):
         """
         mj - MongoJobs interface to jobs collection
         poll_interval - seconds
         workdir - string
-        exp_key - 
-        md - MongoJobs interface to drivers collection
+        exp_key - restrict reservations to this key
         """
         self.mj = mj
         self.poll_interval = poll_interval
         self.workdir = workdir
         self.exp_key = exp_key
-        self.md = md
 
     def run_one(self, host_id=None, reserve_timeout=None):
         if host_id == None:
@@ -896,54 +900,8 @@ def as_mongo_str(s):
     else:
         return 'mongo://%s' % s
 
-
-def main_worker():
-    from optparse import OptionParser
-    parser = OptionParser(usage="%prog [options]")
-
-    parser.add_option("--max-consecutive-failures",
-            dest="max_consecutive_failures",
-            metavar='N',
-            default=4,
-            help="stop if N consecutive jobs fail (default: 4)",
-            )
-    parser.add_option("--exp-key",
-            dest='exp_key',
-            default = None,
-            metavar='str',
-            help="identifier for this workers's jobs")
-    parser.add_option("--poll-interval",
-            dest='poll_interval',
-            metavar='N',
-            default=5,
-            help="check work queue every 1 < T < N seconds (default: 5")
-    parser.add_option("--max-jobs",
-            dest='max_jobs',
-            default=sys.maxint,
-            help="stop after running this many jobs (default: inf)")
-    parser.add_option("--mongo",
-            dest='mongo',
-            default='localhost/hyperopt',
-            help="<host>[:port]/<db> for IPC and job storage")
-    parser.add_option("--reserve-timeout",
-            dest='reserve_timeout',
-            metavar='T',
-            default=120.0,
-            help="poll database for up to T seconds to reserve a job")
-    parser.add_option("--workdir",
-            dest="workdir",
-            default=None,
-            help="root workdir (default: load from mongo)",
-            metavar="DIR")
-
-    (options, args) = parser.parse_args()
-
-    if args:
-        parser.print_help()
-        return -1
-
+def main_worker_helper(options, args):
     N = int(options.max_jobs)
-
 
     if N > 1:
         def sighandler_shutdown(signum, frame):
@@ -995,18 +953,151 @@ def main_worker():
         mj = MongoJobs.new_from_connection_str(
                 as_mongo_str(options.mongo) + '/jobs')
 
-        md = MongoJobs.new_from_connection_str(
-                as_mongo_str(options.mongo) + '/drivers')
-
         mworker = MongoWorker(mj,
                 float(options.poll_interval),
                 workdir=options.workdir,
-                exp_key=options.exp_key,
-                md=md)
+                exp_key=options.exp_key)
         mworker.run_one(reserve_timeout=float(options.reserve_timeout))
     else:
         parser.print_help()
         return -1
+
+
+def main_worker():
+    from optparse import OptionParser
+    parser = OptionParser(usage="%prog [options]")
+
+    parser.add_option("--max-consecutive-failures",
+            dest="max_consecutive_failures",
+            metavar='N',
+            default=4,
+            help="stop if N consecutive jobs fail (default: 4)",
+            )
+    parser.add_option("--exp-key",
+            dest='exp_key',
+            default = None,
+            metavar='str',
+            help="identifier for this workers's jobs")
+    parser.add_option("--poll-interval",
+            dest='poll_interval',
+            metavar='N',
+            default=5,
+            help="check work queue every 1 < T < N seconds (default: 5")
+    parser.add_option("--max-jobs",
+            dest='max_jobs',
+            default=sys.maxint,
+            help="stop after running this many jobs (default: inf)")
+    parser.add_option("--mongo",
+            dest='mongo',
+            default='localhost/hyperopt',
+            help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--reserve-timeout",
+            dest='reserve_timeout',
+            metavar='T',
+            default=120.0,
+            help="poll database for up to T seconds to reserve a job")
+    parser.add_option("--workdir",
+            dest="workdir",
+            default=None,
+            help="root workdir (default: load from mongo)",
+            metavar="DIR")
+
+    (options, args) = parser.parse_args()
+
+    if args:
+        parser.print_help()
+        return -1
+
+    return main_worker_helper(options, args)
+
+
+def main_search_helper(options, args, input=input, cmd_type=None):
+    """
+    input is an argument so that unittest can put something else in
+    """
+    #
+    # Construct bandit
+    #
+    bandit_name = args[0]
+    if options.bandit_argfile:
+        bandit_argfile_text = open(options.bandit_argfile).read()
+        bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
+    else:
+        bandit_argfile_text = ''
+        bandit_argv, bandit_kwargs = (), {}
+    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
+
+    #
+    # Construct algo
+    #
+    algo_name = args[1]
+    if options.bandit_algo_argfile:
+        # in theory this is easy just as above.
+        # need tests though, and it's just not done yet.
+        raise NotImplementedError('Option: --bandit-algo-argfile')
+    else:
+        algo_argfile_text = ''
+        algo_argv, algo_kwargs = (), {}
+    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+
+
+    #
+    # Determine exp_key
+    #
+    if None is options.exp_key:
+        if bandit_argfile_text or algo_argfile_text:
+            m = hashlib.md5()
+            m.update(bandit_argfile_text)
+            m.update(algo_argfile_text)
+            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.hexdigest())
+            del m
+        else:
+            exp_key = '%s/%s' % (bandit_name, algo_name)
+    else:
+        exp_key = options.exp_key
+
+    trials = MongoTrials(as_mongo_str(options.mongo) + '/jobs', exp_key)
+
+    if options.clear_existing:
+        print >> sys.stdout, "Are you sure you want to delete",
+        print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
+                % (
+                    trials.handle.db.jobs.find({'exp_key':exp_key}).count(),
+                    str(exp_key)))
+        print >> sys.stdout, '(y/n)'
+        y, n = 'y', 'n'
+        if input() != 'y':
+            print >> sys.stdout, "aborting"
+            del self
+            return 1
+        trials.delete_all()
+
+    #
+    # Construct MongoExperiment
+    #
+    if bandit_argfile_text or algo_argfile_text or cmd_type=='D.A.':
+        aname = 'driver_attachment_%s.pkl' % exp_key
+        worker_cmd = ('driver_attachment', aname)
+        tup = (bandit_name, bandit_argv, bandit_kwargs)
+        if aname in trials.attachments:
+            atup = cPickle.loads(trials.attachments[aname])
+            if tup != atup:
+                raise BanditSwapError((tup, atup))
+        else:
+            blob = cPickle.dumps(tup)
+            trials.attachments[aname] = blob
+    else:
+        worker_cmd = ('bandit_json evaluate', bandit_name)
+
+    self = Experiment(trials,
+        bandit_algo=algo,
+        workdir=options.workdir,
+        poll_interval_secs=(int(options.poll_interval))
+            if options.poll_interval else 5,
+        max_queue_len=options.max_queue_len,
+        cmd=worker_cmd)
+
+    self.run(options.steps, block_until_done=options.block)
 
 
 def main_search():
@@ -1084,129 +1175,8 @@ def main_search():
         parser.print_help()
         return -1
 
-    #
-    # Construct bandit
-    #
-    bandit_name = args[0]
-    if options.bandit_argfile:
-        bandit_argfile_text = open(options.bandit_argfile).read()
-        bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
-    else:
-        bandit_argfile_text = ''
-        bandit_argv, bandit_kwargs = (), {}
-    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
+    return main_search_helper(options, args)
 
-    #
-    # Construct algo
-    #
-    algo_name = args[1]
-    if options.bandit_algo_argfile:
-        # in theory this is easy just as above.
-        # need tests though, and it's just not done yet.
-        raise NotImplementedError('Option: --bandit-algo-argfile')
-    else:
-        algo_argfile_text = ''
-        algo_argv, algo_kwargs = (), {}
-    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
-
-
-    #
-    # Determine exp_key
-    #
-    if None is options.exp_key:
-        if bandit_argfile_text or algo_argfile_text:
-            m = hashlib.md5()
-            m.update(bandit_argfile_text)
-            m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.hexdigest())
-            del m
-        else:
-            exp_key = '%s/%s' % (bandit_name, algo_name)
-    else:
-        exp_key = options.exp_key
-
-    #
-    # Construct MongoExperiment
-    #
-    if bandit_argfile_text or algo_argfile_text:
-        worker_cmd = ('driver_attachment', exp_key)
-    else:
-        worker_cmd = ('bandit_json evaluate', bandit_name)
-    mj = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/jobs')
-
-    self = MongoExperiment(
-        bandit_algo=algo,
-        mongo_handle=mj,
-        workdir=options.workdir,
-        exp_key=exp_key,
-        poll_interval_secs=(int(options.poll_interval))
-            if options.poll_interval else 5,
-        max_queue_len=options.max_queue_len,
-        cmd=worker_cmd)
-
-    self.ddoc_get()  # init the driver document if necessary, and get it
-
-    # XXX: this is bad, better to check what bandit_tuple is already there
-    #      and assert that it matches if something is already there
-    self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
-
-    if options.clear_existing:
-        print >> sys.stdout, "Are you sure you want to delete",
-        print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
-                % (mj.jobs.find({'exp_key':exp_key}).count(),
-                    str(exp_key)))
-        print >> sys.stdout, '(y/n)'
-        y, n = 'y', 'n'
-        if input() != 'y':
-            print >> sys.stdout, "aborting"
-            del self
-            return 1
-
-        self.ddoc_lock(force=options.force_lock)
-        self.clear_from_db()
-        # -- clearing self from db deletes the document used for locking
-        #    so no need to release the lock
-
-        # -- re-insert a new driver document
-        self.ddoc_get()
-        self.ddoc_attach_bandit_tuple(bandit_name, bandit_argv, bandit_kwargs)
-
-
-    # TODO: uncomment this error when it happens again, and I can see
-    # where in the traceback to put it.
-    #logger.error('experiment in progress: %s' % str(driver['owner']))
-    #logger.error('(hint: run with --force-lock to proceed anyway.)')
-
-
-    #
-    # Try replacing the self we constructed earlier
-    # with the unpickled saved state:
-    #
-    try:
-        other = self.load_from_db()
-    except OperationFailure:
-        pass
-    else:
-        assert other.exp_key == exp_key
-        other.mongo_handle = mj
-        other.max_queue_len=self.max_queue_len
-        if options.workdir is not None:
-            other.workdir = self.workdir
-        if options.poll_interval is not None:
-            other.poll_interval_secs = self.poll_interval_secs
-        self = other
-
-    with self.exclusive_access(force=options.force_lock) as _foo:
-        try:
-            self.run(options.steps, block_until_done=options.block)
-        finally:
-            if options.save_on_exit:
-                # XXX: does this mess up the original exception traceback?
-                try:
-                    self.save_to_db()
-                except pymongo.errors.OperationFailure:
-                    pass
 
 
 def main_show():
