@@ -421,6 +421,7 @@ class _MongoJobs(object):
                 self.jobs.remove(d, safe=safe)
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
+
     def delete_all_error_jobs(self, safe=True):
         return self.delete_all(cond={'state': JOB_STATE_ERROR}, safe=safe)
 
@@ -666,14 +667,17 @@ class MongoTrials(Trials):
         rval = self.handle.jobs.find(query).count()
         return rval
 
-    def clear_all(self):
+    def delete_all(self):
         if self._exp_key:
             cond = cond={'exp_key': self._exp_key}
         else:
             cond = {}
+        # -- remove all documents matching condition
         self.handle.delete_all(cond)
-
-        # XXX: delete attached gfs files
+        gfs = self.handle.gfs
+        for filename in gfs.list():
+            gfs.delete(gfs.get_last_version(filename)._id)
+        self.refresh()
 
     @property
     def attachments(self):

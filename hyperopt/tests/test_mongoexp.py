@@ -145,6 +145,15 @@ def test_attachments(trials):
     del trials.attachments['aname']
     assert 'aname' not in trials.attachments
 
+@with_mongo_trials
+def test_delete_all(trials):
+    trials.attachments['aname'] = 'a'
+    trials.attachments['aname2'] = 'b'
+    assert 'aname2' in trials.attachments
+    trials.delete_all()
+    assert 'aname' not in trials.attachments
+    assert 'aname2' not in trials.attachments
+
 def test_handles_are_independent():
     with TempMongo() as tm:
         t1 = tm.mongo_jobs('t1')
@@ -274,60 +283,4 @@ class TestExperimentWithThreads(unittest.TestCase):
 
 
 # XXX: find old mongoexp unit tests and put them in here
-
-def test_multiple_mongo_exps_with_threads():
-
-    with TempMongo() as tm:
-        mj = tm.mongo_jobs('foodb')
-        mj.conn.drop_database('foodb')  #need to clean stuff out! should this be in a TempMongo method?
-        assert len(mj) == 0, len(mj)
-
-        bandits = map(json_call, bandit_jsons)
-
-        exps = []
-        for bj, bandit in zip(bandit_jsons, bandits):
-            exp = MongoExperiment(
-                bandit_algo=TheanoRandom(bandit),
-                mongo_handle=mj,
-                workdir=tm.workdir,
-                exp_key=bj,
-                poll_interval_secs=1.0,
-                cmd=('bandit_json evaluate', bj))
-            print ('Initializing', exp.exp_key)
-            exp.ddoc_init() 
-            assert len(exp.mongo_handle) == 0
-            exps.append(exp)
-
-        n_trials = 5
-
-        wthreads = []
-        for bj, exp in zip(bandit_jsons, exps):
-            wthread = threading.Thread(target=worker,
-                                       args=(('worker_' + bj, 0), 
-                                              n_trials, 660.0),
-                                       kwargs={'exp_key': bj})
-            wthread.start()  
-            wthreads.append(wthread)
-
-        try:
-            print 'running experiments'
-            for exp in exps:
-                exp.run(n_trials)
-            for exp in exps:
-                exp.block_until_done()
-        finally:
-            print 'joining worker threads...'
-            for wthread in wthreads:
-                wthread.join()
-    
-        for bj, exp in zip(bandit_jsons, exps):
-            assert len(exp.trials) == n_trials, '%d %d' % (len(exp.trials), 
-                                                           n_trials)
-            assert len(exp.results) == n_trials, '%d %d' % (len(exp.results),
-                                                           n_trials)
-            js = list(mj.db.jobs.find({'exp_key':bj}))
-            hosts = set([_j['owner'][0] for _j in js])
-            print 'hosts for exp %s: %s' % (exp.exp_key, ','.join(list(hosts)))
-            assert hosts == set(['worker_' + bj])
-
 

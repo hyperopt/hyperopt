@@ -104,12 +104,14 @@ TRIAL_MISC_KEYS = [
         'vals',
         ]
 
+
 def np_to_py_number(a):
     if isinstance(a, np.floating):
         return float(a)
     if isinstance(a, np.integer):
         return int(a)
     return a
+
 
 def miscs_update_idxs_vals(miscs, idxs, vals):
     """
@@ -277,6 +279,11 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
+
+    def delete_all(self):
+        self._trials = []
+        self.attachments = {}
+        self.refresh()
 
     def count_by_state_synced(self, arg):
         """
