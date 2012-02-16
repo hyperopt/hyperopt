@@ -670,7 +670,6 @@ class Experiment(object):
                 self.trials.insert_trial_docs(new_trials)
                 n_queued += len(new_ids)
                 qlen = get_queue_len()
-                print 'qlen', qlen
 
             if self.async:
                 # -- wait for workers to fill in the trials
