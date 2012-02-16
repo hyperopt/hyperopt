@@ -179,22 +179,29 @@ class Trials(object):
     async = False
 
     def __init__(self, exp_key=None):
-        self._trials = []
+        self._ids = set()
+        self._dynamic_trials = []
         self._exp_key = exp_key
-        self.refresh()
         self.attachments = {}
+        self.refresh()
 
     def __iter__(self):
-        return izip(self._specs, self._results, self._miscs)
+        return iter(self._trials)
 
     def __len__(self):
-        return len(self._specs)
+        return len(self._trials)
 
     def refresh(self):
         # any syncing to persistent storage would happen here
+        self._trials = list(self._dynamic_trials)
         self._specs = [tt['spec'] for tt in self._trials]
         self._results = [tt['result'] for tt in self._trials]
         self._miscs = [tt['misc'] for tt in self._trials]
+        self._ids.update([tt['tid'] for tt in self._trials])
+
+    @property
+    def trials(self):
+        return self._trials
 
     @property
     def specs(self):
@@ -236,7 +243,7 @@ class Trials(object):
         """insert with no error checking
         """
         rval = [doc['tid'] for doc in docs]
-        self._trials.extend(docs)
+        self._dynamic_trials.extend(docs)
         return rval
 
     def insert_trial_doc(self, doc):
@@ -258,9 +265,10 @@ class Trials(object):
         return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
-        return range(
-                len(self._trials),
-                len(self._trials) + N)
+        aa = len(self._ids)
+        rval = range(aa, aa + N)
+        self._ids.update(rval)
+        return rval
 
     def new_trial_docs(self, tids, specs, results, miscs):
         assert len(tids) == len(specs) == len(results) == len(miscs)
@@ -281,14 +289,16 @@ class Trials(object):
         return rval
 
     def delete_all(self):
-        self._trials = []
+        self._dynamic_trials = []
         self.attachments = {}
         self.refresh()
 
-    def count_by_state_synced(self, arg):
+    def count_by_state_synced(self, arg, trials=None):
         """
         Return trial counts by looking at self._trials
         """
+        if trials is None:
+            trials = self._trials
         if arg in JOB_STATES:
             queue = [doc for doc in self._trials if doc['state'] == arg]
         elif hasattr(arg, '__iter__'):
@@ -305,7 +315,7 @@ class Trials(object):
         Return trial counts that count_by_state_synced would return if we
         called refresh() first.
         """
-        return self.count_by_state_synced(arg)
+        return self.count_by_state_synced(arg, trials=self._dynamic_trials)
 
     def losses(self, bandit=None):
         if bandit is None:
@@ -606,7 +616,7 @@ class Experiment(object):
         self.max_queue_len = max_queue_len
 
     def serial_evaluate(self):
-        for trial in self.trials._trials:
+        for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
                 spec = copy.deepcopy(trial['spec'])
                 ctrl = Ctrl(self.trials)

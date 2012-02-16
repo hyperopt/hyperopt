@@ -145,6 +145,23 @@ def with_mongo_trials(f):
 def test_with_temp_mongo(trials):
     pass # -- just verify that the decorator can run
 
+
+@with_mongo_trials
+def test_new_trial_ids(trials):
+    a = trials.new_trial_ids(1)
+    b = trials.new_trial_ids(2)
+    c = trials.new_trial_ids(3)
+
+    assert len(a) == 1
+    assert len(b) == 2
+    assert len(c) == 3
+    s = set()
+    s.update(a)
+    s.update(b)
+    s.update(c)
+    assert len(s) == 6
+
+
 @with_mongo_trials
 def test_attachments(trials):
     blob = 'abcde'
@@ -163,6 +180,7 @@ def test_attachments(trials):
     del trials.attachments['aname']
     assert 'aname' not in trials.attachments
 
+
 @with_mongo_trials
 def test_delete_all_on_attachments(trials):
     trials.attachments['aname'] = 'a'
@@ -171,6 +189,7 @@ def test_delete_all_on_attachments(trials):
     trials.delete_all()
     assert 'aname' not in trials.attachments
     assert 'aname2' not in trials.attachments
+
 
 def test_handles_are_independent():
     with TempMongo() as tm:

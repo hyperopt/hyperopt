@@ -448,7 +448,7 @@ class MongoJobs(object):
         if cond['owner'] is not None:
             raise ValueError('refusing to reserve owned job')
         try:
-            self.jobs.update(
+            rval = self.jobs.find_and_modify(
                 cond,
                 {'$set':
                     {'owner': host_id,
@@ -457,15 +457,13 @@ class MongoJobs(object):
                      'refresh_time': now,
                      }
                  },
+                new=True,
                 safe=True,
-                upsert=False,
-                multi=False,)
+                upsert=False)
         except pymongo.errors.OperationFailure, e:
             logger.error('Error during reserve_job: %s'%str(e))
-            return None
-        cond['owner'] = host_id
-        cond['book_time'] = now
-        return self.jobs.find_one(cond)
+            rval = None
+        return rval
 
     def refresh(self, doc, safe=False):
         self.update(doc, dict(refresh_time=coarse_utcnow()), safe=False)
@@ -685,6 +683,21 @@ class MongoTrials(Trials):
         for filename in gfs.list():
             gfs.delete(gfs.get_last_version(filename)._id)
         self.refresh()
+
+    def new_trial_ids(self, N):
+        db = self.handle.db
+        if self._exp_key is None:
+            # -- docs say you can't upsert an empty document
+            query = {'a': 0}
+        else:
+            query = {'exp_key':self._exp_key}
+        doc = db.job_ids.find_and_modify(
+                query,
+                {'$inc' : {'last_id': N}},
+                upsert=True,
+                safe=True)
+        lid = doc.get('last_id', 0)
+        return range(lid, lid + N)
 
     @property
     def attachments(self):
