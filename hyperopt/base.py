@@ -557,30 +557,14 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def suggest(self,
-            new_ids,
-            specs,
-            results,
-            misc):
+    def suggest(self, new_ids, specs, results, miscs):
         """
         specs is list of all specification documents from current Trial
         results is a list of result documents returned by Bandit.evaluate
-        misc is a list of documents with other information about each job.
+        miscs is a list of documents with other information about each job.
 
         All lists have the same length.
         """
-        raise NotImplementedError('override me')
-
-
-class Random(BanditAlgo):
-    """Random search algorithm
-    """
-
-    def suggest(self,
-            new_ids,
-            specs,
-            results,
-            misc):
         # -- install new_ids as program arguments
         self.new_ids[:] = new_ids
 
@@ -594,6 +578,15 @@ class Random(BanditAlgo):
         new_miscs = [dict(tid=ii) for ii in new_ids]
         miscs_update_idxs_vals(new_miscs, idxs, vals)
         return new_specs, new_results, new_miscs
+
+
+class Random(BanditAlgo):
+    """Random search algorithm
+
+    The base implementation of BanditAlgo actually does random sampling,
+    This class is defined so that hyperopt.Random can be used to mean random
+    sampling.
+    """
 
 
 class Experiment(object):
