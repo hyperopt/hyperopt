@@ -194,9 +194,6 @@ class Trials(object):
     def refresh(self):
         # any syncing to persistent storage would happen here
         self._trials = list(self._dynamic_trials)
-        self._specs = [tt['spec'] for tt in self._trials]
-        self._results = [tt['result'] for tt in self._trials]
-        self._miscs = [tt['misc'] for tt in self._trials]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -204,24 +201,28 @@ class Trials(object):
         return self._trials
 
     @property
+    def tids(self):
+        return [tt['tid'] for tt in self._trials]
+
+    @property
     def specs(self):
-        return self._specs
+        return [tt['spec'] for tt in self._trials]
 
     @property
     def results(self):
-        return self._results
+        return [tt['result'] for tt in self._trials]
 
     @property
     def miscs(self):
-        return self._miscs
+        return [tt['misc'] for tt in self._trials]
 
     @property
     def idxs(self):
-        return miscs_to_idxs_vals(self._miscs)[0]
+        return miscs_to_idxs_vals(self.miscs)[0]
 
     @property
     def vals(self):
-        return miscs_to_idxs_vals(self._miscs)[1]
+        return miscs_to_idxs_vals(self.miscs)[1]
 
     def assert_valid_trial(self, trial):
         if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
