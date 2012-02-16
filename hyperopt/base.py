@@ -512,9 +512,11 @@ class BanditAlgo(object):
         assert set(name_by_id.keys()) == set(vals_by_id.keys())
 
         # -- remove non-stochastic nodes from the idxs and vals
-        #    because (a) they should be irrelevant for BanditAlgo operation
-        #    and (b) they can be reconstructed from the template and the
-        #    stochastic choices.
+        #    because
+        #    (a) they should be irrelevant for BanditAlgo operation,
+        #    (b) they can be reconstructed from the template and the
+        #    stochastic choices, and
+        #    (c) they are often annoying when printing / saving.
         for node_id, name in name_by_id.items():
             if name not in pyll.stochastic.implicit_stochastic_symbols:
                 del name_by_id[node_id]
