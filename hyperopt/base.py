@@ -41,6 +41,7 @@ import numpy as np
 import bson # -- comes with pymongo
 
 import pyll
+from pyll import scope
 from pyll.stochastic import replace_repeat_stochastic
 from pyll.stochastic import replace_implicit_stochastic_nodes
 
@@ -105,12 +106,33 @@ TRIAL_MISC_KEYS = [
         ]
 
 
-def np_to_py_number(a):
-    if isinstance(a, np.floating):
-        return float(a)
-    if isinstance(a, np.integer):
-        return int(a)
-    return a
+def SONify(arg, memo=None):
+    if memo is None:
+        memo = {}
+    if id(arg) in memo:
+        rval = memo[id(arg)]
+    if isinstance(arg, np.floating):
+        rval = float(arg)
+    elif isinstance(arg, np.integer):
+        rval = int(arg)
+    elif isinstance(arg, (list, tuple)):
+        rval = type(arg)([SONify(ai, memo) for ai in arg])
+    elif isinstance(arg, dict):
+        rval = dict([(SONify(k, memo), SONify(v, memo))
+            for k, v in arg.items()])
+    elif isinstance(arg, (basestring, float, int, type(None))):
+        rval = arg
+    elif isinstance(arg, np.ndarray):
+        if x.ndim == 0:
+            rval = SONify(x.sum())
+        elif x.ndim == 1:
+            rval = map(np_to_py_number, x) # N.B. memo None
+        else:
+            raise NotImplementedError()
+    else:
+        raise TypeError('SONify', arg)
+    memo[id(rval)] = rval
+    return rval
 
 
 def miscs_update_idxs_vals(miscs, idxs, vals):
@@ -135,8 +157,8 @@ def miscs_update_idxs_vals(miscs, idxs, vals):
             node_vals = vals[node_id]
             if tid in node_idxs:
                 pos = node_idxs.index(tid)
-                misc_tid['idxs'][node_id] = [np_to_py_number(tid)]
-                misc_tid['vals'][node_id] = [np_to_py_number(node_vals[pos])]
+                misc_tid['idxs'][node_id] = [tid]
+                misc_tid['vals'][node_id] = [node_vals[pos]]
 
                 # -- assert that tid occurs only once
                 assert tid not in node_idxs[pos+1:]
@@ -237,8 +259,15 @@ class Trials(object):
             raise InvalidTrial('tid mismatch between root and misc',
                     (trial['tid'], trial['misc']['tid']))
         # -- check for SON-encodable
-        bson.BSON.encode(trial)
+        try:
+            bson.BSON.encode(trial)
+        except:
+            print '-' * 80
+            print trial
+            print '-' * 80
+            raise
         # XXX how to assert that tids are unique?
+        return trial
 
     def _insert_trial_docs(self, docs):
         """insert with no error checking
@@ -253,7 +282,7 @@ class Trials(object):
         Does not refresh. Call self.refresh() for the trial to appear in
         self.specs, self.results, etc.
         """
-        self.assert_valid_trial(doc)
+        doc = self.assert_valid_trial(SONify(doc))
         return self._insert_trial_docs([doc])[0]
         # refreshing could be done fast in this base implementation, but with
         # a real DB the steps should be separated.
@@ -261,8 +290,8 @@ class Trials(object):
     def insert_trial_docs(self, docs):
         """ trials - something like is returned by self.new_trial_docs()
         """
-        for doc in docs:
-            self.assert_valid_trial(doc)
+        docs = [self.assert_valid_trial(SONify(doc))
+                for doc in docs]
         return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
@@ -475,7 +504,7 @@ class CoinFlip(Bandit):
     """
 
     def __init__(self):
-        Bandit.__init__(self, dict(flip=pyll.scope.one_of('heads', 'tails')))
+        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
 
     def evaluate(self, config, ctrl):
         scores = dict(heads=1.0, tails=0.0)
@@ -523,13 +552,14 @@ class BanditAlgo(object):
                 del name_by_nid[node_id]
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
-            if name == 'one_of':
+            elif name == 'one_of':
                 # -- one_of nodes too, because they are duplicates of randint
                 del name_by_nid[node_id]
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
 
-        # -- make the graph runnable
+
+        # -- make the graph runnable and SON-encodable
         specs_idxs_vals_0 = pyll.as_apply([
             vh.vals_memo[template], idxs_by_nid, vals_by_nid])
         specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
@@ -537,7 +567,7 @@ class BanditAlgo(object):
                 specs_idxs_vals_1,
                 pyll.as_apply(self.rng))
 
-        # -- represents symbolic specs/idxs/vals
+        # -- represents symbolic (specs, idxs, vals)
         self.s_specs_idxs_vals = specs_idxs_vals_2
 
         # -- compute some document coordinate strings for the node_ids
