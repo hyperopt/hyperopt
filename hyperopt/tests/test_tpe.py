@@ -236,17 +236,6 @@ class CasePerBandit(object):
     def test_many_dists(self): self.bandit = ManyDists(); self.work()
 
 
-class TestBaseAlgoRemovesDrawRNG(unittest.TestCase, CasePerBandit):
-    def work(self):
-        algo = Random(self.bandit)
-        order = pyll.dfs(algo.s_specs_idxs_vals)
-        print algo.s_specs_idxs_vals
-
-        prior_names = ['uniform', 'normal', 'lognormal']
-        for node in order:
-            assert node.name not in prior_names
-            # these are all called indirectly via draw_rng
-
 
 class TestPosteriorClone(unittest.TestCase, CasePerBandit):
     def work(self):

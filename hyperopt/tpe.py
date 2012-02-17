@@ -270,85 +270,85 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
 # -- Uniform
 
 @adaptive_parzen_sampler('uniform')
-def ap_uniform_sampler(obs, low, high, size=()):
+def ap_uniform_sampler(obs, low, high, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=None,
-            size=size)
+            size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('quniform')
-def ap_quniform_sampler(obs, low, high, q, size=()):
+def ap_quniform_sampler(obs, low, high, q, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=q,
-            size=size)
+            size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('loguniform')
-def ap_loguniform_sampler(obs, low, high, size=()):
+def ap_loguniform_sampler(obs, low, high, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
             scope.log(obs), prior_mu, prior_sigma)
     rval = scope.LGMM1(weights, mus, sigmas, low=low, high=high,
-            size=size)
+            size=size, rng=rng)
     return rval
 
 
 @adaptive_parzen_sampler('qloguniform')
-def ap_qloguniform_sampler(obs, low, high, q, size=()):
+def ap_qloguniform_sampler(obs, low, high, q, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
     return scope.LGMM1(weights, mus, sigmas, low, high, q=q,
-            size=size)
+            size=size, rng=rng)
 
 
 # -- Normal
 
 @adaptive_parzen_sampler('normal')
-def ap_normal_sampler(obs, mu, sigma, size=()):
+def ap_normal_sampler(obs, mu, sigma, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs, mu, sigma)
-    return scope.GMM1(weights, mus, sigmas)
+    return scope.GMM1(weights, mus, sigmas, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('qnormal')
-def ap_qnormal_sampler(obs, mu, sigma, q, size=()):
+def ap_qnormal_sampler(obs, mu, sigma, q, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs, mu, sigma)
-    return scope.GMM1(weights, mus, sigmas, q=q)
+    return scope.GMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('lognormal')
-def ap_loglognormal_sampler(obs, mu, sigma, size=()):
+def ap_loglognormal_sampler(obs, mu, sigma, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
             scope.log(obs), mu, sigma)
-    rval = scope.LGMM1(weights, mus, sigmas, size=size)
+    rval = scope.LGMM1(weights, mus, sigmas, size=size, rng=rng)
     return rval
 
 
 @adaptive_parzen_sampler('qlognormal')
-def ap_qlognormal_sampler(obs, mu, sigma, q, size=()):
+def ap_qlognormal_sampler(obs, mu, sigma, q, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
             scope.log(obs), mu, sigma)
-    rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size)
+    rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
     return rval
 
 
 # -- Categorical
 
 @adaptive_parzen_sampler('randint')
-def ap_categorical_sampler(obs, upper, size=()):
+def ap_categorical_sampler(obs, upper, size=(), rng=None):
     counts = scope.bincount(obs, minlength=upper)
     # -- add in some prior pseudocounts
     pseudocounts = counts + scope.sqrt(scope.len(obs))
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
-            size=size)
+            size=size, rng=rng)
 
 
 
