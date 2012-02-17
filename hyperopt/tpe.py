@@ -34,6 +34,22 @@ def adaptive_parzen_lpdf(name):
     return wrapper
 
 
+@pyll.scope.define
+def bincount(x, weights=None, minlength=None):
+    return np.bincount(x, weights, minlength)
+
+
+@pyll.scope.define
+def sum(x, axis=None):
+    if axis is None:
+        return np.sum(x)
+    else:
+        return np.sum(x, axis=axis)
+
+@pyll.scope.define
+def sqrt(x):
+    return np.sqrt(x)
+
 
 @pyll.stochastic.implicit_stochastic
 @pyll.scope.define
@@ -72,6 +88,44 @@ def GMM1_lpdf(sample, weights, mus, sigmas):
     rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
     return rval.reshape(sample.shape)
 
+
+@pyll.stochastic.implicit_stochastic
+@pyll.scope.define
+def BGMM1(weights, mus, sigmas, rng=None, size=()):
+    """Return samples from bounded (truncated) 1-D Gaussian Mixture Model"""
+    weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
+    assert len(weights) == len(mus) == len(sigmas)
+    n_samples = np.prod(size)
+    n_components = len(weights)
+
+    # rejection sampling, one sample at a time.
+    # XXX: speed this up
+    samples = []
+    while len(samples) < n_samples:
+        active = numpy.argmax(rng.multinomial(1, weights))
+        draw = rng.normal(loc=mus[active], scale=sigmas[active])
+        if low < draw < high:
+            samples.append(draw)
+    samples = np.reshape(np.asarray(samples), size)
+    return samples
+
+
+@pyll.stochastic.implicit_stochastic
+@pyll.scope.define
+def categorical(p, rng=None, size=()):
+    """Draws i with probability p[i]"""
+    #XXX: OMG this is the craziest shit
+    n_draws = numpy.prod(size)
+    sample = rng.multinomial(n=1, pvals=p, size=tuple(size))
+    assert sample.shape == tuple(shp) + (len(p),)
+    if tuple(shp):
+        rval = numpy.sum(sample * numpy.arange(len(p)), axis=len(shp))
+    else:
+        rval = [numpy.where(rng.multinomial(pvals=p, n=1))[0][0]
+                for i in xrange(n_draws)]
+        rval = numpy.asarray(rval, dtype=self.otype.dtype)
+    assert (rval.shape == shp).all()
+    return rval
 
 @pyll.scope.define_info(o_len=3)
 def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
@@ -138,10 +192,65 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
 
 
 @adaptive_parzen_sampler('normal')
-def ap_normal_sampler(obs, mu, sigma):
-    weights, mus, sigmas = scope.adaptive_parzen_normal(obs, mu, sigma)
+def ap_normal_sampler(obs, mu, sigma, size=()):
+    weights, mus, sigmas = pyll.scope.adaptive_parzen_normal(obs, mu, sigma)
     return scope.GMM1(weights, mus, sigmas)
 
+
+@adaptive_parzen_sampler('uniform')
+def ap_uniform_sampler(obs, low, high, size=()):
+    prior_mu = 0.5 * (high + low)
+    prior_sigma = (high - low)
+    weights, mus, sigmas = pyll.scope.adaptive_parzen_normal(obs,
+            prior_mu, prior_sigma)
+    return pyll.scope.BGMM1(weights, mus, sigmas, low, high)
+
+
+@adaptive_parzen_sampler('randint')
+def ap_categorical_sampler(obs, upper, size=()):
+    scope = pyll.scope
+    counts = scope.bincount(obs, minlength=upper)
+    # -- add in some prior pseudocounts
+    pseudocounts = counts + scope.sqrt(scope.len(obs))
+    return scope.categorical(pseudocounts / scope.sum(pseudocounts),
+            size=size)
+
+
+
+def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
+    """
+    This method clones a posterior inference graph by iterating forward in
+    topological order, and replacing prior random-variables (prior_vals) with
+    new posterior distributions that make use of observations (obs_vals).
+
+    Since the posterior is actually factorial, the observation idxs are not
+    used.
+    """
+    expr = pyll.as_apply([prior_idxs, prior_vals])
+    expr, replace_memo = pyll.stochastic.replace_repeat_stochastic(expr,
+            return_memo=True)
+    nodes = pyll.dfs(expr)
+    memo = {}
+    obs_memo = dict([
+        (replace_memo.get(prior_vals[nid], prior_vals[nid]), obs_vals[nid])
+        for nid in prior_vals])
+    for node in nodes:
+        if node not in memo:
+            new_inputs = [memo[arg] for arg in node.inputs()]
+            if node in obs_memo:
+                fn = adaptive_parzen_samplers[node.name]
+                args = [obs_memo[node]] + [memo[a] for a in node.pos_args]
+                named_args = [[kw, memo[arg]]
+                        for (kw, arg) in node.named_args]
+                new_node = fn(*args, **dict(named_args))
+            else:
+                new_node = node.clone_from_inputs(new_inputs)
+            memo[node] = new_node
+
+    post_idxs = dict([(nid, memo[idxs]) for nid, idxs in prior_idxs.items()])
+    post_vals = dict([(nid, memo[replace_memo.get(vals, vals)])
+        for nid, vals in prior_vals.items()])
+    return post_idxs, post_vals
 
 class TreeParzenEstimator(BanditAlgo):
 
@@ -154,13 +263,19 @@ class TreeParzenEstimator(BanditAlgo):
     # -- fraction of trials to consider as good
     gamma = 0.20
 
-    def __init__(self, bandit, good_estimator, bad_estimator):
+    def __init__(self, bandit):
         BanditAlgo.__init__(self, bandit)
-        self.good_estimator = good_estimator
-        self.bad_estimator = bad_estimator
 
-        self.observed = dict(idxs=pyll.Literal({}), vals=pyll.literal({}))
-        self.sampled = dict(idxs=pyll.Literal({}), vals=pyll.literal({}))
+        self.observed = dict(idxs=pyll.Literal({}), vals=pyll.Literal({}))
+        self.sampled = dict(idxs=pyll.Literal({}), vals=pyll.Literal({}))
+
+        post_idxs, post_vals = posterior_clone(
+                self.idxs_by_nid,
+                self.vals_by_nid,
+                self.observed['idxs'],
+                self.observed['vals'])
+        self.post_idxs = post_idxs
+        self.post_vals = post_vals
 
 
     def filter_trials(self, specs, results, miscs, ok_ids):
@@ -244,32 +359,14 @@ class TreeParzenEstimator(BanditAlgo):
         return rval_specs, rval_results, rval_miscs
 
 
-class TPE(TreeParzenEstimator):
-    def __init__(self, bandit):
-        TreeParzenEstimator.__init__(self, bandit,
-            good_estimator=IndependentAdaptiveParzenEstimator(),
-            bad_estimator=IndependentAdaptiveParzenEstimator())
-
-class TPE_NIPS2011(TPE):
+class TPE_NIPS2011(TreeParzenEstimator):
     n_startup_jobs = 30
 
 
 
 
-@adaptive_parzen_sampler('uniform')
-def asdf():
-    low, high = prior.vals.owner.inputs[2:4]
-    prior_mu = 0.5 * (high + low)
-    prior_sigma = (high - low)
-    weights, mus, sigmas = AdaptiveParzen()(obs.vals,
-            prior_mu, prior_sigma)
-    post_rv = s_rng.BGMM1(weights, mus, sigmas, low, high,
-            draw_shape=prior.vals.shape,
-            ndim=prior.vals.ndim,
-            dtype=prior.vals.dtype)
-    return post_rv
 @adaptive_parzen_sampler('exp_normal')
-def asdf():
+def ap_lognormal_sampler():
     prior_mu, prior_sigma = prior.vals.owner.inputs[2:4]
     weights, mus, sigmas = AdaptiveParzen()(
             tensor.log(tensor.maximum(obs.vals, 1.0e-8)),
@@ -279,8 +376,9 @@ def asdf():
             ndim=prior.vals.ndim,
             dtype=prior.vals.dtype)
     return post_rv
+
 @adaptive_parzen_sampler('quantized_log_normal')
-def asdf():
+def ap_qlognormal_sampler():
     prior_mu, prior_sigma, step = prior.vals.owner.inputs[2:5]
     weights, mus, sigmas = AdaptiveParzen()(
             tensor.log(obs.vals),
@@ -291,20 +389,4 @@ def asdf():
             ndim=prior.vals.ndim,
             dtype=prior.vals.dtype)
     return post_rv
-
-@adaptive_parzen_sampler('categorical')
-def asdf():
-    prior_strength = self.categorical_prior_strength
-    p = prior.vals.owner.inputs[1]
-    if p.ndim != 1:
-        raise TypeError()
-    prior_counts = p * p.shape[0] * tensor.sqrt(obs.vals.shape[0])
-    pseudocounts = tensor.inc_subtensor(
-            (prior_strength * prior_counts)[obs.vals],
-            1)
-    post_rv = s_rng.categorical(
-            p=pseudocounts / pseudocounts.sum(),
-            draw_shape = prior.vals.shape)
-    return post_rv
-
 

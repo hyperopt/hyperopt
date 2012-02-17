@@ -505,11 +505,12 @@ class BanditAlgo(object):
         vh = self.vh = VectorizeHelper(template, idx_range)
         vh.build_idxs()
         vh.build_vals()
-        idxs_by_id = vh.idxs_by_id()
-        vals_by_id = vh.vals_by_id()
-        name_by_id = vh.name_by_id()
-        assert set(idxs_by_id.keys()) == set(vals_by_id.keys())
-        assert set(name_by_id.keys()) == set(vals_by_id.keys())
+        # the keys (nid) here are strings like 'node_5'
+        idxs_by_nid = self.idxs_by_nid = vh.idxs_by_id()
+        vals_by_nid = self.vals_by_nid = vh.vals_by_id()
+        name_by_nid = self.name_by_nid = vh.name_by_id()
+        assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
+        assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
 
         # -- remove non-stochastic nodes from the idxs and vals
         #    because
@@ -517,20 +518,20 @@ class BanditAlgo(object):
         #    (b) they can be reconstructed from the template and the
         #    stochastic choices, and
         #    (c) they are often annoying when printing / saving.
-        for node_id, name in name_by_id.items():
+        for node_id, name in name_by_nid.items():
             if name not in pyll.stochastic.implicit_stochastic_symbols:
-                del name_by_id[node_id]
-                del vals_by_id[node_id]
-                del idxs_by_id[node_id]
+                del name_by_nid[node_id]
+                del vals_by_nid[node_id]
+                del idxs_by_nid[node_id]
             if name == 'one_of':
                 # -- one_of nodes too, because they are duplicates of randint
-                del name_by_id[node_id]
-                del vals_by_id[node_id]
-                del idxs_by_id[node_id]
+                del name_by_nid[node_id]
+                del vals_by_nid[node_id]
+                del idxs_by_nid[node_id]
 
         # -- make the graph runnable
         specs_idxs_vals_0 = pyll.as_apply([
-            vh.vals_memo[template], idxs_by_id, vals_by_id])
+            vh.vals_memo[template], idxs_by_nid, vals_by_nid])
         specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
         specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
                 specs_idxs_vals_1,
@@ -548,7 +549,7 @@ class BanditAlgo(object):
                 choice_node = vh.choice_memo[cnode]
                 assert choice_node.name == 'randint'
                 doc_coords[vh.node_id[choice_node]] = pname + '.randint'
-            if cnode in vh.node_id and vh.node_id[cnode] in name_by_id:
+            if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
                 doc_coords[vh.node_id[cnode]] = pname
             else:
                 #print 'DROPPING', node

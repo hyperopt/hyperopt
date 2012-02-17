@@ -5,11 +5,16 @@ import numpy as np
 import theano
 import matplotlib.pyplot as plt
 
+import pyll
+
 from hyperopt import Bandit
 from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt import Trials
 from hyperopt.bandits import Quadratic1
+from hyperopt.bandits import TwoArms
+from hyperopt.bandits import GaussWave2
+bandit_list = [Quadratic1(), TwoArms(), GaussWave2()]
 
 from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
@@ -47,7 +52,7 @@ def test_tpe_filter():
     ids = trials.tids
     assert len(ids) == 10
 
-    tpe_algo = TreeParzenEstimator(bandit, None, None)
+    tpe_algo = TreeParzenEstimator(bandit)
     (g_s, g_r, g_m), (b_s, b_r, b_m) = tpe_algo.filter_trials(
             trials.specs, trials.results, trials.miscs, ids[2:8])
 
@@ -58,7 +63,6 @@ def test_tpe_filter():
     g_ids = [m['tid'] for m in g_m]
     b_ids = [m['tid'] for m in b_m]
     assert set(g_ids).intersection(b_ids) == set()
-
 
 
 class TestGMM1(unittest.TestCase):
@@ -190,6 +194,97 @@ class TestGMM1(unittest.TestCase):
         assert np.allclose(llval[2,1], np.log(a))
 
         assert np.isfinite(llval[2, 2])
+
+
+def test_posterior_clone():
+
+    for bandit in bandit_list:
+        tpe_algo = TreeParzenEstimator(bandit)
+        order = pyll.dfs(
+                pyll.as_apply([
+                    tpe_algo.post_idxs, tpe_algo.post_vals]))
+        prior_names = ['uniform', 'randint', 'normal', 'lognormal']
+
+        for node in order:
+            assert node.name not in prior_names
+
+
+class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
+    def setUp(self):
+        self.experiment = SerialExperiment(
+            bandit_algo=GM_BanditAlgo(
+                    bandit=hyperopt.bandits.Quadratic1(),
+                    good_estimator=IndependentAdaptiveParzenEstimator(),
+                    bad_estimator=IndependentAdaptiveParzenEstimator()))
+
+    def test_op_counts(self):
+        # If everything is done right, there should be
+        # 2 adaptive parzen estimators in the algorithm
+        #  - one for fitting the good examples
+        #  - one for fitting the rest of the examples
+        # 1 GMM1 Op for drawing from the fit of good examples
+
+        def gmms(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, montetheano.distributions.BGMM1)]
+
+        def adaptive_parzens(fn):
+            return [ap for ap in fn.maker.env.toposort()
+                if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
+
+        # touch property to compile fn
+        self.experiment.bandit_algo._suggest_from_model_fn
+        HL = self.experiment.bandit_algo.helper_locals
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'],
+                allow_input_downcast=True,
+                )
+            # theano.printing.debugprint(f)
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 1
+
+        if 1:
+            f = theano.function(
+                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
+                    + HL['s_obs'].flatten(),
+                HL['G_ll'] - HL['B_ll'],
+                allow_input_downcast=True,
+                )
+            #print gmms(f)
+            #print adaptive_parzens(f)
+            assert len(gmms(f)) == 1
+            assert len(adaptive_parzens(f)) == 2
+
+        # touch property to compile fn
+        _helper = self.experiment.bandit_algo._suggest_from_model_fn
+        assert len(gmms(_helper)) == 1
+        assert len(adaptive_parzens(_helper)) == 2
+
+
+    def test_optimize_20(self):
+        self.experiment.run(50)
+
+        plt.subplot(1,2,1)
+        plt.plot(self.experiment.losses())
+        plt.subplot(1,2,2)
+        if 0:
+            plt.hist(
+                    [t['x'] for t in self.experiment.trials],
+                    bins=20)
+        else:
+            plt.scatter(
+                    [t['x'] for t in self.experiment.trials],
+                    range(len(self.experiment.trials)))
+        print self.experiment.losses()
+        print 'MIN', min(self.experiment.losses())
+        assert min(self.experiment.losses()) < 0.01
+
+        if 0:
+            plt.show()
+
 
 
 def ops(fn, OpCls):
@@ -487,84 +582,6 @@ class TestGM_Distractor(unittest.TestCase): # Tests normal
         print self.experiment.losses()
         print 'MIN', min(self.experiment.losses())
         assert min(self.experiment.losses()) < -1.85
-
-        if 0:
-            plt.show()
-
-
-class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
-    def setUp(self):
-        raise nose.SkipTest()
-        self.experiment = SerialExperiment(
-            bandit_algo=GM_BanditAlgo(
-                    bandit=hyperopt.bandits.Quadratic1(),
-                    good_estimator=IndependentAdaptiveParzenEstimator(),
-                    bad_estimator=IndependentAdaptiveParzenEstimator()))
-
-    def test_op_counts(self):
-        # If everything is done right, there should be
-        # 2 adaptive parzen estimators in the algorithm
-        #  - one for fitting the good examples
-        #  - one for fitting the rest of the examples
-        # 1 GMM1 Op for drawing from the fit of good examples
-
-        def gmms(fn):
-            return [ap for ap in fn.maker.env.toposort()
-                if isinstance(ap.op, montetheano.distributions.BGMM1)]
-
-        def adaptive_parzens(fn):
-            return [ap for ap in fn.maker.env.toposort()
-                if isinstance(ap.op, idxs_vals_rnd.AdaptiveParzen)]
-
-        # touch property to compile fn
-        self.experiment.bandit_algo._suggest_from_model_fn
-        HL = self.experiment.bandit_algo.helper_locals
-        if 1:
-            f = theano.function(
-                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-                    + HL['s_obs'].flatten(),
-                HL['G_ll'],
-                allow_input_downcast=True,
-                )
-            # theano.printing.debugprint(f)
-            assert len(gmms(f)) == 1
-            assert len(adaptive_parzens(f)) == 1
-
-        if 1:
-            f = theano.function(
-                [HL['n_to_draw'], HL['n_to_keep'], HL['y_thresh'], HL['yvals']]
-                    + HL['s_obs'].flatten(),
-                HL['G_ll'] - HL['B_ll'],
-                allow_input_downcast=True,
-                )
-            #print gmms(f)
-            #print adaptive_parzens(f)
-            assert len(gmms(f)) == 1
-            assert len(adaptive_parzens(f)) == 2
-
-        # touch property to compile fn
-        _helper = self.experiment.bandit_algo._suggest_from_model_fn
-        assert len(gmms(_helper)) == 1
-        assert len(adaptive_parzens(_helper)) == 2
-
-
-    def test_optimize_20(self):
-        self.experiment.run(50)
-
-        plt.subplot(1,2,1)
-        plt.plot(self.experiment.losses())
-        plt.subplot(1,2,2)
-        if 0:
-            plt.hist(
-                    [t['x'] for t in self.experiment.trials],
-                    bins=20)
-        else:
-            plt.scatter(
-                    [t['x'] for t in self.experiment.trials],
-                    range(len(self.experiment.trials)))
-        print self.experiment.losses()
-        print 'MIN', min(self.experiment.losses())
-        assert min(self.experiment.losses()) < 0.01
 
         if 0:
             plt.show()
