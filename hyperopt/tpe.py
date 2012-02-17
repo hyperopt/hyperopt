@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import numpy as np
+import scipy.special
 import pyll
 from pyll import scope
 from pyll.stochastic import implicit_stochastic
@@ -95,20 +96,60 @@ def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
     sample = _sample.flatten()
 
     if low is None and high is None:
-        if q is None:
-            dist = sample[:, None] - mus
-            mahal = ((dist ** 2) / (sigmas ** 2))
-            # mahal shape is (n_samples, n_components)
-            Z = np.sqrt(2 * np.pi * sigmas**2)
-            coef = weights / Z
-            T = -0.5 * mahal
-            rmax = np.max(T, axis=1)
-            rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
-            return rval.reshape(_sample.shape)
-    raise NotImplementedError()
+        effective_weights = weights
+    else:
+        erf = scipy.special.erf
+        effective_weights = weights * (
+                erf((high - mus) / sigmas) - erf((low - mus) / sigmas))
+        effective_weights /=  effective_weights.sum()
+
+    if q is None:
+        dist = sample[:, None] - mus
+        mahal = ((dist ** 2) / (sigmas ** 2))
+        # mahal shape is (n_samples, n_components)
+        Z = np.sqrt(2 * np.pi * sigmas**2)
+        coef = effective_weights / Z
+        T = - 0.5 * mahal
+        rmax = np.max(T, axis=1)
+        rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
+        return rval.reshape(_sample.shape)
+
+    raise NotImplementedError('GMM1_lpdf', dict(low=low, high=high, q=q))
 
 
 # -- Mixture of Log-Normals
+
+@scope.define
+def lognormal_cdf(x, mu, sigma, eps=1e-12):
+    # wikipedia claims cdf is
+    # .5 + .5 erf( log(x) - mu / sqrt(2 sigma^2))
+    #
+    # the maximum is used to move negative values and 0 up to a point
+    # where they do not cause nan or inf, but also don't contribute much
+    # to the cdf.
+    return .5 + .5 * tensor.erf(
+            (tensor.log(tensor.maximum(x, eps)) - mu)
+            / tensor.sqrt(2 * sigma**2))
+
+@scope.define
+def lognormal_lpdf(x, mu, sigma, step=1):
+    # formula copied from wikipedia
+    # http://en.wikipedia.org/wiki/Log-normal_distribution
+    Z = sigma * x * numpy.sqrt(2 * numpy.pi)
+    E = 0.5 * ((tensor.log(x) - mu) / sigma)**2
+    return -E - tensor.log(Z)
+
+@scope.define
+def qlognormal_lpdf(node, x, kw):
+    r, shape, mu, sigma, step = node.inputs
+
+    # casting rounds up to nearest step multiple.
+    # so lpdf is log of integral from x-step to x+1 of P(x)
+
+    # XXX: subtracting two numbers potentially very close together.
+    return tensor.log(
+            lognormal_cdf_math(x, mu, sigma)
+            - lognormal_cdf_math(x - step, mu, sigma))
 
 @implicit_stochastic
 @scope.define
@@ -161,20 +202,43 @@ def LGMM1_lpdf(node, sample, kw):
     if sample.ndim != 1:
         sample = sample.flatten()
 
-    # compute the lpdf of each sample under each component
-    lpdfs = lognormal_lpdf_math(sample.dimshuffle(0, 'x'), mus, sigmas)
-    assert lpdfs.ndim == 2
+    if q is None:
+        # compute the lpdf of each sample under each component
+        lpdfs = lognormal_lpdf_math(sample.dimshuffle(0, 'x'), mus, sigmas)
+        assert lpdfs.ndim == 2
 
-    # XXX: Make sure this is done in a numerically good way
-    rval = tensor.log(
-            tensor.sum(
-                tensor.exp(lpdfs) * weights,
-                axis=1))
+        # XXX: Make sure this is done in a numerically good way
+        rval = tensor.log(
+                tensor.sum(
+                    tensor.exp(lpdfs) * weights,
+                    axis=1))
 
-    if not sample is _sample:
-        rval = rval.reshape(_sample.shape)
-        assert rval.ndim != 1
-    return rval
+        if not sample is _sample:
+            rval = rval.reshape(_sample.shape)
+            assert rval.ndim != 1
+        return rval
+    else:
+        # compute the lpdf of each sample under each component
+        lpdfs = tensor.log(
+                lognormal_cdf_math(
+                    sample.dimshuffle(0, 'x'),
+                    mus,
+                    sigmas)
+                - lognormal_cdf_math(
+                    sample.dimshuffle(0, 'x') - step,
+                    mus,
+                    sigmas)
+                + 1.0e-7)
+        assert lpdfs.ndim == 2
+        # XXX: Make sure this is done in a numerically good way
+        rval = tensor.log(
+                tensor.sum(
+                    tensor.exp(lpdfs) * weights,
+                    axis=1))
+        if not sample is _sample:
+            rval = rval.reshape(_sample.shape)
+            assert rval.ndim != 1
+        return rval
 
 
 #
@@ -490,7 +554,6 @@ class TreeParzenEstimator(BanditAlgo):
         self.post_llik = scope.idxs_prod(self.s_new_ids,
                 self.post_idxs,
                 self.post_llik_by_nid)
-
 
     @staticmethod
     def set_iv(iv, idxs, vals):
