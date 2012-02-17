@@ -4,6 +4,7 @@ from pyll import Apply
 from pyll import as_apply
 from pyll import dfs
 from pyll import scope
+from pyll import stochastic
 
 def ERR(msg):
     print >> sys.stderr, msg
@@ -67,7 +68,48 @@ def idxs_map(idxs, cmd, *args, **kwargs):
     return rval
 
 
-#XXX: rename -> Vectorize
+def replace_repeat_stochastic(expr, return_memo=False):
+    stoch = stochastic.implicit_stochastic_symbols
+    nodes = dfs(expr)
+    memo = {}
+    for ii, orig in enumerate(nodes):
+        if orig.name == 'idxs_map' and orig.pos_args[1]._obj in stoch:
+            # -- this is an idxs_map of a random draw of distribution `dist`
+            idxs = orig.pos_args[0]
+            dist = orig.pos_args[1]._obj
+            inputs = []
+            for arg in orig.pos_args[2:]:
+                # -- each argument is an idxs, vals pair
+                assert arg.name == 'pos_args'
+                assert len(arg.pos_args) == 2
+                assert arg.pos_args[0] is idxs, str(orig)
+                arg_vals = arg.pos_args[1]
+                if (arg_vals.name == 'asarray'
+                        and arg_vals.inputs()[0].name == 'repeat'):
+                    # -- draws are iid, so forget about
+                    #    repeating the distribution parameters
+                    repeated_thing = arg_vals.inputs()[0].inputs()[1]
+                    inputs.append(repeated_thing)
+                else:
+                    inputs.append(arg_vals)
+            if orig.named_args:
+                raise NotImplementedError()
+            vnode = Apply(dist, inputs, orig.named_args, None)
+            n_times = scope.len(idxs)
+            vnode.named_args.append(['size', n_times])
+            # -- loop over all nodes that *use* this one, and change them
+            for client in nodes[ii+1:]:
+                client.replace_input(orig, vnode)
+            if expr is orig:
+                expr = vnode
+            memo[orig] = vnode
+    if return_memo:
+        return expr, memo
+    else:
+        return expr
+
+
+
 class VectorizeHelper(object):
     """
     Example:
@@ -192,6 +234,7 @@ def pretty_names_helper(expr, seq, seqset, prefixes, names):
                     names)
     names.append('.'.join(prefixes))
     seq.append(expr)
+
 
 def pretty_names(expr, prefix=None):
     dfs_order = dfs(expr)

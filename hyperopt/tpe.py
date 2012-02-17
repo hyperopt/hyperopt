@@ -144,6 +144,7 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
             draw = rng.normal(loc=mus[active], scale=sigmas[active])
             if low < draw < high:
                 samples.append(np.exp(draw))
+        samples = np.asarray(samples)
 
     if not np.all(np.isfinite(samples)):
         logger.warning('overflow in LognormalMixture')

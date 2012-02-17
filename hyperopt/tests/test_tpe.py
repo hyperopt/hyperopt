@@ -265,7 +265,7 @@ class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
         # build an experiment of 10 trials
         trials = Trials()
         exp = Experiment(trials, random_algo)
-        print random_algo.s_specs_idxs_vals
+        #print random_algo.s_specs_idxs_vals
         exp.run(10)
         ids = trials.tids
         assert len(ids) == 10
@@ -277,7 +277,6 @@ class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
         pi, pv = pyll.stochastic.sample(
                 pyll.as_apply([tpe_algo.post_idxs, tpe_algo.post_vals]),
                 np.random.RandomState(33))
-
         print pi
         print pv
 

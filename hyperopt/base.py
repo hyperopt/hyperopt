@@ -42,11 +42,12 @@ import bson # -- comes with pymongo
 
 import pyll
 from pyll import scope
-from pyll.stochastic import replace_repeat_stochastic
 from pyll.stochastic import recursive_set_rng_kwarg
 
 from .utils import pmin_sampled
-from .vectorize import VectorizeHelper, pretty_names
+from .vectorize import VectorizeHelper
+from .vectorize import pretty_names
+from .vectorize import replace_repeat_stochastic
 
 logger = logging.getLogger(__name__)
 
