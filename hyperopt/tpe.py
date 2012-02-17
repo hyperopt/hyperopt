@@ -102,7 +102,7 @@ def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
 
     if low is None and high is None:
         if q is None:
-            dist = sample1[:, None] - mus
+            dist = sample[:, None] - mus
             mahal = ((dist ** 2) / (sigmas ** 2))
             # mahal shape is (n_samples, n_components)
             Z = np.sqrt(2 * np.pi * sigmas**2)
