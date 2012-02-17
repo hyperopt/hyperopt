@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 import pyll
 from pyll import scope
+from pyll.stochastic import implicit_stochastic
 
 from .base import BanditAlgo
 
@@ -33,7 +34,6 @@ def adaptive_parzen_lpdf(name):
         adaptive_parzen_lpdfs[name] = f
         return f
     return wrapper
-
 
 #
 # These are some custom distributions
@@ -56,128 +56,92 @@ def categorical_lpdf(node, sample, kw):
 
 # -- Bounded Gaussian Mixture Model (BGMM)
 
-@pyll.stochastic.implicit_stochastic
+@implicit_stochastic
 @scope.define
-def BGMM1(weights, mus, sigmas, rng=None, size=()):
-    """Return samples from bounded (truncated) 1-D Gaussian Mixture Model"""
+def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
+        size=()):
+    """Sample from truncated 1-D Gaussian Mixture Model"""
     weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
     assert len(weights) == len(mus) == len(sigmas)
     n_samples = np.prod(size)
     n_components = len(weights)
-
-    # rejection sampling, one sample at a time.
-    # XXX: speed this up
-    samples = []
-    while len(samples) < n_samples:
-        active = numpy.argmax(rng.multinomial(1, weights))
-        draw = rng.normal(loc=mus[active], scale=sigmas[active])
-        if low < draw < high:
-            samples.append(draw)
+    if low is None and high is None:
+        # -- draw from a standard GMM
+        active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
+        samples = rng.normal(loc=mus[active], scale=sigmas[active])
+    else:
+        # -- draw from truncated components
+        # TODO: one-sided-truncation
+        low = float(low)
+        high = float(high)
+        if low >= high:
+            raise ValueError('low >= high', (low, high))
+        samples = []
+        while len(samples) < n_samples:
+            active = np.argmax(rng.multinomial(1, weights))
+            draw = rng.normal(loc=mus[active], scale=sigmas[active])
+            if low < draw < high:
+                samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
-    return samples
-
-
-@adaptive_parzen_lpdf('BGMM1')
-@scope.define
-def BGMM1_lpdf(sample, weights, mus, sigmas):
-    r, weights, mus, sigmas, low, high, draw_shape = node.inputs
-    assert weights.ndim == 1
-    assert mus.ndim == 1
-    assert sigmas.ndim == 1
-    _sample = sample
-    if sample.ndim != 1:
-        sample = sample.flatten()
-
-    erf = theano.tensor.erf
-
-    effective_weights = 0.5 * weights * (
-            erf((high - mus) / sigmas) - erf((low - mus) / sigmas))
-
-    dist = (sample.dimshuffle(0, 'x') - mus)
-    mahal = ((dist ** 2) / (sigmas ** 2))
-    # POSTCONDITION: mahal.shape == (n_samples, n_components)
-
-    Z = tensor.sqrt(2 * numpy.pi * sigmas**2)
-    rval = tensor.log(
-            tensor.sum(
-                tensor.true_div(
-                    tensor.exp(-.5 * mahal) * weights,
-                    Z * effective_weights.sum()),
-                axis=1))
-    if not sample is _sample:
-        rval = rval.reshape(_sample.shape)
-        assert rval.ndim != 1
-    return rval
-
-
-# -- Gaussian Mixture Model (GMM)
-
-@pyll.stochastic.implicit_stochastic
-@scope.define
-def GMM1(weights, mus, sigmas, rng=None, size=()):
-    """Return samples from a 1-D Gaussian Mixture Model"""
-    weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
-    assert len(weights) == len(mus) == len(sigmas)
-    n_samples = np.prod(size)
-    active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
-    assert len(active) == n_samples
-    samples = rng.normal(loc=mus[active], scale=sigmas[active])
-    rval = np.asarray(np.reshape(samples, size))
-    return rval
+    if q is None:
+        return samples
+    else:
+        return np.floor(samples / q) * q
 
 
 @adaptive_parzen_lpdf('GMM1')
 @scope.define
-def GMM1_lpdf(sample, weights, mus, sigmas):
+def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
     sample, weights, mus, sigmas = map(np.asarray,
             (sample, weights, mus, sigmas))
     assert weights.ndim == 1
     assert mus.ndim == 1
     assert sigmas.ndim == 1
-    if sample.ndim != 1:
-        sample1 = sample.flatten()
-    else:
-        sample1 = sample
+    _sample = sample
+    sample = _sample.flatten()
 
-    dist = sample1[:, None] - mus
-    mahal = ((dist ** 2) / (sigmas ** 2))
-    # mahal shape is (n_samples, n_components)
-    Z = np.sqrt(2 * np.pi * sigmas**2)
-    coef = weights / Z
-    T = -0.5 * mahal
-    rmax = np.max(T, axis=1)
-    rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
-    return rval.reshape(sample.shape)
+    if low is None and high is None:
+        if q is None:
+            dist = sample1[:, None] - mus
+            mahal = ((dist ** 2) / (sigmas ** 2))
+            # mahal shape is (n_samples, n_components)
+            Z = np.sqrt(2 * np.pi * sigmas**2)
+            coef = weights / Z
+            T = -0.5 * mahal
+            rmax = np.max(T, axis=1)
+            rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
+            return rval.reshape(_sample.shape)
+    raise NotImplementedError()
 
 
-# -- lognormal_mixture
+# -- Mixture of Log-Normals
 
-@pyll.stochastic.implicit_stochastic
+@implicit_stochastic
 @scope.define
-def lognormal_mixture(weights, mus, sigmas, rng=None, size=()):
+def LGMM1(weights, mus, sigmas, rng=None, size=()):
         rstate, weights, mus, sigmas, draw_shape = inputs
 
-        n_samples = numpy.prod(draw_shape)
+        n_samples = np.prod(draw_shape)
         n_components = len(weights)
         rstate = copy.copy(rstate)
 
-        active = numpy.argmax(
+        active = np.argmax(
                 rstate.multinomial(1, weights, (n_samples,)),
                 axis=1)
         assert len(active) == n_samples
-        samples = numpy.exp(
+        samples = np.exp(
                 rstate.normal(
                     loc=mus[active],
                     scale=sigmas[active]))
-        if not numpy.all(numpy.isfinite(samples)):
+        if not np.all(np.isfinite(samples)):
             logger.warning('overflow in LognormalMixture')
             logger.warning('  mu = %s' % str(mus[active]))
             logger.warning('  sigma = %s' % str(sigmas[active]))
             logger.warning('  samples = %s' % str(samples))
-        samples = numpy.asarray(
-                numpy.reshape(samples, draw_shape),
+        samples = np.asarray(
+                np.reshape(samples, draw_shape),
                 dtype=self.otype.dtype)
-        if not numpy.all(numpy.isfinite(samples)):
+        if not np.all(np.isfinite(samples)):
             logger.warning('overflow in LognormalMixture after astype')
             logger.warning('  mu = %s' % str(mus[active]))
             logger.warning('  sigma = %s' % str(sigmas[active]))
@@ -188,7 +152,7 @@ def lognormal_mixture(weights, mus, sigmas, rng=None, size=()):
 
 @adaptive_parzen_lpdf('lognormal_mixture')
 @scope.define
-def lognormal_mixture_lpdf(node, sample, kw):
+def LGMM1_lpdf(node, sample, kw):
     r, weights, mus, sigmas, draw_shape = node.inputs
     assert weights.ndim == 1
     assert mus.ndim == 1
@@ -213,273 +177,6 @@ def lognormal_mixture_lpdf(node, sample, kw):
     return rval
 
 
-# -- loguniform_mixture
-
-@pyll.stochastic.implicit_stochastic
-@scope.define
-def loguniform_mixture(weights, low, high, rng=None, size=()):
-        rstate, weights, mus, sigmas, draw_shape = inputs
-
-        n_samples = numpy.prod(draw_shape)
-        n_components = len(weights)
-        rstate = copy.copy(rstate)
-
-        active = numpy.argmax(
-                rstate.multinomial(1, weights, (n_samples,)),
-                axis=1)
-        assert len(active) == n_samples
-        samples = numpy.exp(
-                rstate.normal(
-                    loc=mus[active],
-                    scale=sigmas[active]))
-        if not numpy.all(numpy.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-        samples = numpy.asarray(
-                numpy.reshape(samples, draw_shape),
-                dtype=self.otype.dtype)
-        if not numpy.all(numpy.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture after astype')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-        output_storage[0][0] = rstate
-        output_storage[1][0] = samples
-
-
-@adaptive_parzen_lpdf('loguniform_mixture')
-@scope.define
-def loguniform_mixture_lpdf(*args, **kwargs):
-    r, draw_shape, weights, mus, sigmas, step = node.inputs
-    assert weights.ndim == 1
-    assert mus.ndim == 1
-    assert sigmas.ndim == 1
-    assert step.ndim == 0
-    _sample = sample
-    if sample.ndim != 1:
-        sample = sample.flatten()
-
-    # compute the lpdf of each sample under each component
-    lpdfs = tensor.log(
-            lognormal_cdf_math(
-                sample.dimshuffle(0, 'x'),
-                mus,
-                sigmas)
-            - lognormal_cdf_math(
-                sample.dimshuffle(0, 'x') - step,
-                mus,
-                sigmas)
-            + 1.0e-7)
-    assert lpdfs.ndim == 2
-    # XXX: Make sure this is done in a numerically good way
-    rval = tensor.log(
-            tensor.sum(
-                tensor.exp(lpdfs) * weights,
-                axis=1))
-    if not sample is _sample:
-        rval = rval.reshape(_sample.shape)
-        assert rval.ndim != 1
-    return rval
-
-
-# -- qlognormal_mixture
-
-@pyll.stochastic.implicit_stochastic
-@scope.define
-def qlognormal_mixture():
-        rstate, draw_shape, weights, mus, sigmas, step = inputs
-
-        if len(weights) != len(mus):
-            raise ValueError('length mismatch between weights and mus',
-                    (weights.shape, mus.shape))
-        if len(weights) != len(sigmas):
-            raise ValueError('length mismatch between weights and sigmas',
-                    (weights.shape, sigmas.shape))
-        if len(weights) == 0:
-            raise ValueError('length of weights vector must be positive',
-                    weights.shape)
-
-        n_samples = numpy.prod(draw_shape)
-        n_components = len(weights)
-        # XXX: add destructive version
-        rstate = copy.copy(rstate)
-
-        if n_samples == 0:
-            samples = numpy.empty((0,), dtype=node.outputs[1].dtype)
-        elif n_samples == 1:
-            active = numpy.argmax(rstate.multinomial(1, weights))
-            samples = rstate.lognormal(
-                        mean=mus[active],
-                        sigma=sigmas[active])
-            samples = numpy.asarray(numpy.ceil(samples / step) * step)
-            assert samples.ndim == 0
-            if len(draw_shape) == 0:
-                samples.shape = ()
-            else:
-                samples.shape = (1,)
-        else:
-            active = numpy.argmax(
-                    rstate.multinomial(1, weights, (n_samples,)),
-                    axis=1)
-            assert len(active) == n_samples
-            samples = rstate.lognormal(
-                        mean=mus[active],
-                        sigma=sigmas[active])
-            assert len(samples) == n_samples
-            samples = numpy.ceil(samples / step) * step
-            samples.shape = tuple(draw_shape)
-
-        if not numpy.all(numpy.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture after astype')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-
-        if samples.size:
-            assert samples.min() > 0
-        samples = self.otype.filter(samples, allow_downcast=True)
-        if samples.size:
-            assert samples.min() > 0
-
-        output_storage[0][0] = rstate
-        output_storage[1][0] = samples
-
-
-@adaptive_parzen_lpdf('qlognormal_mixture')
-@scope.define
-def qlognormal_mixture_lpdf(node, sample, kw):
-    r, draw_shape, weights, mus, sigmas, step = node.inputs
-    assert weights.ndim == 1
-    assert mus.ndim == 1
-    assert sigmas.ndim == 1
-    assert step.ndim == 0
-    _sample = sample
-    if sample.ndim != 1:
-        sample = sample.flatten()
-
-    # compute the lpdf of each sample under each component
-    lpdfs = tensor.log(
-            lognormal_cdf_math(
-                sample.dimshuffle(0, 'x'),
-                mus,
-                sigmas)
-            - lognormal_cdf_math(
-                sample.dimshuffle(0, 'x') - step,
-                mus,
-                sigmas)
-            + 1.0e-7)
-    assert lpdfs.ndim == 2
-    # XXX: Make sure this is done in a numerically good way
-    rval = tensor.log(
-            tensor.sum(
-                tensor.exp(lpdfs) * weights,
-                axis=1))
-    if not sample is _sample:
-        rval = rval.reshape(_sample.shape)
-        assert rval.ndim != 1
-    return rval
-
-
-# -- qlognormal_mixture
-
-@pyll.stochastic.implicit_stochastic
-@scope.define
-def qloguniform_mixture():
-        rstate, draw_shape, weights, mus, sigmas, step = inputs
-
-        if len(weights) != len(mus):
-            raise ValueError('length mismatch between weights and mus',
-                    (weights.shape, mus.shape))
-        if len(weights) != len(sigmas):
-            raise ValueError('length mismatch between weights and sigmas',
-                    (weights.shape, sigmas.shape))
-        if len(weights) == 0:
-            raise ValueError('length of weights vector must be positive',
-                    weights.shape)
-
-        n_samples = numpy.prod(draw_shape)
-        n_components = len(weights)
-        # XXX: add destructive version
-        rstate = copy.copy(rstate)
-
-        if n_samples == 0:
-            samples = numpy.empty((0,), dtype=node.outputs[1].dtype)
-        elif n_samples == 1:
-            active = numpy.argmax(rstate.multinomial(1, weights))
-            samples = rstate.lognormal(
-                        mean=mus[active],
-                        sigma=sigmas[active])
-            samples = numpy.asarray(numpy.ceil(samples / step) * step)
-            assert samples.ndim == 0
-            if len(draw_shape) == 0:
-                samples.shape = ()
-            else:
-                samples.shape = (1,)
-        else:
-            active = numpy.argmax(
-                    rstate.multinomial(1, weights, (n_samples,)),
-                    axis=1)
-            assert len(active) == n_samples
-            samples = rstate.lognormal(
-                        mean=mus[active],
-                        sigma=sigmas[active])
-            assert len(samples) == n_samples
-            samples = numpy.ceil(samples / step) * step
-            samples.shape = tuple(draw_shape)
-
-        if not numpy.all(numpy.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture after astype')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-
-        if samples.size:
-            assert samples.min() > 0
-        samples = self.otype.filter(samples, allow_downcast=True)
-        if samples.size:
-            assert samples.min() > 0
-
-        output_storage[0][0] = rstate
-        output_storage[1][0] = samples
-
-
-@adaptive_parzen_lpdf('qloguniform_mixture')
-@scope.define
-def qloguniform_mixture_lpdf(node, sample, kw):
-    r, draw_shape, weights, mus, sigmas, step = node.inputs
-    assert weights.ndim == 1
-    assert mus.ndim == 1
-    assert sigmas.ndim == 1
-    assert step.ndim == 0
-    _sample = sample
-    if sample.ndim != 1:
-        sample = sample.flatten()
-
-    # compute the lpdf of each sample under each component
-    lpdfs = tensor.log(
-            lognormal_cdf_math(
-                sample.dimshuffle(0, 'x'),
-                mus,
-                sigmas)
-            - lognormal_cdf_math(
-                sample.dimshuffle(0, 'x') - step,
-                mus,
-                sigmas)
-            + 1.0e-7)
-    assert lpdfs.ndim == 2
-    # XXX: Make sure this is done in a numerically good way
-    rval = tensor.log(
-            tensor.sum(
-                tensor.exp(lpdfs) * weights,
-                axis=1))
-    if not sample is _sample:
-        rval = rval.reshape(_sample.shape)
-        assert rval.ndim != 1
-    return rval
-
-
 #
 # This is the weird heuristic ParzenWindow estimator used for continuous
 # distributions in various ways.
@@ -494,8 +191,15 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
 
     mus - matrix (N, M) of M, N-dimensional component centers
     """
-    mus_orig = mus.copy()
-    mus = mus.copy()
+    mus_orig = np.array(mus)
+    mus = np.array(mus)
+    assert str(mus.dtype) != 'object'
+    # XXX: I think prior_mu arrives a list whose length matches the number of
+    # new_ids that we're drawing for. VectorizeHelper is the cause, not sure
+    # what's the solution.
+    prior_mu, = prior_mu
+    prior_sigma, = prior_sigma
+
     if mus.ndim != 1:
         raise TypeError('mus must be vector', mus)
     if len(mus) == 0:
@@ -545,7 +249,8 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
     weights = np.ones(len(mus), dtype=mus.dtype)
     weights[0] = np.sqrt(1 + len(mus))
 
-    weights /= weights.sum()
+    print weights.dtype
+    weights = weights / weights.sum()
     return weights, mus, sigma
 
 
@@ -562,37 +267,39 @@ def ap_uniform_sampler(obs, low, high, size=()):
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
-    return scope.BGMM1(weights, mus, sigmas, low, high)
+    return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=None,
+            size=size)
 
 
 @adaptive_parzen_sampler('quniform')
-def ap_uniform_sampler(obs, low, high, q, size=()):
-    raise NotImplementedError()
+def ap_quniform_sampler(obs, low, high, q, size=()):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
-    return scope.BGMM1(weights, mus, sigmas, low, high)
+    return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=q,
+            size=size)
 
 
 @adaptive_parzen_sampler('loguniform')
-def ap_uniform_sampler(obs, low, high, size=()):
-    raise NotImplementedError()
+def ap_loguniform_sampler(obs, low, high, size=()):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
-    weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
-            prior_mu, prior_sigma)
-    return scope.BGMM1(weights, mus, sigmas, low, high)
+    weights, mus, sigmas = scope.adaptive_parzen_normal(
+            scope.log(obs), prior_mu, prior_sigma)
+    rval = scope.LGMM1(weights, mus, sigmas, low=low, high=high,
+            size=size)
+    return rval
 
 
 @adaptive_parzen_sampler('qloguniform')
-def ap_uniform_sampler(obs, low, high, q, size=()):
-    raise NotImplementedError()
+def ap_qloguniform_sampler(obs, low, high, q, size=()):
     prior_mu = 0.5 * (high + low)
     prior_sigma = (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_mu, prior_sigma)
-    return scope.BGMM1(weights, mus, sigmas, low, high)
+    return scope.LGMM1(weights, mus, sigmas, low, high, q=q,
+            size=size)
 
 
 # -- Normal
@@ -604,31 +311,25 @@ def ap_normal_sampler(obs, mu, sigma, size=()):
 
 
 @adaptive_parzen_sampler('qnormal')
-def ap_normal_sampler(obs, mu, sigma, q, size=()):
-    raise NotImplementedError()
+def ap_qnormal_sampler(obs, mu, sigma, q, size=()):
+    weights, mus, sigmas = scope.adaptive_parzen_normal(obs, mu, sigma)
+    return scope.GMM1(weights, mus, sigmas, q=q)
 
 
 @adaptive_parzen_sampler('lognormal')
-def ap_lognormal_sampler(obs, mu, sigma, size=()):
+def ap_loglognormal_sampler(obs, mu, sigma, size=()):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
             scope.log(obs), mu, sigma)
-    rval = scope.lognormal_mixture(weights, mus, sigmas, size=size)
+    rval = scope.LGMM1(weights, mus, sigmas, size=size)
     return rval
 
 
 @adaptive_parzen_sampler('qlognormal')
 def ap_qlognormal_sampler(obs, mu, sigma, q, size=()):
-    raise NotImplementedError()
-    prior_mu, prior_sigma, step = prior.vals.owner.inputs[2:5]
-    weights, mus, sigmas = AdaptiveParzen()(
-            tensor.log(obs.vals),
-            prior_mu, prior_sigma)
-    post_rv = s_rng.quantized_lognormal_mixture(
-            weights, mus, sigmas, step,
-            draw_shape=prior.vals.shape,
-            ndim=prior.vals.ndim,
-            dtype=prior.vals.dtype)
-    return post_rv
+    weights, mus, sigmas = scope.adaptive_parzen_normal(
+            scope.log(obs), mu, sigma)
+    rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size)
+    return rval
 
 
 # -- Categorical
@@ -676,8 +377,8 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
             else:
                 new_node = node.clone_from_inputs(new_inputs)
             memo[node] = new_node
-
-    post_idxs = dict([(nid, memo[idxs]) for nid, idxs in prior_idxs.items()])
+    post_idxs = dict([(nid, memo[idxs])
+        for nid, idxs in prior_idxs.items()])
     post_vals = dict([(nid, memo[replace_memo.get(vals, vals)])
         for nid, vals in prior_vals.items()])
     return post_idxs, post_vals
@@ -711,6 +412,12 @@ class TreeParzenEstimator(BanditAlgo):
         self.post_idxs = post_idxs
         self.post_vals = post_vals
 
+    @staticmethod
+    def set_iv(iv, idxs, vals):
+        iv['idxs'].obj.clear()
+        iv['vals'].obj.clear()
+        iv['idxs'].obj.update(idxs)
+        iv['vals'].obj.update(vals)
 
     def filter_trials(self, specs, results, miscs, ok_ids):
         # -- purge non-ok trials
@@ -764,11 +471,6 @@ class TreeParzenEstimator(BanditAlgo):
 
         # -- Condition on good trials.
         #    Sample and compute log-probability.
-        def set_iv(iv, idxs, vals):
-            iv['idxs'].clear()
-            iv['vals'].clear()
-            iv['idxs'].update(idxs)
-            iv['vals'].update(vals)
 
         fake_ids = range(max(ok_ids), max(ok_ids) + self.n_EI_candidates)
         self.new_ids[:] = fake_ids

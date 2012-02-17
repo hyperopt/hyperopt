@@ -123,7 +123,7 @@ class VectorizeHelper(object):
         for node in self.dfs_nodes:
             if node.name == 'literal':
                 n_times = scope.len(self.idxs_memo[node])
-                vnode = scope.repeat(n_times, node)
+                vnode = scope.asarray(scope.repeat(n_times, node))
             elif node in self.choice_memo:
                 # -- choices are natively vectorized
                 choices = self.choice_memo[node]
