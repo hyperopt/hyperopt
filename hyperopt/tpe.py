@@ -16,6 +16,8 @@ from pyll import scope
 from pyll.stochastic import implicit_stochastic
 
 from .base import BanditAlgo
+from .base import STATUS_OK
+from .base import miscs_to_idxs_vals
 
 
 adaptive_parzen_samplers = {}
@@ -27,14 +29,6 @@ def adaptive_parzen_sampler(name):
     return wrapper
 
 
-adaptive_parzen_lpdfs = {}
-def adaptive_parzen_lpdf(name):
-    def wrapper(f):
-        assert name not in adaptive_parzen_lpdfs
-        adaptive_parzen_lpdfs[name] = f
-        return f
-    return wrapper
-
 #
 # These are some custom distributions
 # that are used to represent posterior distributions.
@@ -42,16 +36,16 @@ def adaptive_parzen_lpdf(name):
 
 # -- Categorical
 
-def categorical_lpdf(node, sample, kw):
+@scope.define
+def categorical_lpdf(sample, p, eps=0):
     """
     Return a random integer from 0 .. N-1 inclusive according to the
     probabilities p[0] .. P[N-1].
 
     This is formally equivalent to numpy.where(multinomial(n=1, p))
     """
-    # WARNING: I think the p[-1] is not used, but assumed to be p[:-1].sum()
-    s_rstate, p, draw_shape = node.inputs
-    return p[sample]
+    print sample
+    return np.log(np.asarray(p)[sample] + eps)
 
 
 # -- Bounded Gaussian Mixture Model (BGMM)
@@ -89,7 +83,6 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
         return np.floor(samples / q) * q
 
 
-@adaptive_parzen_lpdf('GMM1')
 @scope.define
 def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
     sample, weights, mus, sigmas = map(np.asarray,
@@ -157,7 +150,6 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     samples = np.reshape(np.asarray(samples), size)
     return samples
 
-@adaptive_parzen_lpdf('lognormal_mixture')
 @scope.define
 def LGMM1_lpdf(node, sample, kw):
     r, weights, mus, sigmas, draw_shape = node.inputs
@@ -357,7 +349,7 @@ def ap_categorical_sampler(obs, upper, size=(), rng=None):
 # Posterior clone performs symbolic inference on the pyll graph of priors.
 #
 
-def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
+def posterior_clone(specs, prior_idxs, prior_vals, obs_idxs, obs_vals):
     """
     This method clones a posterior inference graph by iterating forward in
     topological order, and replacing prior random-variables (prior_vals) with
@@ -366,7 +358,7 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
     Since the posterior is actually factorial, the observation idxs are not
     used.
     """
-    expr = pyll.as_apply([prior_idxs, prior_vals])
+    expr = pyll.as_apply([specs, prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
     memo = {}
     obs_memo = dict([(prior_vals[nid], obs_vals[nid]) for nid in prior_vals])
@@ -382,11 +374,40 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
             else:
                 new_node = node.clone_from_inputs(new_inputs)
             memo[node] = new_node
+    post_specs = memo[specs]
     post_idxs = dict([(nid, memo[idxs])
         for nid, idxs in prior_idxs.items()])
     post_vals = dict([(nid, memo[vals])
         for nid, vals in prior_vals.items()])
-    return post_idxs, post_vals
+    return post_specs, post_idxs, post_vals
+
+
+@scope.define
+def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
+    """Add all of the  log-likelihoods together by id.
+
+    Example arguments:
+    full_idxs = [0, 1, ... N-1]
+    idxs_by_nid = {'node_a': [1, 3], 'node_b': [3]}
+    llik_by_nid = {'node_a': [0.1, -3.3], node_b: [1.0]}
+
+    This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
+    """
+    print 'FULL IDXS'
+    print full_idxs
+    assert len(set(full_idxs)) == len(full_idxs)
+    full_idxs = list(full_idxs)
+    rval = np.zeros(len(full_idxs))
+    assert set(idxs_by_nid.keys()) == set(llik_by_nid.keys())
+    for nid in idxs_by_nid:
+        idxs = idxs_by_nid[nid]
+        llik = llik_by_nid[nid]
+        assert np.all(np.asarray(idxs) > 1)
+        assert len(set(idxs)) == len(idxs)
+        assert len(idxs) == len(llik)
+        for ii, ll in zip(idxs, llik):
+            rval[full_idxs.index(ii)] += ll
+    return rval
 
 
 class TreeParzenEstimator(BanditAlgo):
@@ -413,33 +434,62 @@ class TreeParzenEstimator(BanditAlgo):
                 idxs=pyll.Literal({'n0': [99]}),
                 vals=pyll.Literal({'n0': ['sample_n0_val99']}))
 
-        print 'PRIOR IDXS_BY_NID'
-        for k, v in self.idxs_by_nid.items():
-            print k
-            print v
+        if 0:
+            print 'PRIOR IDXS_BY_NID'
+            for k, v in self.idxs_by_nid.items():
+                print k
+                print v
 
-        print 'PRIOR VALS_BY_NID'
-        for k, v in self.vals_by_nid.items():
-            print k
-            print v
+            print 'PRIOR VALS_BY_NID'
+            for k, v in self.vals_by_nid.items():
+                print k
+                print v
 
-        post_idxs, post_vals = posterior_clone(
+        post_specs, post_idxs, post_vals = posterior_clone(
+                self.vtemplate,    # vectorized clone of bandit template
                 self.idxs_by_nid,
                 self.vals_by_nid,
                 self.observed['idxs'],
                 self.observed['vals'])
+        self.post_specs = post_specs
         self.post_idxs = post_idxs
         self.post_vals = post_vals
+        assert set(post_idxs.keys()) == set(self.post_vals.keys())
+        assert set(post_idxs.keys()) == set(self.idxs_by_nid.keys())
 
-        print 'POSTERIOR IDXS_BY_NID'
-        for k, v in self.post_idxs.items():
-            print k
-            print v
+        if 0:
+            print 'POSTERIOR IDXS_BY_NID'
+            for k, v in self.post_idxs.items():
+                print k
+                print v
 
-        print 'POSTERIOR VALS_BY_NID'
-        for k, v in self.post_vals.items():
-            print k
-            print v
+            print 'POSTERIOR VALS_BY_NID'
+            for k, v in self.post_vals.items():
+                print k
+                print v
+
+        # -- add the log-likelihood computation graph
+        self.post_llik_by_nid = {}
+        self.sampled_llik_by_nid = {}
+        for nid in post_idxs:
+            pv = post_vals[nid]
+            sv = self.sampled['vals'][nid]
+            def llik_fn (vv):
+                lpdf_fn = getattr(scope, pv.name + '_lpdf')
+                return lpdf_fn(vv,
+                    *pv.pos_args,
+                    **dict([(n, a) for n, a in pv.named_args
+                        if n not in ('rng', 'size')]))
+            self.post_llik_by_nid[nid] = llik_fn(pv)
+            self.sampled_llik_by_nid[nid] = llik_fn(sv)
+
+        self.sampled['llik'] = scope.idxs_prod(self.new_ids,
+                self.sampled['idxs'],
+                self.sampled_llik_by_nid)
+        self.post_llik = scope.idxs_prod(self.new_ids,
+                self.post_idxs,
+                self.post_llik_by_nid)
+
 
     @staticmethod
     def set_iv(iv, idxs, vals):
@@ -471,6 +521,10 @@ class TreeParzenEstimator(BanditAlgo):
             for s, r, m in zip(specs, results, miscs)
             if self.bandit.loss(r, s) >= loss_thresh])
 
+        msg = 'TreeParzenEstimator splitting %i results at %f (split %i / %i)'
+        logger.info(msg % (len(ok_ids), loss_thresh,
+            len(good_specs), len(bad_specs)))
+
         return ((good_specs, good_results, good_miscs),
                 (bad_specs, bad_results, bad_miscs))
 
@@ -483,34 +537,33 @@ class TreeParzenEstimator(BanditAlgo):
 
     def suggest1(self, new_ids, specs, results, miscs):
         assert len(new_ids) == 1
+        print self.post_llik
 
         ok_ids = set([m['tid'] for m, r in zip(miscs, results)
                 if r['status'] == STATUS_OK])
 
         if len(ok_ids) < self.n_startup_jobs:
             logger.info('TreeParzenEstimator warming up %i/%i'
-                    % (len(ivls['losses']['ok'].idxs), self.n_startup_jobs))
+                    % (len(ok_ids), self.n_startup_jobs))
             return BanditAlgo.suggest(self, new_ids, specs, results, miscs)
 
         good, bad = self.filter_trials(specs, results, miscs, ok_ids)
-
-        msg = 'TreeParzenEstimator splitting %i results at %f (split %i / %i)'
-        logger.info(msg % (len(losses), loss_thresh,
-            len(good[0]), len(bad[0])))
 
         # -- Condition on good trials.
         #    Sample and compute log-probability.
 
         fake_ids = range(max(ok_ids), max(ok_ids) + self.n_EI_candidates)
-        self.new_ids[:] = fake_ids
+        #self.new_ids[:] = fake_ids
 
-        set_iv(self.observed, *miscs_to_idxs_vals(good[2]))
+        self.set_iv(self.observed, *miscs_to_idxs_vals(good[2]))
         # the c_ prefix here is for "candidate"
-        c_specs, c_idxs, c_vals, c_good_llik = pyll.rec_eval()
+        c_specs, c_idxs, c_vals, c_good_llik = pyll.rec_eval([
+                self.post_specs, self.post_idxs, self.post_vals,
+                self.post_llik])
 
-        set_iv(self.observed, *miscs_to_idxs_vals(bad[2]))
-        set_iv(self.sampled, c_idxs, c_vals)
-        c_bad_llik = pyll.rec_eval()
+        self.set_iv(self.observed, *miscs_to_idxs_vals(bad[2]))
+        self.set_iv(self.sampled, c_idxs, c_vals)
+        c_bad_llik = pyll.rec_eval(self.sampled['llik'])
 
         # -- retrieve the best of the samples and form the return tuple
         winning_pos = np.argmax(c_good_llik - c_bad_llik)

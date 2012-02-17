@@ -281,6 +281,17 @@ class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
         print pv
 
 
+class TestSuggest(unittest.TestCase, CasePerBandit):
+    def work(self):
+        trials = Trials()
+        bandit = self.bandit
+        tpe_algo = TreeParzenEstimator(bandit)
+        tpe_algo.n_EI_candidates = 3
+        exp = Experiment(trials, tpe_algo)
+        exp.run(10)
+
+
+
 if 0:
     class IndependentNullEstimator(idxs_vals_rnd.IndependentNodeTreeEstimator):
         """Dummy node estimator that keeps graphs small.

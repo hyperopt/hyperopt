@@ -3,9 +3,9 @@ import numpy as np
 
 from pyll import as_apply, scope, rec_eval, clone, dfs
 from pyll.stochastic import recursive_set_rng_kwarg
-from pyll.stochastic import replace_repeat_stochastic
 
 from hyperopt.vectorize import VectorizeHelper
+from hyperopt.vectorize import replace_repeat_stochastic
 
 
 def config0():

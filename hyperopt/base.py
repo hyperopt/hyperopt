@@ -566,10 +566,12 @@ class BanditAlgo(object):
                 del idxs_by_nid[node_id]
 
         # -- make the graph runnable and SON-encodable
+        # N.B. operates inplace
         self.s_specs_idxs_vals = recursive_set_rng_kwarg(
                 scope.pos_args(template, idxs_by_nid, vals_by_nid),
                 pyll.as_apply(self.rng))
 
+        self.vtemplate = template
         self.idxs_by_nid = idxs_by_nid
         self.vals_by_nid = vals_by_nid
         self.name_by_nid = name_by_nid
