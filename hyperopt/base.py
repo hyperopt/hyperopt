@@ -541,6 +541,16 @@ class BanditAlgo(object):
         assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
         assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
 
+        # -- replace repeat(draw_rng(...)) with vectorized versions
+        t_i_v = replace_repeat_stochastic(
+                pyll.as_apply([
+                    vh.vals_memo[template], idxs_by_nid, vals_by_nid]))
+        assert t_i_v.name == 'pos_args'
+        template, s_idxs_by_nid, s_vals_by_nid = t_i_v.pos_args
+        # -- fetch the dictionaries off the top of the cloned graph
+        idxs_by_nid = dict(s_idxs_by_nid.named_args)
+        vals_by_nid = dict(s_vals_by_nid.named_args)
+
         # -- remove non-stochastic nodes from the idxs and vals
         #    because
         #    (a) they should be irrelevant for BanditAlgo operation,
@@ -558,17 +568,10 @@ class BanditAlgo(object):
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
 
-
         # -- make the graph runnable and SON-encodable
-        specs_idxs_vals_0 = pyll.as_apply([
-            vh.vals_memo[template], idxs_by_nid, vals_by_nid])
-        specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
-        specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
-                specs_idxs_vals_1,
+        self.s_specs_idxs_vals, _rng = replace_implicit_stochastic_nodes(
+                scope.pos_args(template, idxs_by_nid, vals_by_nid),
                 pyll.as_apply(self.rng))
-
-        # -- represents symbolic (specs, idxs, vals)
-        self.s_specs_idxs_vals = specs_idxs_vals_2
 
         # -- compute some document coordinate strings for the node_ids
         pnames = pretty_names(bandit.template, prefix=None)
