@@ -118,37 +118,43 @@ def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
 
 @implicit_stochastic
 @scope.define
-def LGMM1(weights, mus, sigmas, rng=None, size=()):
-        rstate, weights, mus, sigmas, draw_shape = inputs
-
-        n_samples = np.prod(draw_shape)
-        n_components = len(weights)
-        rstate = copy.copy(rstate)
-
+def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
+    weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
+    n_samples = np.prod(size)
+    n_components = len(weights)
+    if low is None and high is None:
         active = np.argmax(
-                rstate.multinomial(1, weights, (n_samples,)),
+                rng.multinomial(1, weights, (n_samples,)),
                 axis=1)
         assert len(active) == n_samples
         samples = np.exp(
-                rstate.normal(
+                rng.normal(
                     loc=mus[active],
                     scale=sigmas[active]))
-        if not np.all(np.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-        samples = np.asarray(
-                np.reshape(samples, draw_shape),
-                dtype=self.otype.dtype)
-        if not np.all(np.isfinite(samples)):
-            logger.warning('overflow in LognormalMixture after astype')
-            logger.warning('  mu = %s' % str(mus[active]))
-            logger.warning('  sigma = %s' % str(sigmas[active]))
-            logger.warning('  samples = %s' % str(samples))
-        output_storage[0][0] = rstate
-        output_storage[1][0] = samples
+    else:
+        # -- draw from truncated components
+        # TODO: one-sided-truncation
+        low = float(low)
+        high = float(high)
+        if low >= high:
+            raise ValueError('low >= high', (low, high))
+        samples = []
+        while len(samples) < n_samples:
+            active = np.argmax(rng.multinomial(1, weights))
+            draw = rng.normal(loc=mus[active], scale=sigmas[active])
+            if low < draw < high:
+                samples.append(np.exp(draw))
 
+    if not np.all(np.isfinite(samples)):
+        logger.warning('overflow in LognormalMixture')
+        logger.warning('  mu = %s' % str(mus[active]))
+        logger.warning('  sigma = %s' % str(sigmas[active]))
+        logger.warning('  samples = %s' % str(samples))
+
+    if q is not None:
+        samples = np.floor(samples / q) * q
+    samples = np.reshape(np.asarray(samples), size)
+    return samples
 
 @adaptive_parzen_lpdf('lognormal_mixture')
 @scope.define
@@ -197,8 +203,10 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
     # XXX: I think prior_mu arrives a list whose length matches the number of
     # new_ids that we're drawing for. VectorizeHelper is the cause, not sure
     # what's the solution.
-    prior_mu, = prior_mu
-    prior_sigma, = prior_sigma
+    if hasattr(prior_mu, '__iter__'):
+        prior_mu, = prior_mu
+    if hasattr(prior_sigma, '__iter__'):
+        prior_sigma, = prior_sigma
 
     if mus.ndim != 1:
         raise TypeError('mus must be vector', mus)
@@ -358,13 +366,9 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
     used.
     """
     expr = pyll.as_apply([prior_idxs, prior_vals])
-    expr, replace_memo = pyll.stochastic.replace_repeat_stochastic(expr,
-            return_memo=True)
     nodes = pyll.dfs(expr)
     memo = {}
-    obs_memo = dict([
-        (replace_memo.get(prior_vals[nid], prior_vals[nid]), obs_vals[nid])
-        for nid in prior_vals])
+    obs_memo = dict([(prior_vals[nid], prior_vals[nid]) for nid in prior_vals])
     for node in nodes:
         if node not in memo:
             new_inputs = [memo[arg] for arg in node.inputs()]
@@ -379,7 +383,7 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
             memo[node] = new_node
     post_idxs = dict([(nid, memo[idxs])
         for nid, idxs in prior_idxs.items()])
-    post_vals = dict([(nid, memo[replace_memo.get(vals, vals)])
+    post_vals = dict([(nid, memo[vals])
         for nid, vals in prior_vals.items()])
     return post_idxs, post_vals
 
@@ -401,8 +405,22 @@ class TreeParzenEstimator(BanditAlgo):
     def __init__(self, bandit):
         BanditAlgo.__init__(self, bandit)
 
-        self.observed = dict(idxs=pyll.Literal({}), vals=pyll.Literal({}))
-        self.sampled = dict(idxs=pyll.Literal({}), vals=pyll.Literal({}))
+        self.observed = dict(
+                idxs=pyll.Literal({'n0': [1]}),
+                vals=pyll.Literal({'n0': ['obs_n0_val1']}))
+        self.sampled = dict(
+                idxs=pyll.Literal({'n0': [99]}),
+                vals=pyll.Literal({'n0': ['sample_n0_val99']}))
+
+        print 'IDXS_BY_NID'
+        for k, v in self.idxs_by_nid.items():
+            print k
+            print v
+
+        print 'VALS_BY_NID'
+        for k, v in self.vals_by_nid.items():
+            print k
+            print v
 
         post_idxs, post_vals = posterior_clone(
                 self.idxs_by_nid,

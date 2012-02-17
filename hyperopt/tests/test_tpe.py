@@ -236,13 +236,26 @@ class CasePerBandit(object):
     def test_many_dists(self): self.bandit = ManyDists(); self.work()
 
 
+class TestBaseAlgoRemovesDrawRNG(unittest.TestCase, CasePerBandit):
+    def work(self):
+        algo = Random(self.bandit)
+        order = pyll.dfs(algo.s_specs_idxs_vals)
+        print algo.s_specs_idxs_vals
+
+        prior_names = ['uniform', 'normal', 'lognormal']
+        for node in order:
+            assert node.name not in prior_names
+            # these are all called indirectly via draw_rng
+
+
 class TestPosteriorClone(unittest.TestCase, CasePerBandit):
     def work(self):
         tpe_algo = TreeParzenEstimator(self.bandit)
-        order = pyll.dfs(
-                pyll.as_apply([
-                    tpe_algo.post_idxs, tpe_algo.post_vals]))
-        prior_names = ['uniform', 'randint', 'normal', 'lognormal']
+        foo = pyll.as_apply([
+                    tpe_algo.post_idxs, tpe_algo.post_vals])
+        print foo
+        order = pyll.dfs(foo)
+        prior_names = ['uniform', 'randint', 'normal', 'lognormal', 'draw_rng']
         for node in order:
             assert node.name not in prior_names
 
@@ -259,8 +272,8 @@ class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
         ids = trials.tids
         assert len(ids) == 10
         tpe_algo = TreeParzenEstimator(bandit)
-        print pyll.as_apply(tpe_algo.post_idxs)
-        print pyll.as_apply(tpe_algo.post_vals)
+        #print pyll.as_apply(tpe_algo.post_idxs)
+        #print pyll.as_apply(tpe_algo.post_vals)
         tpe_algo.set_iv(tpe_algo.observed,
                 *miscs_to_idxs_vals(trials.miscs))
         pi, pv = pyll.stochastic.sample(

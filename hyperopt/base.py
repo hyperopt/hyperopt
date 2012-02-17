@@ -43,7 +43,7 @@ import bson # -- comes with pymongo
 import pyll
 from pyll import scope
 from pyll.stochastic import replace_repeat_stochastic
-from pyll.stochastic import replace_implicit_stochastic_nodes
+from pyll.stochastic import recursive_set_rng_kwarg
 
 from .utils import pmin_sampled
 from .vectorize import VectorizeHelper, pretty_names
@@ -444,11 +444,7 @@ class Bandit(object):
         that is useful for small trial debugging.
         """
         rng = np.random.RandomState(1)
-        template = pyll.clone(self.template)
-        runnable, lrng = pyll.stochastic.replace_implicit_stochastic_nodes(
-                template, pyll.as_apply(rng))
-        rval = pyll.rec_eval(runnable)
-        return rval
+        return pyll.stochastic.sample(self.template, rng)
 
     def evaluate(self, config, ctrl):
         """Return a result document
@@ -535,13 +531,13 @@ class BanditAlgo(object):
         vh.build_idxs()
         vh.build_vals()
         # the keys (nid) here are strings like 'node_5'
-        idxs_by_nid = self.idxs_by_nid = vh.idxs_by_id()
-        vals_by_nid = self.vals_by_nid = vh.vals_by_id()
-        name_by_nid = self.name_by_nid = vh.name_by_id()
+        idxs_by_nid = vh.idxs_by_id()
+        vals_by_nid = vh.vals_by_id()
+        name_by_nid = vh.name_by_id()
         assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
         assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
 
-        # -- replace repeat(draw_rng(...)) with vectorized versions
+        # -- replace repeat(dist(...)) with vectorized versions
         t_i_v = replace_repeat_stochastic(
                 pyll.as_apply([
                     vh.vals_memo[template], idxs_by_nid, vals_by_nid]))
@@ -569,9 +565,13 @@ class BanditAlgo(object):
                 del idxs_by_nid[node_id]
 
         # -- make the graph runnable and SON-encodable
-        self.s_specs_idxs_vals, _rng = replace_implicit_stochastic_nodes(
+        self.s_specs_idxs_vals = recursive_set_rng_kwarg(
                 scope.pos_args(template, idxs_by_nid, vals_by_nid),
                 pyll.as_apply(self.rng))
+
+        self.idxs_by_nid = idxs_by_nid
+        self.vals_by_nid = vals_by_nid
+        self.name_by_nid = name_by_nid
 
         # -- compute some document coordinate strings for the node_ids
         pnames = pretty_names(bandit.template, prefix=None)
