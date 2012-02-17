@@ -48,7 +48,7 @@ class ManyDists(hyperopt.bandits.Base):
             ))
 
     def score(self, config):
-        return float(np.sum(config.values()) ** 2)
+        return - float(np.sum(config.values()) ** 2)
 
 
 def test_adaptive_parzen_normal():

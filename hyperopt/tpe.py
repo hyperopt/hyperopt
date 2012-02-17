@@ -18,6 +18,7 @@ from pyll.stochastic import implicit_stochastic
 from .base import BanditAlgo
 from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
+from .base import miscs_update_idxs_vals
 
 
 adaptive_parzen_samplers = {}
@@ -483,10 +484,10 @@ class TreeParzenEstimator(BanditAlgo):
             self.post_llik_by_nid[nid] = llik_fn(pv)
             self.sampled_llik_by_nid[nid] = llik_fn(sv)
 
-        self.sampled['llik'] = scope.idxs_prod(self.new_ids,
+        self.sampled['llik'] = scope.idxs_prod(self.s_new_ids,
                 self.sampled['idxs'],
                 self.sampled_llik_by_nid)
-        self.post_llik = scope.idxs_prod(self.new_ids,
+        self.post_llik = scope.idxs_prod(self.s_new_ids,
                 self.post_idxs,
                 self.post_llik_by_nid)
 
@@ -569,10 +570,12 @@ class TreeParzenEstimator(BanditAlgo):
         winning_pos = np.argmax(c_good_llik - c_bad_llik)
         winning_id = winning_pos + fake_ids[0]
 
+        assert len(new_ids) == 1
         rval_specs = [c_specs[winning_pos]]
         rval_results = [self.bandit.new_result()]
-        rval_miscs = dict(tid=new_ids[0])
-        miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals)
+        rval_miscs = [dict(tid=new_ids[0])]
+        miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals,
+                assert_all_vals_used=False)
 
         return rval_specs, rval_results, rval_miscs
 

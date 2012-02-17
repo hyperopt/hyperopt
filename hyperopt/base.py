@@ -136,7 +136,7 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals):
+def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
@@ -144,11 +144,12 @@ def miscs_update_idxs_vals(miscs, idxs, vals):
     assert set(idxs.keys()) == set(vals.keys())
     misc_by_id = dict([(m['tid'], m) for m in miscs])
 
-    # -- assert that the idxs and vals correspond to the misc docs
-    all_ids = set()
-    for idxlist in idxs.values():
-        all_ids.update(idxlist)
-    assert all_ids == set(misc_by_id.keys())
+    if assert_all_vals_used:
+        # -- Assert that every val will be used to update some doc.
+        all_ids = set()
+        for idxlist in idxs.values():
+            all_ids.update(idxlist)
+        assert all_ids == set(misc_by_id.keys())
 
     for tid, misc_tid in misc_by_id.items():
         misc_tid['idxs'] = {}
@@ -525,10 +526,10 @@ class BanditAlgo(object):
         self.rng = np.random.RandomState(self.seed)
         self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
-        idx_range = pyll.Literal(self.new_ids)
+        self.s_new_ids = pyll.Literal(self.new_ids)
         self.template_clone_memo = {}
         template = pyll.clone(self.bandit.template, self.template_clone_memo)
-        vh = self.vh = VectorizeHelper(template, idx_range)
+        vh = self.vh = VectorizeHelper(template, self.s_new_ids)
         vh.build_idxs()
         vh.build_vals()
         # the keys (nid) here are strings like 'node_5'
