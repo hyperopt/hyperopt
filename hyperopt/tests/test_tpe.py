@@ -239,13 +239,22 @@ class CasePerBandit(object):
 
 class TestPosteriorClone(unittest.TestCase, CasePerBandit):
     def work(self):
+        """Test that all prior samplers are gone"""
         tpe_algo = TreeParzenEstimator(self.bandit)
         foo = pyll.as_apply([
                     tpe_algo.post_idxs, tpe_algo.post_vals])
-        print foo
-        order = pyll.dfs(foo)
-        prior_names = ['uniform', 'randint', 'normal', 'lognormal', 'draw_rng']
-        for node in order:
+        prior_names = [
+                'uniform',
+                'quniform',
+                'loguniform',
+                'qloguniform',
+                'normal',
+                'qnormal',
+                'lognormal',
+                'qlognormal',
+                'randint',
+                ]
+        for node in pyll.dfs(foo):
             assert node.name not in prior_names
 
 

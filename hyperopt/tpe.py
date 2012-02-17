@@ -368,7 +368,7 @@ def posterior_clone(prior_idxs, prior_vals, obs_idxs, obs_vals):
     expr = pyll.as_apply([prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
     memo = {}
-    obs_memo = dict([(prior_vals[nid], prior_vals[nid]) for nid in prior_vals])
+    obs_memo = dict([(prior_vals[nid], obs_vals[nid]) for nid in prior_vals])
     for node in nodes:
         if node not in memo:
             new_inputs = [memo[arg] for arg in node.inputs()]
@@ -412,12 +412,12 @@ class TreeParzenEstimator(BanditAlgo):
                 idxs=pyll.Literal({'n0': [99]}),
                 vals=pyll.Literal({'n0': ['sample_n0_val99']}))
 
-        print 'IDXS_BY_NID'
+        print 'PRIOR IDXS_BY_NID'
         for k, v in self.idxs_by_nid.items():
             print k
             print v
 
-        print 'VALS_BY_NID'
+        print 'PRIOR VALS_BY_NID'
         for k, v in self.vals_by_nid.items():
             print k
             print v
@@ -429,6 +429,16 @@ class TreeParzenEstimator(BanditAlgo):
                 self.observed['vals'])
         self.post_idxs = post_idxs
         self.post_vals = post_vals
+
+        print 'POSTERIOR IDXS_BY_NID'
+        for k, v in self.post_idxs.items():
+            print k
+            print v
+
+        print 'POSTERIOR VALS_BY_NID'
+        for k, v in self.post_vals.items():
+            print k
+            print v
 
     @staticmethod
     def set_iv(iv, idxs, vals):
