@@ -301,11 +301,11 @@ class Trials(object):
         if trials is None:
             trials = self._trials
         if arg in JOB_STATES:
-            queue = [doc for doc in self._trials if doc['state'] == arg]
+            queue = [doc for doc in trials if doc['state'] == arg]
         elif hasattr(arg, '__iter__'):
             states = set(states)
             assert all([x in JOB_STATES for x in states])
-            queue = [doc for doc in self._trials if doc['state'] in states]
+            queue = [doc for doc in trials if doc['state'] in states]
         else:
             raise TypeError(arg)
         rval = len(queue)
