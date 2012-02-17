@@ -6,20 +6,48 @@ import theano
 import matplotlib.pyplot as plt
 
 import pyll
+from pyll import scope
+
+import hyperopt.bandits
 
 from hyperopt import Bandit
 from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt import Trials
+
 from hyperopt.bandits import Quadratic1
+from hyperopt.bandits import Q1Lognormal
 from hyperopt.bandits import TwoArms
+from hyperopt.bandits import Distractor
+from hyperopt.bandits import GaussWave
 from hyperopt.bandits import GaussWave2
-bandit_list = [Quadratic1(), TwoArms(), GaussWave2()]
 
 from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
+
+
+class ManyDists(hyperopt.bandits.Base):
+    loss_target = 0
+
+    def __init__(self):
+        hyperopt.bandits.Base.__init__(self, dict(
+            a=scope.one_of(0, 1, 2),
+            b=scope.randint(10),
+            c=scope.uniform(4, 7),
+            d=scope.loguniform(-2, 0),
+            e=scope.quniform(0, 10),
+            f=scope.qloguniform(0, 3),
+            g=scope.normal(4, 7),
+            h=scope.lognormal(-2, 2),
+            i=scope.qnormal(0, 10),
+            j=scope.qlognormal(0, 2),
+            ))
+
+    def score(self, config):
+        return np.sum(config.values()) ** 2
+
 
 def test_adaptive_parzen_normal():
     rng = np.random.RandomState(123)
@@ -196,18 +224,37 @@ class TestGMM1(unittest.TestCase):
         assert np.isfinite(llval[2, 2])
 
 
-def test_posterior_clone():
+class CasePerBandit(object):
+    def test_quadratic1(self): self.bandit = Quadratic1(); self.work()
+    def test_q1lognormal(self): self.bandit = Q1Lognormal(); self.work()
+    def test_twoarms(self): self.bandit = TwoArms(); self.work()
+    def test_distractor(self): self.bandit = Distractor(); self.work()
+    def test_gausswave(self): self.bandit = GaussWave(); self.work()
+    def test_gausswave2(self): self.bandit = GaussWave2(); self.work()
+    def test_many_dists(self): self.bandit = ManyDists(); self.work()
 
-    for bandit in bandit_list:
-        tpe_algo = TreeParzenEstimator(bandit)
+
+class TestPosteriorClone(unittest.TestCase, CasePerBandit):
+    def work(self):
+        tpe_algo = TreeParzenEstimator(self.bandit)
         order = pyll.dfs(
                 pyll.as_apply([
                     tpe_algo.post_idxs, tpe_algo.post_vals]))
         prior_names = ['uniform', 'randint', 'normal', 'lognormal']
-
         for node in order:
             assert node.name not in prior_names
 
+class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
+    def work(self):
+        bandit = self.bandit
+        random_algo = Random(bandit)
+        # build an experiment of 10 trials
+        trials = Trials()
+        exp = Experiment(trials, random_algo)
+        exp.run(10)
+        ids = trials.tids
+        assert len(ids) == 10
+        tpe_algo = TreeParzenEstimator(bandit)
 
 class TestGM_Quadratic1(unittest.TestCase): # Tests uniform
     def setUp(self):
