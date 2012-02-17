@@ -46,7 +46,7 @@ class Q1Lognormal(Base):
     loss_target = 0
 
     def __init__(self):
-        Base.__init__(self, dict(x=scope.exp_normal(0, 2)))
+        Base.__init__(self, dict(x=scope.lognormal(0, 2)))
 
     def score(self, config):
         return max(-(config['x'] - 3)**2, -100)

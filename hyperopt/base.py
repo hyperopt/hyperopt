@@ -194,9 +194,6 @@ class Trials(object):
     def refresh(self):
         # any syncing to persistent storage would happen here
         self._trials = list(self._dynamic_trials)
-        self._specs = [tt['spec'] for tt in self._trials]
-        self._results = [tt['result'] for tt in self._trials]
-        self._miscs = [tt['misc'] for tt in self._trials]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -204,24 +201,28 @@ class Trials(object):
         return self._trials
 
     @property
+    def tids(self):
+        return [tt['tid'] for tt in self._trials]
+
+    @property
     def specs(self):
-        return self._specs
+        return [tt['spec'] for tt in self._trials]
 
     @property
     def results(self):
-        return self._results
+        return [tt['result'] for tt in self._trials]
 
     @property
     def miscs(self):
-        return self._miscs
+        return [tt['misc'] for tt in self._trials]
 
     @property
     def idxs(self):
-        return miscs_to_idxs_vals(self._miscs)[0]
+        return miscs_to_idxs_vals(self.miscs)[0]
 
     @property
     def vals(self):
-        return miscs_to_idxs_vals(self._miscs)[1]
+        return miscs_to_idxs_vals(self.miscs)[1]
 
     def assert_valid_trial(self, trial):
         if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
@@ -300,11 +301,11 @@ class Trials(object):
         if trials is None:
             trials = self._trials
         if arg in JOB_STATES:
-            queue = [doc for doc in self._trials if doc['state'] == arg]
+            queue = [doc for doc in trials if doc['state'] == arg]
         elif hasattr(arg, '__iter__'):
             states = set(states)
             assert all([x in JOB_STATES for x in states])
-            queue = [doc for doc in self._trials if doc['state'] in states]
+            queue = [doc for doc in trials if doc['state'] in states]
         else:
             raise TypeError(arg)
         rval = len(queue)
@@ -504,30 +505,33 @@ class BanditAlgo(object):
         vh = self.vh = VectorizeHelper(template, idx_range)
         vh.build_idxs()
         vh.build_vals()
-        idxs_by_id = vh.idxs_by_id()
-        vals_by_id = vh.vals_by_id()
-        name_by_id = vh.name_by_id()
-        assert set(idxs_by_id.keys()) == set(vals_by_id.keys())
-        assert set(name_by_id.keys()) == set(vals_by_id.keys())
+        # the keys (nid) here are strings like 'node_5'
+        idxs_by_nid = self.idxs_by_nid = vh.idxs_by_id()
+        vals_by_nid = self.vals_by_nid = vh.vals_by_id()
+        name_by_nid = self.name_by_nid = vh.name_by_id()
+        assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
+        assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
 
         # -- remove non-stochastic nodes from the idxs and vals
-        #    because (a) they should be irrelevant for BanditAlgo operation
-        #    and (b) they can be reconstructed from the template and the
-        #    stochastic choices.
-        for node_id, name in name_by_id.items():
+        #    because
+        #    (a) they should be irrelevant for BanditAlgo operation,
+        #    (b) they can be reconstructed from the template and the
+        #    stochastic choices, and
+        #    (c) they are often annoying when printing / saving.
+        for node_id, name in name_by_nid.items():
             if name not in pyll.stochastic.implicit_stochastic_symbols:
-                del name_by_id[node_id]
-                del vals_by_id[node_id]
-                del idxs_by_id[node_id]
+                del name_by_nid[node_id]
+                del vals_by_nid[node_id]
+                del idxs_by_nid[node_id]
             if name == 'one_of':
                 # -- one_of nodes too, because they are duplicates of randint
-                del name_by_id[node_id]
-                del vals_by_id[node_id]
-                del idxs_by_id[node_id]
+                del name_by_nid[node_id]
+                del vals_by_nid[node_id]
+                del idxs_by_nid[node_id]
 
         # -- make the graph runnable
         specs_idxs_vals_0 = pyll.as_apply([
-            vh.vals_memo[template], idxs_by_id, vals_by_id])
+            vh.vals_memo[template], idxs_by_nid, vals_by_nid])
         specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
         specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
                 specs_idxs_vals_1,
@@ -545,7 +549,7 @@ class BanditAlgo(object):
                 choice_node = vh.choice_memo[cnode]
                 assert choice_node.name == 'randint'
                 doc_coords[vh.node_id[choice_node]] = pname + '.randint'
-            if cnode in vh.node_id and vh.node_id[cnode] in name_by_id:
+            if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
                 doc_coords[vh.node_id[cnode]] = pname
             else:
                 #print 'DROPPING', node
@@ -556,30 +560,14 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def suggest(self,
-            new_ids,
-            specs,
-            results,
-            misc):
+    def suggest(self, new_ids, specs, results, miscs):
         """
         specs is list of all specification documents from current Trial
         results is a list of result documents returned by Bandit.evaluate
-        misc is a list of documents with other information about each job.
+        miscs is a list of documents with other information about each job.
 
         All lists have the same length.
         """
-        raise NotImplementedError('override me')
-
-
-class Random(BanditAlgo):
-    """Random search algorithm
-    """
-
-    def suggest(self,
-            new_ids,
-            specs,
-            results,
-            misc):
         # -- install new_ids as program arguments
         self.new_ids[:] = new_ids
 
@@ -593,6 +581,15 @@ class Random(BanditAlgo):
         new_miscs = [dict(tid=ii) for ii in new_ids]
         miscs_update_idxs_vals(new_miscs, idxs, vals)
         return new_specs, new_results, new_miscs
+
+
+class Random(BanditAlgo):
+    """Random search algorithm
+
+    The base implementation of BanditAlgo actually does random sampling,
+    This class is defined so that hyperopt.Random can be used to mean random
+    sampling.
+    """
 
 
 class Experiment(object):
@@ -676,7 +673,6 @@ class Experiment(object):
                 self.trials.insert_trial_docs(new_trials)
                 n_queued += len(new_ids)
                 qlen = get_queue_len()
-                print 'qlen', qlen
 
             if self.async:
                 # -- wait for workers to fill in the trials
