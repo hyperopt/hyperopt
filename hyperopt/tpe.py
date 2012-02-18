@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import numpy as np
-import scipy.special
+from scipy.special import erf
 import pyll
 from pyll import scope
 from pyll.stochastic import implicit_stochastic
@@ -44,9 +44,8 @@ def categorical_lpdf(sample, p, eps=0):
     Return a random integer from 0 .. N-1 inclusive according to the
     probabilities p[0] .. P[N-1].
 
-    This is formally equivalent to numpy.where(multinomial(n=1, p))
+    This is formally equivalent to np.where(multinomial(n=1, p))
     """
-    print sample
     return np.log(np.asarray(p)[sample] + eps)
 
 
@@ -84,37 +83,42 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
     else:
         return np.floor(samples / q) * q
 
+@scope.define
+def normal_cdf(x, mu, sigma):
+    return 0.5 * (1 + erf((x - mu) / np.sqrt(2 * sigma ** 2)))
 
 @scope.define
-def GMM1_lpdf(sample, weights, mus, sigmas, low=None, high=None, q=None):
-    sample, weights, mus, sigmas = map(np.asarray,
-            (sample, weights, mus, sigmas))
-    assert weights.ndim == 1
-    assert mus.ndim == 1
-    assert sigmas.ndim == 1
-    _sample = sample
-    sample = _sample.flatten()
+def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
+    samples, weights, mus, sigmas = map(np.asarray,
+            (samples, weights, mus, sigmas))
+    assert weights.ndim == mus.ndim == sigmas.ndim == 1
+    assert len(weights) == len(mus) == len(sigmas)
+    _samples = samples
+    samples = _samples.flatten()
 
     if low is None and high is None:
         effective_weights = weights
     else:
-        erf = scipy.special.erf
         effective_weights = weights * (
                 erf((high - mus) / sigmas) - erf((low - mus) / sigmas))
         effective_weights /=  effective_weights.sum()
 
     if q is None:
-        dist = sample[:, None] - mus
+        dist = samples[:, None] - mus
         mahal = ((dist ** 2) / (sigmas ** 2))
         # mahal shape is (n_samples, n_components)
         Z = np.sqrt(2 * np.pi * sigmas**2)
         coef = effective_weights / Z
-        T = - 0.5 * mahal
-        rmax = np.max(T, axis=1)
-        rval = np.log(np.sum(np.exp(T - rmax[:, None]) * coef, axis=1) ) + rmax
-        return rval.reshape(_sample.shape)
+        rval = logsum_rows(- 0.5 * mahal + np.log(coef))
+    else:
+        prob = np.zeros_like(samples, dtype='float64')
+        for w, mu, sigma in zip(weights, mus, sigmas):
+            prob += normal_cdf(samples, mu, sigma)
+            prob -= normal_cdf(samples - q, mu, sigma)
+        rval = np.log(prob)
 
-    raise NotImplementedError('GMM1_lpdf', dict(low=low, high=high, q=q))
+    rval.shape = _samples.shape
+    return rval
 
 
 # -- Mixture of Log-Normals
@@ -127,29 +131,27 @@ def lognormal_cdf(x, mu, sigma, eps=1e-12):
     # the maximum is used to move negative values and 0 up to a point
     # where they do not cause nan or inf, but also don't contribute much
     # to the cdf.
-    return .5 + .5 * tensor.erf(
-            (tensor.log(tensor.maximum(x, eps)) - mu)
-            / tensor.sqrt(2 * sigma**2))
+    return .5 + .5 * erf(
+            (np.log(np.maximum(x, eps)) - mu)
+            / np.sqrt(2 * sigma**2))
 
 @scope.define
-def lognormal_lpdf(x, mu, sigma, step=1):
+def lognormal_lpdf(x, mu, sigma):
     # formula copied from wikipedia
     # http://en.wikipedia.org/wiki/Log-normal_distribution
-    Z = sigma * x * numpy.sqrt(2 * numpy.pi)
-    E = 0.5 * ((tensor.log(x) - mu) / sigma)**2
-    return -E - tensor.log(Z)
+    Z = sigma * x * np.sqrt(2 * np.pi)
+    E = 0.5 * ((np.log(x) - mu) / sigma)**2
+    return -E - np.log(Z)
 
 @scope.define
-def qlognormal_lpdf(node, x, kw):
-    r, shape, mu, sigma, step = node.inputs
-
+def qlognormal_lpdf(x, mu, sigma, q):
     # casting rounds up to nearest step multiple.
     # so lpdf is log of integral from x-step to x+1 of P(x)
 
     # XXX: subtracting two numbers potentially very close together.
-    return tensor.log(
-            lognormal_cdf_math(x, mu, sigma)
-            - lognormal_cdf_math(x - step, mu, sigma))
+    return np.log(
+            lognormal_cdf(x, mu, sigma)
+            - lognormal_cdf(x - q, mu, sigma))
 
 @implicit_stochastic
 @scope.define
@@ -192,53 +194,42 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     samples = np.reshape(np.asarray(samples), size)
     return samples
 
+def logsum_rows(x):
+    R, C = x.shape
+    m = x.max(axis=1)
+    return np.log(np.exp(x - m[:, None]).sum(axis=1)) + m
+
 @scope.define
-def LGMM1_lpdf(node, sample, kw):
-    r, weights, mus, sigmas, draw_shape = node.inputs
+def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
+    samples, weights, mus, sigmas = map(np.asarray, (
+        samples, weights, mus, sigmas))
     assert weights.ndim == 1
     assert mus.ndim == 1
     assert sigmas.ndim == 1
-    _sample = sample
-    if sample.ndim != 1:
-        sample = sample.flatten()
+    _samples = samples
+    if samples.ndim != 1:
+        samples = samples.flatten()
 
     if q is None:
         # compute the lpdf of each sample under each component
-        lpdfs = lognormal_lpdf_math(sample.dimshuffle(0, 'x'), mus, sigmas)
+        lpdfs = lognormal_lpdf(samples[:, None], mus, sigmas)
         assert lpdfs.ndim == 2
 
         # XXX: Make sure this is done in a numerically good way
-        rval = tensor.log(
-                tensor.sum(
-                    tensor.exp(lpdfs) * weights,
+        rval = np.log(
+                np.sum(
+                    np.exp(lpdfs) * weights,
                     axis=1))
-
-        if not sample is _sample:
-            rval = rval.reshape(_sample.shape)
-            assert rval.ndim != 1
-        return rval
     else:
         # compute the lpdf of each sample under each component
-        lpdfs = tensor.log(
-                lognormal_cdf_math(
-                    sample.dimshuffle(0, 'x'),
-                    mus,
-                    sigmas)
-                - lognormal_cdf_math(
-                    sample.dimshuffle(0, 'x') - step,
-                    mus,
-                    sigmas)
+        lpdfs = np.log(
+                lognormal_cdf(samples[:, None], mus, sigmas)
+                - lognormal_cdf( samples[:, None] - q, mus, sigmas)
                 + 1.0e-7)
         assert lpdfs.ndim == 2
-        # XXX: Make sure this is done in a numerically good way
-        rval = tensor.log(
-                tensor.sum(
-                    tensor.exp(lpdfs) * weights,
-                    axis=1))
-        if not sample is _sample:
-            rval = rval.reshape(_sample.shape)
-            assert rval.ndim != 1
-        return rval
+        rval = logsum_rows(lpdfs + np.log(weights))
+    rval = samples.reshape(_samples.shape)
+    return rval
 
 
 #
@@ -407,7 +398,6 @@ def ap_categorical_sampler(obs, upper, size=(), rng=None):
     pseudocounts = counts + scope.sqrt(scope.len(obs))
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             size=size, rng=rng)
-
 
 
 #
