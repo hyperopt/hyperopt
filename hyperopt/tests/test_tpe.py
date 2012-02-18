@@ -28,6 +28,8 @@ from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
+from hyperopt.tpe import LGMM1
+from hyperopt.tpe import LGMM1_lpdf
 from hyperopt.tpe import normal_cdf
 
 
@@ -366,10 +368,163 @@ class TestQGMM1Math(unittest.TestCase):
         self.work(q=2, low=1, high=4.1)
 
 
-    def test_quantized(self):
-        self.q = .5
-        self.show=True
+class TestLGMM1Math(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(234)
+        self.weights = [.1, .3, .4, .2]
+        self.mus = [-2.0, 1.0, 0.0, 3.0]
+        self.sigmas = [.1, .4, .8, 2.0]
+        self.low = None
+        self.high = None
+        self.n_samples = 10001
+        self.samples_per_bin = 200
+        self.show = False
+        # -- triggers error if test case forgets to call work()
+        self.worked = False
+
+    def tearDown(self):
+        assert self.worked
+
+    @property
+    def LGMM1_kwargs(self):
+        return dict(
+                weights=self.weights,
+                mus=self.mus,
+                sigmas=self.sigmas,
+                low=self.low,
+                high=self.high,
+                )
+
+    def LGMM1_lpdf(self, samples):
+        return self.LGMM1(samples, **self.LGMM1_kwargs)
+
+    def work(self, **kwargs):
+        self.__dict__.update(kwargs)
+        self.worked = True
+        samples = LGMM1(rng=self.rng,
+                size=(self.n_samples,),
+                **self.LGMM1_kwargs)
+        samples = np.sort(samples)
+        edges = samples[::self.samples_per_bin]
+        centers = .5 * edges[:-1] + .5 * edges[1:]
+        print edges
+
+        pdf = np.exp(LGMM1_lpdf(centers, **self.LGMM1_kwargs))
+        dx = edges[1:] - edges[:-1]
+        y = 1 / dx / len(dx)
+
+        if self.show:
+            import matplotlib.pyplot as plt
+            plt.scatter(centers, y)
+            plt.plot(centers, pdf)
+            plt.show()
+        err = (pdf - y) ** 2
+        print np.max(err)
+        print np.mean(err)
+        print np.median(err)
+        if not self.show:
+            assert np.max(err) < .1
+            assert np.mean(err) < .01
+            assert np.median(err) < .01
+
+    def test_basic(self):
         self.work()
+
+    def test_bounded(self):
+        self.work(low=2, high=4)
+
+
+class TestQLGMM1Math(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(234)
+        self.weights = [.1, .3, .4, .2]
+        self.mus = [-2, 0.0, -3.0, 1.0]
+        self.sigmas = [2.1, .4, .8, 2.1]
+        self.low = None
+        self.high = None
+        self.n_samples = 1001
+        self.show = False
+        # -- triggers error if test case forgets to call work()
+        self.worked = False
+
+    def tearDown(self):
+        assert self.worked
+
+    @property
+    def kwargs(self):
+        return dict(
+                weights=self.weights,
+                mus=self.mus,
+                sigmas=self.sigmas,
+                low=self.low,
+                high=self.high,
+                q=self.q)
+
+    def QLGMM1_lpdf(self, samples):
+        return self.LGMM1(samples, **self.kwargs)
+
+
+    def work(self, **kwargs):
+        self.__dict__.update(kwargs)
+        self.worked = True
+        samples = LGMM1(rng=self.rng,
+                size=(self.n_samples,),
+                **self.kwargs) / self.q
+        # -- qlognormals have ceil, should never be 0
+        assert samples.min() >= 1
+        assert np.all(samples == samples.astype('int'))
+        min_max = int(samples.min()), int(samples.max())
+        print 'SAMPLES RANGE', min_max
+        counts = np.bincount(samples.astype('int') - min_max[0])
+
+        #print samples
+        #print counts
+        xcoords = np.arange(min_max[0], min_max[1] + 0.5) * self.q
+        prob = np.exp(LGMM1_lpdf(xcoords, **self.kwargs))
+        print xcoords
+        print prob
+        assert counts.sum() == self.n_samples
+        y = counts / float(self.n_samples)
+
+        if self.show:
+            import matplotlib.pyplot as plt
+            plt.scatter(xcoords, y, c='r')
+            plt.scatter(xcoords, prob, c='b')
+            plt.show()
+        # -- calculate errors on the low end, don't take a mean
+        #    over all the range spanned by a few outliers.
+        err = ((prob - y) ** 2)[:20]
+        print np.max(err)
+        print np.mean(err)
+        print np.median(err)
+        if not self.show:
+            assert np.max(err) < .1
+            assert np.mean(err) < .01
+            assert np.median(err) < .01
+
+    def test_basic_1(self):
+        self.work(q=1)
+
+    def test_basic_2(self):
+        self.work(q=2)
+
+    def test_basic_pt5(self):
+        self.work(q=0.5)
+
+    def test_basic_pt125(self):
+        self.work(q=0.125)
+
+    def test_bounded_1(self):
+        self.work(q=1, low=2, high=4)
+
+    def test_bounded_2(self):
+        self.work(q=2, low=2, high=4)
+
+    def test_bounded_1b(self):
+        self.work(q=1, low=1, high=4.1)
+
+    def test_bounded_2b(self):
+        self.work(q=2, low=1, high=4.1)
 
 
 class CasePerBandit(object):

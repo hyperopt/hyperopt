@@ -125,7 +125,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
 # -- Mixture of Log-Normals
 
 @scope.define
-def lognormal_cdf(x, mu, sigma, eps=1e-12):
+def lognormal_cdf(x, mu, sigma, log_eps=-100):
     # wikipedia claims cdf is
     # .5 + .5 erf( log(x) - mu / sqrt(2 sigma^2))
     #
@@ -133,7 +133,7 @@ def lognormal_cdf(x, mu, sigma, eps=1e-12):
     # where they do not cause nan or inf, but also don't contribute much
     # to the cdf.
     return .5 + .5 * erf(
-            (np.log(np.maximum(x, eps)) - mu)
+            (np.maximum(np.log(x), log_eps) - mu)
             / np.sqrt(2 * sigma**2))
 
 @scope.define
@@ -142,7 +142,8 @@ def lognormal_lpdf(x, mu, sigma):
     # http://en.wikipedia.org/wiki/Log-normal_distribution
     Z = sigma * x * np.sqrt(2 * np.pi)
     E = 0.5 * ((np.log(x) - mu) / sigma)**2
-    return -E - np.log(Z)
+    rval = -E - np.log(Z)
+    return rval
 
 @scope.define
 def qlognormal_lpdf(x, mu, sigma, q):
@@ -180,19 +181,13 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
         while len(samples) < n_samples:
             active = np.argmax(rng.multinomial(1, weights))
             draw = rng.normal(loc=mus[active], scale=sigmas[active])
-            if low < draw < high:
+            if low <= draw < high:
                 samples.append(np.exp(draw))
         samples = np.asarray(samples)
 
-    if not np.all(np.isfinite(samples)):
-        logger.warning('overflow in LognormalMixture')
-        logger.warning('  mu = %s' % str(mus[active]))
-        logger.warning('  sigma = %s' % str(sigmas[active]))
-        logger.warning('  samples = %s' % str(samples))
-
-    if q is not None:
-        samples = np.floor(samples / q) * q
     samples = np.reshape(np.asarray(samples), size)
+    if q is not None:
+        samples = np.maximum(np.ceil(samples / q) * q, q)
     return samples
 
 def logsum_rows(x):
@@ -211,25 +206,26 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     if samples.ndim != 1:
         samples = samples.flatten()
 
+    if low is None and high is None:
+        p_accept = 1
+    else:
+        p_accept = np.sum(
+                weights * (
+                    normal_cdf(high, mus, sigmas)
+                    - normal_cdf(low, mus, sigmas)))
+
     if q is None:
         # compute the lpdf of each sample under each component
         lpdfs = lognormal_lpdf(samples[:, None], mus, sigmas)
-        assert lpdfs.ndim == 2
-
-        # XXX: Make sure this is done in a numerically good way
-        rval = np.log(
-                np.sum(
-                    np.exp(lpdfs) * weights,
-                    axis=1))
+        rval = logsum_rows(lpdfs + np.log(weights))
     else:
         # compute the lpdf of each sample under each component
-        lpdfs = np.log(
-                lognormal_cdf(samples[:, None], mus, sigmas)
-                - lognormal_cdf( samples[:, None] - q, mus, sigmas)
-                + 1.0e-7)
-        assert lpdfs.ndim == 2
-        rval = logsum_rows(lpdfs + np.log(weights))
-    rval = samples.reshape(_samples.shape)
+        prob = np.zeros_like(samples, dtype='float64')
+        for w, mu, sigma in zip(weights, mus, sigmas):
+            prob += w * lognormal_cdf(samples, mu, sigma)
+            prob -= w * lognormal_cdf(samples - q, mu, sigma)
+        rval = np.log(prob) - np.log(p_accept)
+    rval.shape = _samples.shape
     return rval
 
 
