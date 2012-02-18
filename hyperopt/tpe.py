@@ -97,18 +97,19 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if low is None and high is None:
-        effective_weights = weights
+        p_accept = 1
     else:
-        effective_weights = weights * (
-                erf((high - mus) / sigmas) - erf((low - mus) / sigmas))
-        effective_weights /=  effective_weights.sum()
+        p_accept = np.sum(
+                weights * (
+                    normal_cdf(high, mus, sigmas)
+                    - normal_cdf(low, mus, sigmas)))
 
     if q is None:
         dist = samples[:, None] - mus
         mahal = ((dist ** 2) / (sigmas ** 2))
         # mahal shape is (n_samples, n_components)
         Z = np.sqrt(2 * np.pi * sigmas**2)
-        coef = effective_weights / Z
+        coef = weights / Z / p_accept
         rval = logsum_rows(- 0.5 * mahal + np.log(coef))
     else:
         prob = np.zeros_like(samples, dtype='float64')

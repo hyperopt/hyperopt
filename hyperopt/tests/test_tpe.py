@@ -28,6 +28,7 @@ from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
+from hyperopt.tpe import normal_cdf
 
 
 class ManyDists(hyperopt.bandits.Base):
@@ -226,22 +227,67 @@ class TestGMM1(unittest.TestCase):
         assert np.isfinite(llval[2, 2])
 
 
+class TestGMM1Math(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(234)
+        self.weights = [.1, .3, .4, .2]
+        self.mus = [1.0, 2.0, 3.0, 4.0]
+        self.sigmas = [.1, .4, .8, 2.0]
+        self.q = None
+        self.low = None
+        self.high = None
+        self.n_samples = 10001
+        self.samples_per_bin = 500
+        self.show = False
+        # -- triggers error if test case forgets to call work()
+        self.worked = False
+
+    def tearDown(self):
+        assert self.worked
+
+    def work(self):
+        self.worked = True
+        kwargs = dict(
+                weights=self.weights,
+                mus=self.mus,
+                sigmas=self.sigmas,
+                low=self.low,
+                high=self.high,
+                q=self.q,
+                )
+        samples = GMM1(rng=self.rng,
+                size=(self.n_samples,),
+                **kwargs)
+        samples = np.sort(samples)
+        edges = samples[::self.samples_per_bin]
+        #print samples
+
+        pdf = np.exp(GMM1_lpdf(edges[:-1], **kwargs))
+        dx = edges[1:] - edges[:-1]
+        y = 1 / dx / len(dx)
+
+        if self.show:
+            import matplotlib.pyplot as plt
+            plt.scatter(edges[:-1], y)
+            plt.plot(edges[:-1], pdf)
+            plt.show()
+        err = (pdf - y) ** 2
+        print np.max(err)
+        print np.mean(err)
+        print np.median(err)
+        assert np.max(err) < .1
+        assert np.mean(err) < .01
+        assert np.median(err) < .01
+
     def test_lpdf_matches_hist(self):
-        weights = [.1, .3, .4, .2]
-        mus = [1.0, 2.0, 3.0, 4.0]
-        sigmas = [.1, .4, .8, 2.0]
+        self.work()
 
-        n_samples = 1000
+    def test_lpdf_matches_hist_bounded(self):
+        self.low = 2.5
+        self.high = 3.5
+        self.work()
 
-        samples = GMM1(weights, mus, sigmas)
 
-        hist, edges = np.histogram(samples)
-        pdf = np.exp(GMM1_lpdf(edges, weights, mus, sigmas))
-
-        import matplotlib.pyplot as plt
-        plt.scatter(edges[:-1], hist / hist.sum())
-        plt.plot(edges, pdf)
-        plot.show()
 
 
 
