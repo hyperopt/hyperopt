@@ -226,6 +226,25 @@ class TestGMM1(unittest.TestCase):
         assert np.isfinite(llval[2, 2])
 
 
+    def test_lpdf_matches_hist(self):
+        weights = [.1, .3, .4, .2]
+        mus = [1.0, 2.0, 3.0, 4.0]
+        sigmas = [.1, .4, .8, 2.0]
+
+        n_samples = 1000
+
+        samples = GMM1(weights, mus, sigmas)
+
+        hist, edges = np.histogram(samples)
+        pdf = np.exp(GMM1_lpdf(edges, weights, mus, sigmas))
+
+        import matplotlib.pyplot as plt
+        plt.scatter(edges[:-1], hist / hist.sum())
+        plt.plot(edges, pdf)
+        plot.show()
+
+
+
 class CasePerBandit(object):
     def test_quadratic1(self): self.bandit = Quadratic1(); self.work()
     def test_q1lognormal(self): self.bandit = Q1Lognormal(); self.work()
