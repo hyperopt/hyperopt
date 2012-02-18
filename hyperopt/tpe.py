@@ -303,7 +303,7 @@ def adaptive_parzen_normal(mus, prior_mu, prior_sigma):
     weights = np.ones(len(mus), dtype=mus.dtype)
     weights[0] = np.sqrt(1 + len(mus))
 
-    print weights.dtype
+    #print weights.dtype
     weights = weights / weights.sum()
     return weights, mus, sigma
 
@@ -445,8 +445,8 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
 
     This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
     """
-    print 'FULL IDXS'
-    print full_idxs
+    #print 'FULL IDXS'
+    #print full_idxs
     assert len(set(full_idxs)) == len(full_idxs)
     full_idxs = list(full_idxs)
     rval = np.zeros(len(full_idxs))
@@ -468,7 +468,7 @@ class TreeParzenEstimator(BanditAlgo):
     """
 
     # -- suggest this many jobs from prior before attempting to optimize
-    n_startup_jobs = 5
+    n_startup_jobs = 20
 
     # -- suggest best of this many draws on every iteration
     n_EI_candidates = 256
@@ -588,7 +588,7 @@ class TreeParzenEstimator(BanditAlgo):
 
     def suggest1(self, new_ids, specs, results, miscs):
         assert len(new_ids) == 1
-        print self.post_llik
+        #print self.post_llik
 
         ok_ids = set([m['tid'] for m, r in zip(miscs, results)
                 if r['status'] == STATUS_OK])

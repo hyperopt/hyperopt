@@ -49,7 +49,7 @@ class Q1Lognormal(Base):
         Base.__init__(self, dict(x=scope.lognormal(0, 2)))
 
     def score(self, config):
-        return max(-(config['x'] - 3)**2, -100)
+        return max(-(config['x'] - 3) ** 2, -100)
 
 
 class TwoArms(Base):
