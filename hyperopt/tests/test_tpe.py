@@ -275,20 +275,101 @@ class TestGMM1Math(unittest.TestCase):
         print np.max(err)
         print np.mean(err)
         print np.median(err)
-        assert np.max(err) < .1
-        assert np.mean(err) < .01
-        assert np.median(err) < .01
+        if not self.show:
+            assert np.max(err) < .1
+            assert np.mean(err) < .01
+            assert np.median(err) < .01
 
-    def test_lpdf_matches_hist(self):
+    def test_basic(self):
         self.work()
 
-    def test_lpdf_matches_hist_bounded(self):
+    def test_bounded(self):
         self.low = 2.5
         self.high = 3.5
         self.work()
 
 
+class TestQGMM1Math(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(234)
+        self.weights = [.1, .3, .4, .2]
+        self.mus = [1.0, 2.0, 3.0, 4.0]
+        self.sigmas = [.1, .4, .8, 2.0]
+        self.low = None
+        self.high = None
+        self.n_samples = 1001
+        self.show = False
+        # -- triggers error if test case forgets to call work()
+        self.worked = False
 
+    def tearDown(self):
+        assert self.worked
+
+    def work(self, **kwargs):
+        self.__dict__.update(kwargs)
+        del kwargs
+        self.worked = True
+        gkwargs = dict(
+                weights=self.weights,
+                mus=self.mus,
+                sigmas=self.sigmas,
+                low=self.low,
+                high=self.high,
+                q=self.q,
+                )
+        samples = GMM1(rng=self.rng,
+                size=(self.n_samples,),
+                **gkwargs) / self.q
+        assert np.all(samples == samples.astype('int'))
+        min_max = int(samples.min()), int(samples.max())
+        counts = np.bincount(samples.astype('int') - min_max[0])
+
+        print counts
+        xcoords = np.arange(min_max[0], min_max[1] + 1) * self.q
+        prob = np.exp(GMM1_lpdf(xcoords, **gkwargs))
+        assert counts.sum() == self.n_samples
+        y = counts / float(self.n_samples)
+
+        if self.show:
+            import matplotlib.pyplot as plt
+            plt.scatter(xcoords, y, c='r')
+            plt.scatter(xcoords, prob, c='b')
+            plt.show()
+        err = (prob - y) ** 2
+        print np.max(err)
+        print np.mean(err)
+        print np.median(err)
+        if not self.show:
+            assert np.max(err) < .1
+            assert np.mean(err) < .01
+            assert np.median(err) < .01
+
+    def test_basic_1(self):
+        self.work(q=1)
+
+    def test_basic_2(self):
+        self.work(q=2)
+
+    def test_basic_pt5(self):
+        self.work(q=0.5)
+
+    def test_bounded_1(self):
+        self.work(q=1, low=2, high=4)
+
+    def test_bounded_2(self):
+        self.work(q=2, low=2, high=4)
+
+    def test_bounded_1b(self):
+        self.work(q=1, low=1, high=4.1)
+
+    def test_bounded_2b(self):
+        self.work(q=2, low=1, high=4.1)
+
+
+    def test_quantized(self):
+        self.q = .5
+        self.show=True
+        self.work()
 
 
 class CasePerBandit(object):
@@ -299,7 +380,6 @@ class CasePerBandit(object):
     def test_gausswave(self): self.bandit = GaussWave(); self.work()
     def test_gausswave2(self): self.bandit = GaussWave2(); self.work()
     def test_many_dists(self): self.bandit = ManyDists(); self.work()
-
 
 
 class TestPosteriorClone(unittest.TestCase, CasePerBandit):

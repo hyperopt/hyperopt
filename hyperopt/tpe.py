@@ -75,13 +75,13 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
         while len(samples) < n_samples:
             active = np.argmax(rng.multinomial(1, weights))
             draw = rng.normal(loc=mus[active], scale=sigmas[active])
-            if low < draw < high:
+            if low <= draw < high:
                 samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
     if q is None:
         return samples
     else:
-        return np.floor(samples / q) * q
+        return np.ceil(samples / q) * q
 
 @scope.define
 def normal_cdf(x, mu, sigma):
@@ -114,9 +114,9 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     else:
         prob = np.zeros_like(samples, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
-            prob += normal_cdf(samples, mu, sigma)
-            prob -= normal_cdf(samples - q, mu, sigma)
-        rval = np.log(prob)
+            prob += w * normal_cdf(samples, mu, sigma)
+            prob -= w * normal_cdf(samples - q, mu, sigma)
+        rval = np.log(prob) - np.log(p_accept)
 
     rval.shape = _samples.shape
     return rval
