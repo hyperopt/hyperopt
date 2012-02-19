@@ -140,9 +140,10 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
     `misc`.
     """
     assert set(idxs.keys()) == set(vals.keys())
+
     misc_by_id = dict([(m['tid'], m) for m in miscs])
 
-    if assert_all_vals_used:
+    if idxs and assert_all_vals_used:
         # -- Assert that every val will be used to update some doc.
         all_ids = set()
         for idxlist in idxs.values():
@@ -657,11 +658,11 @@ class Experiment(object):
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
                 except Exception, e:
-                    if not self.catch_bandit_exceptions:
-                        raise
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
+                    if not self.catch_bandit_exceptions:
+                        raise
                 else:
                     logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE

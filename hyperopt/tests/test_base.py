@@ -12,6 +12,7 @@ one_of = scope.one_of
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
 from hyperopt.base import JOB_STATE_NEW
+from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import Bandit
@@ -391,5 +392,38 @@ class TestSONify(unittest.TestCase):
     def test_np_2d_float(self):
         assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]]))
                 == [[1, 2], [3, 4.5]])
+
+
+
+
+def test_failure():
+    class BanditE(Exception):
+        pass
+    class DummyBandit(Bandit):
+        param_gen = {"a":10}
+        def __init__(self):
+            super(DummyBandit, self).__init__(self.param_gen)
+
+        def evaluate(self, config, ctrl):
+            raise BanditE()
+
+    trials = Trials()
+    bandit_algo = Random(DummyBandit())
+    exp = Experiment(trials, bandit_algo, async=False)
+
+    exp.run(1)
+    trials.refresh()
+    assert len(trials) == 1
+    assert trials.trials[0]['state'] == JOB_STATE_ERROR
+    assert trials.trials[0]['misc']['error'] != None
+
+    exp.catch_bandit_exceptions = False
+    nose.tools.assert_raises(BanditE, exp.run, 1)
+    trials.refresh()
+    # -- judgement call: even passed-through errors should show up in db
+    assert len(trials) == 2
+    assert trials.trials[1]['state'] == JOB_STATE_ERROR
+    assert trials.trials[1]['misc']['error'] != None
+
 
 
