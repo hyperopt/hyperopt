@@ -107,7 +107,7 @@ TRIAL_MISC_KEYS = [
         ]
 
 
-def SONify(arg, memo=None, assert_encodable=False):
+def SONify(arg, memo=None):
     if memo is None:
         memo = {}
     if id(arg) in memo:
@@ -130,8 +130,6 @@ def SONify(arg, memo=None, assert_encodable=False):
             rval = map(SONify, arg) # N.B. memo None
     else:
         raise TypeError('SONify', arg)
-    if assert_encodable:
-        assert bson.BSON.dumps(rval)
     memo[id(rval)] = rval
     return rval
 
