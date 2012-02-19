@@ -124,10 +124,10 @@ def SONify(arg, memo=None):
     elif isinstance(arg, (basestring, float, int, type(None))):
         rval = arg
     elif isinstance(arg, np.ndarray):
-        if x.ndim == 0:
-            rval = SONify(x.sum())
-        elif x.ndim == 1:
-            rval = map(np_to_py_number, x) # N.B. memo None
+        if arg.ndim == 0:
+            rval = SONify(arg.sum())
+        elif arg.ndim == 1:
+            rval = map(np_to_py_number, arg) # N.B. memo None
         else:
             raise NotImplementedError()
     else:
