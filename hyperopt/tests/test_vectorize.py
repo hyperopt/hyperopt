@@ -2,28 +2,10 @@ import unittest
 import numpy as np
 
 from pyll import as_apply, scope, rec_eval, clone, dfs
-from pyll.stochastic import replace_implicit_stochastic_nodes
-from pyll.stochastic import replace_repeat_stochastic
+from pyll.stochastic import recursive_set_rng_kwarg
 
 from hyperopt.vectorize import VectorizeHelper
-
-def test_replace_implicit_stochastic_nodes():
-    a = scope.uniform(-2, -1)
-    rng = np.random.RandomState(234)
-    new_a, lrng = replace_implicit_stochastic_nodes(a, rng)
-    print new_a
-    assert new_a.name == 'getitem'
-    assert new_a.pos_args[0].name == 'draw_rng'
-
-
-def test_replace_implicit_stochastic_nodes_multi():
-    uniform = scope.uniform
-    a = as_apply([uniform(0, 1), uniform(2, 3)])
-    rng = np.random.RandomState(234)
-    new_a, lrng = replace_implicit_stochastic_nodes(a, rng)
-    print new_a
-    val_a = rec_eval(new_a)
-    assert np.allclose(val_a, (0.03096734347001351, 2.254282073234248))
+from hyperopt.vectorize import replace_repeat_stochastic
 
 
 def config0():
@@ -50,16 +32,16 @@ def test_clone():
 
     nodeset = set(dfs(config))
     assert not any(n in nodeset for n in dfs(config2))
-    
-    r = rec_eval(
-            replace_implicit_stochastic_nodes(
+
+    foo = recursive_set_rng_kwarg(
                 config,
-                scope.rng_from_seed(5))[0])
+                scope.rng_from_seed(5))
+    r = rec_eval(foo)
     print r
     r2 = rec_eval(
-            replace_implicit_stochastic_nodes(
+            recursive_set_rng_kwarg(
                 config2,
-                scope.rng_from_seed(5))[0])
+                scope.rng_from_seed(5)))
 
     print r2
     assert r == r2
@@ -83,53 +65,48 @@ def test_vectorize_config0():
 
     full_output = as_apply([vconfig, vh.idxs_by_id(), vh.vals_by_id()])
 
-    print '=' * 80
-    print 'VECTORIZED'
-    print full_output
-    print '\n' * 1
+    if 0:
+        print '=' * 80
+        print 'VECTORIZED'
+        print full_output
+        print '\n' * 1
 
     fo2 = replace_repeat_stochastic(full_output)
-    print '=' * 80
-    print 'VECTORIZED STOCHASTIC'
-    print fo2
-    print '\n' * 1
+    if 0:
+        print '=' * 80
+        print 'VECTORIZED STOCHASTIC'
+        print fo2
+        print '\n' * 1
 
-    new_vc, lrng = replace_implicit_stochastic_nodes(
+    new_vc = recursive_set_rng_kwarg(
             fo2,
             as_apply(np.random.RandomState(1))
             )
-
-    print '=' * 80
-    print 'VECTORIZED STOCHASTIC WITH RNGS'
-    print new_vc
+    if 0:
+        print '=' * 80
+        print 'VECTORIZED STOCHASTIC WITH RNGS'
+        print new_vc
 
     foo, idxs, vals = rec_eval(new_vc)
 
     print foo
-    print idxs
-    print vals
+    #print idxs
+    #print vals
     assert len(foo) == 5
     assert foo[0] == {
-            'p0': 0.12812444792935673,
-            'p2': 0.12812444792935673,
-            'p3': -2,
+            'p0': 0.39676747423066994,
+            'p2': 0.39676747423066994,
+            'p3': 2.1281244479293568,
             'p4': 1,
-            'p5': (3, 4, 0.12812444792935673)}
+            'p5': (3, 4, 0.39676747423066994) }
+    assert foo[1] != foo[2]
 
-    assert foo[1] ==  {
-            'p0': 0.99904051532414473,
-            'p2': 0.99904051532414473,
-            'p3': -2,
-            'p4': 1,
-            'p5': (3, 4, 0.99904051532414473)}
+    if 0:
+        print idxs[vh.node_id[p1]]
+        print vals[vh.node_id[p1]]
 
-    assert foo[2]['p3'] != -2
-    
-
-    print idxs[vh.node_id[p1]]
-    print vals[vh.node_id[p1]]
-
-    assert list(idxs[vh.node_id[p1]]) == [2]
+    # - p1 is only used sometimes
+    assert len(idxs[vh.node_id[p1]]) < 5
     for ii in range(5):
         if ii in idxs[vh.node_id[p1]]:
             assert foo[ii]['p3'] == vals[vh.node_id[p1]][list(idxs[vh.node_id[p1]]).index(ii)]

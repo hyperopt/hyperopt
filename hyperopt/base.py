@@ -41,11 +41,13 @@ import numpy as np
 import bson # -- comes with pymongo
 
 import pyll
-from pyll.stochastic import replace_repeat_stochastic
-from pyll.stochastic import replace_implicit_stochastic_nodes
+from pyll import scope
+from pyll.stochastic import recursive_set_rng_kwarg
 
 from .utils import pmin_sampled
-from .vectorize import VectorizeHelper, pretty_names
+from .vectorize import VectorizeHelper
+from .vectorize import pretty_names
+from .vectorize import replace_repeat_stochastic
 
 logger = logging.getLogger(__name__)
 
@@ -105,15 +107,36 @@ TRIAL_MISC_KEYS = [
         ]
 
 
-def np_to_py_number(a):
-    if isinstance(a, np.floating):
-        return float(a)
-    if isinstance(a, np.integer):
-        return int(a)
-    return a
+def SONify(arg, memo=None):
+    if memo is None:
+        memo = {}
+    if id(arg) in memo:
+        rval = memo[id(arg)]
+    if isinstance(arg, np.floating):
+        rval = float(arg)
+    elif isinstance(arg, np.integer):
+        rval = int(arg)
+    elif isinstance(arg, (list, tuple)):
+        rval = type(arg)([SONify(ai, memo) for ai in arg])
+    elif isinstance(arg, dict):
+        rval = dict([(SONify(k, memo), SONify(v, memo))
+            for k, v in arg.items()])
+    elif isinstance(arg, (basestring, float, int, type(None))):
+        rval = arg
+    elif isinstance(arg, np.ndarray):
+        if x.ndim == 0:
+            rval = SONify(x.sum())
+        elif x.ndim == 1:
+            rval = map(np_to_py_number, x) # N.B. memo None
+        else:
+            raise NotImplementedError()
+    else:
+        raise TypeError('SONify', arg)
+    memo[id(rval)] = rval
+    return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals):
+def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
@@ -121,11 +144,12 @@ def miscs_update_idxs_vals(miscs, idxs, vals):
     assert set(idxs.keys()) == set(vals.keys())
     misc_by_id = dict([(m['tid'], m) for m in miscs])
 
-    # -- assert that the idxs and vals correspond to the misc docs
-    all_ids = set()
-    for idxlist in idxs.values():
-        all_ids.update(idxlist)
-    assert all_ids == set(misc_by_id.keys())
+    if assert_all_vals_used:
+        # -- Assert that every val will be used to update some doc.
+        all_ids = set()
+        for idxlist in idxs.values():
+            all_ids.update(idxlist)
+        assert all_ids == set(misc_by_id.keys())
 
     for tid, misc_tid in misc_by_id.items():
         misc_tid['idxs'] = {}
@@ -135,8 +159,8 @@ def miscs_update_idxs_vals(miscs, idxs, vals):
             node_vals = vals[node_id]
             if tid in node_idxs:
                 pos = node_idxs.index(tid)
-                misc_tid['idxs'][node_id] = [np_to_py_number(tid)]
-                misc_tid['vals'][node_id] = [np_to_py_number(node_vals[pos])]
+                misc_tid['idxs'][node_id] = [tid]
+                misc_tid['vals'][node_id] = [node_vals[pos]]
 
                 # -- assert that tid occurs only once
                 assert tid not in node_idxs[pos+1:]
@@ -237,8 +261,15 @@ class Trials(object):
             raise InvalidTrial('tid mismatch between root and misc',
                     (trial['tid'], trial['misc']['tid']))
         # -- check for SON-encodable
-        bson.BSON.encode(trial)
+        try:
+            bson.BSON.encode(trial)
+        except:
+            print '-' * 80
+            print trial
+            print '-' * 80
+            raise
         # XXX how to assert that tids are unique?
+        return trial
 
     def _insert_trial_docs(self, docs):
         """insert with no error checking
@@ -253,7 +284,7 @@ class Trials(object):
         Does not refresh. Call self.refresh() for the trial to appear in
         self.specs, self.results, etc.
         """
-        self.assert_valid_trial(doc)
+        doc = self.assert_valid_trial(SONify(doc))
         return self._insert_trial_docs([doc])[0]
         # refreshing could be done fast in this base implementation, but with
         # a real DB the steps should be separated.
@@ -261,8 +292,8 @@ class Trials(object):
     def insert_trial_docs(self, docs):
         """ trials - something like is returned by self.new_trial_docs()
         """
-        for doc in docs:
-            self.assert_valid_trial(doc)
+        docs = [self.assert_valid_trial(SONify(doc))
+                for doc in docs]
         return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
@@ -415,11 +446,7 @@ class Bandit(object):
         that is useful for small trial debugging.
         """
         rng = np.random.RandomState(1)
-        template = pyll.clone(self.template)
-        runnable, lrng = pyll.stochastic.replace_implicit_stochastic_nodes(
-                template, pyll.as_apply(rng))
-        rval = pyll.rec_eval(runnable)
-        return rval
+        return pyll.stochastic.sample(self.template, rng)
 
     def evaluate(self, config, ctrl):
         """Return a result document
@@ -475,7 +502,7 @@ class CoinFlip(Bandit):
     """
 
     def __init__(self):
-        Bandit.__init__(self, dict(flip=pyll.scope.one_of('heads', 'tails')))
+        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
 
     def evaluate(self, config, ctrl):
         scores = dict(heads=1.0, tails=0.0)
@@ -499,18 +526,28 @@ class BanditAlgo(object):
         self.rng = np.random.RandomState(self.seed)
         self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
-        idx_range = pyll.Literal(self.new_ids)
+        self.s_new_ids = pyll.Literal(self.new_ids)
         self.template_clone_memo = {}
         template = pyll.clone(self.bandit.template, self.template_clone_memo)
-        vh = self.vh = VectorizeHelper(template, idx_range)
+        vh = self.vh = VectorizeHelper(template, self.s_new_ids)
         vh.build_idxs()
         vh.build_vals()
         # the keys (nid) here are strings like 'node_5'
-        idxs_by_nid = self.idxs_by_nid = vh.idxs_by_id()
-        vals_by_nid = self.vals_by_nid = vh.vals_by_id()
-        name_by_nid = self.name_by_nid = vh.name_by_id()
+        idxs_by_nid = vh.idxs_by_id()
+        vals_by_nid = vh.vals_by_id()
+        name_by_nid = vh.name_by_id()
         assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
         assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
+
+        # -- replace repeat(dist(...)) with vectorized versions
+        t_i_v = replace_repeat_stochastic(
+                pyll.as_apply([
+                    vh.vals_memo[template], idxs_by_nid, vals_by_nid]))
+        assert t_i_v.name == 'pos_args'
+        template, s_idxs_by_nid, s_vals_by_nid = t_i_v.pos_args
+        # -- fetch the dictionaries off the top of the cloned graph
+        idxs_by_nid = dict(s_idxs_by_nid.named_args)
+        vals_by_nid = dict(s_vals_by_nid.named_args)
 
         # -- remove non-stochastic nodes from the idxs and vals
         #    because
@@ -523,22 +560,22 @@ class BanditAlgo(object):
                 del name_by_nid[node_id]
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
-            if name == 'one_of':
+            elif name == 'one_of':
                 # -- one_of nodes too, because they are duplicates of randint
                 del name_by_nid[node_id]
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
 
-        # -- make the graph runnable
-        specs_idxs_vals_0 = pyll.as_apply([
-            vh.vals_memo[template], idxs_by_nid, vals_by_nid])
-        specs_idxs_vals_1 = replace_repeat_stochastic(specs_idxs_vals_0)
-        specs_idxs_vals_2, lrng = replace_implicit_stochastic_nodes(
-                specs_idxs_vals_1,
+        # -- make the graph runnable and SON-encodable
+        # N.B. operates inplace
+        self.s_specs_idxs_vals = recursive_set_rng_kwarg(
+                scope.pos_args(template, idxs_by_nid, vals_by_nid),
                 pyll.as_apply(self.rng))
 
-        # -- represents symbolic specs/idxs/vals
-        self.s_specs_idxs_vals = specs_idxs_vals_2
+        self.vtemplate = template
+        self.idxs_by_nid = idxs_by_nid
+        self.vals_by_nid = vals_by_nid
+        self.name_by_nid = name_by_nid
 
         # -- compute some document coordinate strings for the node_ids
         pnames = pretty_names(bandit.template, prefix=None)
