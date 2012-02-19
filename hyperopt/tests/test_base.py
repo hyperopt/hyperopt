@@ -21,6 +21,7 @@ from hyperopt.base import Random
 from hyperopt.base import Experiment
 from hyperopt.base import Bandit
 from hyperopt.base import miscs_to_idxs_vals
+from hyperopt.base import SONify
 from hyperopt.vectorize import pretty_names
 
 
@@ -347,3 +348,13 @@ class TestConfigs(unittest.TestCase):
                     ('p3.randint', [4], [0])]]
         self.foo()
 
+def test_sonify_1d():
+    rec = {'decisions': array([-0.54467769,  1.55932206,  0.87138387, -0.44593913, -1.56435387,
+             0.12447314, -0.10893997, -0.53480256,  0.03922761,  1.10123639])}
+    r = base.SONify(rec)
+    
+
+def test_sonify_2d():
+    rec = {'decisions': array([[-0.54467769,  1.55932206,  0.87138387, -0.44593913, -1.56435387,
+             0.12447314, -0.10893997, -0.53480256,  0.03922761,  1.10123639]])}
+    r = base.SONify(rec)
