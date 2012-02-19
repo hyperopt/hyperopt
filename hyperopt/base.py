@@ -107,7 +107,7 @@ TRIAL_MISC_KEYS = [
         ]
 
 
-def SONify(arg, memo=None):
+def SONify(arg, memo=None, assert_encodable=False):
     if memo is None:
         memo = {}
     if id(arg) in memo:
@@ -124,14 +124,14 @@ def SONify(arg, memo=None):
     elif isinstance(arg, (basestring, float, int, type(None))):
         rval = arg
     elif isinstance(arg, np.ndarray):
-        if x.ndim == 0:
-            rval = SONify(x.sum())
-        elif x.ndim == 1:
-            rval = map(np_to_py_number, x) # N.B. memo None
+        if arg.ndim == 0:
+            rval = SONify(arg.sum())
         else:
-            raise NotImplementedError()
+            rval = map(SONify, arg) # N.B. memo None
     else:
         raise TypeError('SONify', arg)
+    if assert_encodable:
+        assert bson.BSON.dumps(rval)
     memo[id(rval)] = rval
     return rval
 
@@ -632,6 +632,8 @@ class Random(BanditAlgo):
 class Experiment(object):
     """Object for conducting search experiments.
     """
+    catch_bandit_exceptions = True
+
     def __init__(self, trials, bandit_algo, async=None, cmd=None,
             max_queue_len=1,
             poll_interval_secs=1.0,
@@ -657,6 +659,8 @@ class Experiment(object):
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
                 except Exception, e:
+                    if not self.catch_bandit_exceptions:
+                        raise
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))

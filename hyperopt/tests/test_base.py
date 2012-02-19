@@ -2,6 +2,7 @@ import copy
 import unittest
 import numpy as np
 import nose
+import bson
 
 from pyll import as_apply, scope, rec_eval, clone, dfs
 uniform = scope.uniform
@@ -13,13 +14,14 @@ from hyperopt import STATUS_OK
 from hyperopt.base import JOB_STATE_NEW
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
+from hyperopt.base import Bandit
 from hyperopt.base import Ctrl
+from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
 from hyperopt.base import Trials
 from hyperopt.base import CoinFlip
 from hyperopt.base import Random
-from hyperopt.base import Experiment
-from hyperopt.base import Bandit
+from hyperopt.base import SONify
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.vectorize import pretty_names
 
@@ -223,6 +225,9 @@ class TestConfigs(unittest.TestCase):
             output.append(tmp)
         print repr(output)
         print repr(self.wanted)
+        # -- think of a more robust way to test these things
+        #    or, if the sampling style is to be nailed down,
+        #    put it in and be sure of it.
         raise nose.SkipTest()
         assert output == self.wanted
 
@@ -346,4 +351,45 @@ class TestConfigs(unittest.TestCase):
                     ('p3.arg:2', [], []),
                     ('p3.randint', [4], [0])]]
         self.foo()
+
+
+class TestSONify(unittest.TestCase):
+
+    def SONify(self, foo):
+        rval = SONify(foo)
+        assert bson.BSON.encode(dict(a=rval))
+        return rval
+
+    def test_int(self):
+        assert self.SONify(1) == 1
+
+    def test_float(self):
+        assert self.SONify(1.1) == 1.1
+
+    def test_np_int(self):
+        assert self.SONify(np.int(1)) == 1
+
+    def test_np_float(self):
+        assert self.SONify(np.float(1.1)) == 1.1
+
+    def test_np_1d_int(self):
+        assert np.all(self.SONify(np.asarray([1, 2, 3]))
+                == [1, 2, 3])
+
+    def test_np_1d_float(self):
+        assert np.all(self.SONify(np.asarray([1, 2, 3.4]))
+                == [1, 2, 3.4])
+
+    def test_np_1d_str(self):
+        assert np.all(self.SONify(np.asarray(['a', 'b', 'ccc']))
+                == ['a', 'b', 'ccc'])
+
+    def test_np_2d_int(self):
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]]))
+                == [[1, 2], [3, 4]])
+
+    def test_np_2d_float(self):
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]]))
+                == [[1, 2], [3, 4.5]])
+
 
