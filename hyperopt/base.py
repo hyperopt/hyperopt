@@ -126,10 +126,8 @@ def SONify(arg, memo=None):
     elif isinstance(arg, np.ndarray):
         if arg.ndim == 0:
             rval = SONify(arg.sum())
-        elif arg.ndim == 1:
-            rval = map(np_to_py_number, arg) # N.B. memo None
         else:
-            raise NotImplementedError()
+            rval = map(SONify, arg) # N.B. memo None
     else:
         raise TypeError('SONify', arg)
     memo[id(rval)] = rval
@@ -142,9 +140,10 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
     `misc`.
     """
     assert set(idxs.keys()) == set(vals.keys())
+
     misc_by_id = dict([(m['tid'], m) for m in miscs])
 
-    if assert_all_vals_used:
+    if idxs and assert_all_vals_used:
         # -- Assert that every val will be used to update some doc.
         all_ids = set()
         for idxlist in idxs.values():
@@ -632,6 +631,8 @@ class Random(BanditAlgo):
 class Experiment(object):
     """Object for conducting search experiments.
     """
+    catch_bandit_exceptions = True
+
     def __init__(self, trials, bandit_algo, async=None, cmd=None,
             max_queue_len=1,
             poll_interval_secs=1.0,
@@ -660,6 +661,8 @@ class Experiment(object):
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
+                    if not self.catch_bandit_exceptions:
+                        raise
                 else:
                     logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE

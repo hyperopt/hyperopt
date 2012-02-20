@@ -2,6 +2,7 @@ import copy
 import unittest
 import numpy as np
 import nose
+import bson
 
 from pyll import as_apply, scope, rec_eval, clone, dfs
 uniform = scope.uniform
@@ -11,15 +12,17 @@ one_of = scope.one_of
 from hyperopt import STATUS_STRINGS
 from hyperopt import STATUS_OK
 from hyperopt.base import JOB_STATE_NEW
+from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
+from hyperopt.base import Bandit
 from hyperopt.base import Ctrl
+from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
 from hyperopt.base import Trials
 from hyperopt.base import CoinFlip
 from hyperopt.base import Random
-from hyperopt.base import Experiment
-from hyperopt.base import Bandit
+from hyperopt.base import SONify
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.base import SONify
 from hyperopt.vectorize import pretty_names
@@ -224,6 +227,9 @@ class TestConfigs(unittest.TestCase):
             output.append(tmp)
         print repr(output)
         print repr(self.wanted)
+        # -- think of a more robust way to test these things
+        #    or, if the sampling style is to be nailed down,
+        #    put it in and be sure of it.
         raise nose.SkipTest()
         assert output == self.wanted
 
@@ -348,13 +354,72 @@ class TestConfigs(unittest.TestCase):
                     ('p3.randint', [4], [0])]]
         self.foo()
 
-def test_sonify_1d():
-    rec = {'decisions': array([-0.54467769,  1.55932206,  0.87138387, -0.44593913, -1.56435387,
-             0.12447314, -0.10893997, -0.53480256,  0.03922761,  1.10123639])}
-    r = base.SONify(rec)
-    
 
-def test_sonify_2d():
-    rec = {'decisions': array([[-0.54467769,  1.55932206,  0.87138387, -0.44593913, -1.56435387,
-             0.12447314, -0.10893997, -0.53480256,  0.03922761,  1.10123639]])}
-    r = base.SONify(rec)
+class TestSONify(unittest.TestCase):
+
+    def SONify(self, foo):
+        rval = SONify(foo)
+        assert bson.BSON.encode(dict(a=rval))
+        return rval
+
+    def test_int(self):
+        assert self.SONify(1) == 1
+
+    def test_float(self):
+        assert self.SONify(1.1) == 1.1
+
+    def test_np_int(self):
+        assert self.SONify(np.int(1)) == 1
+
+    def test_np_float(self):
+        assert self.SONify(np.float(1.1)) == 1.1
+
+    def test_np_1d_int(self):
+        assert np.all(self.SONify(np.asarray([1, 2, 3]))
+                == [1, 2, 3])
+
+    def test_np_1d_float(self):
+        assert np.all(self.SONify(np.asarray([1, 2, 3.4]))
+                == [1, 2, 3.4])
+
+    def test_np_1d_str(self):
+        assert np.all(self.SONify(np.asarray(['a', 'b', 'ccc']))
+                == ['a', 'b', 'ccc'])
+
+    def test_np_2d_int(self):
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]]))
+                == [[1, 2], [3, 4]])
+
+    def test_np_2d_float(self):
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]]))
+                == [[1, 2], [3, 4.5]])
+
+
+def test_failure():
+    class BanditE(Exception):
+        pass
+    class DummyBandit(Bandit):
+        param_gen = {"a":10}
+        def __init__(self):
+            super(DummyBandit, self).__init__(self.param_gen)
+
+        def evaluate(self, config, ctrl):
+            raise BanditE()
+
+    trials = Trials()
+    bandit_algo = Random(DummyBandit())
+    exp = Experiment(trials, bandit_algo, async=False)
+
+    exp.run(1)
+    trials.refresh()
+    assert len(trials) == 1
+    assert trials.trials[0]['state'] == JOB_STATE_ERROR
+    assert trials.trials[0]['misc']['error'] != None
+
+    exp.catch_bandit_exceptions = False
+    nose.tools.assert_raises(BanditE, exp.run, 1)
+    trials.refresh()
+    # -- judgement call: even passed-through errors should show up in db
+    assert len(trials) == 2
+    assert trials.trials[1]['state'] == JOB_STATE_ERROR
+    assert trials.trials[1]['misc']['error'] != None
