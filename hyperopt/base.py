@@ -123,6 +123,8 @@ def SONify(arg, memo=None):
             for k, v in arg.items()])
     elif isinstance(arg, (basestring, float, int, type(None))):
         rval = arg
+    elif arg in (True, False):
+        rval = int(arg)
     elif isinstance(arg, np.ndarray):
         if arg.ndim == 0:
             rval = SONify(arg.sum())
