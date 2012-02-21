@@ -667,7 +667,7 @@ class Experiment(object):
                     if not self.catch_bandit_exceptions:
                         raise
                 else:
-                    logger.debug('job returned: %s' % str(result))
+                    #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
         self.trials.refresh()
