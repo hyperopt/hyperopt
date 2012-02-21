@@ -393,6 +393,10 @@ class TestSONify(unittest.TestCase):
         assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]]))
                 == [[1, 2], [3, 4.5]])
 
+    def test_nested_w_bool(self):
+        thing = dict(a=1, b='2', c=True, d=False, e=np.int(3), f=[1l])
+        assert thing == SONify(thing)
+
 
 
 

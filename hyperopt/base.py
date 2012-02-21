@@ -123,13 +123,14 @@ def SONify(arg, memo=None):
             for k, v in arg.items()])
     elif isinstance(arg, (basestring, float, int, type(None))):
         rval = arg
-    elif arg in (True, False):
-        rval = int(arg)
     elif isinstance(arg, np.ndarray):
         if arg.ndim == 0:
             rval = SONify(arg.sum())
         else:
             rval = map(SONify, arg) # N.B. memo None
+    # -- put this after ndarray because ndarray not hashable
+    elif arg in (True, False):
+        rval = int(arg)
     else:
         raise TypeError('SONify', arg)
     memo[id(rval)] = rval
