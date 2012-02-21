@@ -128,6 +128,9 @@ def SONify(arg, memo=None):
             rval = SONify(arg.sum())
         else:
             rval = map(SONify, arg) # N.B. memo None
+    # -- put this after ndarray because ndarray not hashable
+    elif arg in (True, False):
+        rval = int(arg)
     else:
         raise TypeError('SONify', arg)
     memo[id(rval)] = rval
@@ -520,8 +523,9 @@ class BanditAlgo(object):
     """
     seed = 123
 
-    def __init__(self, bandit):
+    def __init__(self, bandit, seed=seed):
         self.bandit = bandit
+        self.seed = seed
         self.rng = np.random.RandomState(self.seed)
         self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
@@ -664,7 +668,7 @@ class Experiment(object):
                     if not self.catch_bandit_exceptions:
                         raise
                 else:
-                    logger.debug('job returned: %s' % str(result))
+                    #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
         self.trials.refresh()
