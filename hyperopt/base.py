@@ -522,8 +522,9 @@ class BanditAlgo(object):
     """
     seed = 123
 
-    def __init__(self, bandit):
+    def __init__(self, bandit, seed=seed):
         self.bandit = bandit
+        self.seed = seed
         self.rng = np.random.RandomState(self.seed)
         self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
