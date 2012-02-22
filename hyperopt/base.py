@@ -307,8 +307,6 @@ class Trials(object):
     def new_trial_docs(self, tids, specs, results, miscs):
         assert len(tids) == len(specs) == len(results) == len(miscs)
         rval = []
-        #NB: tids may be longer than specs, and this zip will just take tids up
-        #to the length of specs
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
             doc = dict(
                     state=JOB_STATE_NEW,
@@ -691,7 +689,7 @@ class Experiment(object):
         else:
             self.serial_evaluate()
 
-    def run(self, N, block_until_done=True, break_when_n=False):
+    def run(self, N, block_until_done=True, break_when_n_done=False):
         """
         block_until_done  means that the process blocks until ALL jobs in
         trials are not in running or new state
@@ -742,11 +740,11 @@ class Experiment(object):
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
 
-            if break_when_n:
-                break_when_n = int(break_when_n)
-                assert break_when_n >= 0
+            if break_when_n_done:
+                break_when_n_done = int(break_when_n_done)
+                assert break_when_n_done >= 0
                 ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
-                if ndone >= break_when_n:
+                if ndone >= break_when_n_done:
                     self.trials.refresh()
                     break
 
