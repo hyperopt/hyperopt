@@ -693,8 +693,8 @@ class Experiment(object):
             self.trials.refresh()
         else:
             self.serial_evaluate()
-
-    def run(self, N, block_until_done=True, break_on_empty=True):
+            
+    def run(self, N, block_until_done=True, break_when_n=False):
         trials = self.trials
         algo = self.bandit_algo
         bandit = algo.bandit
@@ -703,8 +703,7 @@ class Experiment(object):
         def get_queue_len():
             return self.trials.count_by_state_unsynced(JOB_STATE_NEW)
 
-        empty = False
-        while n_queued < N and not (empty and break_on_empty):
+        while n_queued < N:
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
@@ -715,9 +714,8 @@ class Experiment(object):
                         trials.specs, trials.results,
                         trials.miscs)
                 new_trials = trials.new_trial_docs(new_ids,
-                        new_specs, new_results, new_miscs)
-                if new_trials:
-                    empty=False
+                    new_specs, new_results, new_miscs)
+                if new_trials:      
                     for doc in new_trials:
                         assert 'cmd' not in doc['misc']
                         doc['misc']['cmd'] = self.cmd
@@ -728,15 +726,20 @@ class Experiment(object):
                     n_queued += len(new_ids)
                     qlen = get_queue_len()
                 else:
-                    empty = True
                     break
                     
             if self.async:
                 # -- wait for workers to fill in the trials
-                time.sleep(self.poll_interval_secs)
+                time.sleep(self.poll_interval_secs)       
             else:
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
+                
+            if break_when_n:
+                ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
+                if ndone >= break_when_n:
+                    self.trials.refresh()
+                    break
 
         if block_until_done:
             self.block_until_done()
@@ -744,7 +747,7 @@ class Experiment(object):
             logger.info('Queue empty, exiting run.')
         else:
             qlen = get_queue_len()
-            msg = 'Exiting run, not waiting for %d jobs.' % qlen
-            logger.info(msg)
-            print msg
-
+            if qlen:
+                msg = 'Exiting run, not waiting for %d jobs.' % qlen
+                logger.info(msg)
+                print msg
