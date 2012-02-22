@@ -697,7 +697,7 @@ class Experiment(object):
         trials are not in running or new state
 
         break_when_n can either be False or non-negative integer; when
-        not False, this means that the process will stuff enqueuing when that
+        not False, this means that the process will stop enqueuing when that
         many jobs are in state JOB_STATE_DONE.
         """
         trials = self.trials
@@ -718,7 +718,7 @@ class Experiment(object):
                         new_ids,
                         trials.specs, trials.results,
                         trials.miscs)
-                assert new_ids >= len(new_specs)
+                assert len(new_ids) >= len(new_specs)
                 new_ids = new_ids[:len(new_specs)]
                 new_trials = trials.new_trial_docs(new_ids,
                     new_specs, new_results, new_miscs)
