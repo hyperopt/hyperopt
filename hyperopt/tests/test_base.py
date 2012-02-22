@@ -413,17 +413,18 @@ def test_failure():
 
     exp.run(1)
     trials.refresh()
-    assert len(trials) == 1
-    assert trials.trials[0]['state'] == JOB_STATE_ERROR
-    assert trials.trials[0]['misc']['error'] != None
+    assert len(trials) == 0
+    assert len(trials._dynamic_trials) == 1
+    assert trials._dynamic_trials[0]['state'] == JOB_STATE_ERROR
+    assert trials._dynamic_trials[0]['misc']['error'] != None
 
     exp.catch_bandit_exceptions = False
     nose.tools.assert_raises(BanditE, exp.run, 1)
     trials.refresh()
-    # -- judgement call: even passed-through errors should show up in db
-    assert len(trials) == 2
-    assert trials.trials[1]['state'] == JOB_STATE_ERROR
-    assert trials.trials[1]['misc']['error'] != None
+    assert len(trials) == 0
+    assert len(trials._dynamic_trials) == 2
+    assert trials._dynamic_trials[1]['state'] == JOB_STATE_ERROR
+    assert trials._dynamic_trials[1]['misc']['error'] != None
 
 
 

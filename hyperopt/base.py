@@ -215,8 +215,9 @@ class Trials(object):
         return len(self._trials)
 
     def refresh(self):
-        # any syncing to persistent storage would happen here
-        self._trials = list(self._dynamic_trials)
+        # In MongoTrials, this method fetches from database
+        self._trials = [tt for tt in self._dynamic_trials
+            if tt['state'] != JOB_STATE_ERROR]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
