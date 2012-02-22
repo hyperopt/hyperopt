@@ -671,6 +671,9 @@ class Experiment(object):
                     #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
+                N -= 1
+                if N == 1:
+                    break
         self.trials.refresh()
 
     def block_until_done(self):
@@ -694,7 +697,7 @@ class Experiment(object):
         block_until_done  means that the process blocks until ALL jobs in
         trials are not in running or new state
 
-        break_when_n can either be False or non-negative integer; when
+        break_when_n_done can either be False or non-negative integer; when
         not False, this means that the process will stop enqueuing when that
         many jobs are in state JOB_STATE_DONE.
         """

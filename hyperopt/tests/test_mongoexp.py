@@ -250,8 +250,6 @@ class TestExperimentWithThreads(unittest.TestCase):
                     assert len(trials) == 0
                     if hasattr(self, 'prep_trials'):
                         self.prep_trials(trials)
-                    exp = Experiment(trials, bandit_algo, cmd=self.cmd,
-                            max_queue_len=10000)
                     use_ndone = self.use_ndone
                     if use_ndone:
                         exp = Experiment(trials, bandit_algo, cmd=self.cmd,
