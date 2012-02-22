@@ -304,12 +304,8 @@ class Trials(object):
         self._ids.update(rval)
         return rval
 
-    def remove_trial_ids(self, tids):
-        pass
-        
     def new_trial_docs(self, tids, specs, results, miscs):
-        assert len(specs) == len(results) == len(miscs)
-        assert len(tids) >= len(specs)
+        assert len(tids) == len(specs) == len(results) == len(miscs)
         rval = []
         #NB: tids may be longer than specs, and this zip will just take tids up
         #to the length of specs
@@ -327,7 +323,6 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
-
 
     def delete_all(self):
         self._dynamic_trials = []
@@ -683,8 +678,10 @@ class Experiment(object):
     def block_until_done(self):
         if self.async:
             unfinished_states = [JOB_STATE_NEW, JOB_STATE_RUNNING]
+
             def get_queue_len():
                 return self.trials.count_by_state_unsynced(unfinished_states)
+
             qlen = get_queue_len()
             while qlen > 0:
                 logger.info('Waiting for %d jobs to finish ...' % qlen)
@@ -693,7 +690,7 @@ class Experiment(object):
             self.trials.refresh()
         else:
             self.serial_evaluate()
-            
+
     def run(self, N, block_until_done=True, break_when_n=False):
         trials = self.trials
         algo = self.bandit_algo
@@ -713,9 +710,11 @@ class Experiment(object):
                         new_ids,
                         trials.specs, trials.results,
                         trials.miscs)
+                assert new_tids >= len(new_specs)
+                new_tids = new_tids[:len(new_specs)]
                 new_trials = trials.new_trial_docs(new_ids,
                     new_specs, new_results, new_miscs)
-                if new_trials:      
+                if new_trials:
                     for doc in new_trials:
                         assert 'cmd' not in doc['misc']
                         doc['misc']['cmd'] = self.cmd
@@ -727,14 +726,14 @@ class Experiment(object):
                     qlen = get_queue_len()
                 else:
                     break
-                    
+
             if self.async:
                 # -- wait for workers to fill in the trials
-                time.sleep(self.poll_interval_secs)       
+                time.sleep(self.poll_interval_secs)
             else:
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
-                
+
             if break_when_n:
                 ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
                 if ndone >= break_when_n:
