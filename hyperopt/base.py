@@ -654,7 +654,7 @@ class Experiment(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
 
-    def serial_evaluate(self):
+    def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
                 spec = copy.deepcopy(trial['spec'])
@@ -671,6 +671,9 @@ class Experiment(object):
                     #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
+                N -= 1
+                if N == 0:
+                    break
         self.trials.refresh()
 
     def block_until_done(self):
