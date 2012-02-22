@@ -229,7 +229,7 @@ class TestExperimentWithThreads(unittest.TestCase):
         n_trials_total = n_trials_per_exp * len(self.exp_keys)
 
         bandit = self.bandit
-        bandit_algo = Random(bandit)
+        bandit_algo = Random(bandit, cmd=self.cmd)
 
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
@@ -252,13 +252,13 @@ class TestExperimentWithThreads(unittest.TestCase):
                         self.prep_trials(trials)
                     use_ndone = self.use_ndone
                     if use_ndone:
-                        exp = Experiment(trials, bandit_algo, cmd=self.cmd,
+                        exp = Experiment(trials, bandit_algo,
                             max_queue_len=1)
                         exp.run(sys.maxint,
                             break_when_n_done=n_threads * jobs_per_thread,
                             block_until_done=False)
                     else:
-                        exp = Experiment(trials, bandit_algo, cmd=self.cmd,
+                        exp = Experiment(trials, bandit_algo,
                             max_queue_len=10000)
                         exp.run(n_threads * jobs_per_thread,
                             block_until_done=(len(self.exp_keys) == 1))
@@ -330,8 +330,9 @@ class FakeOptions(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-# -- assert that the test raises a ReserveTimeout within 2 seconds
-@nose.tools.timed(2.0)
+
+# -- assert that the test raises a ReserveTimeout within 5 seconds
+@nose.tools.timed(5.0)
 @nose.tools.raises(ReserveTimeout)
 @with_mongo_trials
 def test_main_worker(trials):
@@ -365,6 +366,7 @@ def test_main_search_runs(trials):
             )
     args = ('hyperopt.bandits.TwoArms', 'hyperopt.Random')
     main_search_helper(options, args)
+
 
 @with_mongo_trials
 def test_main_search_clear_existing(trials):
@@ -413,6 +415,7 @@ def test_main_search_driver_attachment(trials):
     main_search_helper(options, args, cmd_type='D.A.')
     print trials.handle.gfs._GridFS__collection
     assert 'driver_attachment_hello.pkl' in trials.attachments
+
 
 @nose.tools.raises(BanditSwapError)
 @with_mongo_trials
