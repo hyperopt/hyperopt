@@ -304,9 +304,15 @@ class Trials(object):
         self._ids.update(rval)
         return rval
 
+    def remove_trial_ids(self, tids):
+        pass
+        
     def new_trial_docs(self, tids, specs, results, miscs):
-        assert len(tids) == len(specs) == len(results) == len(miscs)
+        assert len(specs) == len(results) == len(miscs)
+        assert len(tids) >= len(specs)
         rval = []
+        #NB: tids may be longer than specs, and this zip will just take tids up
+        #to the length of specs
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
             doc = dict(
                     state=JOB_STATE_NEW,
@@ -321,6 +327,7 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
+
 
     def delete_all(self):
         self._dynamic_trials = []
@@ -689,8 +696,8 @@ class Experiment(object):
             self.trials.refresh()
         else:
             self.serial_evaluate()
-
-    def run(self, N, block_until_done=True):
+            
+    def run(self, N, block_until_done=True, break_when_n=False):
         trials = self.trials
         algo = self.bandit_algo
         bandit = algo.bandit
@@ -710,23 +717,32 @@ class Experiment(object):
                         trials.specs, trials.results,
                         trials.miscs)
                 new_trials = trials.new_trial_docs(new_ids,
-                        new_specs, new_results, new_miscs)
-                for doc in new_trials:
-                    assert 'cmd' not in doc['misc']
-                    doc['misc']['cmd'] = self.cmd
-                    if self.workdir:
-                        assert 'workdir' not in doc['misc']
-                        doc['misc']['workdir'] = self.workdir
-                self.trials.insert_trial_docs(new_trials)
-                n_queued += len(new_ids)
-                qlen = get_queue_len()
-
+                    new_specs, new_results, new_miscs)
+                if new_trials:      
+                    for doc in new_trials:
+                        assert 'cmd' not in doc['misc']
+                        doc['misc']['cmd'] = self.cmd
+                        if self.workdir:
+                            assert 'workdir' not in doc['misc']
+                            doc['misc']['workdir'] = self.workdir
+                    self.trials.insert_trial_docs(new_trials)
+                    n_queued += len(new_ids)
+                    qlen = get_queue_len()
+                else:
+                    break
+                    
             if self.async:
                 # -- wait for workers to fill in the trials
-                time.sleep(self.poll_interval_secs)
+                time.sleep(self.poll_interval_secs)       
             else:
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
+                
+            if break_when_n:
+                ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
+                if ndone >= break_when_n:
+                    self.trials.refresh()
+                    break
 
         if block_until_done:
             self.block_until_done()
@@ -734,7 +750,7 @@ class Experiment(object):
             logger.info('Queue empty, exiting run.')
         else:
             qlen = get_queue_len()
-            msg = 'Exiting run, not waiting for %d jobs.' % qlen
-            logger.info(msg)
-            print msg
-
+            if qlen:
+                msg = 'Exiting run, not waiting for %d jobs.' % qlen
+                logger.info(msg)
+                print msg

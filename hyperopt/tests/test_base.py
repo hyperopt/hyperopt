@@ -24,6 +24,7 @@ from hyperopt.base import CoinFlip
 from hyperopt.base import Random
 from hyperopt.base import SONify
 from hyperopt.base import miscs_to_idxs_vals
+from hyperopt.base import SONify
 from hyperopt.vectorize import pretty_names
 
 
@@ -398,8 +399,6 @@ class TestSONify(unittest.TestCase):
         assert thing == SONify(thing)
 
 
-
-
 def test_failure():
     class BanditE(Exception):
         pass
@@ -428,6 +427,3 @@ def test_failure():
     assert len(trials) == 2
     assert trials.trials[1]['state'] == JOB_STATE_ERROR
     assert trials.trials[1]['misc']['error'] != None
-
-
-
