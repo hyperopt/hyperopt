@@ -707,6 +707,13 @@ class Experiment(object):
             return self.trials.count_by_state_unsynced(JOB_STATE_NEW)
 
         while n_queued < N:
+            if break_when_n_done:
+                break_when_n_done = int(break_when_n_done)
+                assert break_when_n_done >= 0
+                ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
+                if ndone >= break_when_n_done:
+                    self.trials.refresh()
+                    break
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
@@ -739,14 +746,6 @@ class Experiment(object):
             else:
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
-
-            if break_when_n_done:
-                break_when_n_done = int(break_when_n_done)
-                assert break_when_n_done >= 0
-                ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
-                if ndone >= break_when_n_done:
-                    self.trials.refresh()
-                    break
 
         if block_until_done:
             self.block_until_done()

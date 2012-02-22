@@ -1,4 +1,5 @@
 import copy
+import sys
 import unittest
 import numpy as np
 import nose
@@ -191,6 +192,12 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.vals
         assert self.trials.idxs['node_4'] == [0, 1, 2]
         assert self.trials.vals['node_4'] == [0, 1, 0]
+        self.experiment.run(sys.maxint, block_until_done=False,
+                            break_when_n_done=3)
+        assert len(self.trials._trials) == 3, len(self.trials._trials)
+        self.experiment.run(sys.maxint, block_until_done=False,
+                            break_when_n_done=5)
+        assert len(self.trials._trials) == 5, len(self.trials._trials)                            
 
 
 class ZeroBandit(Bandit):
