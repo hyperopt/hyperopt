@@ -692,6 +692,14 @@ class Experiment(object):
             self.serial_evaluate()
 
     def run(self, N, block_until_done=True, break_when_n=False):
+        """
+        block_until_done  means that the process blocks until ALL jobs in
+        trials are not in running or new state
+
+        break_when_n can either be False or non-negative integer; when
+        not False, this means that the process will stuff enqueuing when that
+        many jobs are in state JOB_STATE_DONE.
+        """
         trials = self.trials
         algo = self.bandit_algo
         bandit = algo.bandit
@@ -735,6 +743,8 @@ class Experiment(object):
                 self.serial_evaluate()
 
             if break_when_n:
+                break_when_n = int(break_when_n)
+                assert break_when_n >= 0
                 ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
                 if ndone >= break_when_n:
                     self.trials.refresh()
