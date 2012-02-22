@@ -809,7 +809,7 @@ class MongoWorker(object):
                         kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
-
+ 
             result = worker_fn(spec, ctrl)
             logger.info('job returned: %s' % str(result))
         except Exception, e:
@@ -822,6 +822,10 @@ class MongoWorker(object):
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
+        
+        #xxxx deal with results that are LISTS of spec, result pairs
+        #and not just single result dictionaries 
+        
         logger.info('job finished: %s' % str(job['_id']))
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)

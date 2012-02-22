@@ -670,6 +670,9 @@ class Experiment(object):
                         raise
                 else:
                     #logger.debug('job returned: %s' % str(result))
+                    #XXXXDeal with result being a list of spec,result pairs
+                    #and not just a single result dictionary
+                    
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
                 N -= 1
