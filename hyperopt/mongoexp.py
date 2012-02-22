@@ -622,7 +622,7 @@ class MongoTrials(Trials):
     """
     async = True
 
-    def __init__(self, arg, exp_key=None):
+    def __init__(self, arg, exp_key=None, cmd=None, workdir=None):
         if isinstance(arg, MongoJobs):
             self.handle = arg
         else:
@@ -630,6 +630,8 @@ class MongoTrials(Trials):
             self.handle = MongoJobs.new_from_connection_str(connection_string)
         self.handle.create_indexes()
         self._exp_key = exp_key
+        self.cmd = cmd
+        self.workdir = workdir
         self.refresh()
 
     def refresh(self):
@@ -729,6 +731,7 @@ class MongoTrials(Trials):
 
         return Attachments()
 
+
 class MongoWorker(object):
     poll_interval = 3.0  # -- seconds
     workdir = None
@@ -778,6 +781,8 @@ class MongoWorker(object):
                 current_job=job)
         if self.workdir is None:
             workdir = job['misc'].get('workdir', os.getcwd())
+            if workdir is None:
+                workdir = ''
             workdir = os.path.join(workdir, str(job['_id']))
         else:
             workdir = self.workdir
@@ -1026,7 +1031,7 @@ def main_worker():
 
 def main_search_helper(options, args, input=input, cmd_type=None):
     """
-    input is an argument so that unittest can put something else in
+    input is an argument so that unittest can replace stdin
     """
     #
     # Construct bandit
@@ -1102,13 +1107,14 @@ def main_search_helper(options, args, input=input, cmd_type=None):
     else:
         worker_cmd = ('bandit_json evaluate', bandit_name)
 
+    algo.cmd = worker_cmd
+    algo.workdir=options.workdir
+
     self = Experiment(trials,
         bandit_algo=algo,
-        workdir=options.workdir,
         poll_interval_secs=(int(options.poll_interval))
             if options.poll_interval else 5,
-        max_queue_len=options.max_queue_len,
-        cmd=worker_cmd)
+        max_queue_len=options.max_queue_len)
 
     self.run(options.steps, block_until_done=options.block)
 

@@ -579,14 +579,19 @@ class TreeParzenEstimator(BanditAlgo):
         return ((good_specs, good_results, good_miscs),
                 (bad_specs, bad_results, bad_miscs))
 
-    def suggest(self, new_ids, specs, results, miscs):
+    def suggest(self, new_ids, trials):
         if len(new_ids) > 1:
             # write a loop to draw new points sequentially
             raise NotImplementedError()
         else:
-            return self.suggest1(new_ids, specs, results, miscs)
+            return self.suggest1(new_ids, trials)
 
-    def suggest1(self, new_ids, specs, results, miscs):
+    def suggest1(self, new_ids, trials):
+        #TODO: refactor and simplify now that trials is argument
+        specs = trials.specs
+        results = trials.results
+        miscs = trials.miscs
+
         assert len(new_ids) == 1
         #print self.post_llik
 
@@ -596,7 +601,7 @@ class TreeParzenEstimator(BanditAlgo):
         if len(ok_ids) < self.n_startup_jobs:
             logger.info('TreeParzenEstimator warming up %i/%i'
                     % (len(ok_ids), self.n_startup_jobs))
-            return BanditAlgo.suggest(self, new_ids, specs, results, miscs)
+            return BanditAlgo.suggest(self, new_ids, trials)
 
         good, bad = self.filter_trials(specs, results, miscs, ok_ids)
 
@@ -623,11 +628,13 @@ class TreeParzenEstimator(BanditAlgo):
         assert len(new_ids) == 1
         rval_specs = [c_specs[winning_pos]]
         rval_results = [self.bandit.new_result()]
-        rval_miscs = [dict(tid=new_ids[0])]
+        rval_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
+                for ii in new_ids]
         miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals,
                 assert_all_vals_used=False)
-
-        return rval_specs, rval_results, rval_miscs
+        rval_docs = trials.new_trial_docs(new_ids,
+                rval_specs, rval_results, rval_miscs)
+        return rval_docs
 
 
 class TPE_NIPS2011(TreeParzenEstimator):
