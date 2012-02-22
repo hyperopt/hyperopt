@@ -680,8 +680,10 @@ class Experiment(object):
     def block_until_done(self):
         if self.async:
             unfinished_states = [JOB_STATE_NEW, JOB_STATE_RUNNING]
+
             def get_queue_len():
                 return self.trials.count_by_state_unsynced(unfinished_states)
+
             qlen = get_queue_len()
             while qlen > 0:
                 logger.info('Waiting for %d jobs to finish ...' % qlen)
@@ -691,7 +693,15 @@ class Experiment(object):
         else:
             self.serial_evaluate()
 
-    def run(self, N, block_until_done=True):
+    def run(self, N, block_until_done=True, break_when_n_done=False):
+        """
+        block_until_done  means that the process blocks until ALL jobs in
+        trials are not in running or new state
+
+        break_when_n_done can either be False or non-negative integer; when
+        not False, this means that the process will stop enqueuing when that
+        many jobs are in state JOB_STATE_DONE.
+        """
         trials = self.trials
         algo = self.bandit_algo
         bandit = algo.bandit
@@ -701,6 +711,14 @@ class Experiment(object):
             return self.trials.count_by_state_unsynced(JOB_STATE_NEW)
 
         while n_queued < N:
+            if break_when_n_done:
+                break_when_n_done = int(break_when_n_done)
+                assert break_when_n_done >= 0
+                ndone = self.trials.count_by_state_unsynced(JOB_STATE_DONE)
+                if ndone >= break_when_n_done:
+                    self.trials.refresh()
+                    break
+
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
@@ -710,17 +728,22 @@ class Experiment(object):
                         new_ids,
                         trials.specs, trials.results,
                         trials.miscs)
+                assert len(new_ids) >= len(new_specs)
+                new_ids = new_ids[:len(new_specs)]
                 new_trials = trials.new_trial_docs(new_ids,
-                        new_specs, new_results, new_miscs)
-                for doc in new_trials:
-                    assert 'cmd' not in doc['misc']
-                    doc['misc']['cmd'] = self.cmd
-                    if self.workdir:
-                        assert 'workdir' not in doc['misc']
-                        doc['misc']['workdir'] = self.workdir
-                self.trials.insert_trial_docs(new_trials)
-                n_queued += len(new_ids)
-                qlen = get_queue_len()
+                    new_specs, new_results, new_miscs)
+                if new_trials:
+                    for doc in new_trials:
+                        assert 'cmd' not in doc['misc']
+                        doc['misc']['cmd'] = self.cmd
+                        if self.workdir:
+                            assert 'workdir' not in doc['misc']
+                            doc['misc']['workdir'] = self.workdir
+                    self.trials.insert_trial_docs(new_trials)
+                    n_queued += len(new_ids)
+                    qlen = get_queue_len()
+                else:
+                    break
 
             if self.async:
                 # -- wait for workers to fill in the trials
@@ -735,7 +758,6 @@ class Experiment(object):
             logger.info('Queue empty, exiting run.')
         else:
             qlen = get_queue_len()
-            msg = 'Exiting run, not waiting for %d jobs.' % qlen
-            logger.info(msg)
-            print msg
-
+            if qlen:
+                msg = 'Exiting run, not waiting for %d jobs.' % qlen
+                logger.info(msg)
