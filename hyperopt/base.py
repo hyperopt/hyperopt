@@ -656,7 +656,7 @@ class Experiment(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
 
-    def serial_evaluate(self):
+    def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
                 spec = copy.deepcopy(trial['spec'])
