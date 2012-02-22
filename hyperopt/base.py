@@ -710,8 +710,8 @@ class Experiment(object):
                         new_ids,
                         trials.specs, trials.results,
                         trials.miscs)
-                assert new_tids >= len(new_specs)
-                new_tids = new_tids[:len(new_specs)]
+                assert new_ids >= len(new_specs)
+                new_ids = new_ids[:len(new_specs)]
                 new_trials = trials.new_trial_docs(new_ids,
                     new_specs, new_results, new_miscs)
                 if new_trials:
@@ -749,4 +749,3 @@ class Experiment(object):
             if qlen:
                 msg = 'Exiting run, not waiting for %d jobs.' % qlen
                 logger.info(msg)
-                print msg
