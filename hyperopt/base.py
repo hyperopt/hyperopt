@@ -672,7 +672,7 @@ class Experiment(object):
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
                 N -= 1
-                if N == 1:
+                if N == 0:
                     break
         self.trials.refresh()
 
