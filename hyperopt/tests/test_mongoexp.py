@@ -252,7 +252,17 @@ class TestExperimentWithThreads(unittest.TestCase):
                         self.prep_trials(trials)
                     exp = Experiment(trials, bandit_algo, cmd=self.cmd,
                             max_queue_len=10000)
-                    exp.run(n_threads * jobs_per_thread,
+                    use_ndone = self.use_ndone
+                    if use_ndone:
+                        exp = Experiment(trials, bandit_algo, cmd=self.cmd,
+                            max_queue_len=1)
+                        exp.run(sys.maxint,
+                            break_when_n_done=n_threads * jobs_per_thread,
+                            block_until_done=False)
+                    else:
+                        exp = Experiment(trials, bandit_algo, cmd=self.cmd,
+                            max_queue_len=10000)
+                        exp.run(n_threads * jobs_per_thread,
                             block_until_done=(len(self.exp_keys) == 1))
                     exp_list.append(exp)
                     trials_list.append(trials)
@@ -276,12 +286,12 @@ class TestExperimentWithThreads(unittest.TestCase):
             all_trials = MongoTrials(tm.connection_string('foodb'))
             assert len(all_trials) == n_trials_total
 
-
     def test_bandit_json_1(self):
         self.cmd = ('bandit_json evaluate',
                 'hyperopt.bandits.GaussWave2')
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
+        self.use_ndone = False
         self.work()
 
     def test_bandit_json_2(self):
@@ -289,6 +299,15 @@ class TestExperimentWithThreads(unittest.TestCase):
                 'hyperopt.bandits.GaussWave2')
         self.exp_keys = ['key0', 'key1']
         self.bandit = GaussWave2()
+        self.use_ndone = False
+        self.work()
+
+    def test_bandit_json_3(self):
+        self.cmd = ('bandit_json evaluate',
+                'hyperopt.bandits.GaussWave2')
+        self.exp_keys = ['key0']
+        self.bandit = GaussWave2()
+        self.use_ndone = True
         self.work()
 
     def test_driver_attachment_1(self):
@@ -305,6 +324,7 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.cmd = ('driver_attachment', 'aname')
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
+        self.use_ndone = False
         self.work()
 
 

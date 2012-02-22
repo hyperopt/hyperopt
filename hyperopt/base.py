@@ -714,6 +714,7 @@ class Experiment(object):
                 if ndone >= break_when_n_done:
                     self.trials.refresh()
                     break
+
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
