@@ -223,6 +223,10 @@ class Trials(object):
     def __len__(self):
         return len(self._trials)
 
+    def __getitem__(self, item):
+        raise NotImplementedError('how to make it obvious whether'
+                ' indexing is by list position or tid?')
+
     def refresh(self):
         # In MongoTrials, this method fetches from database
         self._trials = [tt for tt in self._dynamic_trials
