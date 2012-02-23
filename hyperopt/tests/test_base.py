@@ -16,6 +16,7 @@ from hyperopt.base import JOB_STATE_NEW
 from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
+from hyperopt.base import StopExperiment
 from hyperopt.base import Bandit
 from hyperopt.base import CoinFlip
 from hyperopt.base import Ctrl
@@ -23,6 +24,7 @@ from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.base import Random
+from hyperopt.base import RandomStop
 from hyperopt.base import SONify
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
@@ -195,10 +197,29 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.vals
         assert self.trials.idxs['node_4'] == [0, 1, 2]
         assert self.trials.vals['node_4'] == [0, 1, 0]
-        self.experiment.run(sys.maxint, break_when_n_done=3)
-        assert len(self.trials._trials) == 3, len(self.trials._trials)
-        self.experiment.run(sys.maxint, break_when_n_done=5)
-        assert len(self.trials._trials) == 5, len(self.trials._trials)                            
+       
+
+class TestCoinFlipStopExperiment(unittest.TestCase):
+    def setUp(self):
+        self.bandit = CoinFlip()
+        self.algo = RandomStop(5, self.bandit)
+        self.trials = Trials()
+        self.experiment = Experiment(self.trials, self.algo, async=False)
+        self.ctrl = Ctrl(self.trials)
+
+    def test_run_1(self):
+        self.experiment.run(1)
+        assert len(self.trials._trials) == 1
+
+    def test_run_3_2_1_1(self):
+        self.experiment.run(3)
+        assert len(self.trials._trials) == 3
+        self.experiment.run(2)
+        assert len(self.trials._trials) == 5
+        self.experiment.run(1)
+        #assert len(self.trials._trials) == 5 
+        #self.experiment.run(1)
+        #assert len(self.trials._trials) == 5 
 
 
 class ZeroBandit(Bandit):

@@ -23,6 +23,7 @@ import nose
 
 from hyperopt import Experiment
 from hyperopt import Random
+from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
 from hyperopt.utils import json_call
 from hyperopt.mongoexp import BanditSwapError
@@ -227,10 +228,7 @@ class TestExperimentWithThreads(unittest.TestCase):
         jobs_per_thread = 2
         n_trials_per_exp = n_threads * jobs_per_thread
         n_trials_total = n_trials_per_exp * len(self.exp_keys)
-
-        bandit = self.bandit
-        bandit_algo = Random(bandit, cmd=self.cmd)
-
+        
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
             def newth(ii):
@@ -250,18 +248,19 @@ class TestExperimentWithThreads(unittest.TestCase):
                     assert len(trials) == 0
                     if hasattr(self, 'prep_trials'):
                         self.prep_trials(trials)
-                    use_ndone = self.use_ndone
-                    if use_ndone:
-                        exp = Experiment(trials, bandit_algo,
-                            max_queue_len=1)
-                        exp.run(sys.maxint,
-                            break_when_n_done=n_threads * jobs_per_thread,
-                            block_until_done=False)
+                    bandit = self.bandit
+                    if self.use_stop:
+                        bandit_algo = RandomStop(n_threads * jobs_per_thread,
+                                                    self.bandit, cmd=self.cmd)
+                        print bandit_algo
+                        exp = Experiment(trials, bandit_algo, max_queue_len=1)
+                        exp.run(sys.maxint, block_until_done=False)
                     else:
+                        bandit_algo = Random(self.bandit, cmd=self.cmd)
                         exp = Experiment(trials, bandit_algo,
-                            max_queue_len=10000)
+                                                       max_queue_len=10000)
                         exp.run(n_threads * jobs_per_thread,
-                            block_until_done=(len(self.exp_keys) == 1))
+                                 block_until_done=(len(self.exp_keys) == 1))
                     exp_list.append(exp)
                     trials_list.append(trials)
             finally:
@@ -289,7 +288,7 @@ class TestExperimentWithThreads(unittest.TestCase):
                 'hyperopt.bandits.GaussWave2')
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
-        self.use_ndone = False
+        self.use_stop = False
         self.work()
 
     def test_bandit_json_2(self):
@@ -297,7 +296,7 @@ class TestExperimentWithThreads(unittest.TestCase):
                 'hyperopt.bandits.GaussWave2')
         self.exp_keys = ['key0', 'key1']
         self.bandit = GaussWave2()
-        self.use_ndone = False
+        self.use_stop = False
         self.work()
 
     def test_bandit_json_3(self):
@@ -305,7 +304,7 @@ class TestExperimentWithThreads(unittest.TestCase):
                 'hyperopt.bandits.GaussWave2')
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
-        self.use_ndone = True
+        self.use_stop = True
         self.work()
 
     def test_driver_attachment_1(self):
@@ -322,7 +321,7 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.cmd = ('driver_attachment', 'aname')
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
-        self.use_ndone = False
+        self.use_stop = False
         self.work()
 
 
