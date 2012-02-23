@@ -17,14 +17,15 @@ from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import Bandit
+from hyperopt.base import CoinFlip
 from hyperopt.base import Ctrl
 from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
-from hyperopt.base import Trials
-from hyperopt.base import CoinFlip
+from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.base import Random
 from hyperopt.base import SONify
-from hyperopt.base import miscs_to_idxs_vals
+from hyperopt.base import Trials
+from hyperopt.base import trials_from_docs
 from hyperopt.vectorize import pretty_names
 
 
@@ -137,21 +138,21 @@ class TestRandom(unittest.TestCase):
         self.algo = Random(self.bandit)
 
     def test_suggest_1(self):
-        specs, results, miscs = self.algo.suggest([0], [], [], [])
-        print specs
-        print results
-        print miscs
-        assert len(specs) == len(results) == len(miscs) == 1
-        assert miscs[0]['idxs']['node_4'] == [0]
-        idxs, vals = miscs_to_idxs_vals(miscs)
+        docs = self.algo.suggest([0], Trials())
+        assert len(docs) == 1
+        # -- assert validity of docs
+        trials = trials_from_docs(docs)
+        assert docs[0]['misc']['idxs']['node_4'] == [0]
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
         assert idxs['node_4'] == [0]
 
     def test_suggest_5(self):
-        specs, results, miscs = self.algo.suggest(range(5), [], [], [])
-        print specs
-        print miscs
-        assert len(specs) == len(results) == len(miscs) == 5
-        idxs, vals = miscs_to_idxs_vals(miscs)
+        docs = self.algo.suggest(range(5), Trials())
+        print docs
+        assert len(docs) == 5
+        # -- assert validity of docs
+        trials = trials_from_docs(docs)
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
         print idxs
         print vals
         assert len(idxs) == 1
@@ -161,9 +162,11 @@ class TestRandom(unittest.TestCase):
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
-        specs, results, miscs = self.algo.suggest(new_ids, [], [], [])
-        idxs, vals = miscs_to_idxs_vals(miscs)
-        assert len(specs) == len(results) == len(miscs) == 5
+        docs = self.algo.suggest(new_ids, Trials())
+        # -- assert validity of docs
+        trials = trials_from_docs(docs)
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
+        assert len(docs) == 5
         assert len(idxs) == 1
         assert len(vals) == 1
         assert idxs['node_4'] == new_ids

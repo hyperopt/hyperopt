@@ -408,6 +408,15 @@ class Trials(object):
             return avg_true_loss
 
 
+def trials_from_docs(docs):
+    """Construct a Trials base class instance from a list of trials documents
+    """
+    rval = Trials()
+    rval.insert_trial_docs(docs)
+    rval.refresh()
+    return rval
+
+
 class Ctrl(object):
     """Control object for interruptible, checkpoint-able evaluation
     """
@@ -521,13 +530,18 @@ class BanditAlgo(object):
     :type bandit: Bandit
     :param bandit: the bandit problem this algorithm should solve
 
+    :param cmd: a pair used by MongoWorker to know how to evaluate suggestions
+    :param workdir: optional hint to MongoWorker where to store temp files.
+
     """
     seed = 123
 
-    def __init__(self, bandit, seed=seed):
+    def __init__(self, bandit, seed=seed, cmd=None, workdir=None):
         self.bandit = bandit
         self.seed = seed
         self.rng = np.random.RandomState(self.seed)
+        self.cmd = cmd
+        self.workdir = workdir
         self.new_ids = ['dummy_id']
         # -- N.B. not necessarily actually a range
         self.s_new_ids = pyll.Literal(self.new_ids)
@@ -601,11 +615,10 @@ class BanditAlgo(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def suggest(self, new_ids, specs, results, miscs):
+    def suggest(self, new_ids, trials):
         """
-        specs is list of all specification documents from current Trial
-        results is a list of result documents returned by Bandit.evaluate
-        miscs is a list of documents with other information about each job.
+        new_ids - a list of unique identifiers (not necessarily ints!)
+                  for the suggestions that this function should return.
 
         All lists have the same length.
         """
@@ -615,13 +628,18 @@ class BanditAlgo(object):
         # XXX: use the ids to seed the random number generator
         #      to avoid suggesting duplicates without having to resort to
         #      rejection sampling.
+        #      Don't count on ids being ints though,
+        #      call sha1(str(new_id)) or something.
 
         # -- sample new specs, idxs, vals
         new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
         new_results = [self.bandit.new_result() for ii in new_ids]
-        new_miscs = [dict(tid=ii) for ii in new_ids]
+        new_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
+                for ii in new_ids]
         miscs_update_idxs_vals(new_miscs, idxs, vals)
-        return new_specs, new_results, new_miscs
+        return trials.new_trial_docs(new_ids,
+                new_specs, new_results, new_miscs)
+
 
 
 class Random(BanditAlgo):
@@ -638,10 +656,9 @@ class Experiment(object):
     """
     catch_bandit_exceptions = True
 
-    def __init__(self, trials, bandit_algo, async=None, cmd=None,
+    def __init__(self, trials, bandit_algo, async=None,
             max_queue_len=1,
             poll_interval_secs=1.0,
-            workdir=None,
             ):
         self.trials = trials
         self.bandit_algo = bandit_algo
@@ -650,8 +667,6 @@ class Experiment(object):
             self.async = trials.async
         else:
             self.async = async
-        self.cmd = cmd
-        self.workdir = workdir
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
 
@@ -724,23 +739,11 @@ class Experiment(object):
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
-                new_specs, new_results, new_miscs = algo.suggest(
-                        new_ids,
-                        trials.specs, trials.results,
-                        trials.miscs)
-                assert len(new_ids) >= len(new_specs)
-                new_ids = new_ids[:len(new_specs)]
-                new_trials = trials.new_trial_docs(new_ids,
-                    new_specs, new_results, new_miscs)
+                new_trials = algo.suggest(new_ids, trials)
+                assert len(new_ids) >= len(new_trials)
                 if new_trials:
-                    for doc in new_trials:
-                        assert 'cmd' not in doc['misc']
-                        doc['misc']['cmd'] = self.cmd
-                        if self.workdir:
-                            assert 'workdir' not in doc['misc']
-                            doc['misc']['workdir'] = self.workdir
                     self.trials.insert_trial_docs(new_trials)
-                    n_queued += len(new_ids)
+                    n_queued += len(new_trials)
                     qlen = get_queue_len()
                 else:
                     break
