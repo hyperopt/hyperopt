@@ -161,6 +161,7 @@ from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
 from .base import Experiment
 from .base import Trials
 from .base import InvalidTrial
+from .base import Ctrl
 from .utils import json_call
 
 
@@ -836,7 +837,7 @@ class MongoWorker(object):
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
 
 
-class MongoCtrl(object):
+class MongoCtrl(Ctrl):
     """
     Attributes:
 

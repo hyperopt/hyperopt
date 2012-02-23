@@ -138,6 +138,7 @@ def with_mongo_trials(f):
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
                     exp_key=None)
+            print(len(trials.results))
             f(trials)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -332,26 +333,7 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.n_threads = 3
         self.jobs_per_thread = 2
         self.work()
-        
-    def test_bandit_json_4(self):
-        self.cmd = ('bandit_json evaluate',
-                    'hyperopt.base.CoinFlip')
-        self.exp_keys = ['key0']
-        self.bandit = CoinFlip
-        self.use_stop = False
-        self.n_threads = 1
-        self.jobs_per_thread = 1
-        self.work()
 
-    def test_bandit_json_5(self):
-        self.cmd = ('bandit_json evaluate',
-                    'hyperopt.base.CoinFlipInjector')
-        self.exp_keys = ['key0']
-        self.bandit = CoinFlipInjector
-        self.use_stop = False
-        self.n_threads = 1
-        self.jobs_per_thread = 1
-        self.work()
 
 class FakeOptions(object):
     def __init__(self, **kwargs):
@@ -465,6 +447,14 @@ def test_main_search_driver_reattachment(trials):
     args = ('hyperopt.bandits.TwoArms', 'hyperopt.Random')
     main_search_helper(options, args, cmd_type='D.A.')
 
+@with_mongo_trials
+def test_injector(trials):
+    bandit_algo = hyperopt.Random(hyperopt.base.CoinFlipInjector(),
+                 cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
+    exp = Experiment(trials, bandit_algo, max_queue_len=1, async=True)
+    exp.run(1, block_until_done=True)
+    ##even though we ran 1 trial, there are 2 results because one was injected
+    assert len(exp.trials) == 2
 
 # XXX: test each of the bandit calling protocols
 
