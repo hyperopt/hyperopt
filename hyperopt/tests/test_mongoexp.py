@@ -150,6 +150,7 @@ def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foodb'):
             print 'worker: %s ran job' % str(host_id)
             n_jobs -= 1
     except ReserveTimeout:
+        print 'worker timed out:', host_id
         pass
 
 
