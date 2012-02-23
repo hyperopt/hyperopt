@@ -481,6 +481,7 @@ def test_main_search_driver_reattachment(trials):
     main_search_helper(options, args, cmd_type='D.A.')
 
 @with_mongo_trials
+@with_worker_threads(3, 'foo', timeout=5.0)
 def test_injector(trials):
     bandit_algo = hyperopt.Random(hyperopt.base.CoinFlipInjector(),
                  cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
@@ -488,6 +489,8 @@ def test_injector(trials):
     exp.run(1, block_until_done=True)
     ##even though we ran 1 trial, there are 2 results because one was injected
     assert len(exp.trials) == 2
+    exp.run(1, block_until_done=True)
+    assert len(exp.trials) == 4
 
 # XXX: test each of the bandit calling protocols
 

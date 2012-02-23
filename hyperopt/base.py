@@ -337,8 +337,6 @@ class Trials(object):
         assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
         rval = []
         for tid, spec, result, misc, source in zip(tids, specs, results, miscs, sources):
-            assert 'tid' not in misc
-            assert 'cmd' not in misc #XXX??? correct thing?
             doc = dict(
                     version=0,
                     tid=tid,
@@ -351,6 +349,8 @@ class Trials(object):
                     book_time=source['book_time'],
                     refresh_time=source['refresh_time'],
                     )
+            assert 'tid' not in misc
+            assert 'cmd' not in misc
             doc['misc']['tid'] = tid
             doc['misc']['cmd'] = None  #??
             doc['misc']['from_tid'] = source['tid']
