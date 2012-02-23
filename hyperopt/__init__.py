@@ -4,8 +4,26 @@
 #    for itself.
 
 
+from base import STATUS_STRINGS
+from base import STATUS_NEW
+from base import STATUS_RUNNING
+from base import STATUS_SUSPENDED
+from base import STATUS_OK
+from base import STATUS_FAIL
+
+from base import JOB_STATES
+from base import JOB_STATE_NEW
+from base import JOB_STATE_RUNNING
+from base import JOB_STATE_DONE
+from base import JOB_STATE_ERROR
+
 from base import Bandit
+from base import BanditAlgo
 from base import Ctrl
+from base import Experiment
+from base import StopExperiment
 from base import Random
-#from genson_bandits import GensonBandit
-#from bandit_algos import Random
+from base import Trials
+
+from tpe import TreeParzenEstimator
+from tpe import TPE_NIPS2011

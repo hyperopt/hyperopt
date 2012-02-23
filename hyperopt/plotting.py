@@ -4,7 +4,6 @@ Functions to visualize an Experiment.
 """
 
 __authors__   = "James Bergstra"
-__copyright__ = "(c) 2010, Universite de Montreal"
 __license__   = "3-clause BSD License"
 __contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
 
@@ -13,24 +12,26 @@ import math
 import sys
 
 import matplotlib.pyplot as plt
-import numpy
+import numpy as np
+from .base import Bandit
 
-import ht_dist2
+def algo_as_str(algo):
+    if isinstance(algo, basestring):
+        return algo
+    return str(algo)
 
-def main_plot_history(self):
-    """
-    self - experiment
-    """
-    bandit_algo = self.bandit_algo
-    bandit = self.bandit_algo.bandit
+def main_plot_history(trials, bandit=None, algo=None, do_show=True):
+    if bandit is None:
+        bandit = Bandit(None)
 
     # self is an Experiment
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
-    Xs = self.trials
+    Xs = trials.specs
 
     # XXX: show the un-finished or error trials
     Ys, colors = zip(*[(y, status_colors[s])
-        for y, s in zip(self.losses(), self.statuses()) if y is not None])
+        for y, s in zip(trials.losses(bandit), trials.statuses(bandit))
+        if y is not None])
     plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
@@ -38,38 +39,40 @@ def main_plot_history(self):
         loss_target = bandit.loss_target()
         have_losstarget = True
     except NotImplementedError:
-        loss_target = numpy.min(Ys)
+        loss_target = np.min(Ys)
         have_losstarget = False
     if have_losstarget:
         plt.axhline(loss_target)
-        ymin = min(numpy.min(Ys), loss_target)
-        ymax = max(numpy.max(Ys), loss_target)
+        ymin = min(np.min(Ys), loss_target)
+        ymax = max(np.max(Ys), loss_target)
         yrange = ymax - ymin
         ymean = (ymax + ymin) / 2.0
         plt.ylim(
                 ymean - 0.53 * yrange,
                 ymean + 0.53 * yrange,
                 )
-    if 1:
-        best_err = self.average_best_error()
-        print "avg best error:", best_err
-        plt.axhline(best_err, c='g')
+    best_err = trials.average_best_error(bandit)
+    print "avg best error:", best_err
+    plt.axhline(best_err, c='g')
+
     plt.title('bandit: %s algo: %s' % (
         bandit.short_str(),
-        bandit_algo.short_str()))
-    plt.show()
+        algo_as_str(algo)))
+    if do_show:
+        plt.show()
 
 
-def main_plot_histogram(self):
+def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     """
     self - experiment
     """
-    bandit_algo = self.bandit_algo
-    bandit = self.bandit_algo.bandit
+    if bandit is None:
+        bandit = Bandit(None)
 
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
-        for (x, y, s) in zip(self.trials, self.losses(), self.statuses())
+        for (x, y, s) in zip(trials.specs, trials.losses(bandit),
+            trials.statuses(bandit))
         if y is not None ])
 
 
@@ -81,16 +84,14 @@ def main_plot_histogram(self):
 
     plt.title('bandit: %s algo: %s' % (
         bandit.short_str(),
-        bandit_algo.short_str()))
-    plt.show()
+        algo_as_str(algo)))
+    if do_show:
+        plt.show()
 
 
-def main_plot_vars(self, end_with_show=True):
-    import montetheano.rstreams
-    # this requires a TheanoBanditAlgo, which has the sample history recorded as
-    # idxs and vals
-    bandit_algo = self.bandit_algo
-    bandit = bandit_algo.bandit
+def main_plot_vars(trials, bandit=None, algo=None, do_show=True):
+    if bandit is None:
+        bandit = Bandit(None)
 
     try:
         flat_template = bandit.template.flatten()
@@ -143,7 +144,7 @@ def main_plot_vars(self, end_with_show=True):
             return (t, t, t)
 
     C = 5
-    R = int(numpy.ceil(len(bandit_algo.s_vals) / float(C)))
+    R = int(np.ceil(len(bandit_algo.s_vals) / float(C)))
 
     for ii, (s_val, db_idx, db_val, template_pos) in enumerate(zip(
             bandit_algo.s_vals,
@@ -173,7 +174,7 @@ def main_plot_vars(self, end_with_show=True):
 
             results_ii = [results_by_TBA_id[i] for i in db_idx
                     if i in trial_TBA_ids]
-            coords_ii = numpy.log([v for i, v in zip(db_idx, db_val)
+            coords_ii = np.log([v for i, v in zip(db_idx, db_val)
                     if i in trial_TBA_ids])
             time_ii = [TBA_id_timestep[i] for i in db_idx
                     if i in trial_TBA_ids]
@@ -298,27 +299,27 @@ if 0:
             # so the probability of the current point being the best is the probability that
             # the current gaussian puts on positive values.
 
-            if -diff_mean / numpy.sqrt(diff_variance) > 3:
+            if -diff_mean / np.sqrt(diff_variance) > 3:
                 #print 'breaking after', len(tscores), len(scores)
                 break
             else:
                 mu.append(diff_mean)
-                sigma.append(numpy.sqrt(diff_variance))
+                sigma.append(np.sqrt(diff_variance))
                 tscores.append(tscore)
 
         if rng is None:
-            rng = numpy.random.RandomState(232342)
+            rng = np.random.RandomState(232342)
 
-        mu = numpy.asarray(mu)
-        sigma = numpy.asarray(sigma)
-        tscores = numpy.asarray(tscores)
+        mu = np.asarray(mu)
+        sigma = np.asarray(sigma)
+        tscores = np.asarray(tscores)
 
         nrml = rng.randn(n_samples, len(mu)) * sigma + mu
         winners = (nrml.T == nrml.max(axis=1))
         p_best_ = winners.sum(axis=0)
         p_best = p_best_ / p_best_.sum()
 
-        return numpy.dot(p_best, t_scores), p_best
+        return np.dot(p_best, t_scores), p_best
 
 
 if 0:
@@ -340,7 +341,7 @@ if 0:
 
         """
         if rng is None:
-            rng = numpy.random.RandomState(232342)
+            rng = np.random.RandomState(232342)
         K = 1
         scatter_x = []
         scatter_y = []
@@ -354,7 +355,7 @@ if 0:
 
             def best_score(i):
                 scores_i = scores[i*K:(i+1)*K]
-                rval= numpy.dot(
+                rval= np.dot(
                         [tscore for (vscore,tscore) in scores_i],
                         pbest_sampled(
                             [vscore for (vscore,tscore) in scores_i],
@@ -390,14 +391,14 @@ if 0:
         #
         # w[i] is prob. of i'th model being best in validation
         w = pbest_sampled([vs for (vs,ts) in scores], n_valid, n_samples=pbest_n_samples, rng=rng)
-        comp_mean = numpy.asarray([ts for (vs,ts) in scores])
+        comp_mean = np.asarray([ts for (vs,ts) in scores])
         comp_var = (comp_mean * (1-comp_mean)) / (n_test-1)
 
         # the mean of the mixture is
-        mean = numpy.dot(w, comp_mean)
+        mean = np.dot(w, comp_mean)
 
         #the variance of the mixture is
-        var = numpy.dot(w, comp_mean**2 + comp_var) - mean**2
+        var = np.dot(w, comp_mean**2 + comp_var) - mean**2
 
         # test average is distributed according to a mixture of gaussians, so we have to use the following fo
         std = math.sqrt(var)
@@ -424,11 +425,11 @@ if 0:
         vxy.sort()
         vscores, x, y = zip(*vxy)
 
-        vscores = numpy.asarray(vscores)
+        vscores = np.asarray(vscores)
 
         max_score = vscores.max()
         min_score = vscores.min()
-        colors = numpy.outer(0.9 - 0.89*(vscores - min_score)/(max_score- min_score), [1,1,1])
+        colors = np.outer(0.9 - 0.89*(vscores - min_score)/(max_score- min_score), [1,1,1])
         plt.scatter( x, y, c=colors, marker='o', linewidths=0.1)
 
         #remove ticks labels
@@ -440,15 +441,15 @@ if 0:
     class CoordType(object):pass
     class RealCoord(CoordType):
         @staticmethod
-        def preimage(x): return numpy.asarray(x)
+        def preimage(x): return np.asarray(x)
     class LogCoord(CoordType):
         @staticmethod
-        def preimage(x): return numpy.log(x)
+        def preimage(x): return np.log(x)
     class Log0Coord(CoordType):
         @staticmethod
         def preimage(x):
-            x = numpy.asarray(x)
-            return numpy.log(x+(x==0)*x.min()/2)
+            x = np.asarray(x)
+            return np.log(x+(x==0)*x.min()/2)
     IntCoord = RealCoord
     LogIntCoord = LogCoord
     class CategoryCoord(CoordType):
@@ -456,7 +457,7 @@ if 0:
             self.categories = categories
         def preimage(self, x):
             if self.categories:
-                return numpy.asarray([self.categories.index(xi) for xi in x])
+                return np.asarray([self.categories.index(xi) for xi in x])
             else:
                 return x
 
@@ -476,7 +477,7 @@ if 0:
             trials = [(job['book_time'], job, y_fn(job))
                     for job in mj if ('book_time' in job
                         and y_fn(job) is not None
-                        and numpy.isfinite(y_fn(job)))]
+                        and np.isfinite(y_fn(job)))]
             trials.sort()
             trials = trials[start:stop]
             if trials:
@@ -491,7 +492,7 @@ if 0:
             for t, y, c, l in self.histories:
                 print 'setting label', l
                 plt.scatter(
-                        numpy.arange(len(y)),
+                        np.arange(len(y)),
                         y,
                         c=c,
                         label=l,
@@ -551,21 +552,21 @@ if 0:
         def __init__(self, conf_template, confs, status, y):
             self.conf_template = conf_template
             self.confs = confs
-            self.y = numpy.asarray(y)
+            self.y = np.asarray(y)
             assert self.y.ndim == 1
             self.status = status
 
-            self.colors = numpy.asarray(
+            self.colors = np.asarray(
                 [self.trial_color_dict.get(s, None) for s in self.status])
 
-            self.a_choices = numpy.array([[e['choice']
+            self.a_choices = np.array([[e['choice']
                 for e in t.flatten()]
                 for t in confs])
-            self.nones = numpy.array([[None
+            self.nones = np.array([[None
                 for e in t.flatten()]
                 for t in confs])
             self.a_names = conf_template.flatten_names()
-            self.a_vars = [not numpy.all(self.a_choices[:,i]==self.nones[:,i])
+            self.a_vars = [not np.all(self.a_choices[:,i]==self.nones[:,i])
                     for i,name in enumerate(self.a_names)]
 
             assert len(self.y) == len(self.a_choices)
@@ -594,14 +595,14 @@ if 0:
 
             columns = [c for c in columns if c < len(self.a_vars)]
 
-            n_vars = numpy.sum(self.a_vars[c] for c in columns)
+            n_vars = np.sum(self.a_vars[c] for c in columns)
             print n_vars
             n_rows = 1
             n_cols = 10000
             n_vars -= 1
             while n_cols > 5 and n_cols > 3 * n_rows: # while "is ugly"
                 n_vars += 1  # leave one more space at the end...
-                n_rows = int(numpy.sqrt(n_vars))
+                n_rows = int(np.sqrt(n_vars))
                 while n_vars % n_rows:
                     n_rows -= 1
                 n_cols = n_vars / n_rows

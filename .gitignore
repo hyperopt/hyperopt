@@ -1,3 +1,4 @@
+.noseids
 *.pyc
 *.swp
 *egg-info*
