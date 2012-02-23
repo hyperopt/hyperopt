@@ -480,7 +480,6 @@ class Ctrl(object):
                                                    sources=[trial])
         for t in new_trials:
             t['state'] = JOB_STATE_DONE
-        print ("NEW",new_trials)
         return self.trials.insert_trial_docs(new_trials)
 
 
