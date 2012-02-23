@@ -9,6 +9,9 @@ import unittest
 import os
 import nose
 
+import matplotlib
+matplotlib.use('svg')  # -- prevents trying to connect to X server
+
 from hyperopt import Random, Experiment, Trials
 import hyperopt.bandits
 import hyperopt.plotting

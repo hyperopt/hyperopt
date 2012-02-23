@@ -21,6 +21,7 @@ from base import Bandit
 from base import BanditAlgo
 from base import Ctrl
 from base import Experiment
+from base import StopExperiment
 from base import Random
 from base import Trials
 
