@@ -25,6 +25,7 @@ from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
+from hyperopt.base import CoinFlip, CoinFlipInjector
 from hyperopt.utils import json_call
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
@@ -224,8 +225,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         Run a small experiment with several workers running in parallel
         using Python threads.
         """
-        n_threads = 3
-        jobs_per_thread = 2
+        n_threads = self.n_threads
+        jobs_per_thread = self.jobs_per_thread
         n_trials_per_exp = n_threads * jobs_per_thread
         n_trials_total = n_trials_per_exp * len(self.exp_keys)
         
@@ -289,6 +290,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_bandit_json_2(self):
@@ -297,6 +300,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0', 'key1']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_bandit_json_3(self):
@@ -305,6 +310,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = True
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_driver_attachment_1(self):
@@ -322,8 +329,29 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
+        self.work()
+        
+    def test_bandit_json_4(self):
+        self.cmd = ('bandit_json evaluate',
+                    'hyperopt.base.CoinFlip')
+        self.exp_keys = ['key0']
+        self.bandit = CoinFlip
+        self.use_stop = False
+        self.n_threads = 1
+        self.jobs_per_thread = 1
         self.work()
 
+    def test_bandit_json_5(self):
+        self.cmd = ('bandit_json evaluate',
+                    'hyperopt.base.CoinFlipInjector')
+        self.exp_keys = ['key0']
+        self.bandit = CoinFlipInjector
+        self.use_stop = False
+        self.n_threads = 1
+        self.jobs_per_thread = 1
+        self.work()
 
 class FakeOptions(object):
     def __init__(self, **kwargs):

@@ -328,6 +328,30 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
+        
+    def source_trial_docs(self, tids, specs, results, miscs, sources):
+        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
+        rval = []
+        for tid, spec, result, misc, source in zip(tids, specs, results, miscs, sources):
+            assert 'tid' not in misc
+            assert 'cmd' not in misc #XXX??? correct thing?
+            doc = dict(
+                    version=0,
+                    tid=tid,
+                    spec=spec,
+                    result=result,
+                    misc=misc,
+                    state=source['state'],
+                    exp_key=source['exp_key'],
+                    owner=source['owner'],
+                    book_time=source['book_time'],
+                    refresh_time=source['refresh_time'],
+                    )
+            doc['misc']['tid'] = tid
+            doc['misc']['cmd'] = None  #??
+            doc['misc']['from_tid'] = source['tid']
+            rval.append(doc)
+        return rval
 
     def delete_all(self):
         self._dynamic_trials = []
@@ -431,7 +455,7 @@ class Ctrl(object):
     error = logger.error
     debug = logger.debug
 
-    def __init__(self, trials):
+    def __init__(self, trials, current_trial=None):
         # -- attachments should be used like
         #      attachments[key]
         #      attachments[key] = value
@@ -439,9 +463,25 @@ class Ctrl(object):
         #    expect any dictionary-like behaviour beyond that (no update)
         self.trials = trials
         self.attachments = {}
+        self.current_trial = current_trial
 
     def checkpoint(self, r=None):
         pass
+
+    def inject_results(self, specs, results, miscs):
+        trial = self.current_trial
+        assert trial is not None
+        num_news = len(specs)
+        new_tids = self.trials.new_trial_ids(num_news)
+        new_trials = self.trials.source_trial_docs(tids=new_tids,
+                                                   specs=specs,
+                                                   results=results,
+                                                   miscs=miscs,
+                                                   sources=[trial])
+        for t in new_trials:
+            t['state'] = JOB_STATE_DONE
+        print ("NEW",new_trials)
+        return self.trials.insert_trial_docs(new_trials)
 
 
 class Bandit(object):
@@ -524,6 +564,25 @@ class CoinFlip(Bandit):
 
     def evaluate(self, config, ctrl):
         scores = dict(heads=1.0, tails=0.0)
+        return dict(loss=scores[config['flip']], status=STATUS_OK)
+
+
+class CoinFlipInjector(Bandit):
+
+    def __init__(self):
+        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
+
+    def evaluate(self, config, ctrl):
+        scores = dict(heads=1.0, tails=0.0)
+        
+        reverse = lambda x : 'tails' if x == 'heads' else 'heads'
+        
+        other_spec = dict(flip=reverse(config['flip']))
+        other_result = dict(status=STATUS_OK,
+                            loss=scores[other_spec['flip']])
+        other_misc = {'idxs':None, 'vals':None}
+        ctrl.inject_results([other_spec], [other_result], [other_misc])
+        
         return dict(loss=scores[config['flip']], status=STATUS_OK)
 
 
@@ -695,7 +754,7 @@ class Experiment(object):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
                 spec = copy.deepcopy(trial['spec'])
-                ctrl = Ctrl(self.trials)
+                ctrl = Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
                 except Exception, e:
@@ -706,37 +765,9 @@ class Experiment(object):
                         raise
                 else:
                     #logger.debug('job returned: %s' % str(result))
-                    ##XXX here's where the new multi-result protocol is applied
-                    ##see corresponding note in mongoexp.py as well
-                    if hasattr(result, 'keys'):
-                        trial['state'] = JOB_STATE_DONE
-                        trial['result'] = result
-                    else:
-                        assert isinstance(result, list)
-                        orig_result = result[0]
-                        assert hasattr(orig_result, 'keys')
-                        assert all([isinstance(x, tuple) and len(x) == 2 for x in result[1:]])
-                        #does some other kind of validation have to be done?
-                        assert ([hasattr(x[0], 'keys') and hasattr(x[1], 'keys') for x in result[1:]])
-                        
-                        trial['state'] = JOB_STATE_DONE
-                        trial['result'] = orig_result
-                        
-                        num_new = len(result) - 1
-                        new_trials = []
-                        new_ids = self.trials.new_trial_ids(num_new)
-                        for new_tid, r in zip(new_ids, result[1:]):
-                            spec, res = r
-                            new_trial = copy.deepcopy(trial)
-                            new_trial['spec'] = spec
-                            new_trial['result'] = res
-                            new_trial['tid'] = new_tid
-                            new_trial['misc']['tid']= new_tid
-                            new_trial['misc']['from_tid'] = trial['tid']
-                            new_trials.append(new_trial)
-                            
-                        self.trials.insert_trial_docs(new_trials)                            
-                        
+                    trial['state'] = JOB_STATE_DONE
+                    trial['result'] = result
+
                 N -= 1
                 if N == 0:
                     break

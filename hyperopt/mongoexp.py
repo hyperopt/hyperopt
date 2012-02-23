@@ -778,7 +778,7 @@ class MongoWorker(object):
                 # XXX: should the job's exp_key be used here?
                 trials=MongoTrials(mj, exp_key=self.exp_key),
                 read_only=False,
-                current_job=job)
+                current_trial=job)
         if self.workdir is None:
             workdir = job['misc'].get('workdir', os.getcwd())
             if workdir is None:
@@ -840,14 +840,14 @@ class MongoCtrl(object):
     """
     Attributes:
 
-    current_job - current job document
-    jobs - MongoJobs object in which current_job resides
+    current_trial - current job document
+    jobs - MongoJobs object in which current_trial resides
     read_only - True means don't change the db
 
     """
-    def __init__(self, trials, current_job, read_only):
+    def __init__(self, trials, current_trial, read_only):
         self.trials = trials
-        self.current_job = current_job
+        self.current_trial = current_trial
         self.read_only = read_only
 
     def debug(self, *args, **kwargs):
@@ -869,54 +869,9 @@ class MongoCtrl(object):
     def checkpoint(self, result=None):
         if not self.read_only:
             handle = self.trials.handle
-            handle.refresh(self.current_job)
+            handle.refresh(self.current_trial)
             if result is not None:
-                ####XXX The multi-result format is expressed here
-                #Either the return is a dictionary, in which case its a single result
-                #OR, the result is a list; the first item of which MUST be a dictionary
-                #and is assumed to be the result for the original spec and which 
-                #has its record get updated just like for the first case, while
-                #the rest of the items MUST be (spec, result) pairs which are
-                #inserted anew.   
-                #XXX:  1) is the proper validation for sepc and res formats 
-                #of the new records one? 2) are the right records popped
-                #off from rew_rec? (certainly _id) must be -- any others? what about miscs? 
-                #Also: currently, this adds a new key "from_job" from each 
-                #of the extra records holding the id of the job they were generated from
-
-                if hasattr(result, 'keys'):
-                    return handle.update(self.current_job,
-                            dict(result=result))
-                else:
-                    assert isinstance(result, list)
-                    orig_result = result[0]
-                    assert hasattr(orig_result, 'keys')
-                    assert all([isinstance(x, tuple) and len(x) == 2 for x in result[1:]])
-                    assert ([hasattr(x[0], 'keys') and hasattr(x[1], 'keys') for x in result[1:]])
-                    
-                    return_val = []
-                    orig_result_return = handle.update(self.current_job,
-                                           dict(result=orig_result))
-                    return_val.append(orig_result_return)
-                    
-                    num_new = len(result) - 1
-                    new_ids = self.trials.new_trial_ids(num_new)
-                    
-                    for new_tid, r in zip(new_ids, result[1:]):
-                        spec, res = r
-                        new_rec = copy.deepcopy(self.current_job)
-                        new_rec.pop('_id')
-                        old_tid = new_rec['misc'].pop('tid')
-                        assert old_tid == new_rec.pop('tid')
-                        new_rec['misc']['from_tid'] = old_tid
-                        new_rec['tid'] = new_tid
-                        new_rec['misc']['tid'] = new_tid
-                        new_rec[config_name] = spec
-                        new_rec['result'] = res      
-                        new_id = handle.insert_trial_docs([new_rec])
-                        return_val.append(new_id)
-                    return return_val
-                    
+                return handle.update(self.current_trial, dict(result=result))
 
     @property
     def attachments(self):
@@ -927,20 +882,20 @@ class MongoCtrl(object):
         class Attachments(object):
             def __contains__(_self, name):
                 names = self.jobs.attachment_names(
-                        doc=self.current_job)
+                        doc=self.current_trial)
                 return name in names
 
             def __getitem__(_self, name):
                 try:
                     return self.jobs.get_attachment(
-                        doc=self.current_job,
+                        doc=self.current_trial,
                         name=name)
                 except OperationFailure:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
                 self.jobs.set_attachment(
-                    doc=self.current_job,
+                    doc=self.current_trial,
                     blob=value,
                     name=name,
                     collection=self.jobs.db.jobs)
