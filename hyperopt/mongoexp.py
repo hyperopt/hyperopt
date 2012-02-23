@@ -891,7 +891,7 @@ class MongoCtrl(object):
                     
                     return_val = []
                     orig_result_return = handle.update(self.current_job,
-                                           dict(result=result))
+                                           dict(result=orig_result))
                     return_val.append(orig_result_return)
                     
                     num_new = len(result) - 1
