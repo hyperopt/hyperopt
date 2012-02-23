@@ -4,6 +4,7 @@ import numpy as np
 from pyll import as_apply, scope, rec_eval, clone, dfs
 from pyll.stochastic import recursive_set_rng_kwarg
 
+from hyperopt import base
 from hyperopt.vectorize import VectorizeHelper
 from hyperopt.vectorize import replace_repeat_stochastic
 
@@ -112,4 +113,34 @@ def test_vectorize_config0():
             assert foo[ii]['p3'] == vals[vh.node_id[p1]][list(idxs[vh.node_id[p1]]).index(ii)]
         else:
             assert foo[ii]['p3'] == -2, foo[ii]['p3']
+
+
+def test_distributions():
+    # test that the distributions come out right
+
+    # XXX: test more distributions
+    class Bandit(base.Bandit):
+        def __init__(self):
+            d = dict(
+                # -- alphabetical order
+                lu = scope.loguniform(-2, 2),
+                qlu = scope.qloguniform(-1, 1, 1),
+                qu = scope.quniform(-4.999, 5, 2),
+                u = scope.uniform(0, 10),
+                )
+            base.Bandit.__init__(self, as_apply(d))
+
+        def evaluate(self, *args):
+            return dict(status='ok', loss=0)
+    algo = base.Random(Bandit())
+    trials = base.Trials()
+    exp = base.Experiment(trials, algo)
+    exp.run(1000)
+    assert len(trials) == 1000
+    idxs, vals = base.miscs_to_idxs_vals(trials.miscs)
+    print idxs.keys()
+    # XXX how to tie thes names to dict entries...
+    print vals['node_2']
+
+
 
