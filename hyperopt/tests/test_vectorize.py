@@ -124,8 +124,8 @@ def test_distributions():
             d = dict(
                 # -- alphabetical order
                 lu = scope.loguniform(-2, 2),
-                qlu = scope.qloguniform(-1, 1, 1),
-                qu = scope.quniform(-4.999, 5, 2),
+                qlu = scope.qloguniform(np.log(0.01), np.log(20), 2),
+                qu = scope.quniform(-4.999, 5, 1),
                 u = scope.uniform(0, 10),
                 )
             base.Bandit.__init__(self, as_apply(d))
@@ -135,12 +135,51 @@ def test_distributions():
     algo = base.Random(Bandit())
     trials = base.Trials()
     exp = base.Experiment(trials, algo)
-    exp.run(1000)
-    assert len(trials) == 1000
+    N = 1000
+    exp.run(N)
+    assert len(trials) == N
     idxs, vals = base.miscs_to_idxs_vals(trials.miscs)
     print idxs.keys()
     # XXX how to tie thes names to dict entries...
-    print vals['node_2']
+
+    # -- loguniform
+    log_lu = np.log(vals['node_2'])
+    assert len(log_lu) == N
+    assert -2 < np.min(log_lu)
+    assert np.max(log_lu) < 2
+    h = np.histogram(log_lu)[0]
+    assert np.all(80 < h)
+    assert np.all(h < 122)
+
+    # -- quantized log uniform
+    qlu = vals['node_6']
+    assert np.all(np.fmod(qlu, 2) == 0)
+    assert np.min(qlu) == 2
+    assert np.max(qlu) == 20
+    bc_qlu = np.bincount(qlu)
+    assert bc_qlu[2] > bc_qlu[4] > bc_qlu[6] > bc_qlu[8]
+
+    # -- quantized uniform
+    qu = vals['node_10']
+    assert np.min(qu) == -4
+    assert np.max(qu) == 5
+    assert np.all(np.fmod(qu, 1) == 0)
+    bc_qu = np.bincount(np.asarray(qu).astype('int') + 4)
+    assert np.all(80 < bc_qu)
+    assert np.all(bc_qu < 122)
+
+    # -- uniform
+    u = vals['node_13']
+    assert np.min(u) > 0
+    assert np.max(u) < 10
+    h = np.histogram(u)[0]
+    assert np.all(80 < h)
+    assert np.all(h < 122)
+
+
+    #import matplotlib.pyplot as plt
+    #plt.hist(np.log(vals['node_2']))
+    #plt.show()
 
 
 
