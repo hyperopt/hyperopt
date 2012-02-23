@@ -670,10 +670,37 @@ class Experiment(object):
                         raise
                 else:
                     #logger.debug('job returned: %s' % str(result))
-                    
-                    
-                    trial['state'] = JOB_STATE_DONE
-                    trial['result'] = result
+                    ##XXX here's where the new multi-result protocol is applied
+                    ##see corresponding note in mongoexp.py as well
+                    if hasattr(result, 'keys'):
+                        trial['state'] = JOB_STATE_DONE
+                        trial['result'] = result
+                    else:
+                        assert isinstance(result, list)
+                        orig_result = result[0]
+                        assert hasattr(orig_result, 'keys')
+                        assert all([isinstance(x, tuple) and len(x) == 2 for x in result[1:]])
+                        #does some other kind of validation have to be done?
+                        assert ([hasattr(x[0], 'keys') and hasattr(x[1], 'keys') for x in result[1:]])
+                        
+                        trial['state'] = JOB_STATE_DONE
+                        trial['result'] = orig_result
+                        
+                        num_new = len(result) - 1
+                        new_trials = []
+                        new_ids = self.trials.new_trial_ids(num_new)
+                        for new_tid, r in zip(new_ids, result[1:]):
+                            spec, res = r
+                            new_trial = copy.deepcopy(trial)
+                            new_trial['spec'] = spec
+                            new_trial['result'] = res
+                            new_trial['tid'] = new_tid
+                            new_trial['misc']['tid']= new_tid
+                            new_trial['misc']['from_tid'] = trial['tid']
+                            new_trials.append(new_trial)
+                            
+                        self.trials.insert_trial_docs(new_trials)                            
+                        
                 N -= 1
                 if N == 0:
                     break
