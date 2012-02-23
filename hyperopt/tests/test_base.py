@@ -19,6 +19,7 @@ from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import StopExperiment
 from hyperopt.base import Bandit
 from hyperopt.base import CoinFlip
+from hyperopt.base import CoinFlipInjector
 from hyperopt.base import Ctrl
 from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
@@ -181,7 +182,6 @@ class TestCoinFlipExperiment(unittest.TestCase):
         self.algo = Random(self.bandit)
         self.trials = Trials()
         self.experiment = Experiment(self.trials, self.algo, async=False)
-        self.ctrl = Ctrl(self.trials)
 
     def test_run_1(self):
         self.experiment.run(1)
@@ -205,7 +205,6 @@ class TestCoinFlipStopExperiment(unittest.TestCase):
         self.algo = RandomStop(5, self.bandit)
         self.trials = Trials()
         self.experiment = Experiment(self.trials, self.algo, async=False)
-        self.ctrl = Ctrl(self.trials)
 
     def test_run_1(self):
         self.experiment.run(1)
@@ -220,6 +219,18 @@ class TestCoinFlipStopExperiment(unittest.TestCase):
         assert len(self.trials._trials) == 5 
         self.experiment.run(1)
         assert len(self.trials._trials) == 5 
+
+
+class TestCoinFlipInjectorExperiment(unittest.TestCase):
+    def setUp(self):
+        self.bandit = CoinFlipInjector()
+        self.algo = Random(self.bandit)
+        self.trials = Trials()
+        self.experiment = Experiment(self.trials, self.algo, async=False)
+
+    def test_run_1(self):
+        self.experiment.run(1)
+        assert len(self.trials._trials) == 2
 
 
 class ZeroBandit(Bandit):

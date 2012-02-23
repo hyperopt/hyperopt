@@ -332,6 +332,30 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
+        
+    def source_trial_docs(self, tids, specs, results, miscs, sources):
+        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
+        rval = []
+        for tid, spec, result, misc, source in zip(tids, specs, results, miscs, sources):
+            doc = dict(
+                    version=0,
+                    tid=tid,
+                    spec=spec,
+                    result=result,
+                    misc=misc,
+                    state=source['state'],
+                    exp_key=source['exp_key'],
+                    owner=source['owner'],
+                    book_time=source['book_time'],
+                    refresh_time=source['refresh_time'],
+                    )
+            assert 'tid' not in misc
+            assert 'cmd' not in misc
+            doc['misc']['tid'] = tid
+            doc['misc']['cmd'] = None  #??
+            doc['misc']['from_tid'] = source['tid']
+            rval.append(doc)
+        return rval
 
     def delete_all(self):
         self._dynamic_trials = []
@@ -435,7 +459,7 @@ class Ctrl(object):
     error = logger.error
     debug = logger.debug
 
-    def __init__(self, trials):
+    def __init__(self, trials, current_trial=None):
         # -- attachments should be used like
         #      attachments[key]
         #      attachments[key] = value
@@ -443,9 +467,24 @@ class Ctrl(object):
         #    expect any dictionary-like behaviour beyond that (no update)
         self.trials = trials
         self.attachments = {}
+        self.current_trial = current_trial
 
     def checkpoint(self, r=None):
         pass
+
+    def inject_results(self, specs, results, miscs):
+        trial = self.current_trial
+        assert trial is not None
+        num_news = len(specs)
+        new_tids = self.trials.new_trial_ids(num_news)
+        new_trials = self.trials.source_trial_docs(tids=new_tids,
+                                                   specs=specs,
+                                                   results=results,
+                                                   miscs=miscs,
+                                                   sources=[trial])
+        for t in new_trials:
+            t['state'] = JOB_STATE_DONE
+        return self.trials.insert_trial_docs(new_trials)
 
 
 class Bandit(object):
@@ -528,6 +567,25 @@ class CoinFlip(Bandit):
 
     def evaluate(self, config, ctrl):
         scores = dict(heads=1.0, tails=0.0)
+        return dict(loss=scores[config['flip']], status=STATUS_OK)
+
+
+class CoinFlipInjector(Bandit):
+
+    def __init__(self):
+        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
+
+    def evaluate(self, config, ctrl):
+        scores = dict(heads=1.0, tails=0.0)
+        
+        reverse = lambda x : 'tails' if x == 'heads' else 'heads'
+        
+        other_spec = dict(flip=reverse(config['flip']))
+        other_result = dict(status=STATUS_OK,
+                            loss=scores[other_spec['flip']])
+        other_misc = {'idxs':None, 'vals':None}
+        ctrl.inject_results([other_spec], [other_result], [other_misc])
+        
         return dict(loss=scores[config['flip']], status=STATUS_OK)
 
 
@@ -699,7 +757,7 @@ class Experiment(object):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
                 spec = copy.deepcopy(trial['spec'])
-                ctrl = Ctrl(self.trials)
+                ctrl = Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
                 except Exception, e:
@@ -712,6 +770,7 @@ class Experiment(object):
                     #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
+
                 N -= 1
                 if N == 0:
                     break

@@ -25,6 +25,7 @@ from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
+from hyperopt.base import CoinFlip, CoinFlipInjector
 from hyperopt.utils import json_call
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
@@ -137,6 +138,7 @@ def with_mongo_trials(f):
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
                     exp_key=None)
+            print(len(trials.results))
             f(trials)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -258,8 +260,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         Run a small experiment with several workers running in parallel
         using Python threads.
         """
-        n_threads = 3
-        jobs_per_thread = 2
+        n_threads = self.n_threads
+        jobs_per_thread = self.jobs_per_thread
         n_trials_per_exp = n_threads * jobs_per_thread
         n_trials_total = n_trials_per_exp * len(self.exp_keys)
         
@@ -323,6 +325,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_bandit_json_2(self):
@@ -331,6 +335,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0', 'key1']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_bandit_json_3(self):
@@ -339,6 +345,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = True
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
     def test_driver_attachment_1(self):
@@ -356,6 +364,8 @@ class TestExperimentWithThreads(unittest.TestCase):
         self.exp_keys = ['key0']
         self.bandit = GaussWave2()
         self.use_stop = False
+        self.n_threads = 3
+        self.jobs_per_thread = 2
         self.work()
 
 
@@ -471,6 +481,17 @@ def test_main_search_driver_reattachment(trials):
     args = ('hyperopt.bandits.TwoArms', 'hyperopt.Random')
     main_search_helper(options, args, cmd_type='D.A.')
 
+@with_mongo_trials
+@with_worker_threads(3, 'foo', timeout=5.0)
+def test_injector(trials):
+    bandit_algo = hyperopt.Random(hyperopt.base.CoinFlipInjector(),
+                 cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
+    exp = Experiment(trials, bandit_algo, max_queue_len=1, async=True)
+    exp.run(1, block_until_done=True)
+    ##even though we ran 1 trial, there are 2 results because one was injected
+    assert len(exp.trials) == 2
+    exp.run(1, block_until_done=True)
+    assert len(exp.trials) == 4
 
 # XXX: test each of the bandit calling protocols
 

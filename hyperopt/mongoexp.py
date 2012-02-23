@@ -161,6 +161,7 @@ from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
 from .base import Experiment
 from .base import Trials
 from .base import InvalidTrial
+from .base import Ctrl
 from .utils import json_call
 
 
@@ -778,7 +779,7 @@ class MongoWorker(object):
                 # XXX: should the job's exp_key be used here?
                 trials=MongoTrials(mj, exp_key=self.exp_key),
                 read_only=False,
-                current_job=job)
+                current_trial=job)
         if self.workdir is None:
             workdir = job['misc'].get('workdir', os.getcwd())
             if workdir is None:
@@ -814,7 +815,7 @@ class MongoWorker(object):
                         kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
-
+ 
             result = worker_fn(spec, ctrl)
             logger.info('job returned: %s' % str(result))
         except Exception, e:
@@ -827,23 +828,27 @@ class MongoWorker(object):
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
+        
+        #xxxx deal with results that are LISTS of spec, result pairs
+        #and not just single result dictionaries 
+        
         logger.info('job finished: %s' % str(job['_id']))
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
 
 
-class MongoCtrl(object):
+class MongoCtrl(Ctrl):
     """
     Attributes:
 
-    current_job - current job document
-    jobs - MongoJobs object in which current_job resides
+    current_trial - current job document
+    jobs - MongoJobs object in which current_trial resides
     read_only - True means don't change the db
 
     """
-    def __init__(self, trials, current_job, read_only):
+    def __init__(self, trials, current_trial, read_only):
         self.trials = trials
-        self.current_job = current_job
+        self.current_trial = current_trial
         self.read_only = read_only
 
     def debug(self, *args, **kwargs):
@@ -865,10 +870,9 @@ class MongoCtrl(object):
     def checkpoint(self, result=None):
         if not self.read_only:
             handle = self.trials.handle
-            handle.refresh(self.current_job)
+            handle.refresh(self.current_trial)
             if result is not None:
-                return handle.update(self.current_job,
-                        dict(result=result))
+                return handle.update(self.current_trial, dict(result=result))
 
     @property
     def attachments(self):
@@ -879,20 +883,20 @@ class MongoCtrl(object):
         class Attachments(object):
             def __contains__(_self, name):
                 names = self.jobs.attachment_names(
-                        doc=self.current_job)
+                        doc=self.current_trial)
                 return name in names
 
             def __getitem__(_self, name):
                 try:
                     return self.jobs.get_attachment(
-                        doc=self.current_job,
+                        doc=self.current_trial,
                         name=name)
                 except OperationFailure:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
                 self.jobs.set_attachment(
-                    doc=self.current_job,
+                    doc=self.current_trial,
                     blob=value,
                     name=name,
                     collection=self.jobs.db.jobs)
