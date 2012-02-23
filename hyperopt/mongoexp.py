@@ -866,8 +866,29 @@ class MongoCtrl(object):
             handle = self.trials.handle
             handle.refresh(self.current_job)
             if result is not None:
-                return handle.update(self.current_job,
-                        dict(result=result))
+                if hasattr(result, 'keys'):
+                    return handle.update(self.current_job,
+                            dict(result=result))
+                else:
+                    assert isinstance(result, list)
+                    orig_result = result[0]
+                    assert hasattr(orig_result, 'keys')
+                    return_val = []
+                    orig_result_return = handle.update(self.current_job,
+                                           dict(result=result))
+                    return_val.append(orig_result_return)
+                    for r in result[1:]:
+                        assert isinstance(r, tuple) 
+                        assert len(r) == 2
+                        spec, res = r
+                        new_rec = copy.deepcopy(self.current_job)
+                        new_rec.pop('_id')
+                        new_rec[config_name] = spec
+                        new_rec['result'] = res                        
+                        new_id = handle.insert(new_rec)
+                        return_val.append(new_id)
+                    return return_val
+                    
 
     @property
     def attachments(self):
