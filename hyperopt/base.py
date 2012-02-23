@@ -35,10 +35,12 @@ import copy
 from itertools import izip
 import logging
 import time
+import datetime
 
 import numpy as np
 
 import bson # -- comes with pymongo
+from bson.objectid import ObjectId
 
 import pyll
 from pyll import scope
@@ -112,7 +114,11 @@ def SONify(arg, memo=None):
         memo = {}
     if id(arg) in memo:
         rval = memo[id(arg)]
-    if isinstance(arg, np.floating):
+    if isinstance(arg, ObjectId):
+        rval = arg
+    elif isinstance(arg, datetime.datetime):
+        rval = arg
+    elif isinstance(arg, np.floating):
         rval = float(arg)
     elif isinstance(arg, np.integer):
         rval = int(arg)
@@ -408,10 +414,10 @@ class Trials(object):
             return avg_true_loss
 
 
-def trials_from_docs(docs):
+def trials_from_docs(docs, *args, **kwargs):
     """Construct a Trials base class instance from a list of trials documents
     """
-    rval = Trials()
+    rval = Trials(*args, **kwargs)
     rval.insert_trial_docs(docs)
     rval.refresh()
     return rval
@@ -652,13 +658,13 @@ class Random(BanditAlgo):
 
 class StopExperiment(object):
     pass
-   
+
 
 class RandomStop(Random):
     def __init__(self, ntrials, *args, **kwargs):
         Random.__init__(self, *args, **kwargs)
         self.ntrials = ntrials
-    
+
     def suggest(self, new_ids, trials):
         if len(trials) >= self.ntrials:
             return StopExperiment()
@@ -728,7 +734,7 @@ class Experiment(object):
         block_until_done  means that the process blocks until ALL jobs in
         trials are not in running or new state
 
-        bandit_algo can pass instance of StopExperiment to break out of 
+        bandit_algo can pass instance of StopExperiment to break out of
         enqueuing loop
         """
         trials = self.trials
@@ -752,17 +758,21 @@ class Experiment(object):
                     break
                 else:
                     assert len(new_ids) >= len(new_trials)
-                    self.trials.insert_trial_docs(new_trials)
-                    n_queued += len(new_trials)
-                    qlen = get_queue_len()
-                
+                    if len(new_trials):
+                        self.trials.insert_trial_docs(new_trials)
+                        self.trials.refresh()
+                        n_queued += len(new_trials)
+                        qlen = get_queue_len()
+                    else:
+                        break
+
             if self.async:
                 # -- wait for workers to fill in the trials
                 time.sleep(self.poll_interval_secs)
             else:
                 # -- loop over trials and do the jobs directly
                 self.serial_evaluate()
-            
+
             if stopped:
                 break
 

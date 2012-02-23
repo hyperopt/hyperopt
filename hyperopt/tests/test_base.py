@@ -217,9 +217,9 @@ class TestCoinFlipStopExperiment(unittest.TestCase):
         self.experiment.run(2)
         assert len(self.trials._trials) == 5
         self.experiment.run(1)
-        #assert len(self.trials._trials) == 5 
-        #self.experiment.run(1)
-        #assert len(self.trials._trials) == 5 
+        assert len(self.trials._trials) == 5 
+        self.experiment.run(1)
+        assert len(self.trials._trials) == 5 
 
 
 class ZeroBandit(Bandit):
