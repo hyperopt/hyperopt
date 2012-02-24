@@ -1276,7 +1276,6 @@ def main_show_helper(options, args):
         return -1
 
 
-
 def main_show():
     parser = optparse.OptionParser(
             usage="%prog [options] cmd [...]")

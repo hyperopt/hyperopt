@@ -475,8 +475,8 @@ class TreeParzenEstimator(BanditAlgo):
     # -- fraction of trials to consider as good
     gamma = 0.20
 
-    def __init__(self, bandit):
-        BanditAlgo.__init__(self, bandit)
+    def __init__(self, bandit, **kwargs):
+        BanditAlgo.__init__(self, bandit, **kwargs)
 
         self.observed = dict(
                 idxs=pyll.Literal({'n0': [1]}),
