@@ -77,8 +77,7 @@ def replace_repeat_stochastic(expr, return_memo=False):
             # -- this is an idxs_map of a random draw of distribution `dist`
             idxs = orig.pos_args[0]
             dist = orig.pos_args[1]._obj
-            inputs = []
-            for arg in orig.pos_args[2:]:
+            def foo(arg):
                 # -- each argument is an idxs, vals pair
                 assert arg.name == 'pos_args'
                 assert len(arg.pos_args) == 2
@@ -89,12 +88,13 @@ def replace_repeat_stochastic(expr, return_memo=False):
                     # -- draws are iid, so forget about
                     #    repeating the distribution parameters
                     repeated_thing = arg_vals.inputs()[0].inputs()[1]
-                    inputs.append(repeated_thing)
+                    return repeated_thing
                 else:
-                    inputs.append(arg_vals)
-            if orig.named_args:
-                raise NotImplementedError()
-            vnode = Apply(dist, inputs, orig.named_args, None)
+                    return arg_vals
+            new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
+            new_named_args = [[aname, foo(arg)]
+                    for aname, arg in orig.named_args]
+            vnode = Apply(dist, new_pos_args, new_named_args, None)
             n_times = scope.len(idxs)
             vnode.named_args.append(['size', n_times])
             # -- loop over all nodes that *use* this one, and change them
