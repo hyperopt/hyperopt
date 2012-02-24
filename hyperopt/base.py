@@ -482,6 +482,7 @@ class Ctrl(object):
         def aname(name):
             return 'ATTACH::%s::%s' % (self.current_trial['tid'], name)
 
+        # don't offer more here than in MongoCtrl
         class Attachments(object):
             def __contains__(_self, name):
                 return aname(name) in self.trials.attachments
