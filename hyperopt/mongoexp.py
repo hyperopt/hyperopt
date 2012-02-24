@@ -758,7 +758,6 @@ class MongoWorker(object):
         job = None
         start_time = time.time()
         mj = self.mj
-        md = self.md
         while job is None:
             if (reserve_timeout
                     and (time.time() - start_time) > reserve_timeout):
