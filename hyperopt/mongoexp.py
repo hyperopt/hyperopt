@@ -820,9 +820,8 @@ class MongoWorker(object):
                         kwargs=bandit_kwargs).evaluate
             else:
                 raise ValueError('Unrecognized cmd protocol', cmd_protocol)
- 
+
             result = worker_fn(spec, ctrl)
-            logger.info('job returned: %s' % str(result))
         except Exception, e:
             #XXX: save exception to database, but if this fails, then
             #      at least raise the original traceback properly
@@ -833,10 +832,7 @@ class MongoWorker(object):
                     'error': (str(type(e)), str(e))},
                     safe=True)
             raise
-        
-        #xxxx deal with results that are LISTS of spec, result pairs
-        #and not just single result dictionaries 
-        
+
         logger.info('job finished: %s' % str(job['_id']))
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
@@ -885,26 +881,27 @@ class MongoCtrl(Ctrl):
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
         """
+        handle = self.trials.handle
         class Attachments(object):
             def __contains__(_self, name):
-                names = self.jobs.attachment_names(
+                names = handle.attachment_names(
                         doc=self.current_trial)
                 return name in names
 
             def __getitem__(_self, name):
                 try:
-                    return self.jobs.get_attachment(
+                    return handle.get_attachment(
                         doc=self.current_trial,
                         name=name)
                 except OperationFailure:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
-                self.jobs.set_attachment(
+                handle.set_attachment(
                     doc=self.current_trial,
                     blob=value,
                     name=name,
-                    collection=self.jobs.db.jobs)
+                    collection=handle.db.jobs)
 
         return Attachments()
 
