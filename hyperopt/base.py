@@ -464,12 +464,38 @@ class Ctrl(object):
         #      attachments[key] = value
         #    where key and value are strings. Client code should not
         #    expect any dictionary-like behaviour beyond that (no update)
-        self.trials = trials
-        self.attachments = {}
+        if trials is None:
+            self.trials = Trials()
+        else:
+            self.trials = trials
         self.current_trial = current_trial
 
     def checkpoint(self, r=None):
         pass
+
+    @property
+    def attachments(self):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
+        def aname(name):
+            return 'ATTACH::%s::%s' % (self.current_trial['tid'], name)
+
+        class Attachments(object):
+            def __contains__(_self, name):
+                return aname(name) in self.trials.attachments
+
+            def __getitem__(_self, name):
+                return self.trials.attachments[aname(name)]
+
+            def __setitem__(_self, name, value):
+                self.trials.attachments[aname(name)] = value
+
+            def __delitem__(_self, name):
+                del self.trials.attachments[aname(name)]
+
+        return Attachments()
 
     def inject_results(self, specs, results, miscs):
         trial = self.current_trial
