@@ -139,6 +139,7 @@ import cPickle
 import datetime
 import hashlib
 import logging
+import optparse
 import os
 import signal
 import socket
@@ -160,9 +161,11 @@ from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
         JOB_STATE_ERROR)
 from .base import Experiment
 from .base import Trials
+from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
 from .utils import json_call
+import plotting
 
 
 class OperationFailure(Exception):
@@ -641,7 +644,9 @@ class MongoTrials(Trials):
             query = {'exp_key' : exp_key}
         else:
             query = {}
+        t0 = time.time()
         all_jobs = list(self.handle.jobs.find(query))
+        logger.info('Refresh took %f seconds' % (time.time() - t0))
         id_jobs = [(j['_id'], j)
             for j in all_jobs
             if j['state'] != JOB_STATE_ERROR]
@@ -922,6 +927,7 @@ def as_mongo_str(s):
     else:
         return 'mongo://%s' % s
 
+
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
 
@@ -986,8 +992,7 @@ def main_worker_helper(options, args):
 
 
 def main_worker():
-    from optparse import OptionParser
-    parser = OptionParser(usage="%prog [options]")
+    parser = optparse.OptionParser(usage="%prog [options]")
 
     parser.add_option("--max-consecutive-failures",
             dest="max_consecutive_failures",
@@ -1033,14 +1038,11 @@ def main_worker():
     return main_worker_helper(options, args)
 
 
-def main_search_helper(options, args, input=input, cmd_type=None):
-    """
-    input is an argument so that unittest can replace stdin
-    """
+def bandit_from_options(options):
     #
     # Construct bandit
     #
-    bandit_name = args[0]
+    bandit_name = options.bandit
     if options.bandit_argfile:
         bandit_argfile_text = open(options.bandit_argfile).read()
         bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
@@ -1048,11 +1050,17 @@ def main_search_helper(options, args, input=input, cmd_type=None):
         bandit_argfile_text = ''
         bandit_argv, bandit_kwargs = (), {}
     bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
+    return (bandit,
+            (bandit_name, bandit_argv, bandit_kwargs),
+            bandit_argfile_text)
 
+
+
+def algo_from_options(options, bandit):
     #
     # Construct algo
     #
-    algo_name = args[1]
+    algo_name = options.bandit_algo
     if options.bandit_algo_argfile:
         # in theory this is easy just as above.
         # need tests though, and it's just not done yet.
@@ -1061,22 +1069,51 @@ def main_search_helper(options, args, input=input, cmd_type=None):
         algo_argfile_text = ''
         algo_argv, algo_kwargs = (), {}
     algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
+    return (algo,
+            (algo_name, (bandit,) + algo_argv, algo_kwargs),
+            algo_argfile_text)
 
 
+def expkey_from_options(options, bandit_stuff, algo_stuff):
     #
     # Determine exp_key
     #
     if None is options.exp_key:
+        # -- argfile texts
+        bandit_name = bandit_stuff[1][0]
+        algo_name = algo_stuff[1][0]
+        bandit_argfile_text = bandit_stuff[2]
+        algo_argfile_text = algo_stuff[2]
         if bandit_argfile_text or algo_argfile_text:
             m = hashlib.md5()
             m.update(bandit_argfile_text)
             m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.hexdigest())
+            exp_key = '%s/%s[arghash:%s]' % (
+                    bandit_name, algo_name, m.hexdigest())
             del m
         else:
             exp_key = '%s/%s' % (bandit_name, algo_name)
     else:
         exp_key = options.exp_key
+    return exp_key
+
+
+def main_search_helper(options, args, input=input, cmd_type=None):
+    """
+    input is an argument so that unittest can replace stdin
+    """
+    options.bandit = args[0]
+    options.bandit_algo = args[1]
+
+    bandit_stuff = bandit_from_options(options)
+    bandit, (bandit_name, bandit_args, bandit_kwargs), bandit_algo_argfile\
+            = bandit_stuff
+
+    algo_stuff = algo_from_options(options, bandit)
+    algo, (algo_name, algo_args, algo_kwargs), algo_algo_argfile\
+            = algo_stuff
+
+    exp_key = expkey_from_options(options, bandit_stuff, algo_stuff)
 
     trials = MongoTrials(as_mongo_str(options.mongo) + '/jobs', exp_key)
 
@@ -1124,8 +1161,7 @@ def main_search_helper(options, args, input=input, cmd_type=None):
 
 
 def main_search():
-    from optparse import OptionParser
-    parser = OptionParser(
+    parser = optparse.OptionParser(
             usage="%prog [options] [<bandit> <bandit_algo>]")
     parser.add_option("--clear-existing",
             action="store_true",
@@ -1201,10 +1237,51 @@ def main_search():
     return main_search_helper(options, args)
 
 
+def main_show_helper(options, args):
+    if options.trials_pkl:
+        trials = cPickle.load(open(options.trials_pkl))
+    else:
+        bandit_stuff = bandit_from_options(options)
+        bandit, (bandit_name, bandit_args, bandit_kwargs), bandit_algo_argfile\
+                = bandit_stuff
+
+        algo_stuff = algo_from_options(options, bandit)
+        algo, (algo_name, algo_args, algo_kwargs), algo_algo_argfile\
+                = algo_stuff
+
+        exp_key = expkey_from_options(options, bandit_stuff, algo_stuff)
+
+        trials = MongoTrials(as_mongo_str(options.mongo) + '/jobs', exp_key)
+
+    cmd = args[0]
+    if 'history' == cmd:
+        if 0:
+            import matplotlib.pyplot as plt
+            self.refresh_trials_results()
+            yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
+                for y, r in zip(self.losses(), self.results) if y is not None])
+            plt.scatter(range(len(yvals)), yvals, c=colors)
+        return plotting.main_plot_history(trials)
+    elif 'histogram' == cmd:
+        return plotting.main_plot_histogram(trials)
+    elif 'dump' == cmd:
+        raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
+    elif 'dump_pickle' == cmd:
+        cPickle.dump(trials_from_docs(trials.trials),
+                open(args[1], 'w'))
+    elif 'vars' == cmd:
+        return plotting.main_plot_vars(trials)
+    else:
+        logger.error("Invalid cmd %s" % cmd)
+        parser.print_help()
+        print """Current supported commands are history, histogram, vars
+        """
+        return -1
+
+
 
 def main_show():
-    from optparse import OptionParser
-    parser = OptionParser(
+    parser = optparse.OptionParser(
             usage="%prog [options] cmd [...]")
     parser.add_option("--exp-key",
             dest='exp_key',
@@ -1242,6 +1319,10 @@ def main_show():
             dest='mongo',
             default='localhost/hyperopt',
             help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--trials",
+            dest="trials_pkl",
+            default="",
+            help="local trials file (e.g. created by dump_pickle command)")
     parser.add_option("--workdir",
             dest="workdir",
             default=os.path.expanduser('~/.hyperopt.workdir'),
@@ -1256,96 +1337,5 @@ def main_show():
         parser.print_help()
         return -1
 
+    return main_show_helper(options, args)
 
-    #
-    # Construct bandit
-    #
-    # XXX factor this code, shared with main_search
-    bandit_name = options.bandit
-    if options.bandit_argfile:
-        bandit_argfile_text = open(options.bandit_argfile).read()
-        bandit_argv, bandit_kwargs = cPickle.load(bandit_argfile_text)
-    else:
-        bandit_argfile_text = ''
-        bandit_argv, bandit_kwargs = (), {}
-    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
-
-    #
-    # Construct algo
-    #
-    # XXX factor this code, shared with main_search
-    algo_name = options.bandit_algo
-    if options.bandit_algo_argfile:
-        # in theory this is easy just as above.
-        # need tests though, and it's just not done yet.
-        raise NotImplementedError('Option: --bandit-algo-argfile')
-    else:
-        algo_argfile_text = ''
-        algo_argv, algo_kwargs = (), {}
-    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
-
-
-    #
-    # Determine exp_key
-    #
-    # XXX factor this code, shared with main_search
-    if None is options.exp_key:
-        if bandit_argfile_text or algo_argfile_text:
-            m = hashlib.md5()
-            m.update(bandit_argfile_text)
-            m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (bandit_name, algo_name, m.digest())
-            del m
-        else:
-            exp_key = '%s/%s' % (bandit_name, algo_name)
-    else:
-        exp_key = options.exp_key
-
-    mj = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/jobs')
-
-    self = MongoExperiment(
-        bandit_algo=algo,
-        mongo_handle=mj,
-        exp_key=exp_key,
-        workdir=None,
-        poll_interval_secs=0,
-        max_queue_len=0,
-        cmd=None)
-
-    self.refresh_trials_results()
-
-    try:
-        other = self.load_from_db()
-    except OperationFailure:
-        pass
-    else:
-        assert other.exp_key == exp_key
-        other.mongo_handle = mj
-        self = other
-
-    if 'history' == cmd:
-        import plotting
-        import matplotlib.pyplot as plt
-        self.refresh_trials_results()
-        yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
-            for y, r in zip(self.losses(), self.results) if y is not None])
-        plt.scatter(range(len(yvals)), yvals, c=colors)
-        return plotting.main_plot_history(self)
-    elif 'histogram' == cmd:
-        import plotting
-        return plotting.main_plot_histogram(self)
-    elif 'dump' == cmd:
-        raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
-    elif 'dump_pickle' == cmd:
-        self.refresh_trials_results()
-        cPickle.dump(self, sys.stdout)
-    elif 'vars' == cmd:
-        import plotting
-        return plotting.main_plot_vars(self)
-    else:
-        logger.error("Invalid cmd %s" % cmd)
-        parser.print_help()
-        print """Current supported commands are history, histogram, vars
-        """
-        return -1
