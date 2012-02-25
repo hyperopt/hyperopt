@@ -161,7 +161,7 @@ class TestRandom(unittest.TestCase):
         assert len(idxs) == 1
         assert len(vals) == 1
         assert idxs['node_4'] == range(5)
-        assert np.all(vals['node_4'] == [0, 1, 0, 0, 0])
+        assert np.all(vals['node_4'] == [1, 1, 0, 1, 0])
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
@@ -172,8 +172,9 @@ class TestRandom(unittest.TestCase):
         assert len(docs) == 5
         assert len(idxs) == 1
         assert len(vals) == 1
+        print vals
         assert idxs['node_4'] == new_ids
-        assert np.all(vals['node_4'] == [0, 1, 0, 0, 0])
+        assert np.all(vals['node_4'] == [0, 1, 0, 1, 1])
 
 
 class TestCoinFlipExperiment(unittest.TestCase):
@@ -196,8 +197,8 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.idxs
         print self.trials.vals
         assert self.trials.idxs['node_4'] == [0, 1, 2]
-        assert self.trials.vals['node_4'] == [0, 1, 0]
-       
+        assert self.trials.vals['node_4'] == [1, 1, 0]
+
 
 class TestCoinFlipStopExperiment(unittest.TestCase):
     def setUp(self):
