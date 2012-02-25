@@ -226,6 +226,13 @@ class Trials(object):
         self.attachments = {}
         self.refresh()
 
+    def view(self, exp_key=None):
+        rval = self.__class__(exp_key=exp_key)
+        rval._ids = self._ids
+        rval._dynamic_trials = self._dynamic_trials
+        rval.attachments = self.attachments
+        return rval
+
     def __iter__(self):
         return iter(self._trials)
 
