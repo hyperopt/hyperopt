@@ -108,6 +108,16 @@ TRIAL_MISC_KEYS = [
         ]
 
 
+def StopExperiment(*args, **kwargs):
+    """ Return StopExperiment
+
+    StopExperiment is a symbol used as a special return value from
+    BanditAlgo.suggest. With this implementation both `return StopExperiment`
+    and `return StopExperiment()` have the same effect.
+    """
+    return StopExperiment
+
+
 def SONify(arg, memo=None):
     if memo is None:
         memo = {}
@@ -744,11 +754,9 @@ class Random(BanditAlgo):
     """
 
 
-class StopExperiment(object):
-    pass
-
-
 class RandomStop(Random):
+    """Run random search for up to `ntrials` iterations, and then stop.
+    """
     def __init__(self, ntrials, *args, **kwargs):
         Random.__init__(self, *args, **kwargs)
         self.ntrials = ntrials
