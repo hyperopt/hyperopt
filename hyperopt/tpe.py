@@ -159,7 +159,7 @@ def qlognormal_lpdf(x, mu, sigma, q):
 def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
     n_samples = np.prod(size)
-    n_components = len(weights)
+    #n_components = len(weights)
     if low is None and high is None:
         active = np.argmax(
                 rng.multinomial(1, weights, (n_samples,)),
@@ -557,20 +557,26 @@ class TreeParzenEstimator(BanditAlgo):
             if m['tid'] in ok_ids])
 
         # -- determine the threshold between good and bad trials
-        losses = sorted(map(self.bandit.loss, results, specs))
+        losses = map(self.bandit.loss, results, specs)
+
+        # N.B. original algorithm split losses based on a particular value,
+        # which failed when there were many losses at one particular value
+        # (e.g. 0.0)
+        lasort = np.argsort(losses)
         loss_thresh_idx = int(self.gamma * len(losses))
-        loss_thresh = np.mean(losses[loss_thresh_idx : loss_thresh_idx + 2])
 
-        # -- good trials
-        good_specs, good_results, good_miscs = zip(*[(s, r, m)
-            for s, r, m in zip(specs, results, miscs)
-            if self.bandit.loss(r, s) < loss_thresh])
+        good_idxs = lasort[:loss_thresh_idx + 1]
+        bad_idxs = lasort[loss_thresh_idx + 1:]
 
-        # -- bad trials
-        bad_specs, bad_results, bad_miscs = zip(*[(s, r, m)
-            for s, r, m in zip(specs, results, miscs)
-            if self.bandit.loss(r, s) >= loss_thresh])
+        good_specs = [specs[i] for i in good_idxs]
+        good_results = [results[i] for i in good_idxs]
+        good_miscs = [miscs[i] for i in good_idxs]
 
+        bad_specs = [specs[i] for i in bad_idxs]
+        bad_results = [results[i] for i in bad_idxs]
+        bad_miscs = [miscs[i] for i in bad_idxs]
+
+        loss_thresh = .5 * losses[good_idxs[-1]] + .5 * losses[bad_idxs[0]]
         msg = 'TreeParzenEstimator splitting %i results at %f (split %i / %i)'
         logger.info(msg % (len(ok_ids), loss_thresh,
             len(good_specs), len(bad_specs)))
