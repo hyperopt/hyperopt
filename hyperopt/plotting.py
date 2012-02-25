@@ -11,7 +11,9 @@ import cPickle
 import math
 import sys
 
-import matplotlib.pyplot as plt
+# -- don't import this here because it locks in the backend
+#    and we want the unittests to be able to set the backend
+##import matplotlib.pyplot as plt
 import numpy as np
 from .base import Bandit
 
@@ -21,6 +23,7 @@ def algo_as_str(algo):
     return str(algo)
 
 def main_plot_history(trials, bandit=None, algo=None, do_show=True):
+    import matplotlib.pyplot as plt
     if bandit is None:
         bandit = Bandit(None)
 
@@ -63,9 +66,7 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True):
 
 
 def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
-    """
-    self - experiment
-    """
+    import matplotlib.pyplot as plt
     if bandit is None:
         bandit = Bandit(None)
 
@@ -90,6 +91,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
 
 
 def main_plot_vars(trials, bandit=None, algo=None, do_show=True):
+    import matplotlib.pyplot as plt
     if bandit is None:
         bandit = Bandit(None)
 
