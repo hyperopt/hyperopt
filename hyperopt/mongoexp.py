@@ -792,7 +792,7 @@ class MongoWorker(object):
 
         ctrl = MongoCtrl(
                 # XXX: should the job's exp_key be used here?
-                trials=MongoTrials(mj, exp_key=self.exp_key),
+                trials=MongoTrials(mj, exp_key=self.exp_key, refresh=False),
                 read_only=False,
                 current_trial=job)
         if self.workdir is None:
