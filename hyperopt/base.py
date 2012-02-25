@@ -245,8 +245,14 @@ class Trials(object):
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
-        self._trials = [tt for tt in self._dynamic_trials
-            if tt['state'] != JOB_STATE_ERROR]
+        if self._exp_key is None:
+            self._trials = [tt for tt in self._dynamic_trials
+                if tt['state'] != JOB_STATE_ERROR]
+        else:
+            self._trials = [tt for tt in self._dynamic_trials
+                if (tt['state'] != JOB_STATE_ERROR
+                    and tt['exp_key'] == self._exp_key
+                    )]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -348,7 +354,7 @@ class Trials(object):
             doc['refresh_time'] = None
             rval.append(doc)
         return rval
-        
+
     def source_trial_docs(self, tids, specs, results, miscs, sources):
         assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
         rval = []
@@ -368,7 +374,7 @@ class Trials(object):
             assert 'tid' not in misc
             assert 'cmd' not in misc
             doc['misc']['tid'] = tid
-            doc['misc']['cmd'] = None  #??
+            doc['misc']['cmd'] = None
             doc['misc']['from_tid'] = source['tid']
             rval.append(doc)
         return rval
@@ -400,7 +406,12 @@ class Trials(object):
         Return trial counts that count_by_state_synced would return if we
         called refresh() first.
         """
-        return self.count_by_state_synced(arg, trials=self._dynamic_trials)
+        if self._exp_key is not None:
+            exp_trials = [tt for tt in self._dynamic_trials
+                if tt['exp_key'] == self._exp_key]
+        else:
+            exp_trials = self._dynamic_trials
+        return self.count_by_state_synced(arg, trials=exp_trials)
 
     def losses(self, bandit=None):
         if bandit is None:
@@ -857,7 +868,7 @@ class Experiment(object):
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
                 new_trials = algo.suggest(new_ids, trials)
-                if isinstance(new_trials, StopExperiment):
+                if new_trials is StopExperiment:
                     stopped = True
                     break
                 else:
