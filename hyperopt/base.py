@@ -538,11 +538,20 @@ class Ctrl(object):
 
         return Attachments()
 
-    def inject_results(self, specs, results, miscs):
+    def inject_results(self, specs, results, miscs, new_tids=None):
+        """Inject new results into self.trials
+
+        Returns ??? XXX
+
+        new_tids can be None, in which case new tids will be generated automatically
+
+        """
         trial = self.current_trial
         assert trial is not None
         num_news = len(specs)
-        new_tids = self.trials.new_trial_ids(num_news)
+        assert len(specs) == len(results) == len(miscs)
+        if new_tids is None:
+            new_tids = self.trials.new_trial_ids(num_news)
         new_trials = self.trials.source_trial_docs(tids=new_tids,
                                                    specs=specs,
                                                    results=results,
