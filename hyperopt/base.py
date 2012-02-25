@@ -762,17 +762,16 @@ class BanditAlgo(object):
             self.new_ids[:] = [new_id]
 
             sh1 = hashlib.sha1()
-            sh1.update(str(new_ids))
+            sh1.update(str(new_id))
             self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
 
             # -- sample new specs, idxs, vals
             new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
-            new_results = [self.bandit.new_result() for ii in new_ids]
-            new_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
-                    for ii in new_ids]
-            miscs_update_idxs_vals(new_miscs, idxs, vals)
-            rval.extend(trials.new_trial_docs(new_ids,
-                    new_specs, new_results, new_miscs))
+            new_result = self.bandit.new_result()
+            new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
+            miscs_update_idxs_vals([new_misc], idxs, vals)
+            rval.extend(trials.new_trial_docs([new_id],
+                    new_specs, [new_result], [new_misc]))
         return rval
 
 
