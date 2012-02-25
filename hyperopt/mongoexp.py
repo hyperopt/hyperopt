@@ -626,7 +626,8 @@ class MongoTrials(Trials):
     """
     async = True
 
-    def __init__(self, arg, exp_key=None, cmd=None, workdir=None):
+    def __init__(self, arg, exp_key=None, cmd=None, workdir=None,
+            refresh=True):
         if isinstance(arg, MongoJobs):
             self.handle = arg
         else:
@@ -636,7 +637,16 @@ class MongoTrials(Trials):
         self._exp_key = exp_key
         self.cmd = cmd
         self.workdir = workdir
-        self.refresh()
+        if refresh:
+            self.refresh()
+
+    def view(self, exp_key=None, cmd=None, workdir=None, refresh=True):
+        rval = self.__class__(self.handle,
+                exp_key=self._exp_key if exp_key is None else exp_key,
+                cmd=self.cmd if cmd is None else cmd,
+                workdir=self.workdir if workdir is None else workdir,
+                refresh=refresh)
+        return rval
 
     def refresh(self):
         exp_key = self._exp_key

@@ -144,7 +144,7 @@ def with_mongo_trials(f):
     return wrapper
 
 
-def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foodb'):
+def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foo'):
     mw = MongoWorker(mj=TempMongo.mongo_jobs(dbname))
     try:
         while n_jobs:
@@ -156,7 +156,8 @@ def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foodb'):
         pass
 
 
-def with_worker_threads(n_threads, dbname, n_jobs=sys.maxint, timeout=10.0):
+def with_worker_threads(n_threads, dbname='foo',
+        n_jobs=sys.maxint, timeout=10.0):
     """
     Decorator that will run a test with some MongoWorker threads in flight
     """

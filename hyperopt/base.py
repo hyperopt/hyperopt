@@ -219,29 +219,41 @@ class Trials(object):
 
     async = False
 
-    def __init__(self, exp_key=None):
+    def __init__(self, exp_key=None, refresh=True):
         self._ids = set()
         self._dynamic_trials = []
         self._exp_key = exp_key
         self.attachments = {}
-        self.refresh()
+        if refresh:
+            self.refresh()
 
-    def view(self, exp_key=None):
-        rval = self.__class__(exp_key=exp_key)
+    def view(self, exp_key=None, refresh=True):
+        rval = object.__new__(self.__class__)
+        rval._exp_key = exp_key
         rval._ids = self._ids
         rval._dynamic_trials = self._dynamic_trials
         rval.attachments = self.attachments
+        if refresh:
+            rval.refresh()
         return rval
 
     def __iter__(self):
-        return iter(self._trials)
+        try:
+            return iter(self._trials)
+        except AttributeError:
+            print >> sys.stderr, "You have to refresh before you iterate"
+            raise
 
     def __len__(self):
-        return len(self._trials)
+        try:
+            return len(self._trials)
+        except AttributeError:
+            print >> sys.stderr, "You have to refresh before you compute len"
+            raise
 
     def __getitem__(self, item):
         raise NotImplementedError('how to make it obvious whether'
-                ' indexing is by list position or tid?')
+                ' indexing is by _trials position or by tid?')
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
@@ -393,7 +405,7 @@ class Trials(object):
         if arg in JOB_STATES:
             queue = [doc for doc in trials if doc['state'] == arg]
         elif hasattr(arg, '__iter__'):
-            states = set(states)
+            states = set(arg)
             assert all([x in JOB_STATES for x in states])
             queue = [doc for doc in trials if doc['state'] in states]
         else:
