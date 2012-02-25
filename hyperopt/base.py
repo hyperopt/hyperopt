@@ -383,11 +383,11 @@ class Trials(object):
                     book_time=source['book_time'],
                     refresh_time=source['refresh_time'],
                     )
-            assert 'tid' not in misc
-            assert 'cmd' not in misc
-            doc['misc']['tid'] = tid
-            doc['misc']['cmd'] = None
-            doc['misc']['from_tid'] = source['tid']
+            # -- ensure that misc has the following fields,
+            #    some of which may already by set correctly.
+            assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
+            for k, v in assign:
+                assert doc['misc'].setdefault(k, v) == v
             rval.append(doc)
         return rval
 
