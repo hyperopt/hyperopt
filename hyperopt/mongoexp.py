@@ -1103,12 +1103,12 @@ def main_search_helper(options, args, input=input, cmd_type=None):
     options.bandit_algo = args[1]
 
     bandit_stuff = bandit_from_options(options)
-    bandit, (bandit_name, bandit_args, bandit_kwargs), bandit_algo_argfile\
-            = bandit_stuff
+    bandit, bandit_NAK, bandit_argfile_text = bandit_stuff
+    bandit_name, bandit_args, bandit_kwargs = bandit_NAK
 
     algo_stuff = algo_from_options(options, bandit)
-    algo, (algo_name, algo_args, algo_kwargs), algo_algo_argfile\
-            = algo_stuff
+    algo, algo_NAK, algo_argfile_text = algo_stuff
+    algo_name, algo_args, algo_kwargs = algo_NAK
 
     exp_key = expkey_from_options(options, bandit_stuff, algo_stuff)
 
@@ -1134,13 +1134,12 @@ def main_search_helper(options, args, input=input, cmd_type=None):
     if bandit_argfile_text or algo_argfile_text or cmd_type=='D.A.':
         aname = 'driver_attachment_%s.pkl' % exp_key
         worker_cmd = ('driver_attachment', aname)
-        tup = (bandit_name, bandit_argv, bandit_kwargs)
         if aname in trials.attachments:
             atup = cPickle.loads(trials.attachments[aname])
-            if tup != atup:
-                raise BanditSwapError((tup, atup))
+            if bandit_NAK != atup:
+                raise BanditSwapError((bandit_NAK, atup))
         else:
-            blob = cPickle.dumps(tup)
+            blob = cPickle.dumps(bandit_NAK)
             trials.attachments[aname] = blob
     else:
         worker_cmd = ('bandit_json evaluate', bandit_name)
