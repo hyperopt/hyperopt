@@ -31,7 +31,7 @@ __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
 import copy
-from itertools import izip
+import hashlib
 import logging
 import time
 import datetime
@@ -759,11 +759,9 @@ class BanditAlgo(object):
         # -- install new_ids as program arguments
         self.new_ids[:] = new_ids
 
-        # XXX: use the ids to seed the random number generator
-        #      to avoid suggesting duplicates without having to resort to
-        #      rejection sampling.
-        #      Don't count on ids being ints though,
-        #      call sha1(str(new_id)) or something.
+        sh1 = hashlib.sha1()
+        sh1.update(str(new_ids))
+        self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
 
         # -- sample new specs, idxs, vals
         new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
