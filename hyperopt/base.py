@@ -312,7 +312,7 @@ class Trials(object):
             bson.BSON.encode(trial)
         except:
             print '-' * 80
-            print trial
+            print "CANT ENCODE"
             print '-' * 80
             raise
         # XXX how to assert that tids are unique?
@@ -538,11 +538,20 @@ class Ctrl(object):
 
         return Attachments()
 
-    def inject_results(self, specs, results, miscs):
+    def inject_results(self, specs, results, miscs, new_tids=None):
+        """Inject new results into self.trials
+
+        Returns ??? XXX
+
+        new_tids can be None, in which case new tids will be generated automatically
+
+        """
         trial = self.current_trial
         assert trial is not None
         num_news = len(specs)
-        new_tids = self.trials.new_trial_ids(num_news)
+        assert len(specs) == len(results) == len(miscs)
+        if new_tids is None:
+            new_tids = self.trials.new_trial_ids(num_news)
         new_trials = self.trials.source_trial_docs(tids=new_tids,
                                                    specs=specs,
                                                    results=results,
@@ -757,20 +766,22 @@ class BanditAlgo(object):
         All lists have the same length.
         """
         # -- install new_ids as program arguments
-        self.new_ids[:] = new_ids
+        rval = []
+        for new_id in new_ids:
+            self.new_ids[:] = [new_id]
 
-        sh1 = hashlib.sha1()
-        sh1.update(str(new_ids))
-        self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
+            sh1 = hashlib.sha1()
+            sh1.update(str(new_id))
+            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
 
-        # -- sample new specs, idxs, vals
-        new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
-        new_results = [self.bandit.new_result() for ii in new_ids]
-        new_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
-                for ii in new_ids]
-        miscs_update_idxs_vals(new_miscs, idxs, vals)
-        return trials.new_trial_docs(new_ids,
-                new_specs, new_results, new_miscs)
+            # -- sample new specs, idxs, vals
+            new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
+            new_result = self.bandit.new_result()
+            new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
+            miscs_update_idxs_vals([new_misc], idxs, vals)
+            rval.extend(trials.new_trial_docs([new_id],
+                    new_specs, [new_result], [new_misc]))
+        return rval
 
 
 class Random(BanditAlgo):
