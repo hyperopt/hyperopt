@@ -2,7 +2,6 @@ import unittest
 import nose
 
 import numpy as np
-import theano
 import matplotlib.pyplot as plt
 
 import pyll
@@ -10,7 +9,6 @@ from pyll import scope
 
 import hyperopt.bandits
 
-from hyperopt import Bandit
 from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt import Trials
@@ -30,7 +28,6 @@ from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
 from hyperopt.tpe import LGMM1
 from hyperopt.tpe import LGMM1_lpdf
-from hyperopt.tpe import normal_cdf
 
 
 class ManyDists(hyperopt.bandits.Base):

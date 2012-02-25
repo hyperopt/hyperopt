@@ -23,10 +23,10 @@ import nose
 
 from hyperopt import Experiment
 from hyperopt import Random
+from hyperopt.bandits import GaussWave2
 from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
-from hyperopt.base import CoinFlip, CoinFlipInjector
-from hyperopt.utils import json_call
+from hyperopt.base import CoinFlipInjector
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
@@ -36,9 +36,6 @@ from hyperopt.mongoexp import main_worker_helper
 from hyperopt.mongoexp import main_search_helper
 
 from hyperopt.mongoexp import MongoJobs
-
-from hyperopt.mongoexp import OperationFailure
-from hyperopt.bandits import TwoArms, GaussWave2
 
 import hyperopt.tests.test_base
 
@@ -485,7 +482,7 @@ def test_main_search_driver_reattachment(trials):
 @with_mongo_trials
 @with_worker_threads(3, 'foo', timeout=5.0)
 def test_injector(trials):
-    bandit_algo = hyperopt.Random(hyperopt.base.CoinFlipInjector(),
+    bandit_algo = hyperopt.Random(CoinFlipInjector(),
                  cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
     # -- also test that injections from a particular experiment (exp_key)
     #    are visible only within that experiment.
