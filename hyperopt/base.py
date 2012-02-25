@@ -152,11 +152,21 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
+def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True,
+                          idxs_map=None):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
+
+    idxs_map: a dictionary of id->id mappings so that the misc['idxs'] can
+        contain different numbers than the idxs argument. XXX CLARIFY
     """
+    if idxs_map is None:
+        idxs_map = {}
+
+    def imap(i):
+        return idxs_map.get(i, i)
+
     assert set(idxs.keys()) == set(vals.keys())
 
     misc_by_id = dict([(m['tid'], m) for m in miscs])
@@ -165,14 +175,14 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
         # -- Assert that every val will be used to update some doc.
         all_ids = set()
         for idxlist in idxs.values():
-            all_ids.update(idxlist)
+            all_ids.update(map(imap, idxlist))
         assert all_ids == set(misc_by_id.keys())
 
     for tid, misc_tid in misc_by_id.items():
         misc_tid['idxs'] = {}
         misc_tid['vals'] = {}
         for node_id in idxs:
-            node_idxs = list(idxs[node_id])
+            node_idxs = map(imap, idxs[node_id])
             node_vals = vals[node_id]
             if tid in node_idxs:
                 pos = node_idxs.index(tid)

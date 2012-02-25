@@ -592,6 +592,7 @@ class TreeParzenEstimator(BanditAlgo):
         miscs = trials.miscs
 
         assert len(new_ids) == 1
+        new_id, = new_ids
         #print self.post_llik
 
         ok_ids = set([m['tid'] for m, r in zip(miscs, results)
@@ -607,8 +608,10 @@ class TreeParzenEstimator(BanditAlgo):
         # -- Condition on good trials.
         #    Sample and compute log-probability.
 
-        fake_ids = range(max(ok_ids), max(ok_ids) + self.n_EI_candidates)
-        #self.new_ids[:] = fake_ids
+        fake_id_0 = max(max(ok_ids), new_id) + 1
+
+        fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
+        self.new_ids[:] = fake_ids
 
         self.set_iv(self.observed, *miscs_to_idxs_vals(good[2]))
         # the c_ prefix here is for "candidate"
@@ -622,14 +625,14 @@ class TreeParzenEstimator(BanditAlgo):
 
         # -- retrieve the best of the samples and form the return tuple
         winning_pos = np.argmax(c_good_llik - c_bad_llik)
-        winning_id = winning_pos + fake_ids[0]
+        winning_fake_id = winning_pos + fake_ids[0]
 
-        assert len(new_ids) == 1
         rval_specs = [c_specs[winning_pos]]
         rval_results = [self.bandit.new_result()]
-        rval_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
-                for ii in new_ids]
+        rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
+
         miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals,
+                idxs_map={winning_fake_id: new_id},
                 assert_all_vals_used=False)
         rval_docs = trials.new_trial_docs(new_ids,
                 rval_specs, rval_results, rval_miscs)
