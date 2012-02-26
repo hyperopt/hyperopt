@@ -164,6 +164,7 @@ from .base import Trials
 from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
+from .base import SONify
 from .utils import json_call
 import plotting
 
@@ -833,6 +834,7 @@ class MongoWorker(object):
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
                 result = worker_fn(spec, ctrl)
+                result = SONify(result)
             except Exception, e:
                 #XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly
