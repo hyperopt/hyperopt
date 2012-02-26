@@ -2,7 +2,6 @@ import unittest
 import nose
 
 import numpy as np
-import theano
 import matplotlib.pyplot as plt
 
 import pyll
@@ -10,7 +9,6 @@ from pyll import scope
 
 import hyperopt.bandits
 
-from hyperopt import Bandit
 from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt import Trials
@@ -30,7 +28,6 @@ from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
 from hyperopt.tpe import LGMM1
 from hyperopt.tpe import LGMM1_lpdf
-from hyperopt.tpe import normal_cdf
 
 
 class ManyDists(hyperopt.bandits.Base):
@@ -597,7 +594,7 @@ class TestOpt(unittest.TestCase, CasePerBandit):
             Q1Lognormal=0.01,
             GaussWave=-2.0,
             GaussWave2=-2.0,
-            Quadratic1=0.01,
+            Quadratic1=0.03,
             TwoArms=-2.5, # XXX: test categorical inference
             ManyDists=20,
             )
@@ -606,7 +603,10 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         bandit = self.bandit
         algo = TreeParzenEstimator(bandit)
         trials = Trials()
-        Experiment(trials, algo).run(50)
+        exp = Experiment(trials, algo)
+        exp.catch_bandit_exceptions = False
+        exp.run(50)
+        assert len(trials) == 50
 
         if 0:
             plt.subplot(1,2,1)
@@ -619,15 +619,12 @@ class TestOpt(unittest.TestCase, CasePerBandit):
                     [t['x'] for t in self.experiment.trials],
                     bins=20)
 
-        print trials.losses()
+        #print trials.losses()
         bname = bandit.__class__.__name__
         print 'Bandit', bname
         print 'MIN', min(trials.losses())
         thresh = self.thresholds[bname]
         print 'Thresh', thresh
-        if bname in ['Distractor']:
-            raise nose.SkipTest()
-        else:
-            assert min(trials.losses()) < thresh
+        assert min(trials.losses()) < thresh
 
 

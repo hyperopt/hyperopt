@@ -159,7 +159,7 @@ def qlognormal_lpdf(x, mu, sigma, q):
 def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
     n_samples = np.prod(size)
-    n_components = len(weights)
+    #n_components = len(weights)
     if low is None and high is None:
         active = np.argmax(
                 rng.multinomial(1, weights, (n_samples,)),
@@ -557,20 +557,26 @@ class TreeParzenEstimator(BanditAlgo):
             if m['tid'] in ok_ids])
 
         # -- determine the threshold between good and bad trials
-        losses = sorted(map(self.bandit.loss, results, specs))
+        losses = map(self.bandit.loss, results, specs)
+
+        # N.B. original algorithm split losses based on a particular value,
+        # which failed when there were many losses at one particular value
+        # (e.g. 0.0)
+        lasort = np.argsort(losses)
         loss_thresh_idx = int(self.gamma * len(losses))
-        loss_thresh = np.mean(losses[loss_thresh_idx : loss_thresh_idx + 2])
 
-        # -- good trials
-        good_specs, good_results, good_miscs = zip(*[(s, r, m)
-            for s, r, m in zip(specs, results, miscs)
-            if self.bandit.loss(r, s) < loss_thresh])
+        good_idxs = lasort[:loss_thresh_idx + 1]
+        bad_idxs = lasort[loss_thresh_idx + 1:]
 
-        # -- bad trials
-        bad_specs, bad_results, bad_miscs = zip(*[(s, r, m)
-            for s, r, m in zip(specs, results, miscs)
-            if self.bandit.loss(r, s) >= loss_thresh])
+        good_specs = [specs[i] for i in good_idxs]
+        good_results = [results[i] for i in good_idxs]
+        good_miscs = [miscs[i] for i in good_idxs]
 
+        bad_specs = [specs[i] for i in bad_idxs]
+        bad_results = [results[i] for i in bad_idxs]
+        bad_miscs = [miscs[i] for i in bad_idxs]
+
+        loss_thresh = .5 * losses[good_idxs[-1]] + .5 * losses[bad_idxs[0]]
         msg = 'TreeParzenEstimator splitting %i results at %f (split %i / %i)'
         logger.info(msg % (len(ok_ids), loss_thresh,
             len(good_specs), len(bad_specs)))
@@ -592,6 +598,7 @@ class TreeParzenEstimator(BanditAlgo):
         miscs = trials.miscs
 
         assert len(new_ids) == 1
+        new_id, = new_ids
         #print self.post_llik
 
         ok_ids = set([m['tid'] for m, r in zip(miscs, results)
@@ -607,8 +614,10 @@ class TreeParzenEstimator(BanditAlgo):
         # -- Condition on good trials.
         #    Sample and compute log-probability.
 
-        fake_ids = range(max(ok_ids), max(ok_ids) + self.n_EI_candidates)
-        #self.new_ids[:] = fake_ids
+        fake_id_0 = max(max(ok_ids), new_id) + 1
+
+        fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
+        self.new_ids[:] = fake_ids
 
         self.set_iv(self.observed, *miscs_to_idxs_vals(good[2]))
         # the c_ prefix here is for "candidate"
@@ -622,14 +631,14 @@ class TreeParzenEstimator(BanditAlgo):
 
         # -- retrieve the best of the samples and form the return tuple
         winning_pos = np.argmax(c_good_llik - c_bad_llik)
-        winning_id = winning_pos + fake_ids[0]
+        winning_fake_id = winning_pos + fake_ids[0]
 
-        assert len(new_ids) == 1
         rval_specs = [c_specs[winning_pos]]
         rval_results = [self.bandit.new_result()]
-        rval_miscs = [dict(tid=ii, cmd=self.cmd, workdir=self.workdir)
-                for ii in new_ids]
+        rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
+
         miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals,
+                idxs_map={winning_fake_id: new_id},
                 assert_all_vals_used=False)
         rval_docs = trials.new_trial_docs(new_ids,
                 rval_specs, rval_results, rval_miscs)

@@ -662,9 +662,9 @@ class MongoTrials(Trials):
             for j in all_jobs
             if j['state'] != JOB_STATE_ERROR]
         logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
-        jarray = numpy.array([j['_id'] for j in all_jobs])
+        jarray = numpy.array([j[0] for j in id_jobs])
         jobsort = jarray.argsort()
-        id_jobs = [id_jobs[idx] for idx in jobsort]
+        id_jobs = [id_jobs[_idx] for _idx in jobsort]
         self._trials = [j for (_id, j) in id_jobs]
         self._specs = [j['spec'] for (_id, j) in id_jobs]
         self._results = [j['result'] for (_id, j) in id_jobs]
@@ -794,8 +794,7 @@ class MongoWorker(object):
         spec = copy.deepcopy(job['spec'])
 
         ctrl = MongoCtrl(
-                # XXX: should the job's exp_key be used here?
-                trials=MongoTrials(mj, exp_key=self.exp_key, refresh=False),
+                trials=MongoTrials(mj, exp_key=job['exp_key'], refresh=False),
                 read_only=False,
                 current_trial=job)
         if self.workdir is None:
@@ -808,43 +807,47 @@ class MongoWorker(object):
         workdir = os.path.expanduser(workdir)
         if not os.path.isdir(workdir):
             os.makedirs(workdir)
+        cwd = os.getcwd()
         os.chdir(workdir)
-        cmd = job['misc']['cmd']
-        cmd_protocol = cmd[0]
         try:
-            if cmd_protocol == 'cpickled fn':
-                worker_fn = cPickle.loads(cmd[1])
-            elif cmd_protocol == 'call evaluate':
-                bandit = cPickle.loads(cmd[1])
-                worker_fn = bandit.evaluate
-            elif cmd_protocol == 'token_load':
-                cmd_toks = cmd[1].split('.')
-                cmd_module = '.'.join(cmd_toks[:-1])
-                worker_fn = exec_import(cmd_module, cmd[1])
-            elif cmd_protocol == 'bandit_json evaluate':
-                bandit = json_call(cmd[1])
-                worker_fn = bandit.evaluate
-            elif cmd_protocol == 'driver_attachment':
-                #name = 'driver_attachment_%s' % job['exp_key']
-                blob = ctrl.trials.attachments[cmd[1]]
-                bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
-                worker_fn = json_call(bandit_name,
-                        args=bandit_args,
-                        kwargs=bandit_kwargs).evaluate
-            else:
-                raise ValueError('Unrecognized cmd protocol', cmd_protocol)
+            cmd = job['misc']['cmd']
+            cmd_protocol = cmd[0]
+            try:
+                if cmd_protocol == 'cpickled fn':
+                    worker_fn = cPickle.loads(cmd[1])
+                elif cmd_protocol == 'call evaluate':
+                    bandit = cPickle.loads(cmd[1])
+                    worker_fn = bandit.evaluate
+                elif cmd_protocol == 'token_load':
+                    cmd_toks = cmd[1].split('.')
+                    cmd_module = '.'.join(cmd_toks[:-1])
+                    worker_fn = exec_import(cmd_module, cmd[1])
+                elif cmd_protocol == 'bandit_json evaluate':
+                    bandit = json_call(cmd[1])
+                    worker_fn = bandit.evaluate
+                elif cmd_protocol == 'driver_attachment':
+                    #name = 'driver_attachment_%s' % job['exp_key']
+                    blob = ctrl.trials.attachments[cmd[1]]
+                    bandit_name, bandit_args, bandit_kwargs = cPickle.loads(blob)
+                    worker_fn = json_call(bandit_name,
+                            args=bandit_args,
+                            kwargs=bandit_kwargs).evaluate
+                else:
+                    raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
-            result = SONify(worker_fn(spec, ctrl))
-        except Exception, e:
-            #XXX: save exception to database, but if this fails, then
-            #      at least raise the original traceback properly
-            logger.info('job exception: %s' % str(e))
-            ctrl.checkpoint()
-            mj.update(job,
-                    {'state': JOB_STATE_ERROR,
-                    'error': (str(type(e)), str(e))},
-                    safe=True)
-            raise
+                result = SONify(worker_fn(spec, ctrl))
+            except Exception, e:
+                #XXX: save exception to database, but if this fails, then
+                #      at least raise the original traceback properly
+                logger.info('job exception: %s' % str(e))
+                ctrl.checkpoint()
+                mj.update(job,
+                        {'state': JOB_STATE_ERROR,
+                        'error': (str(type(e)), str(e))},
+                        safe=True)
+                raise
+        finally:
+            os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
         ctrl.checkpoint(result)
