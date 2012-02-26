@@ -164,6 +164,7 @@ from .base import Trials
 from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
+from .base import SONify
 from .utils import json_call
 import plotting
 
@@ -661,7 +662,9 @@ class MongoTrials(Trials):
             for j in all_jobs
             if j['state'] != JOB_STATE_ERROR]
         logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
-        id_jobs.sort()
+        jarray = numpy.array([j[0] for j in id_jobs])
+        jobsort = jarray.argsort()
+        id_jobs = [id_jobs[_idx] for _idx in jobsort]
         self._trials = [j for (_id, j) in id_jobs]
         self._specs = [j['spec'] for (_id, j) in id_jobs]
         self._results = [j['result'] for (_id, j) in id_jobs]
@@ -832,7 +835,7 @@ class MongoWorker(object):
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
-                result = worker_fn(spec, ctrl)
+                result = SONify(worker_fn(spec, ctrl))
             except Exception, e:
                 #XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly

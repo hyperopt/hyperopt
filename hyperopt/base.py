@@ -323,7 +323,7 @@ class Trials(object):
             bson.BSON.encode(trial)
         except:
             print '-' * 80
-            print trial
+            print "CANT ENCODE"
             print '-' * 80
             raise
         # XXX how to assert that tids are unique?
