@@ -373,7 +373,7 @@ class FakeOptions(object):
 
 
 # -- assert that the test raises a ReserveTimeout within 5 seconds
-@nose.tools.timed(10.0)
+@nose.tools.timed(10.0)  #XXX:  this needs a suspiciously long timeout
 @nose.tools.raises(ReserveTimeout)
 @with_mongo_trials
 def test_main_worker(trials):
