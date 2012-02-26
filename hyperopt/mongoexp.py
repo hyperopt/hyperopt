@@ -447,11 +447,14 @@ class MongoJobs(object):
         if exp_key is not None:
             cond['exp_key'] = exp_key
 
-        if 'owner' not in cond:
-            cond['owner'] = None
-
-        if cond['owner'] is not None:
+        #having an owner of None implies state==JOB_STATE_NEW, so this effectively
+        #acts as a filter to make sure that only new jobs get reserved. 
+        if cond.get('owner') is not None:
             raise ValueError('refusing to reserve owned job')
+        else:
+            cond['owner'] = None
+            cond['state'] = JOB_STATE_NEW #theoretically this is redundant, theoretically
+
         try:
             rval = self.jobs.find_and_modify(
                 cond,
@@ -656,17 +659,37 @@ class MongoTrials(Trials):
         else:
             query = {}
         t0 = time.time()
-        all_jobs = list(self.handle.jobs.find(query))
-        logger.info('Refresh took %f seconds' % (time.time() - t0))
-        id_jobs = [(j['_id'], j)
-            for j in all_jobs
-            if j['state'] != JOB_STATE_ERROR]
-        logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
-        id_jobs.sort()
-        self._trials = [j for (_id, j) in id_jobs]
-        self._specs = [j['spec'] for (_id, j) in id_jobs]
-        self._results = [j['result'] for (_id, j) in id_jobs]
-        self._miscs = [j['misc'] for (_id, j) in id_jobs]
+        
+        query['state'] = {'$ne': JOB_STATE_ERROR}
+        
+        # -- pull down a fresh list of ids from mongo
+        db_ids = set([x['_id'] for x in list(self.handle.jobs.find(query,
+                                                      fields=['_id']))])
+        
+        _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
+        if _trials:
+            existing_ids = set([x['_id'] for x in _trials])
+            assert existing_ids <= db_ids, (existing_ids, db_ids)
+            new_ids = list(db_ids.difference(existing_ids))
+            new_query = copy.deepcopy(query)
+            new_query['_id'] = {'$in': new_ids}
+            new_trials = list(self.handle.jobs.find(new_query))
+        else:
+            #this case is for performance, though should be able to be removed
+            #without breaking correctness. 
+            new_trials = list(self.handle.jobs.find(query))
+            
+        logger.info('Refresh data download took %f seconds for %d ids' %
+                         (time.time() - t0, len(new_trials)))
+
+        _trials.extend(new_trials)
+        jarray = numpy.array([j['_id'] for j in _trials])
+        jobsort = jarray.argsort()
+  
+        self._trials = [_trials[_idx] for _idx in jobsort]
+        self._specs = [_trials[_idx]['spec'] for _idx in jobsort]
+        self._results = [_trials[_idx]['result'] for _idx in jobsort]
+        self._miscs = [_trials[_idx]['misc'] for _idx in jobsort]
 
     def _insert_trial_docs(self, docs):
         rval = []
