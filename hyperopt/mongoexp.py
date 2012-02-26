@@ -669,8 +669,9 @@ class MongoTrials(Trials):
         _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
         if _trials:
             existing_ids = set([x['_id'] for x in _trials])
-            assert existing_ids <= db_ids, (existing_ids, db_ids)
-            new_ids = list(db_ids.difference(existing_ids))
+            non_done = set([x['_id'] for x in _trials if x['state'] != JOB_STATE_DONE])
+            
+            new_ids = list(db_ids.difference(existing_ids)) 
             new_query = copy.deepcopy(query)
             new_query['_id'] = {'$in': new_ids}
             new_trials = list(self.handle.jobs.find(new_query))
