@@ -269,7 +269,7 @@ class TestExperimentWithThreads(unittest.TestCase):
                 n_jobs = jobs_per_thread * len(self.exp_keys)
                 return threading.Thread(
                         target=self.worker_thread_fn,
-                        args=(('hostname', ii), n_jobs, 600.0))
+                        args=(('hostname', ii), n_jobs, 30.0))
             threads = map(newth, range(n_threads))
             [th.start() for th in threads]
 
@@ -306,7 +306,7 @@ class TestExperimentWithThreads(unittest.TestCase):
 
             for trials in trials_list:
                 assert trials.count_by_state_synced(JOB_STATE_DONE)\
-                        == n_trials_per_exp
+                        == n_trials_per_exp, (trials.count_by_state_synced(JOB_STATE_DONE), n_trials_per_exp)
                 assert trials.count_by_state_unsynced(JOB_STATE_DONE)\
                         == n_trials_per_exp
                 assert len(trials) == n_trials_per_exp, (

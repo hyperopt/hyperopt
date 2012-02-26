@@ -165,6 +165,7 @@ from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
+from .utils import fast_isin
 from .utils import json_call
 import plotting
 
@@ -659,31 +660,61 @@ class MongoTrials(Trials):
         else:
             query = {}
         t0 = time.time()
-        
         query['state'] = {'$ne': JOB_STATE_ERROR}
-        
-        # -- pull down a fresh list of ids from mongo
-        db_ids = set([x['_id'] for x in list(self.handle.jobs.find(query,
-                                                      fields=['_id']))])
-        
         _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
         if _trials:
-            existing_ids = set([x['_id'] for x in _trials])
-            non_done = set([x['_id'] for x in _trials if x['state'] != JOB_STATE_DONE])
-            
-            new_ids = list(db_ids.difference(existing_ids)) 
-            new_query = copy.deepcopy(query)
-            new_query['_id'] = {'$in': new_ids}
-            new_trials = list(self.handle.jobs.find(new_query))
+            db_data = list(self.handle.jobs.find(query,
+                                            fields=['_id', 'version']))
+            # -- pull down a fresh list of ids from mongo
+            if db_data:
+                #make numpy data arrays
+                db_data = numpy.rec.array([(x['_id'], int(x['version']))
+                                        for x in db_data], 
+                                        names=['_id', 'version'])
+                db_data.sort(order=['_id', 'version'])
+                existing_data = numpy.rec.array([(x['_id'],
+                                              int(x['version'])) for x in _trials],
+                                              names=['_id', 'version'])
+                existing_data.sort(order=['_id', 'version'])
+                
+                #which records are in db but in existing, and vice versa
+                y = fast_isin(db_data['_id'], existing_data['_id'])
+                z = fast_isin(existing_data['_id'], db_data['_id'])
+
+                #filtering out out-of-date records
+                _trials = [_trials[_ind] for _ind in z.nonzero()[0]]
+
+                #new data is what's in db that's not in existing
+                new_data = db_data[numpy.invert(y)]
+
+                #concentrating on common data for state changes
+                db_data = db_data[y]
+                existing_data = existing_data[z]
+                assert (existing_data['_id'] == db_data['_id']).all()
+                assert (existing_data['version'] <= db_data['version']).all()
+                same_version = existing_data['version'] == db_data['version']
+                _trials = [_trials[_ind] for _ind in same_version.nonzero()[0]]
+                version_changes = existing_data[numpy.invert(same_version)]
+
+                #actually get the updated records
+                update_ids = new_data['_id'].tolist() + version_changes['_id'].tolist()
+                num_new = len(update_ids)
+                update_query = copy.deepcopy(query)
+                update_query['_id'] = {'$in': update_ids}
+                updated_trials = list(self.handle.jobs.find(update_query))
+                _trials.extend(updated_trials)
+            else:
+                num_new = 0
+                _trials = []
         else:
             #this case is for performance, though should be able to be removed
             #without breaking correctness. 
-            new_trials = list(self.handle.jobs.find(query))
+            _trials = list(self.handle.jobs.find(query))
+            num_new = len(_trials)
             
         logger.info('Refresh data download took %f seconds for %d ids' %
-                         (time.time() - t0, len(new_trials)))
+                         (time.time() - t0, num_new))
 
-        _trials.extend(new_trials)
         jarray = numpy.array([j['_id'] for j in _trials])
         jobsort = jarray.argsort()
   
