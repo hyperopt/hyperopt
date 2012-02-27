@@ -672,6 +672,10 @@ class MongoTrials(Trials):
                                         for x in db_data], 
                                         names=['_id', 'version'])
                 db_data.sort(order=['_id', 'version'])
+                recent = (db_data['_id'][1:] != db_data['_id'][:-1]).nonzero()[0]
+                recent = numpy.append(recent, [len(db_data)-1])
+                db_data = db_data[recent]
+                
                 existing_data = numpy.rec.array([(x['_id'],
                                               int(x['version'])) for x in _trials],
                                               names=['_id', 'version'])
