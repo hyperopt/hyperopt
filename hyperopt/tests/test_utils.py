@@ -22,9 +22,7 @@ def test_fast_isin():
     XinY = np.array([ind for ind in range(len(X)) if X[ind] in Y])
     YinX = np.array([ind for ind in range(len(Y)) if Y[ind] in X])
 
-
     T3 = (fast_isin(X, Y).nonzero()[0] == XinY).all()
     T4 = (fast_isin(Y, X).nonzero()[0] == YinX).all()
-
 
     assert T1 & T2 & T3 & T4
