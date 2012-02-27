@@ -148,8 +148,9 @@ def test_distributions():
     assert -2 < np.min(log_lu)
     assert np.max(log_lu) < 2
     h = np.histogram(log_lu)[0]
-    assert np.all(80 < h)
-    assert np.all(h < 122)
+    print h
+    assert np.all(75 < h)
+    assert np.all(h < 125)
 
     # -- quantized log uniform
     qlu = vals['node_6']
@@ -165,16 +166,17 @@ def test_distributions():
     assert np.max(qu) == 5
     assert np.all(np.fmod(qu, 1) == 0)
     bc_qu = np.bincount(np.asarray(qu).astype('int') + 4)
-    assert np.all(80 < bc_qu)
-    assert np.all(bc_qu < 122)
+    assert np.all(75 < bc_qu)
+    assert np.all(bc_qu < 125)
 
     # -- uniform
     u = vals['node_13']
     assert np.min(u) > 0
     assert np.max(u) < 10
     h = np.histogram(u)[0]
-    assert np.all(80 < h)
-    assert np.all(h < 122)
+    print h
+    assert np.all(75 < h)
+    assert np.all(h < 125)
 
 
     #import matplotlib.pyplot as plt

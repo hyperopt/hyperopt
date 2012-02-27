@@ -56,7 +56,8 @@ class TwoArms(Base):
     """
     Each arm yields a reward from a different Gaussian.
 
-    How long does it take the algorithm to identify the best arm?
+    The correct arm is arm 0.
+
     """
 
     loss_target = -2
@@ -91,7 +92,7 @@ class Distractor(Base):
         The second peak is at x=-10.
         The prior mean is 0.
         """
-        Base.__init__(self, dict(x=scope.normal(0, sigma)))
+        Base.__init__(self, dict(x=scope.uniform(-15, 15)))
 
     def score(self, config):
         f1 = 1.0 / (1.0 + numpy.exp(-config['x']))    # climbs rightward from 0.0 to 1.0

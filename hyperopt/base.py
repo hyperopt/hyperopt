@@ -35,6 +35,7 @@ import hashlib
 import logging
 import time
 import datetime
+import sys
 
 import numpy as np
 
@@ -152,11 +153,21 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
+def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True,
+                          idxs_map=None):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
+
+    idxs_map: a dictionary of id->id mappings so that the misc['idxs'] can
+        contain different numbers than the idxs argument. XXX CLARIFY
     """
+    if idxs_map is None:
+        idxs_map = {}
+
+    def imap(i):
+        return idxs_map.get(i, i)
+
     assert set(idxs.keys()) == set(vals.keys())
 
     misc_by_id = dict([(m['tid'], m) for m in miscs])
@@ -165,14 +176,14 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
         # -- Assert that every val will be used to update some doc.
         all_ids = set()
         for idxlist in idxs.values():
-            all_ids.update(idxlist)
+            all_ids.update(map(imap, idxlist))
         assert all_ids == set(misc_by_id.keys())
 
     for tid, misc_tid in misc_by_id.items():
         misc_tid['idxs'] = {}
         misc_tid['vals'] = {}
         for node_id in idxs:
-            node_idxs = list(idxs[node_id])
+            node_idxs = map(imap, idxs[node_id])
             node_vals = vals[node_id]
             if tid in node_idxs:
                 pos = node_idxs.index(tid)
@@ -187,10 +198,14 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True):
     return miscs
 
 
-def miscs_to_idxs_vals(miscs):
-    idxs = copy.deepcopy(miscs[0]['idxs'])
-    vals = copy.deepcopy(miscs[0]['vals'])
-    for misc in miscs[1:]:
+def miscs_to_idxs_vals(miscs, keys=None):
+    if keys is None:
+        if len(miscs) == 0:
+            raise ValueError('cannot infer keys from empty miscs')
+        keys = miscs[0]['idxs'].keys()
+    idxs = dict([(k, []) for k in keys])
+    vals = dict([(k, []) for k in keys])
+    for misc in miscs:
         for node_id in idxs:
             t_idxs = misc['idxs'][node_id]
             t_vals = misc['vals'][node_id]
@@ -311,6 +326,7 @@ class Trials(object):
         try:
             bson.BSON.encode(trial)
         except:
+            # TODO: save the trial object somewhere to inspect, fix, re-insert, etc.
             print '-' * 80
             print "CANT ENCODE"
             print '-' * 80
@@ -383,11 +399,11 @@ class Trials(object):
                     book_time=source['book_time'],
                     refresh_time=source['refresh_time'],
                     )
-            assert 'tid' not in misc
-            assert 'cmd' not in misc
-            doc['misc']['tid'] = tid
-            doc['misc']['cmd'] = None
-            doc['misc']['from_tid'] = source['tid']
+            # -- ensure that misc has the following fields,
+            #    some of which may already by set correctly.
+            assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
+            for k, v in assign:
+                assert doc['misc'].setdefault(k, v) == v
             rval.append(doc)
         return rval
 
