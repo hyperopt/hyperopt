@@ -311,16 +311,22 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
         sigma = np.asarray([prior_sigma] + list(sigma))
 
     maxsigma = prior_sigma
-    minsigma = prior_sigma / np.sqrt(1 + len(mus))   # XXX: magic formula
+    # -- magic formula:
+    minsigma = prior_sigma / np.sqrt(1 + len(mus))
 
     #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
-    weights[0] = prior_weight
+    weights[0] = prior_weight * np.sqrt(1 + len(mus))
 
     #print weights.dtype
     weights = weights / weights.sum()
+    if 0:
+        print 'WEIGHTS', weights
+        print 'MUS', mus
+        print 'SIGMA', sigma
+
     return weights, mus, sigma
 
 
@@ -408,7 +414,8 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
     counts = scope.bincount(obs, minlength=upper)
     # -- add in some prior pseudocounts
-    pseudocounts = counts + prior_weight / upper
+    prior = scope.sqrt(1 + scope.len(obs)) / upper
+    pseudocounts = counts + prior_weight * prior
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             size=size, rng=rng)
 
@@ -430,7 +437,7 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
 
     # Splitting is done this way to cope with duplicate loss values.
     l_sort = np.argsort(o_loss)
-    loss_thresh_idx = int(gamma * len(l_sort)) + 1
+    loss_thresh_idx = int(np.ceil(gamma * len(l_sort)))
 
     # -- keep is the subset of o_idxs corresponding to examples
     #    either above or below the loss threshold.
@@ -533,14 +540,16 @@ class TreeParzenEstimator(BanditAlgo):
     XXX
     """
 
-    # -- suggest this many jobs from prior before attempting to optimize
-    prior_weight = 3.0
+    # -- the prior takes a weight in the Parzen mixture
+    #    that is the sqrt of the number of observations
+    #    times this number.
+    prior_weight = 1.0
 
     # -- suggest best of this many draws on every iteration
     n_EI_candidates = 256
 
     # -- fraction of trials to consider as good
-    gamma = 0.50
+    gamma = 0.22
 
     def __init__(self, bandit,
             gamma=gamma,
@@ -564,7 +573,9 @@ class TreeParzenEstimator(BanditAlgo):
         self.post_above = self.init_posterior('above_gamma')
         self.post_below = self.init_posterior('below_gamma')
 
+        # -- llik of RVs from the below dist under the above dist
         self.post_above['llik'] = self.llik(self.post_below, self.post_above)
+        # -- llik of RVs from the below dist under the below dist
         self.post_below['llik'] = self.llik(self.post_below, self.post_below)
 
         if 0:
@@ -659,8 +670,6 @@ class TreeParzenEstimator(BanditAlgo):
                     ),
                 memo=memo)
 
-        #print R['specs']
-
         for k in 'specs', 'above_llik', 'below_llik':
             assert len(R[k]) == self.n_EI_candidates
 
@@ -678,6 +687,19 @@ class TreeParzenEstimator(BanditAlgo):
                 assert_all_vals_used=False)
         rval_docs = trials.new_trial_docs(new_ids,
                 rval_specs, rval_results, rval_miscs)
+
+        if 0:
+            foo = np.argsort(llik_diff)
+            for j in range(self.n_EI_candidates):
+                i = foo[j]
+                print '%i\tx=%f\tll=(%f)-(%f)=%f' % (
+                        i, R['specs'][i]['x'],
+                        R['below_llik'][i],
+                        R['above_llik'][i],
+                        llik_diff[i],
+                        )
+
+                print 'SUGGESTION', rval_docs[0]
         return rval_docs
 
 

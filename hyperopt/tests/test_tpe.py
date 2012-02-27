@@ -572,7 +572,7 @@ class TestSuggest(unittest.TestCase, CasePerBandit):
 
 class TestOpt(unittest.TestCase, CasePerBandit):
     thresholds = dict(
-            Quadratic1=1e-7,
+            Quadratic1=1e-6,
             Q1Lognormal=0.01,
             Distractor=-1.96,
             GaussWave=-2.0,
@@ -587,6 +587,8 @@ class TestOpt(unittest.TestCase, CasePerBandit):
             Quadratic1=1000,
             ManyDists=200,
             Distractor=100,
+            #XXX
+            Q1Lognormal=250,
             )
 
     gammas = dict(
@@ -594,13 +596,13 @@ class TestOpt(unittest.TestCase, CasePerBandit):
             )
     
     prior_weights = dict(
-            ManyDists=5.0,
             Distractor=.01,
             )
 
     n_EIs = dict(
+            #XXX
             # -- this can be low in a few dimensions
-            Quadratic1=50,
+            Quadratic1=5,
             # -- lower number encourages exploration
             # XXX: this is a damned finicky way to get TPE
             #      to solve the Distractor problem
@@ -625,12 +627,9 @@ class TestOpt(unittest.TestCase, CasePerBandit):
                 prior_weight=self.prior_weights.get(bname,
                     TreeParzenEstimator.prior_weight),
                 n_EI_candidates=self.n_EIs.get(bname, 
-                    TreeParzenEstimator.n_EI_candidates))
+                    TreeParzenEstimator.n_EI_candidates),
+                )
         LEN = self.LEN.get(bname, 50)
-
-        rtrials = Trials()
-        exp = Experiment(rtrials, Random(bandit))
-        exp.run(LEN)
 
         trials = Trials()
         exp = Experiment(trials, algo)
@@ -638,19 +637,32 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         exp.run(LEN)
         assert len(trials) == LEN
 
+        if 1:
+            rtrials = Trials()
+            exp = Experiment(rtrials, Random(bandit))
+            exp.run(LEN)
+            print 'RANDOM MINS', list(sorted(rtrials.losses()))[:6]
+            #logx = np.log([s['x'] for s in rtrials.specs])
+            #print 'RND MEAN', np.mean(logx)
+            #print 'RND STD ', np.std(logx)
+
         print algo.n_EI_candidates
         print algo.gamma
         print algo.prior_weight
 
-        if 1:
+        if 0:
             plt.subplot(2,2,1)
             plt.scatter(range(LEN), trials.losses())
+            plt.title('TPE losses')
             plt.subplot(2,2,2)
-            plt.scatter(range(LEN), [s['x'] for s in trials.specs])
+            plt.scatter(range(LEN), ([s['x'] for s in trials.specs]))
+            plt.title('TPE x')
             plt.subplot(2,2,3)
+            plt.title('RND losses')
             plt.scatter(range(LEN), rtrials.losses())
             plt.subplot(2,2,4)
-            plt.scatter(range(LEN), [s['x'] for s in rtrials.specs])
+            plt.title('RND x')
+            plt.scatter(range(LEN), ([s['x'] for s in rtrials.specs]))
             plt.show()
         if 0:
             plt.hist(
@@ -658,8 +670,10 @@ class TestOpt(unittest.TestCase, CasePerBandit):
                     bins=20)
 
         #print trials.losses()
-        print 'TPE    MIN', min(trials.losses())
-        print 'RANDOM MIN', min(rtrials.losses())
+        print 'TPE    MINS', list(sorted(trials.losses()))[:6]
+        #logx = np.log([s['x'] for s in trials.specs])
+        #print 'TPE MEAN', np.mean(logx)
+        #print 'TPE STD ', np.std(logx)
         thresh = self.thresholds[bname]
         print 'Thresh', thresh
         assert min(trials.losses()) < thresh
