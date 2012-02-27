@@ -633,7 +633,11 @@ class TreeParzenEstimator(BanditAlgo):
 
         bandit = self.bandit
         docs = [d for d in trials.trials
-                if bandit.status(d['result'], d['spec']) == STATUS_OK]
+                if (bandit.status(d['result'], d['spec']) == STATUS_OK
+                    and 'from_tid' not in d['misc']) # -- ignore injected jobs
+               ]
+        logger.info('TPE using %i of %i trials' % (
+            len(docs), len(trials)))
 
         tids = [d['tid'] for d in docs]
 
