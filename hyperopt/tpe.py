@@ -632,12 +632,16 @@ class TreeParzenEstimator(BanditAlgo):
         #print self.post_llik
 
         bandit = self.bandit
-        docs = [d for d in trials.trials
-                if (bandit.status(d['result'], d['spec']) == STATUS_OK
-                    and 'from_tid' not in d['misc']) # -- ignore injected jobs
-               ]
-        logger.info('TPE using %i of %i trials' % (
-            len(docs), len(trials)))
+        ok_docs = [d for d in trials.trials
+                if bandit.status(d['result'], d['spec']) == STATUS_OK]
+        orig_docs = [d for d in ok_docs if 'from_tid' not in d['misc']]
+        inj_docs  = [d for d in ok_docs if 'from_tid' in d['misc']]
+        orig_losses = [bandit.loss(d['result'], d['spec']) for d in orig_docs]
+        min_loss = min(orig_losses)
+        docs = orig_docs + [d for d in inj_docs
+                            if bandit.loss(d['result'], d['spec']) < min_loss]
+        logger.info('TPE using %i orig trials plus %i of %i injected trials' % (
+            len(orig_docs), len(docs) - len(orig_docs), len(inj_docs)))
 
         tids = [d['tid'] for d in docs]
 
