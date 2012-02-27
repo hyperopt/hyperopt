@@ -677,7 +677,7 @@ class MongoTrials(Trials):
                                               names=['_id', 'version'])
                 existing_data.sort(order=['_id', 'version'])
                 
-                #which records are in db but in existing, and vice versa
+                #which records are in db but not in existing, and vice versa
                 y = fast_isin(db_data['_id'], existing_data['_id'])
                 z = fast_isin(existing_data['_id'], db_data['_id'])
 
