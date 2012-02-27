@@ -44,7 +44,7 @@ class ManyDists(hyperopt.bandits.Base):
             g=scope.normal(4, 7),
             h=scope.lognormal(-2, 2),
             i=scope.qnormal(0, 10, 2),
-            j=scope.qlognormal(0, 2, 1),
+            x=scope.qlognormal(0, 2, 1),
             ))
 
     def score(self, config):
@@ -58,7 +58,8 @@ def test_adaptive_parzen_normal():
     prior_sigma = 2
     mus = rng.randn(10) + 5
 
-    weights2, mus2, sigmas2 = adaptive_parzen_normal(mus, prior_mu, prior_sigma)
+    weights2, mus2, sigmas2 = adaptive_parzen_normal(
+            mus, 3.3, prior_mu, prior_sigma)
 
     print weights2
     print mus2
@@ -69,30 +70,6 @@ def test_adaptive_parzen_normal():
     assert mus2[0] == 7
     assert np.all(mus2[1:] == mus)
     assert sigmas2[0] == 2
-
-
-def test_tpe_filter():
-    bandit = Quadratic1()
-    random_algo = Random(bandit)
-
-    # build an experiment of 10 trials
-    trials = Trials()
-    exp = Experiment(trials, random_algo)
-    exp.run(10)
-    ids = trials.tids
-    assert len(ids) == 10
-
-    tpe_algo = TreeParzenEstimator(bandit)
-    (g_s, g_r, g_m), (b_s, b_r, b_m) = tpe_algo.filter_trials(
-            trials.specs, trials.results, trials.miscs, ids[2:8])
-
-    assert len(g_s) == len(g_r) == len(g_m)
-    assert len(b_s) == len(b_r) == len(b_m)
-    assert len(g_s) + len(b_s) == 6
-
-    g_ids = [m['tid'] for m in g_m]
-    b_ids = [m['tid'] for m in b_m]
-    assert set(g_ids).intersection(b_ids) == set()
 
 
 class TestGMM1(unittest.TestCase):
@@ -539,7 +516,7 @@ class TestPosteriorClone(unittest.TestCase, CasePerBandit):
         """Test that all prior samplers are gone"""
         tpe_algo = TreeParzenEstimator(self.bandit)
         foo = pyll.as_apply([
-                    tpe_algo.post_idxs, tpe_algo.post_vals])
+                    tpe_algo.post_below['idxs'], tpe_algo.post_below['vals']])
         prior_names = [
                 'uniform',
                 'quniform',
@@ -569,13 +546,18 @@ class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
         tpe_algo = TreeParzenEstimator(bandit)
         #print pyll.as_apply(tpe_algo.post_idxs)
         #print pyll.as_apply(tpe_algo.post_vals)
-        tpe_algo.set_iv(tpe_algo.observed,
-                *miscs_to_idxs_vals(trials.miscs))
-        pi, pv = pyll.stochastic.sample(
-                pyll.as_apply([tpe_algo.post_idxs, tpe_algo.post_vals]),
-                np.random.RandomState(33))
-        print pi
-        print pv
+        argmemo = {}
+
+        print trials.miscs
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
+        argmemo[tpe_algo.observed['idxs']] = idxs
+        argmemo[tpe_algo.observed['vals']] = vals
+        argmemo[tpe_algo.observed_loss['idxs']] = trials.tids
+        argmemo[tpe_algo.observed_loss['vals']] = trials.losses()
+        stuff = pyll.rec_eval([tpe_algo.post_below['idxs'],
+                    tpe_algo.post_below['vals']],
+                    memo=argmemo)
+        print stuff
 
 
 class TestSuggest(unittest.TestCase, CasePerBandit):
@@ -590,29 +572,85 @@ class TestSuggest(unittest.TestCase, CasePerBandit):
 
 class TestOpt(unittest.TestCase, CasePerBandit):
     thresholds = dict(
-            Distractor=-1.85, #XXX: investigate this failure
+            Quadratic1=1e-7,
             Q1Lognormal=0.01,
+            Distractor=-1.96,
             GaussWave=-2.0,
             GaussWave2=-2.0,
-            Quadratic1=0.03,
-            TwoArms=-2.5, # XXX: test categorical inference
-            ManyDists=20,
+            TwoArms=-2.5,
+            ManyDists=.0005,
             )
 
+    LEN = dict(
+            # -- running a long way out tests overflow/underflow
+            #    to some extent
+            Quadratic1=1000,
+            ManyDists=200,
+            Distractor=100,
+            )
+
+    gammas = dict(
+            Distractor=.05,
+            )
+    
+    prior_weights = dict(
+            ManyDists=5.0,
+            Distractor=.01,
+            )
+
+    n_EIs = dict(
+            # -- this can be low in a few dimensions
+            Quadratic1=50,
+            # -- lower number encourages exploration
+            # XXX: this is a damned finicky way to get TPE
+            #      to solve the Distractor problem
+            Distractor=15,
+            )
+
+    def setUp(self):
+        self.olderr = np.seterr('raise')
+        np.seterr(under='ignore')
+
+    def tearDown(self, *args):
+        np.seterr(**self.olderr)
+
     def work(self):
+
         bandit = self.bandit
-        algo = TreeParzenEstimator(bandit)
+        bname = bandit.__class__.__name__
+        print 'Bandit', bname
+        algo = TreeParzenEstimator(bandit,
+                gamma=self.gammas.get(bname,
+                    TreeParzenEstimator.gamma),
+                prior_weight=self.prior_weights.get(bname,
+                    TreeParzenEstimator.prior_weight),
+                n_EI_candidates=self.n_EIs.get(bname, 
+                    TreeParzenEstimator.n_EI_candidates))
+        LEN = self.LEN.get(bname, 50)
+
+        rtrials = Trials()
+        exp = Experiment(rtrials, Random(bandit))
+        exp.run(LEN)
+
         trials = Trials()
         exp = Experiment(trials, algo)
         exp.catch_bandit_exceptions = False
-        exp.run(50)
-        assert len(trials) == 50
+        exp.run(LEN)
+        assert len(trials) == LEN
 
-        if 0:
-            plt.subplot(1,2,1)
-            plt.plot(trials.losses())
-            plt.subplot(1,2,2)
-            plt.plot([s['x'] for s in trials.specs])
+        print algo.n_EI_candidates
+        print algo.gamma
+        print algo.prior_weight
+
+        if 1:
+            plt.subplot(2,2,1)
+            plt.scatter(range(LEN), trials.losses())
+            plt.subplot(2,2,2)
+            plt.scatter(range(LEN), [s['x'] for s in trials.specs])
+            plt.subplot(2,2,3)
+            plt.scatter(range(LEN), rtrials.losses())
+            plt.subplot(2,2,4)
+            plt.scatter(range(LEN), [s['x'] for s in rtrials.specs])
             plt.show()
         if 0:
             plt.hist(
@@ -620,9 +658,8 @@ class TestOpt(unittest.TestCase, CasePerBandit):
                     bins=20)
 
         #print trials.losses()
-        bname = bandit.__class__.__name__
-        print 'Bandit', bname
-        print 'MIN', min(trials.losses())
+        print 'TPE    MIN', min(trials.losses())
+        print 'RANDOM MIN', min(rtrials.losses())
         thresh = self.thresholds[bname]
         print 'Thresh', thresh
         assert min(trials.losses()) < thresh

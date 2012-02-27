@@ -20,6 +20,8 @@ from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 
+EPS = 1e-12
+
 
 adaptive_parzen_samplers = {}
 def adaptive_parzen_sampler(name):
@@ -38,14 +40,14 @@ def adaptive_parzen_sampler(name):
 # -- Categorical
 
 @scope.define
-def categorical_lpdf(sample, p, eps=0):
+def categorical_lpdf(sample, p):
     """
     Return a random integer from 0 .. N-1 inclusive according to the
     probabilities p[0] .. P[N-1].
 
     This is formally equivalent to np.where(multinomial(n=1, p))
     """
-    return np.log(np.asarray(p)[sample] + eps)
+    return np.log(np.asarray(p)[sample])
 
 
 # -- Bounded Gaussian Mixture Model (BGMM)
@@ -77,6 +79,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
             if low <= draw < high:
                 samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
+    #print 'SAMPLES', samples
     if q is None:
         return samples
     else:
@@ -84,7 +87,10 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
 
 @scope.define
 def normal_cdf(x, mu, sigma):
-    return 0.5 * (1 + erf((x - mu) / np.sqrt(2 * sigma ** 2)))
+    top = (x - mu)
+    bottom = np.maximum(np.sqrt(2) * sigma, EPS)
+    z = top / bottom
+    return 0.5 * (1 + erf(z))
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
@@ -105,7 +111,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
 
     if q is None:
         dist = samples[:, None] - mus
-        mahal = ((dist ** 2) / (sigmas ** 2))
+        mahal = (dist / np.maximum(sigmas, EPS) ) ** 2
         # mahal shape is (n_samples, n_components)
         Z = np.sqrt(2 * np.pi * sigmas**2)
         coef = weights / Z / p_accept
@@ -124,21 +130,31 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
 # -- Mixture of Log-Normals
 
 @scope.define
-def lognormal_cdf(x, mu, sigma, log_eps=-100):
+def lognormal_cdf(x, mu, sigma):
     # wikipedia claims cdf is
     # .5 + .5 erf( log(x) - mu / sqrt(2 sigma^2))
     #
     # the maximum is used to move negative values and 0 up to a point
     # where they do not cause nan or inf, but also don't contribute much
     # to the cdf.
-    return .5 + .5 * erf(
-            (np.maximum(np.log(x), log_eps) - mu)
-            / np.sqrt(2 * sigma**2))
+    if x.min() < 0:
+        raise ValueError('negative arg to lognormal_cdf', x)
+    olderr = np.seterr(divide='ignore')
+    try:
+        top = np.log(np.maximum(x, EPS)) - mu
+        bottom = np.maximum(np.sqrt(2) * sigma, EPS)
+        z = top / bottom
+        return .5 + .5 * erf(z)
+    finally:
+        np.seterr(**olderr)
+
 
 @scope.define
 def lognormal_lpdf(x, mu, sigma):
     # formula copied from wikipedia
     # http://en.wikipedia.org/wiki/Log-normal_distribution
+    assert np.all(sigma >= 0)
+    sigma = np.maximum(sigma, EPS)
     Z = sigma * x * np.sqrt(2 * np.pi)
     E = 0.5 * ((np.log(x) - mu) / sigma)**2
     rval = -E - np.log(Z)
@@ -198,8 +214,8 @@ def logsum_rows(x):
 
 @scope.define
 def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
-    samples, weights, mus, sigmas = map(np.asarray, (
-        samples, weights, mus, sigmas))
+    samples, weights, mus, sigmas = map(np.asarray,
+            (samples, weights, mus, sigmas))
     assert weights.ndim == 1
     assert mus.ndim == 1
     assert sigmas.ndim == 1
@@ -295,10 +311,9 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
         sigma = np.asarray([prior_sigma] + list(sigma))
 
     maxsigma = prior_sigma
-    minsigma = prior_sigma / np.sqrt(len(mus))   # XXX: magic formula
+    minsigma = prior_sigma / np.sqrt(1 + len(mus))   # XXX: magic formula
 
     #print 'maxsigma, minsigma', maxsigma, minsigma
-
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
@@ -319,7 +334,7 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
 @adaptive_parzen_sampler('uniform')
 def ap_uniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
-    prior_sigma = (high - low)
+    prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_weight, prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=None,
@@ -329,7 +344,7 @@ def ap_uniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
 @adaptive_parzen_sampler('quniform')
 def ap_quniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
-    prior_sigma = (high - low)
+    prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_weight, prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=q,
@@ -339,7 +354,7 @@ def ap_quniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
 @adaptive_parzen_sampler('loguniform')
 def ap_loguniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
-    prior_sigma = (high - low)
+    prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
             scope.log(obs), prior_weight, prior_mu, prior_sigma)
     rval = scope.LGMM1(weights, mus, sigmas, low=low, high=high,
@@ -350,7 +365,7 @@ def ap_loguniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
 @adaptive_parzen_sampler('qloguniform')
 def ap_qloguniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
-    prior_sigma = (high - low)
+    prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
             prior_weight, prior_mu, prior_sigma)
     return scope.LGMM1(weights, mus, sigmas, low, high, q=q,
@@ -393,7 +408,7 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
     counts = scope.bincount(obs, minlength=upper)
     # -- add in some prior pseudocounts
-    pseudocounts = counts + prior_weight / scope.len(obs)
+    pseudocounts = counts + prior_weight / upper
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             size=size, rng=rng)
 
@@ -419,18 +434,21 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
 
     # -- keep is the subset of o_idxs corresponding to examples
     #    either above or below the loss threshold.
-    if above_or_below == 'above':
+    if above_or_below == 'above_gamma':
         keep = l_sort[loss_thresh_idx:]
-    else:
+    elif above_or_below == 'below_gamma':
         keep = l_sort[:loss_thresh_idx]
+    else:
+        raise ValueError(above_or_below)
     rval = o_vals[keep]
+    #print 'KEEP', rval
     if rval.ndim != 1:
         raise TypeError('messed up', (rval.ndim, ovals, keep))
     return rval
 
 
-def posterior_clone(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
-        oloss_idxs, oloss_vars, oloss_gamma, above_or_below, prior_weight):
+def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
+        oloss_idxs, oloss_vals, oloss_gamma, above_or_below, prior_weight):
     """
     This method clones a posterior inference graph by iterating forward in
     topological order, and replacing prior random-variables (prior_vals) with
@@ -438,7 +456,7 @@ def posterior_clone(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
     """
     assert all(isinstance(arg, pyll.Apply)
-            for arg in [oloss_idxs, oloss_vars, oloss_gamma, above_or_below)
+            for arg in [oloss_idxs, oloss_vals, oloss_gamma, above_or_below])
 
     expr = pyll.as_apply([specs, prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
@@ -454,7 +472,6 @@ def posterior_clone(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
         obs = scope.ap_filter_trials(obs_idxs[nid], obs_vals[nid],
             oloss_idxs, oloss_vals, oloss_gamma, above_or_below)
         obs_memo[prior_vals[nid]] = [obs, prior_weight]
-    obs_memo = dict([(prior_vals[nid], obs_vals[nid]) for nid in prior_vals])
     for node in nodes:
         if node not in memo:
             new_inputs = [memo[arg] for arg in node.inputs()]
@@ -466,6 +483,9 @@ def posterior_clone(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 named_args = [[kw, memo[arg]]
                         for (kw, arg) in node.named_args]
                 new_node = fn(*args, **dict(named_args))
+            elif hasattr(node, 'obj'):
+                # -- keep same literals in the graph
+                new_node = node
             else:
                 # -- this case is for all the other stuff in the graph
                 new_node = node.clone_from_inputs(new_inputs)
@@ -514,16 +534,24 @@ class TreeParzenEstimator(BanditAlgo):
     """
 
     # -- suggest this many jobs from prior before attempting to optimize
-    prior_weight = 5
+    prior_weight = 3.0
 
     # -- suggest best of this many draws on every iteration
     n_EI_candidates = 256
 
     # -- fraction of trials to consider as good
-    gamma = 0.20
+    gamma = 0.50
 
-    def __init__(self, bandit, **kwargs):
+    def __init__(self, bandit,
+            gamma=gamma,
+            prior_weight=prior_weight,
+            n_EI_candidates=n_EI_candidates,
+            **kwargs):
         BanditAlgo.__init__(self, bandit, **kwargs)
+        self.gamma = gamma
+        self.prior_weight = prior_weight
+        self.n_EI_candidates = n_EI_candidates
+        self.s_prior_weight = pyll.Literal(float(self.prior_weight))
 
         # -- these dummy values will be replaced in suggest1() and never used
         self.observed = dict(
@@ -551,7 +579,7 @@ class TreeParzenEstimator(BanditAlgo):
                 print v
 
     def init_posterior(self, rel_to_gamma):
-        specs, idxs, vals = posterior_clone(
+        specs, idxs, vals = build_posterior(
                 self.vtemplate,    # vectorized clone of bandit template
                 self.idxs_by_nid,  # this dict and next represent prior distributions
                 self.vals_by_nid,  # 
@@ -561,21 +589,21 @@ class TreeParzenEstimator(BanditAlgo):
                 self.observed_loss['vals'],
                 pyll.Literal(self.gamma),
                 pyll.Literal(rel_to_gamma),
-                pyll.Literal(self.prior_weight),
+                self.s_prior_weight
                 )
         return dict(specs=specs, idxs=idxs, vals=vals)
 
     def llik(self, obs, density):
         """Add log-likelihood functions for the values"""
         llik = {}
-        assert set(obs.keys()) == set(given.keys())
+        assert set(obs.keys()) == set(density.keys())
         for nid in obs['vals']:
             dvals = density['vals'][nid]
             lpdf_fn = getattr(scope, dvals.name + '_lpdf')
-            llik[nid] = lpdf_fn(obs['vals'][nid],
-                *dvals.pos_args,
-                **dict([(n, a) for n, a in dvals.named_args
-                    if n not in ('rng', 'size')]))
+            args = [obs['vals'][nid]] + dvals.pos_args
+            kwargs = dict([(n, a) for n, a in dvals.named_args
+                        if n not in ('rng', 'size')])
+            llik[nid] = lpdf_fn(*args, **kwargs)
         rval = scope.idxs_prod(self.s_new_ids, obs['idxs'], llik)
         return rval
 
@@ -593,13 +621,18 @@ class TreeParzenEstimator(BanditAlgo):
         #print self.post_llik
 
         bandit = self.bandit
-        docs = [d for d in trials.trials)
+        docs = [d for d in trials.trials
                 if bandit.status(d['result'], d['spec']) == STATUS_OK]
 
         tids = [d['tid'] for d in docs]
 
         #    Sample and compute log-probability.
-        fake_id_0 = max(max(tids), new_id) + 1
+        if tids:
+            # -- the +2 co-ordinates with an assertion above
+            #    to ensure that fake ids are used during sampling
+            fake_id_0 = max(max(tids), new_id) + 2
+        else:
+            fake_id_0 = new_id + 2
         fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
         self.new_ids[:] = fake_ids
 
@@ -608,7 +641,7 @@ class TreeParzenEstimator(BanditAlgo):
         memo = {}
 
         o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-            [d['misc'] for d in docs]))
+            [d['misc'] for d in docs], keys=self.idxs_by_nid.keys())
         memo[self.observed['idxs']] = o_idxs_d
         memo[self.observed['vals']] = o_vals_d
 
@@ -616,7 +649,7 @@ class TreeParzenEstimator(BanditAlgo):
         memo[self.observed_loss['vals']] = \
                 [bandit.loss(d['result'], d['spec']) for d in docs]
 
-        results = pyll.rec_eval(
+        R = pyll.rec_eval(
                 dict(
                     specs=self.post_below['specs'],
                     above_llik=self.post_above['llik'],
@@ -626,16 +659,21 @@ class TreeParzenEstimator(BanditAlgo):
                     ),
                 memo=memo)
 
+        #print R['specs']
+
+        for k in 'specs', 'above_llik', 'below_llik':
+            assert len(R[k]) == self.n_EI_candidates
+
         # -- retrieve the best of the samples and form the return tuple
-        winning_pos = np.argmax(results['below_llik']
-                - results['above_llik'])
+        llik_diff = R['below_llik'] - R['above_llik']
+        winning_pos = np.argmax(llik_diff)
         winning_fake_id = winning_pos + fake_ids[0]
 
-        rval_specs = [result['specs'][winning_pos]]
+        rval_specs = [R['specs'][winning_pos]]
         rval_results = [bandit.new_result()]
         rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
 
-        miscs_update_idxs_vals(rval_miscs, c_idxs, c_vals,
+        miscs_update_idxs_vals(rval_miscs, R['idxs'], R['vals'],
                 idxs_map={winning_fake_id: new_id},
                 assert_all_vals_used=False)
         rval_docs = trials.new_trial_docs(new_ids,
