@@ -594,7 +594,7 @@ class TestOpt(unittest.TestCase, CasePerBandit):
             Q1Lognormal=0.01,
             GaussWave=-2.0,
             GaussWave2=-2.0,
-            Quadratic1=0.03,
+            Quadratic1=0.01,
             TwoArms=-2.5, # XXX: test categorical inference
             ManyDists=20,
             )

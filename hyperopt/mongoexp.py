@@ -164,6 +164,8 @@ from .base import Trials
 from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
+from .base import SONify
+from .utils import fast_isin
 from .utils import json_call
 import plotting
 
@@ -446,11 +448,14 @@ class MongoJobs(object):
         if exp_key is not None:
             cond['exp_key'] = exp_key
 
-        if 'owner' not in cond:
-            cond['owner'] = None
-
-        if cond['owner'] is not None:
+        #having an owner of None implies state==JOB_STATE_NEW, so this effectively
+        #acts as a filter to make sure that only new jobs get reserved. 
+        if cond.get('owner') is not None:
             raise ValueError('refusing to reserve owned job')
+        else:
+            cond['owner'] = None
+            cond['state'] = JOB_STATE_NEW #theoretically this is redundant, theoretically
+
         try:
             rval = self.jobs.find_and_modify(
                 cond,
@@ -655,17 +660,69 @@ class MongoTrials(Trials):
         else:
             query = {}
         t0 = time.time()
-        all_jobs = list(self.handle.jobs.find(query))
-        logger.info('Refresh took %f seconds' % (time.time() - t0))
-        id_jobs = [(j['_id'], j)
-            for j in all_jobs
-            if j['state'] != JOB_STATE_ERROR]
-        logger.info('skipping %i error jobs' % (len(all_jobs) - len(id_jobs)))
-        id_jobs.sort()
-        self._trials = [j for (_id, j) in id_jobs]
-        self._specs = [j['spec'] for (_id, j) in id_jobs]
-        self._results = [j['result'] for (_id, j) in id_jobs]
-        self._miscs = [j['misc'] for (_id, j) in id_jobs]
+        query['state'] = {'$ne': JOB_STATE_ERROR}
+        _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
+        if _trials:
+            db_data = list(self.handle.jobs.find(query,
+                                            fields=['_id', 'version']))
+            # -- pull down a fresh list of ids from mongo
+            if db_data:
+                #make numpy data arrays
+                db_data = numpy.rec.array([(x['_id'], int(x['version']))
+                                        for x in db_data], 
+                                        names=['_id', 'version'])
+                db_data.sort(order=['_id', 'version'])
+                existing_data = numpy.rec.array([(x['_id'],
+                                              int(x['version'])) for x in _trials],
+                                              names=['_id', 'version'])
+                existing_data.sort(order=['_id', 'version'])
+                
+                #which records are in db but not in existing, and vice versa
+                db_in_existing = fast_isin(db_data['_id'], existing_data['_id'])
+                existing_in_db = fast_isin(existing_data['_id'], db_data['_id'])
+
+                #filtering out out-of-date records
+                _trials = [_trials[_ind] for _ind in existing_in_db.nonzero()[0]]
+
+                #new data is what's in db that's not in existing
+                new_data = db_data[numpy.invert(db_in_existing)]
+
+                #having removed the new and out of data data, 
+                #concentrating on data in db and existing for state changes 
+                db_data = db_data[db_in_existing]
+                existing_data = existing_data[existing_in_db]
+                assert (existing_data['_id'] == db_data['_id']).all()
+                assert (existing_data['version'] <= db_data['version']).all()
+                same_version = existing_data['version'] == db_data['version']
+                _trials = [_trials[_ind] for _ind in same_version.nonzero()[0]]
+                version_changes = existing_data[numpy.invert(same_version)]
+
+                #actually get the updated records
+                update_ids = new_data['_id'].tolist() + version_changes['_id'].tolist()
+                num_new = len(update_ids)
+                update_query = copy.deepcopy(query)
+                update_query['_id'] = {'$in': update_ids}
+                updated_trials = list(self.handle.jobs.find(update_query))
+                _trials.extend(updated_trials)
+            else:
+                num_new = 0
+                _trials = []
+        else:
+            #this case is for performance, though should be able to be removed
+            #without breaking correctness. 
+            _trials = list(self.handle.jobs.find(query))
+            num_new = len(_trials)
+            
+        logger.info('Refresh data download took %f seconds for %d ids' %
+                         (time.time() - t0, num_new))
+
+        jarray = numpy.array([j['_id'] for j in _trials])
+        jobsort = jarray.argsort()
+  
+        self._trials = [_trials[_idx] for _idx in jobsort]
+        self._specs = [_trials[_idx]['spec'] for _idx in jobsort]
+        self._results = [_trials[_idx]['result'] for _idx in jobsort]
+        self._miscs = [_trials[_idx]['misc'] for _idx in jobsort]
 
     def _insert_trial_docs(self, docs):
         rval = []
@@ -833,6 +890,7 @@ class MongoWorker(object):
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
                 result = worker_fn(spec, ctrl)
+                result = SONify(result)
             except Exception, e:
                 #XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly
