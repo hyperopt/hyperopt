@@ -22,13 +22,16 @@ def algo_as_str(algo):
         return algo
     return str(algo)
 
-def main_plot_history(trials, bandit=None, algo=None, do_show=True):
+
+def main_plot_history(trials, bandit=None, algo=None, do_show=True,
+        status_colors=None):
     import matplotlib.pyplot as plt
     if bandit is None:
         bandit = Bandit(None)
 
     # self is an Experiment
-    status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
+    if status_colors is None:
+        status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs = trials.specs
 
     # XXX: show the un-finished or error trials
