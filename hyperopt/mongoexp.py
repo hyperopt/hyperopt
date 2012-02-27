@@ -672,6 +672,9 @@ class MongoTrials(Trials):
                                         for x in db_data], 
                                         names=['_id', 'version'])
                 db_data.sort(order=['_id', 'version'])
+                #sometimes db_data might contain multiple records with the 
+                #same _id value, since mongo does NOT lock the DB during a 
+                #cursor iteration; we take only the most recent (by version number)
                 recent = (db_data['_id'][1:] != db_data['_id'][:-1]).nonzero()[0]
                 recent = numpy.append(recent, [len(db_data)-1])
                 db_data = db_data[recent]
