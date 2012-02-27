@@ -198,10 +198,14 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True,
     return miscs
 
 
-def miscs_to_idxs_vals(miscs):
-    idxs = copy.deepcopy(miscs[0]['idxs'])
-    vals = copy.deepcopy(miscs[0]['vals'])
-    for misc in miscs[1:]:
+def miscs_to_idxs_vals(miscs, keys=None):
+    if keys is None:
+        if len(miscs) == 0:
+            raise ValueError('cannot infer keys from empty miscs')
+        keys = miscs[0]['idxs'].keys()
+    idxs = dict([(k, []) for k in keys])
+    vals = dict([(k, []) for k in keys])
+    for misc in miscs:
         for node_id in idxs:
             t_idxs = misc['idxs'][node_id]
             t_vals = misc['vals'][node_id]

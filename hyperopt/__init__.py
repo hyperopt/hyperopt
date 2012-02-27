@@ -26,4 +26,3 @@ from base import Random
 from base import Trials
 
 from tpe import TreeParzenEstimator
-from tpe import TPE_NIPS2011

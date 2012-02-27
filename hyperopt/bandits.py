@@ -56,7 +56,8 @@ class TwoArms(Base):
     """
     Each arm yields a reward from a different Gaussian.
 
-    How long does it take the algorithm to identify the best arm?
+    The correct arm is arm 0.
+
     """
 
     loss_target = -2
