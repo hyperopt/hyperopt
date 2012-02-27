@@ -111,7 +111,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         coef = weights / Z / p_accept
         rval = logsum_rows(- 0.5 * mahal + np.log(coef))
     else:
-        prob = np.zeros_like(samples, dtype='float64')
+        prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
             prob += w * normal_cdf(samples, mu, sigma)
             prob -= w * normal_cdf(samples - q, mu, sigma)
@@ -219,7 +219,7 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         rval = logsum_rows(lpdfs + np.log(weights))
     else:
         # compute the lpdf of each sample under each component
-        prob = np.zeros_like(samples, dtype='float64')
+        prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
             prob += w * lognormal_cdf(samples, mu, sigma)
             prob -= w * lognormal_cdf(samples - q, mu, sigma)

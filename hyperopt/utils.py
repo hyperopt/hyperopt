@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 import logging
 import cPickle
 logger = logging.getLogger(__name__)
@@ -97,3 +98,26 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     assert wincounts.shape == mean.shape
     return wincounts.astype('float64') / wincounts.sum()
 
+
+def fast_isin(X,Y):
+    """
+    Indices of elements in a numpy array that appear in another.
+
+    Fast routine for determining indices of elements in numpy array `X` that 
+    appear in numpy array `Y`, returning a boolean array `Z` such that::
+
+            Z[i] = X[i] in Y
+
+    """
+    if len(Y) > 0:
+        T = Y.copy()
+        T.sort()
+        D = T.searchsorted(X)
+        T = np.append(T,np.array([0]))
+        W = (T[D] == X)
+        if isinstance(W,bool):
+            return np.zeros((len(X),),bool)
+        else:
+            return (T[D] == X)
+    else:
+        return np.zeros((len(X),),bool)
