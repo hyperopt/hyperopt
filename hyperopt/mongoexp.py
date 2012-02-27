@@ -678,18 +678,19 @@ class MongoTrials(Trials):
                 existing_data.sort(order=['_id', 'version'])
                 
                 #which records are in db but not in existing, and vice versa
-                y = fast_isin(db_data['_id'], existing_data['_id'])
-                z = fast_isin(existing_data['_id'], db_data['_id'])
+                db_in_existing = fast_isin(db_data['_id'], existing_data['_id'])
+                existing_in_db = fast_isin(existing_data['_id'], db_data['_id'])
 
                 #filtering out out-of-date records
-                _trials = [_trials[_ind] for _ind in z.nonzero()[0]]
+                _trials = [_trials[_ind] for _ind in existing_in_db.nonzero()[0]]
 
                 #new data is what's in db that's not in existing
-                new_data = db_data[numpy.invert(y)]
+                new_data = db_data[numpy.invert(db_in_existing)]
 
-                #concentrating on common data for state changes
-                db_data = db_data[y]
-                existing_data = existing_data[z]
+                #having removed the new and out of data data, 
+                #concentrating on data in db and existing for state changes 
+                db_data = db_data[db_in_existing]
+                existing_data = existing_data[existing_in_db]
                 assert (existing_data['_id'] == db_data['_id']).all()
                 assert (existing_data['version'] <= db_data['version']).all()
                 same_version = existing_data['version'] == db_data['version']
