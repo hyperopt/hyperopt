@@ -797,6 +797,7 @@ class MongoTrials(Trials):
         """
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
+        NB THIS IS TRIALS-LEVEL ATTACHMENTS, NOT DOCUMENT-LEVEL ATTACHMENTS!!!
         """
         gfs = self.handle.gfs
         class Attachments(object):
@@ -822,6 +823,18 @@ class MongoTrials(Trials):
 
         return Attachments()
 
+    def has_doc_attachment(self, doc, name):
+        pass
+        
+    def get_doc_attachment(self, doc, name):
+        pass
+        
+    def set_doc_attachment(self, doc, name):    
+        pass
+    
+    def delete_doc_attacument(self, doc, name):
+        pass
+    
 
 class MongoWorker(object):
     poll_interval = 3.0  # -- seconds

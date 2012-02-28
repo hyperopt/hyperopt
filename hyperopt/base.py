@@ -252,6 +252,21 @@ class Trials(object):
             rval.refresh()
         return rval
 
+    def aname(self, doc, name):
+        return 'ATTACH::%s::%s' % (doc['tid'], name)
+
+    def has_doc_attachment(self, doc, name):
+        return aname(doc, name) in self.attachments
+    
+    def get_doc_attachment(self, doc, name):
+        return self.attachments[aname(doc, name)]
+
+    def set_doc_attachment(self, doc, name, value):
+        self.attachments[aname(doc, name)] = value
+
+    def delete_doc_attachment(self, doc, name):
+        del self.attachments[aname(doc, name)]
+
     def __iter__(self):
         try:
             return iter(self._trials)
@@ -411,7 +426,7 @@ class Trials(object):
         self._dynamic_trials = []
         self.attachments = {}
         self.refresh()
-
+        
     def count_by_state_synced(self, arg, trials=None):
         """
         Return trial counts by looking at self._trials
@@ -538,22 +553,20 @@ class Ctrl(object):
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
         """
-        def aname(name):
-            return 'ATTACH::%s::%s' % (self.current_trial['tid'], name)
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
             def __contains__(_self, name):
-                return aname(name) in self.trials.attachments
+                return self.trials.has_doc_attachment(self.current_trial, name)
 
             def __getitem__(_self, name):
-                return self.trials.attachments[aname(name)]
+                return self.trials.get_doc_attachment(self.current_trial, name)
 
             def __setitem__(_self, name, value):
-                self.trials.attachments[aname(name)] = value
+                self.trials.set_doc_attachment(self.current_trial, name, value)
 
             def __delitem__(_self, name):
-                del self.trials.attachments[aname(name)]
+                del self.trials.delete_doc_attachment(self.current_trial, name)
 
         return Attachments()
 
