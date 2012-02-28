@@ -802,11 +802,47 @@ class MongoTrials(Trials):
         lid = doc.get('last_id', 0)
         return range(lid, lid + N)
 
+    def trial_attachments(self, trial):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
+
+        # don't offer more here than in MongoCtrl
+        class Attachments(object):
+            def __contains__(_self, name):
+                name in self.handle.attachment_names(doc=trial)
+
+            def __getitem__(_self, name):
+                try:
+                    return self.handle.get_attachment(
+                        doc=trial,
+                        name=name)
+                except OperationFailure:
+                    raise KeyError(name)
+
+            def __setitem__(_self, name, value):
+                self.handle.set_attachment(
+                    doc=trial,
+                    blob=value,
+                    name=name,
+                    collection=self.handle.db.jobs)
+
+            def __delitem__(_self, name):
+                raise NotImplementedError('delete trial_attachment')
+                #self.handle.delete_attachment(
+                #    doc=doc,
+                #    name=name, 
+                #    collection=None)  #<-- what's the proper collection?
+
+        return Attachments()
+
     @property
     def attachments(self):
         """
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
+        NB THIS IS TRIALS-LEVEL ATTACHMENTS, NOT DOCUMENT-LEVEL ATTACHMENTS!!!
         """
         gfs = self.handle.gfs
         class Attachments(object):
@@ -980,29 +1016,7 @@ class MongoCtrl(Ctrl):
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
         """
-        handle = self.trials.handle
-        class Attachments(object):
-            def __contains__(_self, name):
-                names = handle.attachment_names(
-                        doc=self.current_trial)
-                return name in names
-
-            def __getitem__(_self, name):
-                try:
-                    return handle.get_attachment(
-                        doc=self.current_trial,
-                        name=name)
-                except OperationFailure:
-                    raise KeyError(name)
-
-            def __setitem__(_self, name, value):
-                handle.set_attachment(
-                    doc=self.current_trial,
-                    blob=value,
-                    name=name,
-                    collection=handle.db.jobs)
-
-        return Attachments()
+        return self.trials.trial_attachments(trial=self.current_trial)
 
     @property
     def set_attachment(self):
