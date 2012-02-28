@@ -24,5 +24,6 @@ from base import Experiment
 from base import StopExperiment
 from base import Random
 from base import Trials
+from base import trials_from_docs
 
 from tpe import TreeParzenEstimator
