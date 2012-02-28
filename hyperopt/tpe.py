@@ -651,6 +651,9 @@ class TreeParzenEstimator(BanditAlgo):
                 len(docs), len(trials), min(best_docs_loss.values())))
         else:
             logger.info('TPE using 0 trials')
+
+        if len(docs) < 25:
+            return BanditAlgo.suggest(self, new_ids, trials)
  
         tids = [d['tid'] for d in docs]
 
