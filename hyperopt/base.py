@@ -497,11 +497,14 @@ class Trials(object):
             return avg_true_loss
 
 
-def trials_from_docs(docs, *args, **kwargs):
+def trials_from_docs(docs, validate=True, **kwargs):
     """Construct a Trials base class instance from a list of trials documents
     """
-    rval = Trials(*args, **kwargs)
-    rval.insert_trial_docs(docs)
+    rval = Trials(**kwargs)
+    if validate:
+        rval.insert_trial_docs(docs)
+    else:
+        rval._insert_trial_docs(docs)
     rval.refresh()
     return rval
 
