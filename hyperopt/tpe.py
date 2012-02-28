@@ -433,24 +433,29 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
 
     # o_loss: the loss for every observation in o_idxs 
     loss_dict = dict(zip(l_idxs, l_vals))
-    o_loss = [loss_dict[ii] for ii in o_idxs]
+    o_loss = np.asarray([loss_dict[ii] for ii in o_idxs])
 
     # Splitting is done this way to cope with duplicate loss values.
-    l_sort = np.argsort(o_loss)
-    loss_thresh_idx = int(np.ceil(gamma * len(l_sort)))
+    o_sort = np.argsort(o_loss)
+    loss_thresh_idx = int(np.ceil(gamma * len(o_sort)))
 
-    # -- keep is the subset of o_idxs corresponding to examples
-    #    either above or below the loss threshold.
+    if len(o_sort):
+        aa = o_loss[o_sort[:loss_thresh_idx]].max()
+        bb = o_loss[o_sort[loss_thresh_idx:]].min()
+        #print 'TPE:OFT', loss_thresh_idx, aa, bb
+        assert aa <= bb
+    else:
+        return o_vals[[]]
+
     if above_or_below == 'above_gamma':
-        keep = l_sort[loss_thresh_idx:]
+        keep = o_sort[loss_thresh_idx:]
     elif above_or_below == 'below_gamma':
-        keep = l_sort[:loss_thresh_idx]
+        keep = o_sort[:loss_thresh_idx]
     else:
         raise ValueError(above_or_below)
     rval = o_vals[keep]
-    #print 'KEEP', rval
     if rval.ndim != 1:
-        raise TypeError('messed up', (rval.ndim, ovals, keep))
+        raise TypeError('messed up', (rval.ndim, o_vals, keep))
     return rval
 
 
