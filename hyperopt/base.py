@@ -254,7 +254,7 @@ class Trials(object):
 
     def aname(self, trial, name):
         return 'ATTACH::%s::%s' % (trial['tid'], name)
-        
+
     @property
     def trial_attachments(self, trial):
         """

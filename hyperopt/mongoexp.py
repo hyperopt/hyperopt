@@ -815,7 +815,7 @@ class MongoTrials(Trials):
             def __setitem__(_self, name, value):
                 self.handle.set_attachment(
                     doc=trial,
-                    blob=value,
+                    blob=valuee,
                     name=name,
                     collection=self.handle.db.jobs)
 
@@ -827,7 +827,7 @@ class MongoTrials(Trials):
                 #    collection=None)  #<-- what's the proper collection?
 
         return Attachments()
-        
+
     @property
     def attachments(self):
         """
