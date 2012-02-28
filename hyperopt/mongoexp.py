@@ -722,7 +722,7 @@ class MongoTrials(Trials):
             _trials = list(self.handle.jobs.find(query))
             num_new = len(_trials)
             
-        logger.info('Refresh data download took %f seconds for %d ids' %
+        logger.debug('Refresh data download took %f seconds for %d ids' %
                          (time.time() - t0, num_new))
 
         jarray = numpy.array([j['_id'] for j in _trials])
@@ -860,7 +860,7 @@ class MongoWorker(object):
                 logger.info('no job found, sleeping for %.1fs' % interval)
                 time.sleep(interval)
 
-        logger.info('job found: %s' % str(job))
+        logger.debug('job found: %s' % str(job))
 
         # -- don't let the cmd mess up our trial object
         spec = copy.deepcopy(job['spec'])
