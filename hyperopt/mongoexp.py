@@ -166,6 +166,7 @@ from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
 from .utils import fast_isin
+from .utils import get_most_recent_inds
 from .utils import json_call
 import plotting
 
@@ -672,12 +673,7 @@ class MongoTrials(Trials):
                                         for x in db_data], 
                                         names=['_id', 'version'])
                 db_data.sort(order=['_id', 'version'])
-                #sometimes db_data might contain multiple records with the 
-                #same _id value, since mongo does NOT lock the DB during a 
-                #cursor iteration; we take only the most recent (by version number)
-                recent = (db_data['_id'][1:] != db_data['_id'][:-1]).nonzero()[0]
-                recent = numpy.append(recent, [len(db_data)-1])
-                db_data = db_data[recent]
+                db_data = db_data[get_most_recent_inds(db_data)]
                 
                 existing_data = numpy.rec.array([(x['_id'],
                                               int(x['version'])) for x in _trials],
@@ -732,6 +728,8 @@ class MongoTrials(Trials):
             #this case is for performance, though should be able to be removed
             #without breaking correctness. 
             _trials = list(self.handle.jobs.find(query))
+            if _trials:
+                _trials = [_trials[_i] for _i in get_most_recent_inds(_trials)]
             num_new = len(_trials)
             
         logger.debug('Refresh data download took %f seconds for %d ids' %
