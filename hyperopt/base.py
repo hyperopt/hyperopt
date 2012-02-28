@@ -252,20 +252,31 @@ class Trials(object):
             rval.refresh()
         return rval
 
-    def aname(self, doc, name):
-        return 'ATTACH::%s::%s' % (doc['tid'], name)
+    def aname(self, trial, name):
+        return 'ATTACH::%s::%s' % (trial['tid'], name)
+        
+    @property
+    def trial_attachments(self, trial):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
 
-    def has_doc_attachment(self, doc, name):
-        return aname(doc, name) in self.attachments
-    
-    def get_doc_attachment(self, doc, name):
-        return self.attachments[aname(doc, name)]
+        # don't offer more here than in MongoCtrl
+        class Attachments(object):
+            def __contains__(_self, name):
+                return self.aname(trial, name) in self.attachments
 
-    def set_doc_attachment(self, doc, name, value):
-        self.attachments[aname(doc, name)] = value
+            def __getitem__(_self, name):
+                return self.attachments[self.aname(trial, name)]
 
-    def delete_doc_attachment(self, doc, name):
-        del self.attachments[aname(doc, name)]
+            def __setitem__(_self, name, value):
+                self.attachments[self.aname(trial, name)] = value
+
+            def __delitem__(_self, name):
+                del self.attachments[self.aname(trial, name)]
+
+        return Attachments()
 
     def __iter__(self):
         try:
@@ -553,22 +564,7 @@ class Ctrl(object):
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
         """
-
-        # don't offer more here than in MongoCtrl
-        class Attachments(object):
-            def __contains__(_self, name):
-                return self.trials.has_doc_attachment(self.current_trial, name)
-
-            def __getitem__(_self, name):
-                return self.trials.get_doc_attachment(self.current_trial, name)
-
-            def __setitem__(_self, name, value):
-                self.trials.set_doc_attachment(self.current_trial, name, value)
-
-            def __delitem__(_self, name):
-                del self.trials.delete_doc_attachment(self.current_trial, name)
-
-        return Attachments()
+        return self.trials.trial_attachments(trial=self.current_trial)
 
     def inject_results(self, specs, results, miscs, new_tids=None):
         """Inject new results into self.trials
