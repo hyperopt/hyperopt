@@ -44,3 +44,20 @@ def test_get_most_recent_inds():
     test_data_rearranged_most_recent = [test_data_rearranged[idx] for idx in rind]
     assert all([t in most_recent_data for t in test_data_rearranged_most_recent])
     assert len(test_data_rearranged_most_recent) == len(most_recent_data)
+
+    test_data = [{'_id':0, 'version':1}]
+    
+    assert get_most_recent_inds(test_data).tolist() == [0]
+    
+    test_data = [{'_id':0, 'version':1}, {'_id':0, 'version':2}]
+    assert get_most_recent_inds(test_data).tolist() == [1]
+    
+    test_data = [{'_id':0, 'version':1}, {'_id':0, 'version':2},
+                 {'_id':1, 'version':1}]
+    
+    assert get_most_recent_inds(test_data).tolist() == [1, 2]
+    
+    test_data = [{'_id': -1, 'version':1}, {'_id':0, 'version':1},
+                 {'_id':0, 'version':2}, {'_id':1, 'version':1}]
+    
+    assert get_most_recent_inds(test_data).tolist() == [0, 2, 3]
