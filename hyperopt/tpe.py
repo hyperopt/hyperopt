@@ -632,7 +632,8 @@ class TreeParzenEstimator(BanditAlgo):
         #print self.post_llik
 
         bandit = self.bandit
-        #docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
+        docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
+        assert len(docs_by_tid) == len(trials.trials)
         best_docs = dict()
         best_docs_loss = dict()
         for doc in trials.trials:
