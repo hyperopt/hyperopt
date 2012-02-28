@@ -698,8 +698,10 @@ class MongoTrials(Trials):
                 #concentrating on data in db and existing for state changes 
                 db_data = db_data[db_in_existing]
                 existing_data = existing_data[existing_in_db]
-                assert (existing_data['_id'] == db_data['_id']).all()
-                assert (existing_data['version'] <= db_data['version']).all()
+                assert numpy.asarray(
+                        existing_data['_id'] == db_data['_id']).all()
+                assert numpy.asarray(
+                        existing_data['version'] <= db_data['version']).all()
                 same_version = existing_data['version'] == db_data['version']
                 _trials = [_trials[_ind] for _ind in same_version.nonzero()[0]]
                 version_changes = existing_data[numpy.invert(same_version)]
