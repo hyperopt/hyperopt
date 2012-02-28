@@ -252,6 +252,31 @@ class Trials(object):
             rval.refresh()
         return rval
 
+    def aname(self, trial, name):
+        return 'ATTACH::%s::%s' % (trial['tid'], name)
+
+    def trial_attachments(self, trial):
+        """
+        Support syntax for load:  self.attachments[name]
+        Support syntax for store: self.attachments[name] = value
+        """
+
+        # don't offer more here than in MongoCtrl
+        class Attachments(object):
+            def __contains__(_self, name):
+                return self.aname(trial, name) in self.attachments
+
+            def __getitem__(_self, name):
+                return self.attachments[self.aname(trial, name)]
+
+            def __setitem__(_self, name, value):
+                self.attachments[self.aname(trial, name)] = value
+
+            def __delitem__(_self, name):
+                del self.attachments[self.aname(trial, name)]
+
+        return Attachments()
+
     def __iter__(self):
         try:
             return iter(self._trials)
@@ -411,7 +436,7 @@ class Trials(object):
         self._dynamic_trials = []
         self.attachments = {}
         self.refresh()
-
+        
     def count_by_state_synced(self, arg, trials=None):
         """
         Return trial counts by looking at self._trials
@@ -538,24 +563,7 @@ class Ctrl(object):
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
         """
-        def aname(name):
-            return 'ATTACH::%s::%s' % (self.current_trial['tid'], name)
-
-        # don't offer more here than in MongoCtrl
-        class Attachments(object):
-            def __contains__(_self, name):
-                return aname(name) in self.trials.attachments
-
-            def __getitem__(_self, name):
-                return self.trials.attachments[aname(name)]
-
-            def __setitem__(_self, name, value):
-                self.trials.attachments[aname(name)] = value
-
-            def __delitem__(_self, name):
-                del self.trials.attachments[aname(name)]
-
-        return Attachments()
+        return self.trials.trial_attachments(trial=self.current_trial)
 
     def inject_results(self, specs, results, miscs, new_tids=None):
         """Inject new results into self.trials
