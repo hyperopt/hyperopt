@@ -638,7 +638,10 @@ class TreeParzenEstimator(BanditAlgo):
 
         bandit = self.bandit
         docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
-        assert len(docs_by_tid) == len(trials.trials)
+        if len(docs_by_tid) != len(trials.trials):
+            import cPickle
+            cPickle.dump(trials.trials, open('assert_fail_tpe_637.pkl', 'w'))
+            assert 0, 'non-unique docid, dumped to assert_fail_tpe_637.pkl'
         best_docs = dict()
         best_docs_loss = dict()
         for doc in trials.trials:
