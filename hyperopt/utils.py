@@ -121,3 +121,14 @@ def fast_isin(X,Y):
             return (T[D] == X)
     else:
         return np.zeros((len(X),),bool)
+        
+
+def get_most_recent_inds(obj):
+    data = numpy.rec.array([(x['_id'], int(x['version']))
+                            for x in obj], 
+                            names=['_id', 'version'])
+    s = data.argsort(order=['_id', 'version'])
+    data = data[s]
+    recent = (data['_id'][1:] != data['_id'][:-1]).nonzero()[0]
+    recent = numpy.append(recent, [len(data)-1])
+    return s[recent]
