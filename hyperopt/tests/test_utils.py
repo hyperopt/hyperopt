@@ -61,3 +61,8 @@ def test_get_most_recent_inds():
                  {'_id':0, 'version':2}, {'_id':1, 'version':1}]
     
     assert get_most_recent_inds(test_data).tolist() == [0, 2, 3]
+    
+    test_data = [{'_id': -1, 'version':1}, {'_id':0, 'version':1},
+                 {'_id':0, 'version':2}, {'_id':0, 'version':2}]
+    
+    assert get_most_recent_inds(test_data).tolist() == [0, 3]
