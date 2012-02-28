@@ -632,13 +632,29 @@ class TreeParzenEstimator(BanditAlgo):
         #print self.post_llik
 
         bandit = self.bandit
-        docs = [d for d in trials.trials
-                if (bandit.status(d['result'], d['spec']) == STATUS_OK
-                    and 'from_tid' not in d['misc']) # -- ignore injected jobs
-               ]
-        logger.info('TPE using %i of %i trials' % (
-            len(docs), len(trials)))
+        docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
+        assert len(docs_by_tid) == len(trials.trials)
+        best_docs = dict()
+        best_docs_loss = dict()
+        for doc in trials.trials:
+            if doc['result']['status'] != STATUS_OK:
+                continue
+            # get either this docs own tid or the one that it's from
+            tid = doc['misc'].get('from_tid', doc['tid'])
+            loss = bandit.loss(doc['result'], doc['spec'])
+            best_docs_loss.setdefault(tid, loss)
+            if loss <= best_docs_loss[tid]:
+                best_docs[tid] = doc
+        docs = best_docs.values()
+        if docs:
+            logger.info('TPE using %i/%i trials with best loss %f' % (
+                len(docs), len(trials), min(best_docs_loss.values())))
+        else:
+            logger.info('TPE using 0 trials')
 
+        if len(docs) < 25:
+            return BanditAlgo.suggest(self, new_ids, trials)
+ 
         tids = [d['tid'] for d in docs]
 
         #    Sample and compute log-probability.
