@@ -632,17 +632,25 @@ class TreeParzenEstimator(BanditAlgo):
         #print self.post_llik
 
         bandit = self.bandit
-        ok_docs = [d for d in trials.trials
-                if bandit.status(d['result'], d['spec']) == STATUS_OK]
-        orig_docs = [d for d in ok_docs if 'from_tid' not in d['misc']]
-        inj_docs  = [d for d in ok_docs if 'from_tid' in d['misc']]
-        orig_losses = [bandit.loss(d['result'], d['spec']) for d in orig_docs]
-        min_loss = min(orig_losses)
-        docs = orig_docs + [d for d in inj_docs
-                            if bandit.loss(d['result'], d['spec']) < min_loss]
-        logger.info('TPE using %i orig trials plus %i of %i injected trials' % (
-            len(orig_docs), len(docs) - len(orig_docs), len(inj_docs)))
-
+        #docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
+        best_docs = dict()
+        best_docs_loss = dict()
+        for doc in trials.trials:
+            if doc['result']['status'] != STATUS_OK:
+                continue
+            # get either this docs own tid or the one that it's from
+            tid = doc['misc'].get('from_tid', doc['tid'])
+            loss = bandit.loss(doc['result'], doc['spec'])
+            best_docs_loss.setdefault(tid, loss)
+            if loss <= best_docs_loss[tid]:
+                best_docs[tid] = doc
+        docs = best_docs.values()
+        if docs:
+            logger.info('TPE using %i/%i trials with best loss %f' % (
+                len(docs), len(trials), min(best_docs_loss.values())))
+        else:
+            logger.info('TPE using 0 trials')
+ 
         tids = [d['tid'] for d in docs]
 
         #    Sample and compute log-probability.
