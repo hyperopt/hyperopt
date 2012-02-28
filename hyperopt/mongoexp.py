@@ -792,7 +792,6 @@ class MongoTrials(Trials):
         lid = doc.get('last_id', 0)
         return range(lid, lid + N)
 
-    @property
     def trial_attachments(self, trial):
         """
         Support syntax for load:  self.attachments[name]
@@ -815,7 +814,7 @@ class MongoTrials(Trials):
             def __setitem__(_self, name, value):
                 self.handle.set_attachment(
                     doc=trial,
-                    blob=valuee,
+                    blob=value,
                     name=name,
                     collection=self.handle.db.jobs)
 
