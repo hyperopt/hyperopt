@@ -429,34 +429,24 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
-    o_idxs, o_vals = map(np.asarray, [o_idxs, o_vals])
+    o_idxs, o_vals, l_idxs = map(np.asarray, [o_idxs, o_vals, l_idxs])
 
-    # o_loss: the loss for every observation in o_idxs 
-    loss_dict = dict(zip(l_idxs, l_vals))
-    o_loss = np.asarray([loss_dict[ii] for ii in o_idxs])
+    # XXX if this is working, refactor this sort for efficiency
 
     # Splitting is done this way to cope with duplicate loss values.
-    o_sort = np.argsort(o_loss)
-    loss_thresh_idx = int(np.ceil(gamma * len(o_sort)))
-
-    if len(o_sort):
-        aa = o_loss[o_sort[:loss_thresh_idx]].max()
-        bb = o_loss[o_sort[loss_thresh_idx:]].min()
-        #print 'TPE:OFT', loss_thresh_idx, aa, bb
-        assert aa <= bb
-    else:
-        return o_vals[[]]
+    n_below = int(np.ceil(gamma * len(l_vals)))
+    l_order = np.argsort(l_vals)
 
     if above_or_below == 'above_gamma':
-        keep = o_sort[loss_thresh_idx:]
+        keep_idxs = set(l_idxs[l_order[n_below:]])
     elif above_or_below == 'below_gamma':
-        keep = o_sort[:loss_thresh_idx]
+        keep_idxs = set(l_idxs[l_order[:n_below]])
     else:
         raise ValueError(above_or_below)
-    rval = o_vals[keep]
-    if rval.ndim != 1:
-        raise TypeError('messed up', (rval.ndim, o_vals, keep))
-    return rval
+
+    rval = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
+
+    return np.asarray(rval)
 
 
 def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
@@ -555,6 +545,8 @@ class TreeParzenEstimator(BanditAlgo):
 
     # -- fraction of trials to consider as good
     gamma = 0.22
+
+    n_startup_jobs = 25
 
     def __init__(self, bandit,
             gamma=gamma,
@@ -660,7 +652,7 @@ class TreeParzenEstimator(BanditAlgo):
         else:
             logger.info('TPE using 0 trials')
 
-        if len(docs) < 25:
+        if len(docs) < self.n_startup_jobs:
             return BanditAlgo.suggest(self, new_ids, trials)
  
         tids = [d['tid'] for d in docs]
