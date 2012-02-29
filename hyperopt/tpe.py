@@ -318,7 +318,7 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
-    weights[0] = prior_weight * np.sqrt(1 + len(mus))
+    weights[0] = prior_weight #* np.sqrt(1 + len(mus))
 
     #print weights.dtype
     weights = weights / weights.sum()
@@ -414,8 +414,7 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
     counts = scope.bincount(obs, minlength=upper)
     # -- add in some prior pseudocounts
-    prior = scope.sqrt(1 + scope.len(obs)) / upper
-    pseudocounts = counts + prior_weight * prior
+    pseudocounts = counts + prior_weight #* scope.sqrt(1 + scope.len(obs))
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             size=size, rng=rng)
 
@@ -538,13 +537,13 @@ class TreeParzenEstimator(BanditAlgo):
     # -- the prior takes a weight in the Parzen mixture
     #    that is the sqrt of the number of observations
     #    times this number.
-    prior_weight = 1.0
+    prior_weight = 2.0
 
     # -- suggest best of this many draws on every iteration
-    n_EI_candidates = 256
+    n_EI_candidates = 256 * 4
 
     # -- fraction of trials to consider as good
-    gamma = 0.22
+    gamma = 0.20
 
     n_startup_jobs = 25
 
@@ -653,6 +652,7 @@ class TreeParzenEstimator(BanditAlgo):
             logger.info('TPE using 0 trials')
 
         if len(docs) < self.n_startup_jobs:
+            # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
  
         tids = [d['tid'] for d in docs]
