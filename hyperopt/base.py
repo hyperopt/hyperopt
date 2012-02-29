@@ -894,7 +894,6 @@ class Experiment(object):
         """
         trials = self.trials
         algo = self.bandit_algo
-        bandit = algo.bandit
         n_queued = 0
 
         def get_queue_len():
