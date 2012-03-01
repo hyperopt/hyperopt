@@ -40,14 +40,14 @@ def idxs_map(idxs, cmd, *args, **kwargs):
 
     args_imap = []
     for idxs_j, vals_j in args:
-        if idxs_j:
-            args_imap.extend(dict(zip(idxs_j, vals_j)))
+        if len(idxs_j):
+            args_imap.append(dict(zip(idxs_j, vals_j)))
         else:
-            args_imap.extend({})
+            args_imap.append({})
 
     kwargs_imap = {}
     for kw, (idxs_j, vals_j) in kwargs.items():
-        if idxs_j:
+        if len(idxs_j):
             kwargs_imap[kw] = dict(zip(idxs_j, vals_j))
         else:
             kwargs_imap[kw] = {}
@@ -60,9 +60,8 @@ def idxs_map(idxs, cmd, *args, **kwargs):
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
-            ERR('idxs %s' % str(idxs))
-            ERR('idxs_j %s' % str(idxs_j))
-            ERR('vals_j %s' % str(vals_j))
+            ERR('arg_imap %s' % str(arg_imap))
+            ERR('args_imap %s' % str(args_imap))
             raise
         try:
             kwargs_nn = dict([(kw, arg_imap[ii])
@@ -71,9 +70,7 @@ def idxs_map(idxs, cmd, *args, **kwargs):
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
             ERR('kw %s' % kw)
-            ERR('idxs %s' % str(idxs))
-            ERR('idxs_j %s' % str(idxs_j))
-            ERR('vals_j %s' % str(vals_j))
+            ERR('arg_imap %s' % str(arg_imap))
             raise
         try:
             rval_nn = f(*args_nn, **kwargs_nn)
