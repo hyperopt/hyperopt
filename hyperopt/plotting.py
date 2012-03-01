@@ -148,7 +148,7 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
         dist_name = BA.name_by_nid[nid]
-        title = '%s (%s)' % (pretty_name, dist_name)
+        title = '%s (%s)' % (BA.doc_coords[nid], dist_name)
         x = idxs[nid]
         if 'log' in dist_name:
             y = np.log(vals[nid])
