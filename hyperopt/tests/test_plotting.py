@@ -12,7 +12,8 @@ import nose
 import matplotlib
 matplotlib.use('svg')  # -- prevents trying to connect to X server
 
-from hyperopt import Random, Experiment, Trials
+from hyperopt import Random, Experiment, Trials, TreeParzenEstimator
+from .test_tpe import ManyDists
 import hyperopt.bandits
 import hyperopt.plotting
 
@@ -23,12 +24,23 @@ def get_do_show():
 
 class TestPlotting(unittest.TestCase):
     def setUp(self):
-        bandit = hyperopt.bandits.GaussWave2()
-        algo = Random(bandit)
+        bandit = self.bandit = ManyDists()
+        #algo = Random(bandit)
+        algo = TreeParzenEstimator(bandit, linear_forgetting=True)
         trials = Trials()
         experiment = Experiment(trials, algo, async=False)
-        experiment.max_queue_len = 50
-        experiment.run(500)
+        experiment.max_queue_len = 1
+        N=200
+        if 0:
+            import cProfile
+            stats = cProfile.runctx('experiment.run(N)', globals={},
+                    locals=locals(), filename='fooprof')
+            import pstats
+            p = pstats.Stats('fooprof')
+            p.sort_stats('cumulative').print_stats(10)
+            p.sort_stats('time').print_stats(10)
+        else:
+            experiment.run(N)
         self.trials = trials
 
     def test_plot_history(self):
@@ -42,8 +54,8 @@ class TestPlotting(unittest.TestCase):
                 do_show=get_do_show())
 
     def test_plot_vars(self):
-        raise nose.SkipTest()
         hyperopt.plotting.main_plot_vars(
                 self.trials,
+                self.bandit,
                 do_show=get_do_show())
 
