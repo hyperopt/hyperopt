@@ -773,7 +773,7 @@ class BanditAlgo(object):
             if cnode.name == 'one_of':
                 choice_node = vh.choice_memo[cnode]
                 assert choice_node.name == 'randint'
-                doc_coords[vh.node_id[choice_node]] = pname + '.randint'
+                doc_coords[vh.node_id[choice_node]] = pname #+ '.randint'
             if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
                 doc_coords[vh.node_id[cnode]] = pname
             else:
