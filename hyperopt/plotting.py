@@ -14,8 +14,12 @@ import sys
 # -- don't import this here because it locks in the backend
 #    and we want the unittests to be able to set the backend
 ##import matplotlib.pyplot as plt
+import pyll
+
 import numpy as np
 from .base import Bandit
+from .base import BanditAlgo
+from .base import miscs_to_idxs_vals
 
 def algo_as_str(algo):
     if isinstance(algo, basestring):
@@ -93,40 +97,20 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
         plt.show()
 
 
-def main_plot_vars(trials, bandit=None, algo=None, do_show=True):
+def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
     import matplotlib.pyplot as plt
+
     if bandit is None:
-        bandit = Bandit(None)
+        bandit = Bandit({})
 
-    try:
-        flat_template = bandit.template.flatten()
-        flat_names = [n[1:] for n in bandit.template.flatten_names(prefix="")]
-    except:
-        # these are used for printing and labeling subplots
-        # the code above doesn't work with GenSON
-        # XXX
-        flat_template = [None] * 100
-        flat_names = ['name not found'] * 100
+    BA = BanditAlgo(bandit)
 
+    idxs, vals = miscs_to_idxs_vals(trials.miscs)
 
-    TBA_ids = set()
-    for db_idx in bandit_algo.db_idxs:
-        TBA_ids.update(db_idx)
-    trial_TBA_ids = set([t['_config_id'] for t in self.trials])
-    skip_ids = [t for t in TBA_ids if t not in trial_TBA_ids]
-    print 'Skipping %i jobs not in the official trials: %s' % (
-            len(skip_ids), str(skip_ids))
+    loss_min = min([y for y in trials.losses() if y is not None])
+    loss_max = max([y for y in trials.losses() if y is not None])
 
-    # at which point in `trials` was a given TBA_id inserted?
-    TBA_id_timestep = dict([(t['_config_id'], i) for i, t in enumerate(self.trials)])
-
-    results_by_TBA_id = dict([
-        (t['_config_id'], bandit.loss(r, config=t))
-        for (t, r) in zip(self.trials, self.results)
-        ])
-
-    loss_min = min([y for y in self.losses() if y is not None])
-    loss_max = max([y for y in self.losses() if y is not None])
+    loss_by_tid = dict(zip(trials.tids, trials.losses()))
 
     def color_fn(lossval):
         if lossval is None:
@@ -148,80 +132,34 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True):
             t = (lossval - loss_min) / (loss_max - loss_min + .0001)
             return (t, t, t)
 
+    all_nids = idxs.keys()
+    all_nids.sort()
+
     C = 5
-    R = int(np.ceil(len(bandit_algo.s_vals) / float(C)))
+    R = int(np.ceil(len(all_nids) / float(C)))
 
-    for ii, (s_val, db_idx, db_val, template_pos) in enumerate(zip(
-            bandit_algo.s_vals,
-            bandit_algo.db_idxs,
-            bandit_algo.db_vals,
-            bandit_algo.all_s_locs)):
-
+    for ii, nid in enumerate(all_nids):
         plt.subplot(R, C, ii + 1)
+        #print '-' * 80
+        #print 'Node', nid
 
         # hide x ticks
         ticks_num, ticks_txt = plt.xticks()
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
-        try:
-            dist_name = montetheano.rstreams.rv_dist_name(s_val)
-        except:
-            print >> sys.stderr, 'problem with', s_val
-            raise
-        if dist_name in ('lognormal', 'quantized_lognormal'):
-            if 0:
-                print '-----------'
-                print flat_names[template_pos]
-                print flat_template[template_pos]
-                print s_val
-                print db_idx
-                print db_val
-
-            results_ii = [results_by_TBA_id[i] for i in db_idx
-                    if i in trial_TBA_ids]
-            coords_ii = np.log([v for i, v in zip(db_idx, db_val)
-                    if i in trial_TBA_ids])
-            time_ii = [TBA_id_timestep[i] for i in db_idx
-                    if i in trial_TBA_ids]
-
-            plt.title(flat_names[template_pos], fontsize=10)
-            plt.scatter(time_ii, coords_ii,
-                    c=map(color_fn_bw, results_ii))
-        elif dist_name in ('categorical', 'uniform', 'normal'):
-            if 0:
-                print '-----------'
-                print flat_names[template_pos]
-                print flat_template[template_pos]
-                print s_val
-                print db_idx
-                print db_val
-
-            results_ii = [results_by_TBA_id[i] for i in db_idx
-                    if i in trial_TBA_ids]
-            coords_ii = [v for i, v in zip(db_idx, db_val)
-                    if i in trial_TBA_ids]
-            time_ii = [TBA_id_timestep[i] for i in db_idx
-                    if i in trial_TBA_ids]
-            plt.title(flat_names[template_pos], fontsize=10)
-            plt.scatter(time_ii, coords_ii,
-                    c=map(color_fn_bw, results_ii))
-
+        dist_name = BA.name_by_nid[nid]
+        title = '%s (%s)' % (pretty_name, dist_name)
+        x = idxs[nid]
+        if 'log' in dist_name:
+            y = np.log(vals[nid])
         else:
-            print '-----------'
-            print flat_names[template_pos]
-            print flat_template[template_pos]
-            print s_val
-            print db_idx
-            print db_val
-    if end_with_show:
+            y = vals[nid]
+        plt.title(title, fontsize=fontsize)
+        plt.scatter(x, y, c=map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]]))
+
+    if do_show:
         plt.show()
 
-if __name__ == '__main__':
-    cmd = sys.argv[1]
-    save_loc = sys.argv[2]
-    self = cPickle.load(open(save_loc, 'rb'))
-    fn = globals()['main_' + cmd]
-    sys.exit(fn(self, *sys.argv[3:]))
 
 
 if 0:
