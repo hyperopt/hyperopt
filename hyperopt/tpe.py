@@ -549,15 +549,20 @@ class TreeParzenEstimator(BanditAlgo):
 
     n_startup_jobs = 25
 
+    linear_forgetting = True
+
     def __init__(self, bandit,
             gamma=gamma,
             prior_weight=prior_weight,
             n_EI_candidates=n_EI_candidates,
+            linear_forgetting=linear_forgetting,
             **kwargs):
         BanditAlgo.__init__(self, bandit, **kwargs)
         self.gamma = gamma
         self.prior_weight = prior_weight
         self.n_EI_candidates = n_EI_candidates
+        self.linear_forgetting = linear_forgetting
+
         self.s_prior_weight = pyll.Literal(float(self.prior_weight))
 
         # -- these dummy values will be replaced in suggest1() and never used
@@ -656,7 +661,15 @@ class TreeParzenEstimator(BanditAlgo):
         if len(docs) < self.n_startup_jobs:
             # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
- 
+
+        if self.linear_forgetting:
+            pkeepdoc = (1.0 - np.arange(len(docs), dtype='float') / len(docs))[::-1]
+            keepdoc = self.rng.rand(len(docs)) < pkeepdoc
+            print pkeepdoc
+            print keepdoc
+            assert len(keepdoc) == len(docs)
+            docs = [d for k, d in zip(keepdoc, docs) if k]
+
         tids = [d['tid'] for d in docs]
 
         #    Sample and compute log-probability.
