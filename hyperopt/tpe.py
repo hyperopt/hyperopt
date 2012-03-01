@@ -517,6 +517,7 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
     assert len(set(full_idxs)) == len(full_idxs)
     full_idxs = list(full_idxs)
     rval = np.zeros(len(full_idxs))
+    pos_of_tid = dict(zip(full_idxs, range(len(full_idxs))))
     assert set(idxs_by_nid.keys()) == set(llik_by_nid.keys())
     for nid in idxs_by_nid:
         idxs = idxs_by_nid[nid]
@@ -525,7 +526,8 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
         assert len(set(idxs)) == len(idxs)
         assert len(idxs) == len(llik)
         for ii, ll in zip(idxs, llik):
-            rval[full_idxs.index(ii)] += ll
+            rval[pos_of_tid[ii]] += ll
+            #rval[full_idxs.index(ii)] += ll
     return rval
 
 
