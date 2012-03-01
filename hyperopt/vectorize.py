@@ -29,18 +29,34 @@ def vchoice_merge(idxs, choices, *vals):
         rval.append(vv[list(vi).index(idx)])
     return rval
 
-
 @scope.define
 def idxs_map(idxs, cmd, *args, **kwargs):
-    for ii, (idxs_ii, vals_ii) in enumerate(args):
-        for jj in idxs: assert jj in idxs_ii
-    for kw, (idxs_kw, vals_kw) in kwargs.items():
-        for jj in idxs: assert jj in idxs_kw
+
+    if 0: # these should all be true, but evaluating them is slow
+        for ii, (idxs_ii, vals_ii) in enumerate(args):
+            for jj in idxs: assert jj in idxs_ii
+        for kw, (idxs_kw, vals_kw) in kwargs.items():
+            for jj in idxs: assert jj in idxs_kw
+
+    args_imap = []
+    for idxs_j, vals_j in args:
+        if idxs_j:
+            args_imap.extend(dict(zip(idxs_j, vals_j)))
+        else:
+            args_imap.extend({})
+
+    kwargs_imap = {}
+    for kw, (idxs_j, vals_j) in kwargs.items():
+        if idxs_j:
+            kwargs_imap[kw] = dict(zip(idxs_j, vals_j))
+        else:
+            kwargs_imap[kw] = {}
+
     f = scope._impls[cmd]
     rval = []
     for ii in idxs:
         try:
-            args_nn = [vals_j[list(idxs_j).index(ii)] for (idxs_j, vals_j) in args]
+            args_nn = [arg_imap[ii] for arg_imap in args_imap]
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
@@ -49,8 +65,8 @@ def idxs_map(idxs, cmd, *args, **kwargs):
             ERR('vals_j %s' % str(vals_j))
             raise
         try:
-            kwargs_nn = dict([(kw, vals_j[list(idxs_j).index(ii)])
-                for kw, (idxs_j, vals_j) in kwargs.items()])
+            kwargs_nn = dict([(kw, arg_imap[ii])
+                for kw, arg_imap in kwargs_imap.items()])
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
@@ -199,8 +215,8 @@ class VectorizeHelper(object):
         return rval
 
     def vals_by_id(self):
-        rval = dict([(self.node_id[node], idxs)
-            for node, idxs in self.vals_memo.items()])
+        rval = dict([(self.node_id[node], vals)
+            for node, vals in self.vals_memo.items()])
         return rval
 
     def name_by_id(self):
