@@ -135,6 +135,8 @@ class VectorizeHelper(object):
         self.node_id = dict([(node, 'node_%i' % ii)
             for ii, node in enumerate(dfs(expr))])
 
+    # XXX: rename to idx_union or something, to avoid confusion with
+    #      theano's MergeOptimization
     def merge(self, idxs, node):
         if node in self.idxs_memo:
             other = self.idxs_memo[node]
