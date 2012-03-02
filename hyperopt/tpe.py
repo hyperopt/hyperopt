@@ -547,7 +547,7 @@ class TreeParzenEstimator(BanditAlgo):
     # -- fraction of trials to consider as good
     gamma = 0.20
 
-    n_startup_jobs = 25
+    n_startup_jobs = 10
 
     linear_forgetting = True
 
@@ -651,7 +651,9 @@ class TreeParzenEstimator(BanditAlgo):
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
                 best_docs[tid] = doc
-        docs = best_docs.values()
+        docs = best_docs.items()
+        docs.sort()
+        docs = [v for k, v in docs]
         if docs:
             logger.info('TPE using %i/%i trials with best loss %f' % (
                 len(docs), len(trials), min(best_docs_loss.values())))
@@ -662,11 +664,16 @@ class TreeParzenEstimator(BanditAlgo):
             # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
 
-        if self.linear_forgetting:
+        LF = 100
+        if self.linear_forgetting and len(docs) > LF:
+            
             pkeepdoc = (1.0 - np.arange(len(docs), dtype='float') / len(docs))[::-1]
+            if 1:
+                pkeepdoc *= len(docs) / float(len(docs) - LF)
+                assert np.all(pkeepdoc[-LF:] >= 1.0)
             keepdoc = self.rng.rand(len(docs)) < pkeepdoc
-            print pkeepdoc
-            print keepdoc
+            #print pkeepdoc
+            #print keepdoc
             assert len(keepdoc) == len(docs)
             docs = [d for k, d in zip(keepdoc, docs) if k]
 
