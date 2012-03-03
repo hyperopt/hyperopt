@@ -430,8 +430,8 @@ def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
 # Posterior clone performs symbolic inference on the pyll graph of priors.
 #
 
-@scope.define
-def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
+@scope.define_info(o_len=2)
+def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
@@ -443,20 +443,17 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, above_or_below):
     n_below = int(np.ceil(gamma * len(l_vals)))
     l_order = np.argsort(l_vals)
 
-    if above_or_below == 'above_gamma':
-        keep_idxs = set(l_idxs[l_order[n_below:]])
-    elif above_or_below == 'below_gamma':
-        keep_idxs = set(l_idxs[l_order[:n_below]])
-    else:
-        raise ValueError(above_or_below)
+    keep_idxs = set(l_idxs[l_order[:n_below]])
+    below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
 
-    rval = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
+    keep_idxs = set(l_idxs[l_order[n_below:]])
+    above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
 
-    return np.asarray(rval)
+    return np.asarray(below), np.asarray(above)
 
 
 def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
-        oloss_idxs, oloss_vals, oloss_gamma, above_or_below, prior_weight):
+        oloss_idxs, oloss_vals, oloss_gamma, prior_weight):
     """
     This method clones a posterior inference graph by iterating forward in
     topological order, and replacing prior random-variables (prior_vals) with
@@ -464,7 +461,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
     """
     assert all(isinstance(arg, pyll.Apply)
-            for arg in [oloss_idxs, oloss_vals, oloss_gamma, above_or_below])
+            for arg in [oloss_idxs, oloss_vals, oloss_gamma])
 
     expr = pyll.as_apply([specs, prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
@@ -473,24 +470,45 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
     memo = {}
     # map prior RVs to observations
     obs_memo = {}
+
     for nid in prior_vals:
         # construct the leading args for each call to adaptive_parzen_sampler
         # which will permit the "adaptive parzen samplers" to adapt to the
         # correct samples.
-        obs = scope.ap_filter_trials(obs_idxs[nid], obs_vals[nid],
-            oloss_idxs, oloss_vals, oloss_gamma, above_or_below)
-        obs_memo[prior_vals[nid]] = [obs, prior_weight]
+        obs_below, obs_above = scope.ap_filter_trials(
+                obs_idxs[nid], obs_vals[nid],
+                oloss_idxs, oloss_vals, oloss_gamma)
+        obs_memo[prior_vals[nid]] = [obs_below, obs_above]
     for node in nodes:
         if node not in memo:
             new_inputs = [memo[arg] for arg in node.inputs()]
             if node in obs_memo:
                 # -- this case corresponds to an observed Random Var
                 # node.name is a distribution like "normal", "randint", etc.
+                obs_below, obs_above = obs_memo[node]
+                aa = [memo[a] for a in node.pos_args]
                 fn = adaptive_parzen_samplers[node.name]
-                args = obs_memo[node] + [memo[a] for a in node.pos_args]
+                b_args = [obs_below, prior_weight] + aa
                 named_args = [[kw, memo[arg]]
                         for (kw, arg) in node.named_args]
-                new_node = fn(*args, **dict(named_args))
+                b_post = fn(*b_args, **dict(named_args))
+                a_args = [obs_above, prior_weight] + aa
+                a_post = fn(*a_args, **dict(named_args))
+
+                assert a_post.name == b_post.name
+                fn_lpdf = getattr(scope, a_post.name + '_lpdf')
+                a_kwargs = dict([(n, a) for n, a in a_post.named_args
+                            if n not in ('rng', 'size')])
+                b_kwargs = dict([(n, a) for n, a in b_post.named_args
+                            if n not in ('rng', 'size')])
+
+                # calculate the llik of b_post under both distributions
+                below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
+                above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
+
+                improvement = below_llik - above_llik
+
+                new_node = scope.broadcast_best(b_post, improvement)
             elif hasattr(node, 'obj'):
                 # -- keep same literals in the graph
                 new_node = node
@@ -537,6 +555,16 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
             #rval[full_idxs.index(ii)] += ll
     return rval
 
+@scope.define
+def broadcast_best(samples, score):
+    if len(samples) != len(score):
+        raise ValueError()
+    if len(samples):
+        best = np.argmax(score)
+        return [samples[best]] * len(samples)
+    else:
+        return []
+
 
 class TreeParzenEstimator(BanditAlgo):
     """
@@ -546,17 +574,17 @@ class TreeParzenEstimator(BanditAlgo):
     # -- the prior takes a weight in the Parzen mixture
     #    that is the sqrt of the number of observations
     #    times this number.
-    prior_weight = 2.0
+    prior_weight = 0.5
 
     # -- suggest best of this many draws on every iteration
-    n_EI_candidates = 256 * 4
+    n_EI_candidates = 128
 
     # -- fraction of trials to consider as good
     gamma = 0.20
 
     n_startup_jobs = 10
 
-    linear_forgetting = True
+    linear_forgetting = 20
 
     def __init__(self, bandit,
             gamma=gamma,
@@ -580,26 +608,6 @@ class TreeParzenEstimator(BanditAlgo):
                 idxs=pyll.Literal(),
                 vals=pyll.Literal())
 
-        self.post_above = self.init_posterior('above_gamma')
-        self.post_below = self.init_posterior('below_gamma')
-
-        # -- llik of RVs from the below dist under the above dist
-        self.post_above['llik'] = self.llik(self.post_below, self.post_above)
-        # -- llik of RVs from the below dist under the below dist
-        self.post_below['llik'] = self.llik(self.post_below, self.post_below)
-
-        if 0:
-            print 'PRIOR IDXS_BY_NID'
-            for k, v in self.idxs_by_nid.items():
-                print k
-                print v
-
-            print 'PRIOR VALS_BY_NID'
-            for k, v in self.vals_by_nid.items():
-                print k
-                print v
-
-    def init_posterior(self, rel_to_gamma):
         specs, idxs, vals = build_posterior(
                 self.vtemplate,    # vectorized clone of bandit template
                 self.idxs_by_nid,  # this dict and next represent prior distributions
@@ -609,28 +617,16 @@ class TreeParzenEstimator(BanditAlgo):
                 self.observed_loss['idxs'],
                 self.observed_loss['vals'],
                 pyll.Literal(self.gamma),
-                pyll.Literal(rel_to_gamma),
                 self.s_prior_weight
                 )
-        return dict(specs=specs, idxs=idxs, vals=vals)
-
-    def llik(self, obs, density):
-        """Add log-likelihood functions for the values"""
-        llik = {}
-        assert set(obs.keys()) == set(density.keys())
-        for nid in obs['vals']:
-            dvals = density['vals'][nid]
-            lpdf_fn = getattr(scope, dvals.name + '_lpdf')
-            args = [obs['vals'][nid]] + dvals.pos_args
-            kwargs = dict([(n, a) for n, a in dvals.named_args
-                        if n not in ('rng', 'size')])
-            llik[nid] = lpdf_fn(*args, **kwargs)
-        rval = scope.idxs_prod(self.s_new_ids, obs['idxs'], llik)
-        return rval
+        self.opt_specs = specs
+        self.opt_idxs = idxs
+        self.opt_vals = vals
 
     def suggest(self, new_ids, trials):
         if len(new_ids) > 1:
             # write a loop to draw new points sequentially
+            # TODO: insert constant liar for tentative suggestions
             raise NotImplementedError()
         else:
             return self.suggest1(new_ids, trials)
@@ -659,6 +655,8 @@ class TreeParzenEstimator(BanditAlgo):
             if loss <= best_docs_loss[tid]:
                 best_docs[tid] = doc
         docs = best_docs.items()
+        # -- sort docs by order of suggestion 
+        #    so that linear_forgetting removes the oldest ones
         docs.sort()
         docs = [v for k, v in docs]
         if docs:
@@ -671,13 +669,12 @@ class TreeParzenEstimator(BanditAlgo):
             # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
 
-        LF = 100
-        if self.linear_forgetting and len(docs) > LF:
+        if self.linear_forgetting and len(docs) > self.linear_forgetting:
+            LF = self.linear_forgetting
             
             pkeepdoc = (1.0 - np.arange(len(docs), dtype='float') / len(docs))[::-1]
-            if 1:
-                pkeepdoc *= len(docs) / float(len(docs) - LF)
-                assert np.all(pkeepdoc[-LF:] >= 1.0)
+            pkeepdoc *= len(docs) / float(len(docs) - LF)
+            assert np.all(pkeepdoc[-LF:] >= 1.0)
             keepdoc = self.rng.rand(len(docs)) < pkeepdoc
             #print pkeepdoc
             #print keepdoc
@@ -709,46 +706,24 @@ class TreeParzenEstimator(BanditAlgo):
         memo[self.observed_loss['vals']] = \
                 [bandit.loss(d['result'], d['spec']) for d in docs]
 
-        R = pyll.rec_eval(
-                dict(
-                    specs=self.post_below['specs'],
-                    above_llik=self.post_above['llik'],
-                    below_llik=self.post_below['llik'],
-                    idxs=self.post_below['idxs'],
-                    vals=self.post_below['vals'],
-                    ),
+        specs, idxs, vals = pyll.rec_eval(
+                [self.opt_specs, self.opt_idxs, self.opt_vals],
                 memo=memo)
 
-        for k in 'specs', 'above_llik', 'below_llik':
-            assert len(R[k]) == self.n_EI_candidates
-
         # -- retrieve the best of the samples and form the return tuple
-        llik_diff = R['below_llik'] - R['above_llik']
-        winning_pos = np.argmax(llik_diff)
-        winning_fake_id = winning_pos + fake_ids[0]
+        # the build_posterior makes all specs the same
+        assert all(specs[0] == s for s in specs[1:])
 
-        rval_specs = [R['specs'][winning_pos]]
+        rval_specs = specs[:1]
         rval_results = [bandit.new_result()]
         rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
 
-        miscs_update_idxs_vals(rval_miscs, R['idxs'], R['vals'],
-                idxs_map={winning_fake_id: new_id},
+        miscs_update_idxs_vals(rval_miscs, idxs, vals,
+                idxs_map={fake_ids[0]: new_id},
                 assert_all_vals_used=False)
         rval_docs = trials.new_trial_docs(new_ids,
                 rval_specs, rval_results, rval_miscs)
 
-        if 0:
-            foo = np.argsort(llik_diff)
-            for j in range(self.n_EI_candidates):
-                i = foo[j]
-                print '%i\tx=%f\tll=(%f)-(%f)=%f' % (
-                        i, R['specs'][i]['x'],
-                        R['below_llik'][i],
-                        R['above_llik'][i],
-                        llik_diff[i],
-                        )
-
-                print 'SUGGESTION', rval_docs[0]
         return rval_docs
 
 
