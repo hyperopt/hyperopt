@@ -96,7 +96,14 @@ def normal_cdf(x, mu, sigma):
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples, weights, mus, sigmas = map(np.asarray,
             (samples, weights, mus, sigmas))
-    assert weights.ndim == mus.ndim == sigmas.ndim == 1
+    if samples.size == 0:
+        return np.asarray([])
+    if weights.ndim != 1:
+        raise TypeError('need vector of weights', weights.shape)
+    if mus.ndim != 1:
+        raise TypeError('need vector of mus', mus.shape)
+    if sigmas.ndim != 1:
+        raise TypeError('need vector of sigmas', sigmas.shape)
     assert len(weights) == len(mus) == len(sigmas)
     _samples = samples
     samples = _samples.flatten()
