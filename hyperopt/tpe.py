@@ -144,6 +144,8 @@ def lognormal_cdf(x, mu, sigma):
     # the maximum is used to move negative values and 0 up to a point
     # where they do not cause nan or inf, but also don't contribute much
     # to the cdf.
+    if len(x) == 0:
+        return np.asarray([])
     if x.min() < 0:
         raise ValueError('negative arg to lognormal_cdf', x)
     olderr = np.seterr(divide='ignore')
@@ -653,6 +655,7 @@ class TreeParzenEstimator(BanditAlgo):
             loss = bandit.loss(doc['result'], doc['spec'])
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
+                best_docs_loss[tid] = loss
                 best_docs[tid] = doc
         docs = best_docs.items()
         # -- sort docs by order of suggestion 
