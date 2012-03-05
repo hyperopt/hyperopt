@@ -682,3 +682,75 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         assert min(trials.losses()) < thresh
 
 
+class QU(hyperopt.bandits.Base):
+    loss_target = 0
+
+    def __init__(self, N, f):
+        hyperopt.bandits.Base.__init__(self, dict(
+            us=[f(0, 1) for i in range(N)]))
+
+    def score(self, config):
+        rval = - (np.asarray(config['us']) ** 2).sum()
+        print 'SCORE: ', rval
+        return rval
+
+def test_opt_qn_uniform():
+    test_opt_qn_normal(scope.uniform)
+
+def test_opt_qn_normal(f=scope.normal):
+    bandit = QU(25, f=f)
+    algo = TreeParzenEstimator(bandit,
+            prior_weight=.5,
+            linear_forgetting=0,
+            n_startup_jobs=0,
+            n_EI_candidates=1,
+            gamma=0.15)
+    trials = Trials()
+    experiment = Experiment(trials, algo, async=False)
+    experiment.max_queue_len = 1
+    experiment.run(40)
+    print list(sorted(trials.losses()))
+    import hyperopt
+
+    idxs, vals = hyperopt.base.miscs_to_idxs_vals(trials.miscs)
+
+    if 1:
+        import hyperopt.plotting
+        hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
+    else:
+        import matplotlib.pyplot as plt
+        begin =  [v[:10] for k, v in vals.items()]
+        end   =  [v[-10:] for k, v in vals.items()]
+        plt.subplot(2, 1, 1)
+        plt.title('before')
+        plt.hist(np.asarray(begin).flatten())
+        plt.subplot(2, 1, 2)
+        plt.title('after')
+        plt.hist(np.asarray(end).flatten())
+        plt.show()
+
+
+def test_opt_what_happened():
+
+    vals = [3, 9, 3, 9,
+            1, 1, 1, 1,
+            1, 1, 1, 1,
+            #1, 10, 10, 10,
+            #10, 10,
+            ]
+    idxs = range(len(vals))
+    losses = [.4, .45, .35, .41,
+            .5, .43, .44, .48,
+            .46, .48, .45, .48,]
+
+    from hyperopt.tpe import ap_filter_trials
+    ap_filter_trials
+
+    import matplotlib.pyplot as plt
+    plt.subplot(2, 1, 1)
+    plt.scatter(range(len(Ys)), Xs)
+    plt.subplot(2, 1, 2)
+    plt.scatter(range(len(Xs)), Ys)
+    plt.show()
+
+
