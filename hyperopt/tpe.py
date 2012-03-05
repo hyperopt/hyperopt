@@ -755,11 +755,11 @@ class TreeParzenEstimator(BanditAlgo):
         best_docs = dict()
         best_docs_loss = dict()
         for doc in trials.trials:
-            if doc['result']['status'] != STATUS_OK:
-                continue
             # get either this docs own tid or the one that it's from
             tid = doc['misc'].get('from_tid', doc['tid'])
             loss = bandit.loss(doc['result'], doc['spec'])
+            if loss is None:
+                loss = float('inf')
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
                 best_docs_loss[tid] = loss
