@@ -94,6 +94,7 @@ def normal_cdf(x, mu, sigma):
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
+    verbose = 0
     samples, weights, mus, sigmas = map(np.asarray,
             (samples, weights, mus, sigmas))
     if samples.size == 0:
@@ -107,6 +108,15 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     assert len(weights) == len(mus) == len(sigmas)
     _samples = samples
     samples = _samples.flatten()
+
+    if verbose:
+        print 'GMM1_lpdf:samples', set(samples)
+        print 'GMM1_lpdf:weights', weights
+        print 'GMM1_lpdf:mus', mus
+        print 'GMM1_lpdf:sigmas', sigmas
+        print 'GMM1_lpdf:low', low
+        print 'GMM1_lpdf:high', high
+        print 'GMM1_lpdf:q', q
 
     if low is None and high is None:
         p_accept = 1
@@ -129,6 +139,9 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
             prob += w * normal_cdf(samples, mu, sigma)
             prob -= w * normal_cdf(samples - q, mu, sigma)
         rval = np.log(prob) - np.log(p_accept)
+
+    if verbose:
+        print 'GMM1_lpdf:rval:', dict(zip(samples, rval))
 
     rval.shape = _samples.shape
     return rval
@@ -261,7 +274,7 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
 #
 
 @scope.define_info(o_len=3)
-def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
+def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     """
     A heuristic estimator for the mu and sigma values of a GMM
     TODO: try to find this heuristic in the literature, and cite it - Yoshua
@@ -338,6 +351,91 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma):
 
     return weights, mus, sigma
 
+# XXX: make TPE do a post-inference pass over the pyll graph and insert
+# non-default LF argument
+@scope.define_info(o_len=3)
+def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=1):
+    """
+    mus - matrix (N, M) of M, N-dimensional component centers
+    """
+    mus_orig = np.array(mus)
+    mus = np.array(mus)
+    assert str(mus.dtype) != 'object'
+    # XXX: I think prior_mu arrives a list whose length matches the number of
+    # new_ids that we're drawing for. VectorizeHelper is the cause, not sure
+    # what's the solution.
+    if hasattr(prior_mu, '__iter__'):
+        prior_mu, = prior_mu
+    if hasattr(prior_sigma, '__iter__'):
+        prior_sigma, = prior_sigma
+
+    if mus.ndim != 1:
+        raise TypeError('mus must be vector', mus)
+    if len(mus) == 0:
+        srtd_mus = np.asarray([prior_mu])
+        sigma = np.asarray([prior_sigma])
+        prior_pos = 0
+    elif len(mus) == 1:
+        if prior_mu < mus[0]:
+            prior_pos = 0
+            srtd_mus = np.asarray([prior_mu, mus[0]])
+            sigma = np.asarray([prior_sigma, prior_sigma * .5])
+        else:
+            prior_pos = 1
+            srtd_mus = np.asarray([mus[0], prior_mu])
+            sigma = np.asarray([prior_sigma * .5, prior_sigma])
+    elif len(mus) >= 2:
+
+        # create new_mus, which is sorted, and in which
+        # the prior has been inserted
+        order = np.argsort(mus)
+        prior_pos = np.searchsorted(mus[order], prior_mu)
+        srtd_mus = np.zeros(len(mus) + 1)
+        srtd_mus[:prior_pos] = mus[order[:prior_pos]]
+        srtd_mus[prior_pos] = prior_mu
+        srtd_mus[prior_pos + 1:] = mus[order[prior_pos:]]
+        sigma = np.zeros_like(srtd_mus)
+        sigma[1:-1] = np.maximum(
+                srtd_mus[1:-1] - srtd_mus[0:-2],
+                srtd_mus[2:] - srtd_mus[1:-1])
+        lsigma = srtd_mus[1] - srtd_mus[0]
+        usigma = srtd_mus[-1] - srtd_mus[-2]
+        sigma[0] = lsigma
+        sigma[-1] = usigma
+
+
+    # -- magic formula:
+    maxsigma = prior_sigma / np.sqrt(len(srtd_mus))
+    minsigma = prior_sigma / float(len(srtd_mus))
+
+    #print 'maxsigma, minsigma', maxsigma, minsigma
+    sigma = np.clip(sigma, minsigma, maxsigma)
+
+    sigma[prior_pos] = prior_sigma
+
+    if LF and LF < len(mus):
+        assert LF > 0
+        ramplen = len(mus) - LF
+        ramp = np.linspace(1.0 / len(mus), 1.0, num=ramplen)
+        flat = np.ones(LF)
+        unsrtd_weights = np.concatenate((ramp, flat), axis=0)
+        srtd_weights = np.zeros_like(srtd_mus)
+        assert len(unsrtd_weights) + 1 == len(srtd_mus)
+        srtd_weights[:prior_pos] = unsrtd_weights[order[:prior_pos]]
+        srtd_weights[prior_pos] = prior_weight
+        srtd_weights[prior_pos + 1:] = unsrtd_weights[order[prior_pos:]]
+    else:
+        srtd_weights = np.ones(len(srtd_mus))
+        srtd_weights[prior_pos] = prior_weight
+
+    #print weights.dtype
+    srtd_weights /= srtd_weights.sum()
+    if 0:
+        print 'WEIGHTS', srtd_weights
+        print 'MUS', srtd_mus
+        print 'SIGMA', sigma
+
+    return srtd_weights, srtd_mus, sigma
 
 #
 # Adaptive Parzen Samplers
@@ -451,6 +549,9 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma):
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
 
+    #print 'AA0', below
+    #print 'AA1', above
+
     return np.asarray(below), np.asarray(above)
 
 
@@ -499,6 +600,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
                 assert a_post.name == b_post.name
                 fn_lpdf = getattr(scope, a_post.name + '_lpdf')
+                #print fn_lpdf
                 a_kwargs = dict([(n, a) for n, a in a_post.named_args
                             if n not in ('rng', 'size')])
                 b_kwargs = dict([(n, a) for n, a in b_post.named_args
@@ -510,7 +612,8 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
                 improvement = below_llik - above_llik
 
-                new_node = scope.broadcast_best(b_post, improvement)
+                #new_node = scope.broadcast_best(b_post, improvement)
+                new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, 'obj'):
                 # -- keep same literals in the graph
                 new_node = node
@@ -558,10 +661,12 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
     return rval
 
 @scope.define
-def broadcast_best(samples, score):
-    if len(samples) != len(score):
-        raise ValueError()
+def broadcast_best(samples, below_llik, above_llik):
     if len(samples):
+        #print 'AA2', dict(zip(samples, below_llik - above_llik))
+        score = below_llik - above_llik
+        if len(samples) != len(score):
+            raise ValueError()
         best = np.argmax(score)
         return [samples[best]] * len(samples)
     else:

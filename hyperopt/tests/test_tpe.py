@@ -1,4 +1,6 @@
 import unittest
+import os
+
 import nose
 
 import numpy as np
@@ -22,6 +24,7 @@ from hyperopt.bandits import Distractor
 from hyperopt.bandits import GaussWave
 from hyperopt.bandits import GaussWave2
 
+from hyperopt.tpe import adaptive_parzen_normal_orig
 from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
@@ -29,6 +32,8 @@ from hyperopt.tpe import GMM1_lpdf
 from hyperopt.tpe import LGMM1
 from hyperopt.tpe import LGMM1_lpdf
 
+
+DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
 class ManyDists(hyperopt.bandits.Base):
     loss_target = 0
@@ -51,14 +56,14 @@ class ManyDists(hyperopt.bandits.Base):
         return - float(np.log(1e-12 + np.sum(config.values()) ** 2))
 
 
-def test_adaptive_parzen_normal():
+def test_adaptive_parzen_normal_orig():
     rng = np.random.RandomState(123)
 
     prior_mu = 7
     prior_sigma = 2
     mus = rng.randn(10) + 5
 
-    weights2, mus2, sigmas2 = adaptive_parzen_normal(
+    weights2, mus2, sigmas2 = adaptive_parzen_normal_orig(
             mus, 3.3, prior_mu, prior_sigma)
 
     print weights2
@@ -274,7 +279,7 @@ class TestQGMM1Math(unittest.TestCase):
         self.low = None
         self.high = None
         self.n_samples = 1001
-        self.show = False
+        self.show = False  # or put a string
         # -- triggers error if test case forgets to call work()
         self.worked = False
 
@@ -296,6 +301,7 @@ class TestQGMM1Math(unittest.TestCase):
         samples = GMM1(rng=self.rng,
                 size=(self.n_samples,),
                 **gkwargs) / self.q
+        print 'drew', len(samples), 'samples'
         assert np.all(samples == samples.astype('int'))
         min_max = int(samples.min()), int(samples.max())
         counts = np.bincount(samples.astype('int') - min_max[0])
@@ -308,8 +314,10 @@ class TestQGMM1Math(unittest.TestCase):
 
         if self.show:
             import matplotlib.pyplot as plt
-            plt.scatter(xcoords, y, c='r')
-            plt.scatter(xcoords, prob, c='b')
+            plt.scatter(xcoords, y, c='r', label='empirical')
+            plt.scatter(xcoords, prob, c='b', label='predicted')
+            plt.legend()
+            plt.title(str(self.show))
             plt.show()
         err = (prob - y) ** 2
         print np.max(err)
@@ -340,6 +348,30 @@ class TestQGMM1Math(unittest.TestCase):
 
     def test_bounded_2b(self):
         self.work(q=2, low=1, high=4.1)
+
+    def test_bounded_3(self):
+        self.work(
+                weights=[0.14285714, 0.28571429, 0.28571429, 0.28571429],
+                mus=[5.505, 7., 2., 10.],
+                sigmas=[8.99, 5., 8., 8.],
+                q=1,
+                low=1.01,
+                high=10,
+                n_samples=10000,
+                #show='bounded_3',
+                )
+
+    def test_bounded_3b(self):
+        self.work(
+                weights=[0.33333333,  0.66666667],
+                mus=[5.505, 5.],
+                sigmas=[8.99, 5.19],
+                q=1,
+                low=1.01,
+                high=10,
+                n_samples=10000,
+                #show='bounded_3b',
+                )
 
 
 class TestLGMM1Math(unittest.TestCase):
@@ -729,28 +761,129 @@ def test_opt_qn_normal(f=scope.normal):
         plt.hist(np.asarray(end).flatten())
         plt.show()
 
+class TestOptQUniform():
+    class Bandit(hyperopt.bandits.Base):
+        loss_target = 0
 
-def test_opt_what_happened():
+        def __init__(self, target, rng):
+            hyperopt.bandits.Base.__init__(self, dict(
+                x=scope.quniform(1.01, 10, 1)))
+            self.target = target
+            self.rng = rng
 
-    vals = [3, 9, 3, 9,
-            1, 1, 1, 1,
-            1, 1, 1, 1,
-            #1, 10, 10, 10,
-            #10, 10,
-            ]
-    idxs = range(len(vals))
-    losses = [.4, .45, .35, .41,
-            .5, .43, .44, .48,
-            .46, .48, .45, .48,]
+        def score(self, config):
+            rval = - (config['x'] - self.target) ** 2 + self.rng.randn()
+            print config['x'], rval
+            return rval
 
-    from hyperopt.tpe import ap_filter_trials
-    ap_filter_trials
+    show_steps = False
+    show_vars = DO_SHOW
+    LEN=25
 
-    import matplotlib.pyplot as plt
-    plt.subplot(2, 1, 1)
-    plt.scatter(range(len(Ys)), Xs)
-    plt.subplot(2, 1, 2)
-    plt.scatter(range(len(Xs)), Ys)
-    plt.show()
+    def work(self, **kwargs):
+        self.__dict__.update(kwargs)
+        bandit = TestOptQUniform.Bandit(
+                self.target,
+                np.random.RandomState(3))
+
+        prior_weight = 2.5
+        gamma=0.20
+        algo = TreeParzenEstimator(bandit,
+                prior_weight=prior_weight,
+                linear_forgetting=0,
+                n_startup_jobs=2,
+                n_EI_candidates=128,
+                gamma=gamma)
+        trials = Trials()
+        experiment = Experiment(trials, algo)
+        experiment.run(self.LEN)
+        if self.show_vars:
+            import hyperopt.plotting
+            hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
+
+        idxs, vals = hyperopt.base.miscs_to_idxs_vals(trials.miscs)
+        idxs = idxs['node_3']
+        vals = vals['node_3']
+        print "VALS", vals
+
+        losses = trials.losses()
+
+        from hyperopt.tpe import ap_filter_trials
+        from hyperopt.tpe import adaptive_parzen_samplers
+
+        qu = scope.quniform(1.01, 10, 1)
+        fn = adaptive_parzen_samplers['quniform']
+        fn_kwargs = dict(size=(4,), rng=np.random)
+        s_below = pyll.Literal()
+        s_above = pyll.Literal()
+        b_args = [s_below, prior_weight] + qu.pos_args
+        b_post = fn(*b_args, **fn_kwargs)
+        a_args = [s_above, prior_weight] + qu.pos_args
+        a_post = fn(*a_args, **fn_kwargs)
+
+        #print b_post
+        #print a_post
+        fn_lpdf = getattr(scope, a_post.name + '_lpdf')
+        print fn_lpdf
+        # calculate the llik of b_post under both distributions
+        a_kwargs = dict([(n, a) for n, a in a_post.named_args
+                    if n not in ('rng', 'size')])
+        b_kwargs = dict([(n, a) for n, a in b_post.named_args
+                    if n not in ('rng', 'size')])
+        below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
+        above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
+        new_node = scope.broadcast_best(b_post, below_llik, above_llik)
+
+        print '=' * 80
+
+        do_show = self.show_steps
 
 
+        import matplotlib.pyplot as plt
+        for ii in range(2, 9):
+            if ii > len(idxs):
+                break
+            print '-' * 80
+            print 'ROUND', ii
+            print '-' * 80
+            all_vals = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+            below, above = ap_filter_trials(idxs[:ii], vals[:ii], idxs[:ii], losses[:ii],
+                    gamma)
+            below = below.astype('int')
+            above = above.astype('int')
+            print 'BB0', below
+            print 'BB1', above
+            #print 'BELOW',  zip(range(100), np.bincount(below, minlength=11))
+            #print 'ABOVE',  zip(range(100), np.bincount(above, minlength=11))
+            memo = {b_post: all_vals, s_below: below, s_above: above}
+            bl, al, nv = pyll.rec_eval([below_llik, above_llik, new_node], memo=memo)
+            #print bl - al
+            print 'BB2', dict(zip(all_vals, bl - al))
+            print 'BB3', dict(zip(all_vals, bl))
+            print 'BB4', dict(zip(all_vals, al))
+            print 'ORIG PICKED', vals[ii]
+            print 'PROPER OPT PICKS:', nv
+
+            #assert np.allclose(below, [3, 3, 9])
+            #assert len(below) + len(above) == len(vals)
+
+            if do_show:
+                plt.subplot(8, 1, ii)
+                #plt.scatter(all_vals, np.bincount(below, minlength=11)[2:], c='b')
+                #plt.scatter(all_vals, np.bincount(above, minlength=11)[2:], c='c')
+                plt.scatter(all_vals, bl, c='g')
+                plt.scatter(all_vals, al, c='r')
+        if do_show:
+            plt.show()
+
+    def test4(self):
+        self.work(target=4, LEN=100)
+
+    def test2(self):
+        self.work(target=2, LEN=100)
+
+    def test6(self):
+        self.work(target=6, LEN=100)
+
+    def test10(self):
+        self.work(target=10, LEN=100)
