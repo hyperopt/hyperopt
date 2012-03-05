@@ -592,12 +592,14 @@ class TreeParzenEstimator(BanditAlgo):
             gamma=gamma,
             prior_weight=prior_weight,
             n_EI_candidates=n_EI_candidates,
+            n_startup_jobs=n_startup_jobs,
             linear_forgetting=linear_forgetting,
             **kwargs):
         BanditAlgo.__init__(self, bandit, **kwargs)
         self.gamma = gamma
         self.prior_weight = prior_weight
         self.n_EI_candidates = n_EI_candidates
+        self.n_startup_jobs = n_startup_jobs
         self.linear_forgetting = linear_forgetting
 
         self.s_prior_weight = pyll.Literal(float(self.prior_weight))
