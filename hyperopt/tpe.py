@@ -60,7 +60,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
     weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
     assert len(weights) == len(mus) == len(sigmas)
     n_samples = np.prod(size)
-    n_components = len(weights)
+    #n_components = len(weights)
     if low is None and high is None:
         # -- draw from a standard GMM
         active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
@@ -125,6 +125,11 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
                 weights * (
                     normal_cdf(high, mus, sigmas)
                     - normal_cdf(low, mus, sigmas)))
+
+    #
+    # XXX: Should the ceil be changed to a round() so that
+    #      samples are the modes of the GMM components they become?
+    #
 
     if q is None:
         dist = samples[:, None] - mus
@@ -261,6 +266,8 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         # compute the lpdf of each sample under each component
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
+            # XXX move the mus down to compensate for the ceil, but move#
+            #     them by an amount that reflects the log-scaling
             prob += w * lognormal_cdf(samples, mu, sigma)
             prob -= w * lognormal_cdf(samples - q, mu, sigma)
         rval = np.log(prob) - np.log(p_accept)
