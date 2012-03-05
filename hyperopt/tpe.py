@@ -786,18 +786,6 @@ class TreeParzenEstimator(BanditAlgo):
             # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
 
-        if self.linear_forgetting and len(docs) > self.linear_forgetting:
-            LF = self.linear_forgetting
-            
-            pkeepdoc = (1.0 - np.arange(len(docs), dtype='float') / len(docs))[::-1]
-            pkeepdoc *= len(docs) / float(len(docs) - LF)
-            assert np.all(pkeepdoc[-LF:] >= 1.0)
-            keepdoc = self.rng.rand(len(docs)) < pkeepdoc
-            #print pkeepdoc
-            #print keepdoc
-            assert len(keepdoc) == len(docs)
-            docs = [d for k, d in zip(keepdoc, docs) if k]
-
         tids = [d['tid'] for d in docs]
 
         #    Sample and compute log-probability.
