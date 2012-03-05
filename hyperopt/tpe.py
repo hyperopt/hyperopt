@@ -688,7 +688,7 @@ class TreeParzenEstimator(BanditAlgo):
     # -- the prior takes a weight in the Parzen mixture
     #    that is the sqrt of the number of observations
     #    times this number.
-    prior_weight = 0.5
+    prior_weight = 2.5
 
     # -- suggest best of this many draws on every iteration
     n_EI_candidates = 128
