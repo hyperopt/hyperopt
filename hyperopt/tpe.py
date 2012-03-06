@@ -361,11 +361,11 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
 @scope.define_info(o_len=3)
-def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=1):
+def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
     """
     mus - matrix (N, M) of M, N-dimensional component centers
     """
-    mus_orig = np.array(mus)
+    #mus_orig = np.array(mus)
     mus = np.array(mus)
     assert str(mus.dtype) != 'object'
     # XXX: I think prior_mu arrives a list whose length matches the number of
