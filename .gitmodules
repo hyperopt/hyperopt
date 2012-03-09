@@ -1,0 +1,3 @@
+[submodule "external/pyll"]
+	path = external/pyll
+	url = git@github.com:jaberg/pyll.git
