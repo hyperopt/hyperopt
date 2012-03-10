@@ -691,14 +691,14 @@ class TreeParzenEstimator(BanditAlgo):
     prior_weight = 2.5
 
     # -- suggest best of this many draws on every iteration
-    n_EI_candidates = 128
+    n_EI_candidates = 24
 
     # -- fraction of trials to consider as good
-    gamma = 0.20
+    gamma = 0.15
 
     n_startup_jobs = 10
 
-    linear_forgetting = 20
+    linear_forgetting = 50
 
     def __init__(self, bandit,
             gamma=gamma,
