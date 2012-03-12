@@ -85,7 +85,8 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
     if q is None:
         return samples
     else:
-        return np.ceil(samples / q) * q
+        return np.round(samples / q) * q
+
 
 @scope.define
 def normal_cdf(x, mu, sigma):
@@ -139,8 +140,18 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     else:
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
-            prob += w * normal_cdf(samples, mu, sigma)
-            prob -= w * normal_cdf(samples - q, mu, sigma)
+            if high is None:
+                ubound = samples + q / 2.0
+            else:
+                ubound = np.minimum(samples + q / 2.0, high)
+            if low is None:
+                lbound = samples - q / 2.0
+            else:
+                lbound = np.maximum(samples - q / 2.0, low)
+            # -- two-stage addition is slightly more numerically accurate
+            inc_amt = w * normal_cdf(ubound, mu, sigma)
+            inc_amt -= w * normal_cdf(lbound, mu, sigma)
+            prob += inc_amt
         rval = np.log(prob) - np.log(p_accept)
 
     if verbose:
@@ -230,7 +241,7 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None,
 
     samples = np.reshape(np.asarray(samples), size)
     if q is not None:
-        samples = np.maximum(np.ceil(samples / q) * q, q)
+        samples = np.round(samples / q) * q
     return samples
 
 
@@ -267,8 +278,19 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         # compute the lpdf of each sample under each component
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
-            prob += w * lognormal_cdf(samples, mu, sigma)
-            prob -= w * lognormal_cdf(samples - q, mu, sigma)
+            if high is None:
+                ubound = samples + q / 2.0
+            else:
+                ubound = np.minimum(samples + q / 2.0, np.exp(high))
+            if low is None:
+                lbound = samples - q / 2.0
+            else:
+                lbound = np.maximum(samples - q / 2.0, np.exp(low))
+            lbound = np.maximum(0, lbound)
+            # -- two-stage addition is slightly more numerically accurate
+            inc_amt = w * lognormal_cdf(ubound, mu, sigma)
+            inc_amt -= w * lognormal_cdf(lbound, mu, sigma)
+            prob += inc_amt
         rval = np.log(prob) - np.log(p_accept)
     rval.shape = _samples.shape
     return rval
@@ -472,7 +494,8 @@ def ap_quniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
 
 
 @adaptive_parzen_sampler('loguniform')
-def ap_loguniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
+def ap_loguniform_sampler(obs, prior_weight, low, high,
+        size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
@@ -483,10 +506,21 @@ def ap_loguniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
 
 
 @adaptive_parzen_sampler('qloguniform')
-def ap_qloguniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
+def ap_qloguniform_sampler(obs, prior_weight, low, high, q,
+        size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
-    weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
+    weights, mus, sigmas = scope.adaptive_parzen_normal(
+            scope.log(
+                # -- map observations that were quantized to be below exp(low)
+                #    (particularly 0) back up to exp(low) where they will
+                #    interact in a reasonable way with the AdaptiveParzen
+                #    thing.
+                scope.maximum(
+                    obs,
+                    scope.maximum(  # -- protect against exp(low) underflow
+                        EPS,
+                        scope.exp(low)))),
             prior_weight, prior_mu, prior_sigma)
     return scope.LGMM1(weights, mus, sigmas, low, high, q=q,
             size=size, rng=rng)
@@ -518,8 +552,9 @@ def ap_loglognormal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
 
 @adaptive_parzen_sampler('qlognormal')
 def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
+    log_obs = scope.log(scope.maximum(obs, EPS))
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            scope.log(obs), prior_weight, mu, sigma)
+            log_obs, prior_weight, mu, sigma)
     rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
     return rval
 

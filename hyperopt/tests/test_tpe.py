@@ -470,15 +470,13 @@ class TestQLGMM1Math(unittest.TestCase):
     def QLGMM1_lpdf(self, samples):
         return self.LGMM1(samples, **self.kwargs)
 
-
     def work(self, **kwargs):
         self.__dict__.update(kwargs)
         self.worked = True
         samples = LGMM1(rng=self.rng,
                 size=(self.n_samples,),
                 **self.kwargs) / self.q
-        # -- qlognormals have ceil, should never be 0
-        assert samples.min() >= 1
+        # -- we've divided the LGMM1 by self.q to get ints here
         assert np.all(samples == samples.astype('int'))
         min_max = int(samples.min()), int(samples.max())
         print 'SAMPLES RANGE', min_max
@@ -686,7 +684,7 @@ class TestOpt(unittest.TestCase, CasePerBandit):
                     TreeParzenEstimator.gamma),
                 prior_weight=self.prior_weights.get(bname,
                     TreeParzenEstimator.prior_weight),
-                n_EI_candidates=self.n_EIs.get(bname, 
+                n_EI_candidates=self.n_EIs.get(bname,
                     TreeParzenEstimator.n_EI_candidates),
                 )
         LEN = self.LEN.get(bname, 50)
