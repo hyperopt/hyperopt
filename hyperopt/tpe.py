@@ -24,6 +24,8 @@ EPS = 1e-12
 
 
 adaptive_parzen_samplers = {}
+
+
 def adaptive_parzen_sampler(name):
     def wrapper(f):
         assert name not in adaptive_parzen_samplers
@@ -92,6 +94,7 @@ def normal_cdf(x, mu, sigma):
     z = top / bottom
     return 0.5 * (1 + erf(z))
 
+
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     verbose = 0
@@ -126,16 +129,11 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
                     normal_cdf(high, mus, sigmas)
                     - normal_cdf(low, mus, sigmas)))
 
-    #
-    # XXX: Should the ceil be changed to a round() so that
-    #      samples are the modes of the GMM components they become?
-    #
-
     if q is None:
         dist = samples[:, None] - mus
-        mahal = (dist / np.maximum(sigmas, EPS) ) ** 2
+        mahal = (dist / np.maximum(sigmas, EPS)) ** 2
         # mahal shape is (n_samples, n_components)
-        Z = np.sqrt(2 * np.pi * sigmas**2)
+        Z = np.sqrt(2 * np.pi * sigmas ** 2)
         coef = weights / Z / p_accept
         rval = logsum_rows(- 0.5 * mahal + np.log(coef))
     else:
@@ -183,9 +181,10 @@ def lognormal_lpdf(x, mu, sigma):
     assert np.all(sigma >= 0)
     sigma = np.maximum(sigma, EPS)
     Z = sigma * x * np.sqrt(2 * np.pi)
-    E = 0.5 * ((np.log(x) - mu) / sigma)**2
+    E = 0.5 * ((np.log(x) - mu) / sigma) ** 2
     rval = -E - np.log(Z)
     return rval
+
 
 @scope.define
 def qlognormal_lpdf(x, mu, sigma, q):
@@ -197,9 +196,11 @@ def qlognormal_lpdf(x, mu, sigma, q):
             lognormal_cdf(x, mu, sigma)
             - lognormal_cdf(x - q, mu, sigma))
 
+
 @implicit_stochastic
 @scope.define
-def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
+def LGMM1(weights, mus, sigmas, low=None, high=None, q=None,
+        rng=None, size=()):
     weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
     n_samples = np.prod(size)
     #n_components = len(weights)
@@ -266,8 +267,6 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         # compute the lpdf of each sample under each component
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
-            # XXX move the mus down to compensate for the ceil, but move#
-            #     them by an amount that reflects the log-scaling
             prob += w * lognormal_cdf(samples, mu, sigma)
             prob -= w * lognormal_cdf(samples - q, mu, sigma)
         rval = np.log(prob) - np.log(p_accept)
@@ -315,7 +314,7 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
         sigma[1:-1] = np.maximum(
                 mus[1:-1] - mus[0:-2],
                 mus[2:] - mus[1:-1])
-        if len(mus)>2:
+        if len(mus) > 2:
             lsigma = mus[2] - mus[0]
             usigma = mus[-1] - mus[-3]
         else:
@@ -347,7 +346,7 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
-    weights[0] = prior_weight #* np.sqrt(1 + len(mus))
+    weights[0] = prior_weight
 
     #print weights.dtype
     weights = weights / weights.sum()
@@ -357,6 +356,7 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
         print 'SIGMA', sigma
 
     return weights, mus, sigma
+
 
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
@@ -410,7 +410,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
         sigma[0] = lsigma
         sigma[-1] = usigma
 
-
     # -- magic formula:
     maxsigma = prior_sigma / np.sqrt(len(srtd_mus))
     minsigma = prior_sigma / float(len(srtd_mus))
@@ -450,6 +449,7 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
 #
 
 # -- Uniform
+
 
 @adaptive_parzen_sampler('uniform')
 def ap_uniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
@@ -496,13 +496,15 @@ def ap_qloguniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
 
 @adaptive_parzen_sampler('normal')
 def ap_normal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
-    weights, mus, sigmas = scope.adaptive_parzen_normal(obs, prior_weight, mu, sigma)
+    weights, mus, sigmas = scope.adaptive_parzen_normal(
+            obs, prior_weight, mu, sigma)
     return scope.GMM1(weights, mus, sigmas, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('qnormal')
 def ap_qnormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
-    weights, mus, sigmas = scope.adaptive_parzen_normal(obs, prior_weight, mu, sigma)
+    weights, mus, sigmas = scope.adaptive_parzen_normal(
+            obs, prior_weight, mu, sigma)
     return scope.GMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
 
 
@@ -528,7 +530,7 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
     counts = scope.bincount(obs, minlength=upper)
     # -- add in some prior pseudocounts
-    pseudocounts = counts + prior_weight #* scope.sqrt(1 + scope.len(obs))
+    pseudocounts = counts + prior_weight
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             size=size, rng=rng)
 
@@ -667,6 +669,7 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
             #rval[full_idxs.index(ii)] += ll
     return rval
 
+
 @scope.define
 def broadcast_best(samples, below_llik, above_llik):
     if len(samples):
@@ -726,8 +729,8 @@ class TreeParzenEstimator(BanditAlgo):
 
         specs, idxs, vals = build_posterior(
                 self.vtemplate,    # vectorized clone of bandit template
-                self.idxs_by_nid,  # this dict and next represent prior distributions
-                self.vals_by_nid,  # 
+                self.idxs_by_nid,  # this dict and next represent prior dists
+                self.vals_by_nid,
                 self.observed['idxs'],  # these dicts, represent observations
                 self.observed['vals'],
                 self.observed_loss['idxs'],
@@ -772,7 +775,7 @@ class TreeParzenEstimator(BanditAlgo):
                 best_docs_loss[tid] = loss
                 best_docs[tid] = doc
         docs = best_docs.items()
-        # -- sort docs by order of suggestion 
+        # -- sort docs by order of suggestion
         #    so that linear_forgetting removes the oldest ones
         docs.sort()
         docs = [v for k, v in docs]
@@ -830,5 +833,4 @@ class TreeParzenEstimator(BanditAlgo):
                 rval_specs, rval_results, rval_miscs)
 
         return rval_docs
-
 
