@@ -35,6 +35,7 @@ from hyperopt.tpe import LGMM1_lpdf
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
+
 class ManyDists(hyperopt.bandits.Base):
     loss_target = 0
 
@@ -119,51 +120,50 @@ class TestGMM1(unittest.TestCase):
         assert np.var(samples) < .0001, np.var(samples)
 
     def test_lpdf_scalar_one_component(self):
-        llval = GMM1_lpdf(1.0, # x
-                [1.],  # weights
-                [1.0], # mu
-                [2.0], # sigma
+        llval = GMM1_lpdf(1.0,  # x
+                [1.],           # weights
+                [1.0],          # mu
+                [2.0],          # sigma
                 )
         assert llval.shape == ()
         assert np.allclose(llval,
-                np.log(1.0 / np.sqrt(2 * np.pi * 2.0**2)))
+                np.log(1.0 / np.sqrt(2 * np.pi * 2.0 ** 2)))
 
     def test_lpdf_scalar_N_components(self):
-        llval = GMM1_lpdf(1.0, # x
+        llval = GMM1_lpdf(1.0,     # x
                 [0.25, 0.25, .5],  # weights
-                [0.0, 1.0, 2.0], # mu
-                [1.0, 2.0, 5.0], # sigma
+                [0.0, 1.0, 2.0],   # mu
+                [1.0, 2.0, 5.0],   # sigma
                 )
 
         a = (.25 / np.sqrt(2 * np.pi * 1.0 ** 2)
-                * np.exp(-.5 * (1.0)**2))
+                * np.exp(-.5 * (1.0) ** 2))
         a += (.25 / np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (.5 /  np.sqrt(2 * np.pi * 5.0 ** 2)
+        a += (.5 / np.sqrt(2 * np.pi * 5.0 ** 2)
                 * np.exp(-.5 * (1.0 / 5.0) ** 2))
 
     def test_lpdf_vector_N_components(self):
         llval = GMM1_lpdf([1.0, 0.0],     # x
-                [0.25, 0.25, .5], # weights
-                [0.0, 1.0, 2.0],  # mu
-                [1.0, 2.0, 5.0],  # sigma
+                [0.25, 0.25, .5],         # weights
+                [0.0, 1.0, 2.0],          # mu
+                [1.0, 2.0, 5.0],          # sigma
                 )
 
         # case x = 1.0
         a = (.25 / np.sqrt(2 * np.pi * 1.0 ** 2)
-                * np.exp(-.5 * (1.0)**2))
+                * np.exp(-.5 * (1.0) ** 2))
         a += (.25 / np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (.5 /  np.sqrt(2 * np.pi * 5.0 ** 2)
+        a += (.5 / np.sqrt(2 * np.pi * 5.0 ** 2)
                 * np.exp(-.5 * (1.0 / 5.0) ** 2))
 
         assert llval.shape == (2,)
         assert np.allclose(llval[0], np.log(a))
 
-
         # case x = 0.0
         a = (.25 / np.sqrt(2 * np.pi * 1.0 ** 2))
         a += (.25 / np.sqrt(2 * np.pi * 2.0 ** 2)
                 * np.exp(-.5 * (1.0 / 2.0) ** 2))
-        a += (.5 /  np.sqrt(2 * np.pi * 5.0 ** 2)
+        a += (.5 / np.sqrt(2 * np.pi * 5.0 ** 2)
                 * np.exp(-.5 * (2.0 / 5.0) ** 2))
         assert np.allclose(llval[1], np.log(a))
 
@@ -175,35 +175,34 @@ class TestGMM1(unittest.TestCase):
                     [0, 0, 1000],
                 ],
                 [0.25, 0.25, .5],  # weights
-                [0.0, 1.0, 2.0], # mu
-                [1.0, 2.0, 5.0], # sigma
+                [0.0, 1.0, 2.0],   # mu
+                [1.0, 2.0, 5.0],   # sigma
                 )
         print llval
-        assert llval.shape == (3,3)
+        assert llval.shape == (3, 3)
 
         a = (.25 / np.sqrt(2 * np.pi * 1.0 ** 2)
-                * np.exp(-.5 * (1.0)**2))
+                * np.exp(-.5 * (1.0) ** 2))
         a += (.25 / np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (.5 /  np.sqrt(2 * np.pi * 5.0 ** 2)
+        a += (.5 / np.sqrt(2 * np.pi * 5.0 ** 2)
                 * np.exp(-.5 * (1.0 / 5.0) ** 2))
 
-        assert np.allclose(llval[0,0], np.log(a))
-        assert np.allclose(llval[1,2], np.log(a))
-
+        assert np.allclose(llval[0, 0], np.log(a))
+        assert np.allclose(llval[1, 2], np.log(a))
 
         # case x = 0.0
         a = (.25 / np.sqrt(2 * np.pi * 1.0 ** 2))
         a += (.25 / np.sqrt(2 * np.pi * 2.0 ** 2)
-                * np.exp(-.5 * (1.0 / 2.0)**2))
-        a += (.5 /  np.sqrt(2 * np.pi * 5.0 ** 2)
+                * np.exp(-.5 * (1.0 / 2.0) ** 2))
+        a += (.5 / np.sqrt(2 * np.pi * 5.0 ** 2)
                 * np.exp(-.5 * (2.0 / 5.0) ** 2))
 
-        assert np.allclose(llval[0,1], np.log(a))
-        assert np.allclose(llval[0,2], np.log(a))
-        assert np.allclose(llval[1,0], np.log(a))
-        assert np.allclose(llval[1,1], np.log(a))
-        assert np.allclose(llval[2,0], np.log(a))
-        assert np.allclose(llval[2,1], np.log(a))
+        assert np.allclose(llval[0, 1], np.log(a))
+        assert np.allclose(llval[0, 2], np.log(a))
+        assert np.allclose(llval[1, 0], np.log(a))
+        assert np.allclose(llval[1, 1], np.log(a))
+        assert np.allclose(llval[2, 0], np.log(a))
+        assert np.allclose(llval[2, 1], np.log(a))
 
         assert np.isfinite(llval[2, 2])
 
@@ -279,7 +278,7 @@ class TestQGMM1Math(unittest.TestCase):
         self.low = None
         self.high = None
         self.n_samples = 1001
-        self.show = False  # or put a string
+        self.show = DO_SHOW  # or put a string
         # -- triggers error if test case forgets to call work()
         self.worked = False
 
@@ -323,7 +322,9 @@ class TestQGMM1Math(unittest.TestCase):
         print np.max(err)
         print np.mean(err)
         print np.median(err)
-        if not self.show:
+        if self.show:
+            raise nose.SkipTest()
+        else:
             assert np.max(err) < .1
             assert np.mean(err) < .01
             assert np.median(err) < .01
@@ -449,7 +450,7 @@ class TestQLGMM1Math(unittest.TestCase):
         self.low = None
         self.high = None
         self.n_samples = 1001
-        self.show = False
+        self.show = DO_SHOW
         # -- triggers error if test case forgets to call work()
         self.worked = False
 
@@ -494,8 +495,9 @@ class TestQLGMM1Math(unittest.TestCase):
 
         if self.show:
             import matplotlib.pyplot as plt
-            plt.scatter(xcoords, y, c='r')
-            plt.scatter(xcoords, prob, c='b')
+            plt.scatter(xcoords, y, c='r', label='empirical')
+            plt.scatter(xcoords, prob, c='b', label='predicted')
+            plt.legend()
             plt.show()
         # -- calculate errors on the low end, don't take a mean
         #    over all the range spanned by a few outliers.
@@ -503,7 +505,9 @@ class TestQLGMM1Math(unittest.TestCase):
         print np.max(err)
         print np.mean(err)
         print np.median(err)
-        if not self.show:
+        if self.show:
+            raise nose.SkipTest()
+        else:
             assert np.max(err) < .1
             assert np.mean(err) < .01
             assert np.median(err) < .01
@@ -534,65 +538,86 @@ class TestQLGMM1Math(unittest.TestCase):
 
 
 class CasePerBandit(object):
-    def test_quadratic1(self): self.bandit = Quadratic1(); self.work()
-    def test_q1lognormal(self): self.bandit = Q1Lognormal(); self.work()
-    def test_twoarms(self): self.bandit = TwoArms(); self.work()
-    def test_distractor(self): self.bandit = Distractor(); self.work()
-    def test_gausswave(self): self.bandit = GaussWave(); self.work()
-    def test_gausswave2(self): self.bandit = GaussWave2(); self.work()
-    def test_many_dists(self): self.bandit = ManyDists(); self.work()
+
+    def test_quadratic1(self):
+        self.bandit = Quadratic1()
+        self.work()
+
+    def test_q1lognormal(self):
+        self.bandit = Q1Lognormal()
+        self.work()
+
+    def test_twoarms(self):
+        self.bandit = TwoArms()
+        self.work()
+
+    def test_distractor(self):
+        self.bandit = Distractor()
+        self.work()
+
+    def test_gausswave(self):
+        self.bandit = GaussWave()
+        self.work()
+
+    def test_gausswave2(self):
+        self.bandit = GaussWave2()
+        self.work()
+
+    def test_many_dists(self):
+        self.bandit = ManyDists()
+        self.work()
 
 
 if 0:
- class TestPosteriorClone(unittest.TestCase, CasePerBandit):
-    def work(self):
-        """Test that all prior samplers are gone"""
-        tpe_algo = TreeParzenEstimator(self.bandit)
-        foo = pyll.as_apply([
-            tpe_algo.post_below['idxs'],
-            tpe_algo.post_below['vals']])
-        prior_names = [
-                'uniform',
-                'quniform',
-                'loguniform',
-                'qloguniform',
-                'normal',
-                'qnormal',
-                'lognormal',
-                'qlognormal',
-                'randint',
-                ]
-        for node in pyll.dfs(foo):
-            assert node.name not in prior_names
+    class TestPosteriorClone(unittest.TestCase, CasePerBandit):
+        def work(self):
+            """Test that all prior samplers are gone"""
+            tpe_algo = TreeParzenEstimator(self.bandit)
+            foo = pyll.as_apply([
+                tpe_algo.post_below['idxs'],
+                tpe_algo.post_below['vals']])
+            prior_names = [
+                    'uniform',
+                    'quniform',
+                    'loguniform',
+                    'qloguniform',
+                    'normal',
+                    'qnormal',
+                    'lognormal',
+                    'qlognormal',
+                    'randint',
+                    ]
+            for node in pyll.dfs(foo):
+                assert node.name not in prior_names
 
 
 if 0:
- class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
-    def work(self):
-        bandit = self.bandit
-        random_algo = Random(bandit)
-        # build an experiment of 10 trials
-        trials = Trials()
-        exp = Experiment(trials, random_algo)
-        #print random_algo.s_specs_idxs_vals
-        exp.run(10)
-        ids = trials.tids
-        assert len(ids) == 10
-        tpe_algo = TreeParzenEstimator(bandit)
-        #print pyll.as_apply(tpe_algo.post_idxs)
-        #print pyll.as_apply(tpe_algo.post_vals)
-        argmemo = {}
+    class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
+        def work(self):
+            bandit = self.bandit
+            random_algo = Random(bandit)
+            # build an experiment of 10 trials
+            trials = Trials()
+            exp = Experiment(trials, random_algo)
+            #print random_algo.s_specs_idxs_vals
+            exp.run(10)
+            ids = trials.tids
+            assert len(ids) == 10
+            tpe_algo = TreeParzenEstimator(bandit)
+            #print pyll.as_apply(tpe_algo.post_idxs)
+            #print pyll.as_apply(tpe_algo.post_vals)
+            argmemo = {}
 
-        print trials.miscs
-        idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        argmemo[tpe_algo.observed['idxs']] = idxs
-        argmemo[tpe_algo.observed['vals']] = vals
-        argmemo[tpe_algo.observed_loss['idxs']] = trials.tids
-        argmemo[tpe_algo.observed_loss['vals']] = trials.losses()
-        stuff = pyll.rec_eval([tpe_algo.post_below['idxs'],
-                    tpe_algo.post_below['vals']],
-                    memo=argmemo)
-        print stuff
+            print trials.miscs
+            idxs, vals = miscs_to_idxs_vals(trials.miscs)
+            argmemo[tpe_algo.observed['idxs']] = idxs
+            argmemo[tpe_algo.observed['vals']] = vals
+            argmemo[tpe_algo.observed_loss['idxs']] = trials.tids
+            argmemo[tpe_algo.observed_loss['vals']] = trials.losses()
+            stuff = pyll.rec_eval([tpe_algo.post_below['idxs'],
+                        tpe_algo.post_below['vals']],
+                        memo=argmemo)
+            print stuff
 
 
 class TestSuggest(unittest.TestCase, CasePerBandit):
@@ -629,7 +654,7 @@ class TestOpt(unittest.TestCase, CasePerBandit):
     gammas = dict(
             Distractor=.05,
             )
-    
+
     prior_weights = dict(
             Distractor=.01,
             )
@@ -686,16 +711,16 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         print algo.prior_weight
 
         if 0:
-            plt.subplot(2,2,1)
+            plt.subplot(2, 2, 1)
             plt.scatter(range(LEN), trials.losses())
             plt.title('TPE losses')
-            plt.subplot(2,2,2)
+            plt.subplot(2, 2, 2)
             plt.scatter(range(LEN), ([s['x'] for s in trials.specs]))
             plt.title('TPE x')
-            plt.subplot(2,2,3)
+            plt.subplot(2, 2, 3)
             plt.title('RND losses')
             plt.scatter(range(LEN), rtrials.losses())
-            plt.subplot(2,2,4)
+            plt.subplot(2, 2, 4)
             plt.title('RND x')
             plt.scatter(range(LEN), ([s['x'] for s in rtrials.specs]))
             plt.show()
@@ -726,8 +751,10 @@ class QU(hyperopt.bandits.Base):
         print 'SCORE: ', rval
         return rval
 
+
 def test_opt_qn_uniform():
     test_opt_qn_normal(scope.uniform)
+
 
 def test_opt_qn_normal(f=scope.normal):
     bandit = QU(25, f=f)
@@ -742,17 +769,16 @@ def test_opt_qn_normal(f=scope.normal):
     experiment.max_queue_len = 1
     experiment.run(40)
     print list(sorted(trials.losses()))
-    import hyperopt
 
-    idxs, vals = hyperopt.base.miscs_to_idxs_vals(trials.miscs)
+    idxs, vals = miscs_to_idxs_vals(trials.miscs)
 
     if 1:
         import hyperopt.plotting
         hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
     else:
         import matplotlib.pyplot as plt
-        begin =  [v[:10] for k, v in vals.items()]
-        end   =  [v[-10:] for k, v in vals.items()]
+        begin = [v[:10] for k, v in vals.items()]
+        end = [v[-10:] for k, v in vals.items()]
         plt.subplot(2, 1, 1)
         plt.title('before')
         plt.hist(np.asarray(begin).flatten())
@@ -760,6 +786,7 @@ def test_opt_qn_normal(f=scope.normal):
         plt.title('after')
         plt.hist(np.asarray(end).flatten())
         plt.show()
+
 
 class TestOptQUniform():
     class Bandit(hyperopt.bandits.Base):
@@ -778,7 +805,7 @@ class TestOptQUniform():
 
     show_steps = False
     show_vars = DO_SHOW
-    LEN=25
+    LEN = 25
 
     def work(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -787,7 +814,7 @@ class TestOptQUniform():
                 np.random.RandomState(3))
 
         prior_weight = 2.5
-        gamma=0.20
+        gamma = 0.20
         algo = TreeParzenEstimator(bandit,
                 prior_weight=prior_weight,
                 linear_forgetting=0,
@@ -801,7 +828,7 @@ class TestOptQUniform():
             import hyperopt.plotting
             hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
 
-        idxs, vals = hyperopt.base.miscs_to_idxs_vals(trials.miscs)
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
         idxs = idxs['node_3']
         vals = vals['node_3']
         print "VALS", vals
@@ -838,7 +865,6 @@ class TestOptQUniform():
 
         do_show = self.show_steps
 
-
         import matplotlib.pyplot as plt
         for ii in range(2, 9):
             if ii > len(idxs):
@@ -847,8 +873,8 @@ class TestOptQUniform():
             print 'ROUND', ii
             print '-' * 80
             all_vals = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-            below, above = ap_filter_trials(idxs[:ii], vals[:ii], idxs[:ii], losses[:ii],
-                    gamma)
+            below, above = ap_filter_trials(idxs[:ii],
+                    vals[:ii], idxs[:ii], losses[:ii], gamma)
             below = below.astype('int')
             above = above.astype('int')
             print 'BB0', below
@@ -856,7 +882,8 @@ class TestOptQUniform():
             #print 'BELOW',  zip(range(100), np.bincount(below, minlength=11))
             #print 'ABOVE',  zip(range(100), np.bincount(above, minlength=11))
             memo = {b_post: all_vals, s_below: below, s_above: above}
-            bl, al, nv = pyll.rec_eval([below_llik, above_llik, new_node], memo=memo)
+            bl, al, nv = pyll.rec_eval([below_llik, above_llik, new_node],
+                    memo=memo)
             #print bl - al
             print 'BB2', dict(zip(all_vals, bl - al))
             print 'BB3', dict(zip(all_vals, bl))
@@ -869,8 +896,10 @@ class TestOptQUniform():
 
             if do_show:
                 plt.subplot(8, 1, ii)
-                #plt.scatter(all_vals, np.bincount(below, minlength=11)[2:], c='b')
-                #plt.scatter(all_vals, np.bincount(above, minlength=11)[2:], c='c')
+                #plt.scatter(all_vals,
+                #    np.bincount(below, minlength=11)[2:], c='b')
+                #plt.scatter(all_vals,
+                #    np.bincount(above, minlength=11)[2:], c='c')
                 plt.scatter(all_vals, bl, c='g')
                 plt.scatter(all_vals, al, c='r')
         if do_show:
@@ -887,3 +916,4 @@ class TestOptQUniform():
 
     def test10(self):
         self.work(target=10, LEN=100)
+
