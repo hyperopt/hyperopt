@@ -955,7 +955,7 @@ class MongoWorker(object):
 
                 result = worker_fn(spec, ctrl)
                 result = SONify(result)
-            except Exception, e:
+            except BaseException, e:
                 #XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly
                 logger.info('job exception: %s' % str(e))
