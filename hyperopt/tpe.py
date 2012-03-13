@@ -804,16 +804,21 @@ class TreeParzenEstimator(BanditAlgo):
             tid = doc['misc'].get('from_tid', doc['tid'])
             loss = bandit.loss(doc['result'], doc['spec'])
             if loss is None:
+                # -- associate infinite loss to new/running/failed jobs
                 loss = float('inf')
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
                 best_docs_loss[tid] = loss
                 best_docs[tid] = doc
-        docs = best_docs.items()
+
+        tid_docs = best_docs.items()
         # -- sort docs by order of suggestion
         #    so that linear_forgetting removes the oldest ones
-        docs.sort()
-        docs = [v for k, v in docs]
+        tid_docs.sort()
+        losses = [best_docs_loss[k] for k, v in tid_docs]
+        tids = [k for k, v in tid_docs]
+        docs = [v for k, v in tid_docs]
+
         if docs:
             logger.info('TPE using %i/%i trials with best loss %f' % (
                 len(docs), len(trials), min(best_docs_loss.values())))
@@ -824,15 +829,16 @@ class TreeParzenEstimator(BanditAlgo):
             # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
             return BanditAlgo.suggest(self, new_ids, trials)
 
-        tids = [d['tid'] for d in docs]
-
         #    Sample and compute log-probability.
         if tids:
             # -- the +2 co-ordinates with an assertion above
             #    to ensure that fake ids are used during sampling
             fake_id_0 = max(max(tids), new_id) + 2
         else:
+            # -- weird - we're running the TPE algo from scratch
+            assert self.n_startup_jobs <= 0
             fake_id_0 = new_id + 2
+
         fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
         self.new_ids[:] = fake_ids
 
@@ -846,8 +852,7 @@ class TreeParzenEstimator(BanditAlgo):
         memo[self.observed['vals']] = o_vals_d
 
         memo[self.observed_loss['idxs']] = tids
-        memo[self.observed_loss['vals']] = \
-                [bandit.loss(d['result'], d['spec']) for d in docs]
+        memo[self.observed_loss['vals']] = losses
 
         specs, idxs, vals = pyll.rec_eval(
                 [self.opt_specs, self.opt_idxs, self.opt_vals],
