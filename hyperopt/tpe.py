@@ -732,7 +732,7 @@ class TreeParzenEstimator(BanditAlgo):
     n_EI_candidates = 24
 
     # -- fraction of trials to consider as good
-    gamma = 0.15
+    gamma = 0.20
 
     n_startup_jobs = 10
 
