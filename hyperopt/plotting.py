@@ -132,14 +132,18 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
             t = (lossval - loss_min) / (loss_max - loss_min + .0001)
             return (t, t, t)
 
-    all_nids = idxs.keys()
-    all_nids.sort()
+    all_nids = list(idxs.keys())
+    titles = ['%s (%s)' % (BA.doc_coords[nid], BA.name_by_nid[nid])
+            for nid in all_nids]
+    order = np.argsort(titles)
 
     C = 5
     R = int(np.ceil(len(all_nids) / float(C)))
 
-    for ii, nid in enumerate(all_nids):
-        plt.subplot(R, C, ii + 1)
+    for plotnum, varnum in enumerate(order):
+        #print varnum, titles[varnum]
+        nid = all_nids[varnum]
+        plt.subplot(R, C, plotnum + 1)
         #print '-' * 80
         #print 'Node', nid
 
@@ -148,14 +152,14 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
         dist_name = BA.name_by_nid[nid]
-        title = '%s (%s)' % (BA.doc_coords[nid], dist_name)
         x = idxs[nid]
         if 'log' in dist_name:
             y = np.log(vals[nid])
         else:
             y = vals[nid]
-        plt.title(title, fontsize=fontsize)
-        plt.scatter(x, y, c=map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]]))
+        plt.title(titles[varnum], fontsize=fontsize)
+        plt.scatter(x, y,
+                c=map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]]))
 
     if do_show:
         plt.show()
