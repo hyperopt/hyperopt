@@ -7,34 +7,35 @@ import numpy
 import base
 from pyll import scope
 
-
-class Base(base.Bandit):
-    def __init__(self, template):
-        self.rng = numpy.random.RandomState(55)
-        base.Bandit.__init__(self, template)
-
-    def dryrun_config(self):
-        return self.template.render_sample(self.rng)
-
-    def evaluate(self, config, ctrl):
-        return dict(
-                loss = -self.score(config),
-                status = 'ok')
+from pyll_utils import pbandit
+from pyll_utils import hp_uniform
+from pyll_utils import hp_choice
 
 
-class Quadratic1(Base):
+@pbandit(loss_target=0)
+def quadratic1():
     """
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
+    return (hp_uniform('x', -5, 5) - 3) ** 2)
 
-    loss_target = 0
 
-    def __init__(self):
-        Base.__init__(self, dict(x=scope.uniform(-5, 5)))
+@pbandit(loss_target=0)
+def q1choice():
+    o_x = hp_choice('o_x', [
+        (-3, hp_uniform('x_neg', -5, 5)),
+        ( 3, hp_uniform('x_pos', -5, 5)),
+        ])
+    return (o_x[0] - o_x[1])  ** 2)
 
-    def score(self, config):
-        return -(config['x'] - 3)**2
+
+###################
+### XXX
+###################
+
+class Base(object):
+    pass
 
 
 class Q1Lognormal(Base):

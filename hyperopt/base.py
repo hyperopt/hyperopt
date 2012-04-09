@@ -604,13 +604,6 @@ class Bandit(object):
     def short_str(self):
         return self.__class__.__name__
 
-    def dryrun_config(self):
-        """Return a point that could have been drawn from the template
-        that is useful for small trial debugging.
-        """
-        rng = np.random.RandomState(1)
-        return pyll.stochastic.sample(self.template, rng)
-
     def evaluate(self, config, ctrl):
         """Return a result document
         """
@@ -651,13 +644,6 @@ class Bandit(object):
         to serve as the 'result' for new jobs.
         """
         return {'status': STATUS_NEW}
-
-    @classmethod
-    def main_dryrun(cls):
-        self = cls()
-        ctrl = Ctrl(Trials())
-        config = self.dryrun_config()
-        return self.evaluate(config, ctrl)
 
 
 class CoinFlip(Bandit):
@@ -718,8 +704,6 @@ class BanditAlgo(object):
         self.template_clone_memo = {}
         template = pyll.clone(self.bandit.template, self.template_clone_memo)
         vh = self.vh = VectorizeHelper(template, self.s_new_ids)
-        vh.build_idxs()
-        vh.build_vals()
         # the keys (nid) here are strings like 'node_5'
         idxs_by_nid = vh.idxs_by_id()
         vals_by_nid = vh.vals_by_id()
@@ -748,11 +732,6 @@ class BanditAlgo(object):
                 del name_by_nid[node_id]
                 del vals_by_nid[node_id]
                 del idxs_by_nid[node_id]
-            elif name == 'one_of':
-                # -- one_of nodes too, because they are duplicates of randint
-                del name_by_nid[node_id]
-                del vals_by_nid[node_id]
-                del idxs_by_nid[node_id]
 
         # -- make the graph runnable and SON-encodable
         # N.B. operates inplace
@@ -770,10 +749,6 @@ class BanditAlgo(object):
         doc_coords = self.doc_coords = {}
         for node, pname in pnames.items():
             cnode = self.template_clone_memo[node]
-            if cnode.name == 'one_of':
-                choice_node = vh.choice_memo[cnode]
-                assert choice_node.name == 'randint'
-                doc_coords[vh.node_id[choice_node]] = pname #+ '.randint'
             if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
                 doc_coords[vh.node_id[cnode]] = pname
             else:
@@ -803,6 +778,8 @@ class BanditAlgo(object):
 
             # -- sample new specs, idxs, vals
             new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
+            print 'IDXS', idxs
+            print 'VALS', vals
             new_result = self.bandit.new_result()
             new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
             miscs_update_idxs_vals([new_misc], idxs, vals)

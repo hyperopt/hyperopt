@@ -97,7 +97,9 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
         plt.show()
 
 
-def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
+def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10,
+        colorize_best=None,
+        ):
     import matplotlib.pyplot as plt
 
     if bandit is None:
@@ -106,11 +108,20 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
     BA = BanditAlgo(bandit)
 
     idxs, vals = miscs_to_idxs_vals(trials.miscs)
+    losses = trials.losses()
+    finite_losses = [y for y in losses if y not in (None, float('inf'))]
+    asrt = np.argsort(finite_losses)
+    if colorize_best != None:
+        colorize_thresh = finite_losses[asrt[colorize_best + 1]]
+    else:
+        # -- set to lower than best (disabled)
+        colorize_thresh = finite_losses[asrt[0]] - 1
 
-    loss_min = min([y for y in trials.losses() if y is not None])
-    loss_max = max([y for y in trials.losses() if y is not None])
+    loss_min = min(finite_losses)
+    loss_max = max(finite_losses)
+    print 'finite loss range', loss_min, loss_max, colorize_thresh
 
-    loss_by_tid = dict(zip(trials.tids, trials.losses()))
+    loss_by_tid = dict(zip(trials.tids, losses))
 
     def color_fn(lossval):
         if lossval is None:
@@ -126,11 +137,14 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
             return 0, 0, 4-t
 
     def color_fn_bw(lossval):
-        if lossval is None:
+        if lossval in (None, float('inf')):
             return (1, 1, 1)
         else:
             t = (lossval - loss_min) / (loss_max - loss_min + .0001)
-            return (t, t, t)
+            if lossval < colorize_thresh:
+                return (0., 1. - t, 0.)  # -- red best black worst
+            else:
+                return (t, t, t)    # -- white=worst, black=best
 
     all_nids = list(idxs.keys())
     titles = ['%s (%s)' % (BA.doc_coords[nid], BA.name_by_nid[nid])
@@ -158,8 +172,8 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
         else:
             y = vals[nid]
         plt.title(titles[varnum], fontsize=fontsize)
-        plt.scatter(x, y,
-                c=map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]]))
+        c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]])
+        plt.scatter(x, y, c=c)
 
     if do_show:
         plt.show()

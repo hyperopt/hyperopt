@@ -1,15 +1,21 @@
 import sys
 
+import numpy as np
+
 from pyll import Apply
 from pyll import as_apply
 from pyll import dfs
 from pyll import scope
 from pyll import stochastic
+from pyll import clone_merge
+
+stoch = stochastic.implicit_stochastic_symbols
+
 
 def ERR(msg):
     print >> sys.stderr, msg
 
-@scope.define
+@scope.define_pure
 def vchoice_split(idxs, choices, n_options):
     rval = [[] for ii in range(n_options)]
     if len(idxs) != len(choices):
@@ -20,7 +26,7 @@ def vchoice_split(idxs, choices, n_options):
     return rval
 
 
-@scope.define
+@scope.define_pure
 def vchoice_merge(idxs, choices, *vals):
     rval = []
     assert len(idxs) == len(choices)
@@ -29,8 +35,18 @@ def vchoice_merge(idxs, choices, *vals):
         rval.append(vv[list(vi).index(idx)])
     return rval
 
-@scope.define
+
+@scope.define_pure
 def idxs_map(idxs, cmd, *args, **kwargs):
+    """
+    Return the cmd applied at positions idxs, by retrieving args and kwargs
+    from the (idxs, vals) pair elements of `args` and `kwargs`.
+
+    N.B. args and kwargs may generally include information for more idx values
+    than are requested by idxs.
+    """
+    # XXX: consider insisting on sorted idxs
+    # XXX: use np.searchsorted instead of dct
 
     if 0: # these should all be true, but evaluating them is slow
         for ii, (idxs_ii, vals_ii) in enumerate(args):
@@ -81,8 +97,67 @@ def idxs_map(idxs, cmd, *args, **kwargs):
     return rval
 
 
+@scope.define_pure
+def idxs_take(idxs, vals, which):
+    """
+    Return `vals[which]` where `which` is a subset of `idxs`
+    """
+    # XXX: consider insisting on sorted idxs
+    # XXX: use np.searchsorted instead of dct
+    assert len(idxs) == len(vals)
+    table = dict(zip(idxs, vals))
+    return [table[w] for w in which]
+
+
+@scope.define_pure
+def uniq(lst):
+    s = set()
+    rval = []
+    for l in lst:
+        if id(l) not in s:
+            s.add(id(l))
+            rval.append(l)
+    return rval
+
+
+def vectorize_stochastic(orig):
+    if orig.name == 'idxs_map' and orig.pos_args[1]._obj in stoch:
+        # -- this is an idxs_map of a random draw of distribution `dist`
+        idxs = orig.pos_args[0]
+        dist = orig.pos_args[1]._obj
+        def foo(arg):
+            # -- each argument is an idxs, vals pair
+            assert arg.name == 'pos_args'
+            assert len(arg.pos_args) == 2
+            arg_vals = arg.pos_args[1]
+            if (arg_vals.name == 'asarray'
+                    and arg_vals.inputs()[0].name == 'repeat'):
+                # -- draws are iid, so forget about
+                #    repeating the distribution parameters
+                repeated_thing = arg_vals.inputs()[0].inputs()[1]
+                return repeated_thing
+            else:
+                if arg.pos_args[0] is idxs:
+                    return arg_vals
+                else:
+                    # -- arg.pos_args[0] is a superset of idxs
+                    #    TODO: slice out correct elements using
+                    #    idxs_take, but more importantly - test this case.
+                    raise NotImplementedError()
+        new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
+        new_named_args = [[aname, foo(arg)]
+                for aname, arg in orig.named_args]
+        vnode = Apply(dist, new_pos_args, new_named_args, None)
+        n_times = scope.len(idxs)
+        if 'size' in dict(vnode.named_args):
+            raise NotImplementedError('random node already has size')
+        vnode.named_args.append(['size', n_times])
+        return vnode
+    else:
+        return orig
+
+
 def replace_repeat_stochastic(expr, return_memo=False):
-    stoch = stochastic.implicit_stochastic_symbols
     nodes = dfs(expr)
     memo = {}
     for ii, orig in enumerate(nodes):
@@ -94,7 +169,6 @@ def replace_repeat_stochastic(expr, return_memo=False):
                 # -- each argument is an idxs, vals pair
                 assert arg.name == 'pos_args'
                 assert len(arg.pos_args) == 2
-                assert arg.pos_args[0] is idxs, str(orig)
                 arg_vals = arg.pos_args[1]
                 if (arg_vals.name == 'asarray'
                         and arg_vals.inputs()[0].name == 'repeat'):
@@ -103,12 +177,20 @@ def replace_repeat_stochastic(expr, return_memo=False):
                     repeated_thing = arg_vals.inputs()[0].inputs()[1]
                     return repeated_thing
                 else:
-                    return arg_vals
+                    if arg.pos_args[0] is idxs:
+                        return arg_vals
+                    else:
+                        # -- arg.pos_args[0] is a superset of idxs
+                        #    TODO: slice out correct elements using
+                        #    idxs_take, but more importantly - test this case.
+                        raise NotImplementedError()
             new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
             new_named_args = [[aname, foo(arg)]
                     for aname, arg in orig.named_args]
             vnode = Apply(dist, new_pos_args, new_named_args, None)
             n_times = scope.len(idxs)
+            if 'size' in dict(vnode.named_args):
+                raise NotImplementedError('random node already has size')
             vnode.named_args.append(['size', n_times])
             # -- loop over all nodes that *use* this one, and change them
             for client in nodes[ii+1:]:
@@ -122,89 +204,195 @@ def replace_repeat_stochastic(expr, return_memo=False):
         return expr
 
 
-
 class VectorizeHelper(object):
     """
-    Example:
-        u0 = uniform(1, 2)
-        u1 = uniform(2, 3)
-        c = one_of(u0, u1)
-        expr = {'u1': u1, 'c': c}
-    becomes
-        N
-        expr_idxs = range(N)
-        choices = randint(2, len(expr_idxs))
-        c0_idxs, c1_idxs = vchoice_split(expr_idxs, choices)
-        c0_vals = vdraw(len(c0_idxs), 'uniform', 1, 2)
-        c1_vals = vdraw(len(c1_idxs), 'uniform', 2, 3)
+    Convert a pyll expression representing a single trial into a pyll
+    expression representing multiple trials.
+
+    The resulting multi-trial expression is not meant to be evaluated
+    directly. It is meant to serve as the input to a BanditAlgo.
+
     """
-    def __init__(self, expr, expr_idxs):
+
+    def __init__(self, expr, expr_idxs, build=True, rseed=1):
         self.expr = expr
         self.expr_idxs = expr_idxs
-        self.idxs_memo = {expr: expr_idxs}
-        self.vals_memo = {}
-        self.choice_memo = {}
+        self._idxs_memo = {}  # -- map node -> [idxs, idxs, ...]
+        self._vals_memo = {}  # -- map node -> [vals, vals, ...]
         self.dfs_nodes = dfs(expr)
-        self.node_id = dict([(node, 'node_%i' % ii)
-            for ii, node in enumerate(dfs(expr))])
+        self.node_id = {}
+        self.param_nodes = {}
+        for ii, node in enumerate(self.dfs_nodes):
+            self.node_id[node] = 'node_%i' % ii
+            if node.name == 'hyperopt_param':
+                label = node.arg['label'].obj
+                self.node_id[node.arg['obj']] = label
+                self.param_nodes[label] = node.arg['obj']
+        rng = np.random.RandomState(rseed)
 
-    # XXX: rename to idx_union or something, to avoid confusion with
-    #      theano's MergeOptimization
-    def merge(self, idxs, node):
-        if node in self.idxs_memo:
-            other = self.idxs_memo[node]
-            if other is not idxs:
-                self.idxs_memo[node] = scope.array_union(idxs, self.idxs_memo[node])
+        # -- recursive construction
+        #    This makes one term in each idxs, vals memo for every
+        #    directed path through the switches in the graph.
+        self.build_idxs_vals(expr, expr_idxs)
+
+        if 0:
+          for key in self._idxs_memo:
+            print '=' * 80
+            print 'VH._idxs_memo'
+            print id(key)
+            print ' key'
+            print key
+            for ii, (i, v) in enumerate(
+                    zip(self._idxs_memo[key], self._vals_memo[key])):
+                print ' _idxs_memo', ii
+                print i
+                print ' _vals_memo', ii
+                print v
+
+        assert set(self._idxs_memo.keys()) < set(self.dfs_nodes)
+
+        self.idxs_memo = {}
+        self.vals_memo = {}
+        assert len(self._idxs_memo[expr]) == 1
+        # -- consolidate the idxs and vals so that each node is only evaluated
+        # once
+
+        for node in dfs(self._vals_memo[expr][0]):
+            if len(self._idxs_memo.get(node, [])) > 1:
+                # -- merge together these two samples
+                idxs_list = self._idxs_memo[node]
+
+                if len(set(idxs_list)) > 1:
+                    u_idxs = scope.array_union1(scope.uniq(idxs_list))
+                else:
+                    u_idxs = idxs_list[0]
+
+                vals_list = self._vals_memo[node]
+
+                if node.name == 'switch':
+                    choice = node.pos_args[0]
+                    options = node.pos_args[1:]
+
+                    u_choices = scope.idxs_take(
+                            self.idxs_memo[choice],
+                            self.vals_memo[choice],
+                            u_idxs)
+
+                    args_idxs = scope.vchoice_split(u_idxs, u_choices,
+                            len(options))
+                    u_vals = scope.vchoice_merge(u_idxs, u_choices)
+                    for opt_ii, idxs_ii in zip(options, args_idxs):
+                        u_vals.pos_args.append(as_apply([
+                            self.idxs_memo[opt_ii], self.vals_memo[opt_ii]]))
+
+                    print 'finalizing switch', u_vals
+
+                elif node.name in stoch:
+                    # -- this case is separate because we're going to change
+                    # the program semantics. If multiple stochastic nodes
+                    # are being merged, it means just sample once, and then
+                    # index multiple subsets
+                    print 'finalizing', node.name
+                    assert all(thing.name == node.name for thing in vals_list)
+
+                    # -- assert that all the args except size to each
+                    # function are the same
+                    vv0 = vals_list[0]
+                    vv0d = dict(vv0.arg, rng=None, size=None)
+                    for vv in vals_list[1:]:
+                        assert vv0d == dict(vv.arg, rng=None, size=None)
+
+                    u_vals = vals_list[0].clone_from_inputs(
+                            vals_list[0].inputs())
+                    u_vals.set_kwarg('size', scope.len(u_idxs))
+                    u_vals.set_kwarg('rng',
+                            as_apply(
+                                np.random.RandomState(
+                                    rng.randint(int(2**30)))))
+
+                else:
+                    print 'creating idxs map', node.name
+                    u_vals = scope.idxs_map(u_idxs, node.name)
+                    u_vals.pos_args.extend(node.pos_args)
+                    u_vals.named_args.extend(node.named_args)
+                    for arg in node.inputs():
+                        u_vals.replace_input(arg,
+                                as_apply([
+                                    self.idxs_memo[arg],
+                                    self.vals_memo[arg]]))
+
+            else:
+                print '=' * 80
+                print node
+
+            self.idxs_memo[node] = u_idxs
+            self.vals_memo[node] = u_vals
+
+
+        del self._idxs_memo
+        del self._vals_memo
+
+        if 0:
+            print as_apply([
+                        self.idxs_memo[expr],
+                        self.vals_memo[expr]])
+
+        merge_memo = {}
+        m_idxs_vals = clone_merge(
+                as_apply([
+                    self.idxs_memo[expr],
+                    self.vals_memo[expr]]),
+                memo=merge_memo,
+                merge_literals=True)
+
+        for key in self.idxs_memo:
+            k_i = self.idxs_memo[key]
+            k_v = self.vals_memo[key]
+            if k_i in merge_memo:
+                self.idxs_memo[key] = merge_memo[k_i]
+            if k_v in merge_memo:
+                self.vals_memo[key] = merge_memo[k_v]
+
+    def build_idxs_vals(self, node, idxs):
+        """
+        This recursive procedure should be called on an output-node.
+        """
+        if node.name == 'hyperopt_param':
+            return self.build_idxs_vals(node.arg['obj'], idxs)
+
+        if node.name == 'hyperopt_result':
+            return self.build_idxs_vals(node.arg['obj'], idxs)
+
+        self._idxs_memo.setdefault(node, []).append(idxs)
+
+        if node.name == 'literal':
+            n_times = scope.len(idxs)
+            vnode = scope.asarray(scope.repeat(n_times, node))
+
+        elif node.name == 'switch':
+            choice = node.pos_args[0]
+            choices = self.build_idxs_vals(choice, idxs)
+
+            options = node.pos_args[1:]
+            n_options = len(options)
+            args_idxs = scope.vchoice_split(idxs, choices, n_options)
+            vnode = scope.vchoice_merge(idxs, choices)
+            for opt_ii, idxs_ii in zip(options, args_idxs):
+                opt_vnode = self.build_idxs_vals(opt_ii, idxs_ii)
+                vnode.pos_args.append(as_apply([idxs_ii, opt_vnode]))
+
         else:
-            self.idxs_memo[node] = idxs
+            vnode = scope.idxs_map(idxs, node.name)
+            vnode.pos_args.extend(node.pos_args)
+            vnode.named_args.extend(node.named_args)
+            for arg in node.inputs():
+                arg_vnode = self.build_idxs_vals(arg, idxs)
+                vnode.replace_input(arg, as_apply([idxs, arg_vnode]))
+            vnode = vectorize_stochastic(vnode)
 
-    # -- separate method for testing
-    def build_idxs(self):
-        for node in reversed(self.dfs_nodes):
-            node_idxs = self.idxs_memo[node]
-            if node.name == 'one_of':
-                n_options  = len(node.pos_args)
-                choices = scope.randint(n_options, size=scope.len(node_idxs))
-                self.choice_memo[node] = choices
-                self.merge(node_idxs, choices)
-                self.node_id[choices] = 'node_%i' % len(self.node_id)
-                sub_idxs = scope.vchoice_split(node_idxs, choices, n_options)
-                for ii, arg in enumerate(node.pos_args):
-                    self.merge(sub_idxs[ii], arg)
-            else:
-                for arg in node.inputs():
-                    self.merge(node_idxs, arg)
-
-    # -- separate method for testing
-    def build_vals(self):
-        for node in self.dfs_nodes:
-            if node.name == 'literal':
-                n_times = scope.len(self.idxs_memo[node])
-                vnode = scope.asarray(scope.repeat(n_times, node))
-            elif node in self.choice_memo:
-                # -- choices are natively vectorized
-                choices = self.choice_memo[node]
-                self.vals_memo[choices] = choices
-                # -- this stitches together the various sub-graphs
-                #    to define the original node
-                vnode = scope.vchoice_merge(
-                        self.idxs_memo[node],
-                        self.choice_memo[node])
-                vnode.pos_args.extend([
-                    as_apply([
-                        self.idxs_memo[inode],
-                        self.vals_memo[inode]])
-                    for inode in node.pos_args])
-            else:
-                vnode = scope.idxs_map(self.idxs_memo[node], node.name)
-                vnode.pos_args.extend(node.pos_args)
-                vnode.named_args.extend(node.named_args)
-                for arg in node.inputs():
-                    vnode.replace_input(arg,
-                            as_apply([
-                                self.idxs_memo[arg],
-                                self.vals_memo[arg]]))
-            self.vals_memo[node] = vnode
+        self._vals_memo.setdefault(node, []).append(vnode)
+        assert len(self._vals_memo[node]) == len(self._idxs_memo[node])
+        return vnode
 
     def idxs_by_id(self):
         rval = dict([(self.node_id[node], idxs)
@@ -268,3 +456,85 @@ def pretty_names(expr, prefix=None):
     assert seq == dfs_order
     return dict(zip(seq, names))
 
+
+
+if 0:
+        for node in dfs(self._vals_memo[expr][0]):
+            if node.name == 'literal':
+                u_idxs = expr_idxs
+                u_vals = scope.asarray(
+                        scope.repeat(
+                            scope.len(u_idxs),
+                            node))
+            elif node.name in ('hyperopt_param', 'hyperopt_result'):
+                u_idxs = self.idxs_memo[node.arg['obj']]
+                u_vals = self.vals_memo[node.arg['obj']]
+
+            elif node in self._idxs_memo:
+                idxs_list = self._idxs_memo[node]
+
+                if len(set(idxs_list)) > 1:
+                    u_idxs = scope.array_union1(scope.uniq(idxs_list))
+                else:
+                    u_idxs = idxs_list[0]
+
+                vals_list = self._vals_memo[node]
+
+                if node.name == 'switch':
+                    choice = node.pos_args[0]
+                    options = node.pos_args[1:]
+
+                    u_choices = scope.idxs_take(
+                            self.idxs_memo[choice],
+                            self.vals_memo[choice],
+                            u_idxs)
+
+                    args_idxs = scope.vchoice_split(u_idxs, u_choices,
+                            len(options))
+                    u_vals = scope.vchoice_merge(u_idxs, u_choices)
+                    for opt_ii, idxs_ii in zip(options, args_idxs):
+                        u_vals.pos_args.append(as_apply([
+                            self.idxs_memo[opt_ii], self.vals_memo[opt_ii]]))
+
+                    print 'finalizing switch', u_vals
+
+                elif node.name in stoch:
+                    # -- this case is separate because we're going to change
+                    # the program semantics. If multiple stochastic nodes
+                    # are being merged, it means just sample once, and then
+                    # index multiple subsets
+                    print 'finalizing', node.name
+                    assert all(thing.name == node.name for thing in vals_list)
+
+                    # -- assert that all the args except size to each
+                    # function are the same
+                    vv0 = vals_list[0]
+                    vv0d = dict(vv0.arg, rng=None, size=None)
+                    for vv in vals_list[1:]:
+                        assert vv0d == dict(vv.arg, rng=None, size=None)
+
+                    u_vals = vals_list[0].clone_from_inputs(
+                            vals_list[0].inputs())
+                    u_vals.set_kwarg('size', scope.len(u_idxs))
+                    u_vals.set_kwarg('rng',
+                            as_apply(
+                                np.random.RandomState(
+                                    rng.randint(int(2**30)))))
+
+                else:
+                    print 'creating idxs map', node.name
+                    u_vals = scope.idxs_map(u_idxs, node.name)
+                    u_vals.pos_args.extend(node.pos_args)
+                    u_vals.named_args.extend(node.named_args)
+                    for arg in node.inputs():
+                        u_vals.replace_input(arg,
+                                as_apply([
+                                    self.idxs_memo[arg],
+                                    self.vals_memo[arg]]))
+
+            else:
+                print '=' * 80
+                print node
+
+            self.idxs_memo[node] = u_idxs
+            self.vals_memo[node] = u_vals

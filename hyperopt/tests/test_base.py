@@ -118,11 +118,6 @@ class TestTrials(unittest.TestCase):
 
 
 class BanditMixin(object):
-    def test_dry_run(self):
-        rval = self.bandit_cls.main_dryrun()
-        assert 'loss' in rval
-        assert 'status' in rval
-        assert rval['status'] in STATUS_STRINGS
 
     @classmethod
     def make(cls, bandit_cls_to_test):
@@ -141,13 +136,16 @@ class TestRandom(unittest.TestCase):
         self.algo = Random(self.bandit)
 
     def test_suggest_1(self):
+        print 'TEMPLATE', self.bandit.template
         docs = self.algo.suggest([0], Trials())
         assert len(docs) == 1
+        print 'DOCS', docs
         # -- assert validity of docs
         trials = trials_from_docs(docs)
-        assert docs[0]['misc']['idxs']['node_4'] == [0]
+        print 'TRIALS', trials
+        assert docs[0]['misc']['idxs']['node_1'] == [0]
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        assert idxs['node_4'] == [0]
+        assert idxs['node_1'] == [0]
 
     def test_suggest_5(self):
         docs = self.algo.suggest(range(5), Trials())
@@ -160,8 +158,8 @@ class TestRandom(unittest.TestCase):
         print vals
         assert len(idxs) == 1
         assert len(vals) == 1
-        assert idxs['node_4'] == range(5)
-        assert np.all(vals['node_4'] == [1, 1, 0, 1, 0])
+        assert idxs['node_1'] == range(5)
+        assert np.all(vals['node_1'] == [1, 1, 0, 1, 0])
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
@@ -173,8 +171,8 @@ class TestRandom(unittest.TestCase):
         assert len(idxs) == 1
         assert len(vals) == 1
         print vals
-        assert idxs['node_4'] == new_ids
-        assert np.all(vals['node_4'] == [0, 1, 0, 1, 1])
+        assert idxs['node_1'] == new_ids
+        assert np.all(vals['node_1'] == [0, 1, 0, 1, 1])
 
 
 class TestCoinFlipExperiment(unittest.TestCase):
@@ -196,8 +194,8 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.miscs
         print self.trials.idxs
         print self.trials.vals
-        assert self.trials.idxs['node_4'] == [0, 1, 2]
-        assert self.trials.vals['node_4'] == [1, 1, 0]
+        assert self.trials.idxs['node_1'] == [0, 1, 2]
+        assert self.trials.vals['node_1'] == [1, 1, 0]
 
 
 class TestCoinFlipStopExperiment(unittest.TestCase):
