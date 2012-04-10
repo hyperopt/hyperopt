@@ -24,7 +24,7 @@ def config0():
     p5 = [3, 4, p0]
     p6 = scope.one_of(-3, p1)
     d = locals()
-    #d['p1'] = None # -- don't sample p1 all the time, only if p3 says so
+    d['p1'] = None # -- don't sample p1 all the time, only if p3 says so
     s = as_apply(d)
     return s
 
@@ -58,7 +58,7 @@ def test_vectorize_trivial():
     print loss
     expr_idxs = scope.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
-    vloss = vh.vals_memo[loss]
+    vloss = vh.v_expr
 
     full_output = as_apply([vloss,
         vh.idxs_by_id(),
@@ -88,7 +88,7 @@ def test_vectorize_simple():
     print loss
     expr_idxs = scope.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
-    vloss = vh.vals_memo[loss]
+    vloss = vh.v_expr
 
     full_output = as_apply([vloss,
         vh.idxs_by_id(),
@@ -118,14 +118,19 @@ def test_vectorize_multipath():
     expr_idxs = scope.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
 
-    vloss = vh.vals_memo[loss]
+    vloss = vh.v_expr
     print vloss
 
     full_output = as_apply([vloss,
         vh.idxs_by_id(),
         vh.vals_by_id()])
 
-    losses, idxs, vals = rec_eval(full_output)
+    new_vc = recursive_set_rng_kwarg(
+            full_output,
+            as_apply(np.random.RandomState(1)),
+            )
+
+    losses, idxs, vals = rec_eval(new_vc)
     print 'losses', losses
     print 'idxs p0', idxs['p0']
     print 'vals p0', vals['p0']
@@ -134,30 +139,34 @@ def test_vectorize_multipath():
     p0dct = dict(zip(idxs['p0'], vals['p0']))
     p1dct = dict(zip(idxs['p1'], vals['p1']))
     for ii, li in enumerate(losses):
-        if p1dct[ii]:
-            assert li == p1dct[ii] ** 2
+        print ii, li
+        if p1dct[ii] != 0:
+            assert li == p0dct[ii] ** 2
         else:
             assert li == 1
 
-def test_vectorize_config0():
-    config = config0()
-    assert 'p3' == config.named_args[3][0]
-    print config.named_args
-    assert config.named_args[3][1].name == 'switch'
-    p1 = config.named_args[3][1].pos_args[2]
-    assert p1.name == 'uniform'
-    assert p1.pos_args[0]._obj == 2
-    assert p1.pos_args[1]._obj == 3
 
-    N = as_apply(5)
+def test_vectorize_config0():
+    p0 = hp_uniform('p0', 0, 1)
+    p1 = hp_loguniform('p1', 2, 3)
+    p2 = hp_choice('p2', [-1, p0])
+    p3 = hp_choice('p3', [-2, p1])
+    p4 = 1
+    p5 = [3, 4, p0]
+    p6 = hp_choice('p6', [-3, p1])
+    d = locals()
+    d['p1'] = None # -- don't sample p1 all the time, only if p3 says so
+    config = as_apply(d)
+
+    N = as_apply('N:TBA')
     expr = config
     expr_idxs = scope.range(N)
     vh = VectorizeHelper(expr, expr_idxs, build=True)
-    vconfig = vh.vals_memo[expr]
+    vconfig = vh.v_expr
 
     full_output = as_apply([vconfig, vh.idxs_by_id(), vh.vals_by_id()])
 
-    if 0:
+    if 1:
         print '=' * 80
         print 'VECTORIZED'
         print full_output
@@ -179,14 +188,16 @@ def test_vectorize_config0():
         print 'VECTORIZED STOCHASTIC WITH RNGS'
         print new_vc
 
-    foo, idxs, vals = rec_eval(new_vc)
+    Nval = 10
+    foo, idxs, vals = rec_eval(new_vc, memo={N: Nval})
 
     print 'foo[0]', foo[0]
     print 'foo[1]', foo[1]
     #print idxs
     #print vals
-    assert len(foo) == 5
-    assert foo[0] == {
+    assert len(foo) == Nval
+    if 0:  # XXX refresh these values to lock down sampler
+        assert foo[0] == {
             'p0': 0.39676747423066994,
             'p1': None,
             'p2': 0.39676747423066994,
@@ -195,17 +206,17 @@ def test_vectorize_config0():
             'p5': (3, 4, 0.39676747423066994) }
     assert foo[1] != foo[2]
 
-    if 0:
-        print idxs[vh.node_id[p1]]
-        print vals[vh.node_id[p1]]
-
-    # - p1 is only used sometimes
-    assert len(idxs[vh.node_id[p1]]) < 5
-    for ii in range(5):
-        if ii in idxs[vh.node_id[p1]]:
-            assert foo[ii]['p3'] == vals[vh.node_id[p1]][list(idxs[vh.node_id[p1]]).index(ii)]
-        else:
-            assert foo[ii]['p3'] == -2, foo[ii]['p3']
+    assert len(vals['p3']) == Nval
+    assert len(vals['p6']) == Nval
+    assert len(idxs['p1']) < Nval
+    p1d = dict(zip(idxs['p1'], vals['p1']))
+    for ii, (p3v, p6v) in enumerate(zip(vals['p3'], vals['p6'])):
+        if p3v == p6v == 0:
+            assert ii not in idxs['p1']
+        if p3v:
+            assert foo[ii]['p3'] == p1d[ii]
+        if p6v:
+            assert foo[ii]['p6'] == p1d[ii]
 
 
 def test_distributions():
