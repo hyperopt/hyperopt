@@ -212,19 +212,19 @@ class VectorizeHelper(object):
     The resulting multi-trial expression is not meant to be evaluated
     directly. It is meant to serve as the input to a BanditAlgo.
 
+    idxs_memo - node in expr graph -> all elements we might need for it
+    take_memo - node in expr graph -> all expressions retrieving computed elements
+
     """
 
     def __init__(self, expr, expr_idxs, build=True):
         self.expr = expr
         self.expr_idxs = expr_idxs
         self.dfs_nodes = dfs(expr)
-        self.node_id = {}
         self.param_nodes = {}
         for ii, node in enumerate(self.dfs_nodes):
-            self.node_id[node] = 'node_%i' % ii
             if node.name == 'hyperopt_param':
                 label = node.arg['label'].obj
-                self.node_id[node.arg['obj']] = label
                 self.param_nodes[label] = node.arg['obj']
         # -- recursive construction
         #    This makes one term in each idxs, vals memo for every
@@ -380,65 +380,12 @@ class VectorizeHelper(object):
 
         return wanted_vals
 
-    def idxs_by_id(self):
-        rval = dict([(self.node_id[node], idxs)
-            for node, idxs in self.idxs_memo.items()])
-        return rval
+    def idxs_by_label(self):
+        return dict([(name, self.idxs_memo[node])
+                for name, node in self.param_nodes.items()])
 
-    def vals_by_id(self):
-        rval = dict([(self.node_id[node], takelist[0].pos_args[1])
-            for node, takelist in self.take_memo.items()])
-        return rval
+    def vals_by_label(self):
+        return dict([(name, self.take_memo[node][0].pos_args[1])
+                for name, node in self.param_nodes.items()])
 
-    def name_by_id(self):
-        rval = dict([(nid, node.name)
-            for (node, nid) in self.node_id.items()])
-        return rval
-
-    def pretty_by_id(self):
-        names = node_names(self.expr)
-        rval = dict([(nid, names.get(node, 'missing'))
-            for (node, nid) in self.node_id.items()])
-        return rval
-
-
-def pretty_names_helper(expr, seq, seqset, prefixes, names):
-    if expr in seqset:
-        return
-    assert isinstance(expr, Apply)
-    seqset.add(expr)
-    if expr.name == 'dict':
-        for ii, (aname, aval) in enumerate(expr.named_args):
-            pretty_names_helper(aval, seq, seqset,
-                    prefixes + (('%s' % aname),),
-                    names)
-    else:
-        for ii, aval in enumerate(expr.pos_args):
-            pretty_names_helper(aval, seq, seqset,
-                    prefixes + ('arg:%i' % (ii,),),
-                    names)
-        for ii, (aname, aval) in enumerate(expr.named_args):
-            pretty_names_helper(aval, seq, seqset,
-                    prefixes + ('kw:%s' % (aname,),),
-                    names)
-    names.append('.'.join(prefixes))
-    seq.append(expr)
-
-
-def pretty_names(expr, prefix=None):
-    dfs_order = dfs(expr)
-    # -- compute the seq like pyll.dfs just to ensure that
-    #    the order of our names matches the dfs order.
-    #    It's not clear to me right now that the match is important,
-    #    but it's certainly suspicious if not.
-    seq = []
-    names = []
-    seqset = set()
-    if prefix is None:
-        prefixes = ()
-    else:
-        prefixes = prefix,
-    pretty_names_helper(expr, seq, seqset, prefixes, names)
-    assert seq == dfs_order
-    return dict(zip(seq, names))
 

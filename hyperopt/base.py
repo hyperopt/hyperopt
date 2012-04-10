@@ -48,7 +48,6 @@ from pyll.stochastic import recursive_set_rng_kwarg
 
 from .utils import pmin_sampled
 from .vectorize import VectorizeHelper
-from .vectorize import pretty_names
 from .vectorize import replace_repeat_stochastic
 
 logger = logging.getLogger(__name__)
@@ -704,58 +703,29 @@ class BanditAlgo(object):
         self.template_clone_memo = {}
         template = pyll.clone(self.bandit.template, self.template_clone_memo)
         vh = self.vh = VectorizeHelper(template, self.s_new_ids)
-        # the keys (nid) here are strings like 'node_5'
-        idxs_by_nid = vh.idxs_by_id()
-        vals_by_nid = vh.vals_by_id()
-        name_by_nid = vh.name_by_id()
-        assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
-        assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
+        idxs_by_label = vh.idxs_by_label()
+        vals_by_label = vh.vals_by_label()
+        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
 
         # -- replace repeat(dist(...)) with vectorized versions
         t_i_v = replace_repeat_stochastic(
                 pyll.as_apply([
-                    vh.vals_memo[template], idxs_by_nid, vals_by_nid]))
+                    vh.v_expr, idxs_by_label, vals_by_label]))
         assert t_i_v.name == 'pos_args'
-        template, s_idxs_by_nid, s_vals_by_nid = t_i_v.pos_args
+        template, s_idxs_by_label, s_vals_by_label = t_i_v.pos_args
         # -- fetch the dictionaries off the top of the cloned graph
-        idxs_by_nid = dict(s_idxs_by_nid.named_args)
-        vals_by_nid = dict(s_vals_by_nid.named_args)
-
-        # -- remove non-stochastic nodes from the idxs and vals
-        #    because
-        #    (a) they should be irrelevant for BanditAlgo operation,
-        #    (b) they can be reconstructed from the template and the
-        #    stochastic choices, and
-        #    (c) they are often annoying when printing / saving.
-        for node_id, name in name_by_nid.items():
-            if name not in pyll.stochastic.implicit_stochastic_symbols:
-                del name_by_nid[node_id]
-                del vals_by_nid[node_id]
-                del idxs_by_nid[node_id]
+        idxs_by_label = dict(s_idxs_by_label.named_args)
+        vals_by_label = dict(s_vals_by_label.named_args)
 
         # -- make the graph runnable and SON-encodable
         # N.B. operates inplace
         self.s_specs_idxs_vals = recursive_set_rng_kwarg(
-                scope.pos_args(template, idxs_by_nid, vals_by_nid),
+                scope.pos_args(template, idxs_by_label, vals_by_label),
                 pyll.as_apply(self.rng))
 
         self.vtemplate = template
-        self.idxs_by_nid = idxs_by_nid
-        self.vals_by_nid = vals_by_nid
-        self.name_by_nid = name_by_nid
-
-        # -- compute some document coordinate strings for the node_ids
-        pnames = pretty_names(bandit.template, prefix=None)
-        doc_coords = self.doc_coords = {}
-        for node, pname in pnames.items():
-            cnode = self.template_clone_memo[node]
-            if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
-                doc_coords[vh.node_id[cnode]] = pname
-            else:
-                #print 'DROPPING', node
-                pass
-        #print 'DOC_COORDS'
-        #print doc_coords
+        self.idxs_by_label = idxs_by_label
+        self.vals_by_label = vals_by_label
 
     def short_str(self):
         return self.__class__.__name__

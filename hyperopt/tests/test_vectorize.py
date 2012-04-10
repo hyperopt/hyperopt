@@ -61,8 +61,8 @@ def test_vectorize_trivial():
     vloss = vh.v_expr
 
     full_output = as_apply([vloss,
-        vh.idxs_by_id(),
-        vh.vals_by_id()])
+        vh.idxs_by_label(),
+        vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
     new_vc = recursive_set_rng_kwarg(
@@ -91,8 +91,8 @@ def test_vectorize_simple():
     vloss = vh.v_expr
 
     full_output = as_apply([vloss,
-        vh.idxs_by_id(),
-        vh.vals_by_id()])
+        vh.idxs_by_label(),
+        vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
     new_vc = recursive_set_rng_kwarg(
@@ -122,8 +122,8 @@ def test_vectorize_multipath():
     print vloss
 
     full_output = as_apply([vloss,
-        vh.idxs_by_id(),
-        vh.vals_by_id()])
+        vh.idxs_by_label(),
+        vh.vals_by_label()])
 
     new_vc = recursive_set_rng_kwarg(
             full_output,
@@ -164,7 +164,7 @@ def test_vectorize_config0():
     vh = VectorizeHelper(expr, expr_idxs, build=True)
     vconfig = vh.v_expr
 
-    full_output = as_apply([vconfig, vh.idxs_by_id(), vh.vals_by_id()])
+    full_output = as_apply([vconfig, vh.idxs_by_label(), vh.vals_by_label()])
 
     if 1:
         print '=' * 80
@@ -193,8 +193,6 @@ def test_vectorize_config0():
 
     print 'foo[0]', foo[0]
     print 'foo[1]', foo[1]
-    #print idxs
-    #print vals
     assert len(foo) == Nval
     if 0:  # XXX refresh these values to lock down sampler
         assert foo[0] == {
@@ -206,6 +204,11 @@ def test_vectorize_config0():
             'p5': (3, 4, 0.39676747423066994) }
     assert foo[1] != foo[2]
 
+    print idxs
+    print vals['p3']
+    print vals['p6']
+    print idxs['p1']
+    print vals['p1']
     assert len(vals['p3']) == Nval
     assert len(vals['p6']) == Nval
     assert len(idxs['p1']) < Nval
@@ -216,6 +219,7 @@ def test_vectorize_config0():
         if p3v:
             assert foo[ii]['p3'] == p1d[ii]
         if p6v:
+            print 'p6', foo[ii]['p6'], p1d[ii]
             assert foo[ii]['p6'] == p1d[ii]
 
 
