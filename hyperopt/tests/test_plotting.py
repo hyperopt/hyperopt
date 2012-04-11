@@ -13,7 +13,7 @@ import matplotlib
 matplotlib.use('svg')  # -- prevents trying to connect to X server
 
 from hyperopt import Random, Experiment, Trials, TreeParzenEstimator
-from .test_tpe import ManyDists
+from .test_tpe import many_dists
 import hyperopt.bandits
 import hyperopt.plotting
 
@@ -24,7 +24,7 @@ def get_do_show():
 
 class TestPlotting(unittest.TestCase):
     def setUp(self):
-        bandit = self.bandit = ManyDists()
+        bandit = self.bandit = many_dists()
         #algo = Random(bandit)
         algo = TreeParzenEstimator(bandit, linear_forgetting=True)
         trials = Trials()

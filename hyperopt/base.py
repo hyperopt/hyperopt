@@ -215,6 +215,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
             vals[node_id].extend(t_vals)
     return idxs, vals
 
+
 def spec_from_misc(misc):
     spec = {}
     for k, v in misc['vals'].items():
@@ -225,6 +226,7 @@ def spec_from_misc(misc):
         else:
             raise NotImplementedError('multiple values', (k, v))
     return spec
+
 
 class InvalidTrial(Exception):
     pass
@@ -497,23 +499,29 @@ class Trials(object):
         For bandits with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
-        if bandit is None:
-            bandit = Bandit(None)
 
-        def fmap(f):
-            rval = np.asarray([f(r, s)
-                    for (r, s) in zip(self.results, self.specs)
-                    if bandit.status(r) == STATUS_OK]).astype('float')
-            if not np.all(np.isfinite(rval)):
-                raise ValueError()
-            return rval
-        loss = fmap(bandit.loss)
-        loss_v = fmap(bandit.loss_variance)
-        if bandit.true_loss is not Bandit.true_loss:
-            true_loss = fmap(bandit.true_loss)
-            loss3 = zip(loss, loss_v, true_loss)
+
+        if bandit is None:
+            results = self.results
+            loss = [r['loss']
+                    for r in results if r['status'] == STATUS_OK]
+            loss_v = [r.get('loss_variance', 0)
+                    for r in results if r['status'] == STATUS_OK]
+            true_loss = [r.get('true_loss', r['loss'])
+                    for r in results if r['status'] == STATUS_OK]
+
         else:
-            loss3 = zip(loss, loss_v, loss)
+            def fmap(f):
+                rval = np.asarray([f(r, s)
+                        for (r, s) in zip(self.results, self.specs)
+                        if bandit.status(r) == STATUS_OK]).astype('float')
+                if not np.all(np.isfinite(rval)):
+                    raise ValueError()
+                return rval
+            loss = fmap(bandit.loss)
+            loss_v = fmap(bandit.loss_variance)
+            true_loss = fmap(bandit.true_loss)
+        loss3 = zip(loss, loss_v, true_loss)
         loss3.sort()
         loss3 = np.asarray(loss3)
         if np.all(loss3[:, 1] == 0):
@@ -688,24 +696,29 @@ class Bandit(object):
     def loss(self, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
-        try:
-            return result['loss']
-        except KeyError:
-            return None
+        return result.get('loss', None)
 
     def loss_variance(self, result, config=None):
         """Return the variance in the estimate of the loss"""
-        return 0
+        return result.get('loss_variance', 0.0)
 
     def true_loss(self, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
-        return self.loss(result, config=config)
+        # N.B. don't use get() here, it evaluates self.loss un-necessarily
+        try:
+            return result['true_loss']
+        except KeyError:
+            return self.loss(result, config=config)
 
     def true_loss_variance(self, config=None):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
-        return 0
+        # N.B. don't use get() here, it evaluates self.loss un-necessarily
+        try:
+            return result['true_loss_variance']
+        except KeyError:
+            return self.loss_variance(result, config=config)
 
     def status(self, result, config=None):
         """Extract the job status from a result document

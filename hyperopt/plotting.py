@@ -30,8 +30,6 @@ def algo_as_str(algo):
 def main_plot_history(trials, bandit=None, algo=None, do_show=True,
         status_colors=None):
     import matplotlib.pyplot as plt
-    if bandit is None:
-        bandit = Bandit(None)
 
     # self is an Experiment
     if status_colors is None:
@@ -45,16 +43,11 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
     plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
-    try:
-        loss_target = bandit.loss_target()
-        have_losstarget = True
-    except NotImplementedError:
-        loss_target = np.min(Ys)
-        have_losstarget = False
-    if have_losstarget:
-        plt.axhline(loss_target)
-        ymin = min(np.min(Ys), loss_target)
-        ymax = max(np.max(Ys), loss_target)
+
+    if bandit is not None and bandit.loss_target is not None:
+        plt.axhline(bandit.loss_target)
+        ymin = min(np.min(Ys), bandit.loss_target)
+        ymax = max(np.max(Ys), bandit.loss_target)
         yrange = ymax - ymin
         ymean = (ymax + ymin) / 2.0
         plt.ylim(
@@ -66,7 +59,7 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
     plt.axhline(best_err, c='g')
 
     plt.title('bandit: %s algo: %s' % (
-        bandit.short_str(),
+        bandit.short_str() if bandit else '-',
         algo_as_str(algo)))
     if do_show:
         plt.show()
@@ -74,8 +67,6 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
 
 def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     import matplotlib.pyplot as plt
-    if bandit is None:
-        bandit = Bandit(None)
 
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
@@ -91,7 +82,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     plt.ylabel('frequency')
 
     plt.title('bandit: %s algo: %s' % (
-        bandit.short_str(),
+        bandit.short_str() if bandit else '-',
         algo_as_str(algo)))
     if do_show:
         plt.show()
