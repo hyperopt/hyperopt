@@ -29,6 +29,7 @@ def algo_as_str(algo):
 
 def main_plot_history(trials, bandit=None, algo=None, do_show=True,
         status_colors=None):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
     # self is an Experiment
@@ -66,6 +67,7 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
 
 
 def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
@@ -91,6 +93,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
 def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         colorize_best=None,
         ):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
     BA = BanditAlgo(bandit)

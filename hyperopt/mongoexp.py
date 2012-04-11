@@ -165,6 +165,7 @@ from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
+from .base import spec_from_misc
 from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
@@ -909,7 +910,7 @@ class MongoWorker(object):
         logger.debug('job found: %s' % str(job))
 
         # -- don't let the cmd mess up our trial object
-        spec = copy.deepcopy(job['spec'])
+        spec = spec_from_misc(job['misc'])
 
         ctrl = MongoCtrl(
                 trials=MongoTrials(mj, exp_key=job['exp_key'], refresh=False),
