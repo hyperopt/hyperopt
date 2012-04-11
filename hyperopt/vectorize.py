@@ -13,7 +13,7 @@ stoch = stochastic.implicit_stochastic_symbols
 
 
 def ERR(msg):
-    print >> sys.stderr, msg
+    print >> sys.stderr, 'hyperopt.vectorize.ERR', msg
 
 
 @scope.define_pure

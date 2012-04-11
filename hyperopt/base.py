@@ -608,12 +608,11 @@ class Bandit(object):
 
     """
 
-    # -- catch the following exceptions and do the following actions
-    #    for exceptions raised by rec_eval in self.evaluate
-    exceptions = []
-
-
-    def __init__(self, expr):
+    def __init__(self, expr,
+            rseed = None,
+            loss_target = None,
+            exceptions = None,
+            ):
         if isinstance(expr, pyll.Apply):
             self.expr = expr
         elif isinstance(expr, dict):
@@ -624,18 +623,33 @@ class Bandit(object):
             self.expr = pyll.as_apply(expr)
         else:
             raise TypeError('as_bandit function must return a dict')
+
         self.params =  {}
         for node in pyll.dfs(self.expr):
             if node.name == 'hyperopt_param':
                 self.params[node.arg['label'].obj] = node.arg['obj']
+
+        if exceptions is None:
+            self.exceptions = []
+        else:
+            self.exceptions = exceptions
+        self.loss_target = loss_target
+        self.installed_rng = False
+        if rseed is None:
+            self.rng = None
+        else:
+            self.rng = np.random.RandomState(rseed)
 
     def memo_from_config(self, config):
         memo = {}
         for node in pyll.dfs(self.expr):
             if node.name == 'hyperopt_param':
                 label = node.arg['label'].obj
-                memo[node] = config[label]
-        assert len(memo) == len(config)
+                # -- hack because it's not really garbagecollected
+                #    this does have the desired effect of crashing the
+                #    function if rec_eval actually needs a value that
+                #    the the optimization algorithm thought to be unnecessary
+                memo[node] = config.get(label, pyll.base.GarbageCollected)
         return memo
 
     def short_str(self):
@@ -645,6 +659,12 @@ class Bandit(object):
         """Return a result document
         """
         memo = self.memo_from_config(config)
+        if self.rng is not None and not self.installed_rng:
+            # -- N.B. this modifies the expr graph in-place
+            #    XXX this feels wrong
+            self.expr = recursive_set_rng_kwarg(self.expr,
+                pyll.as_apply(self.rng))
+            self.installed_rng = True
         try:
             r_dct = pyll.rec_eval(self.expr, memo=memo)
         except Exception, e:
@@ -680,9 +700,6 @@ class Bandit(object):
         """
         return 0
 
-    def loss_target(self):
-        raise NotImplementedError('override-me')
-
     def status(self, result, config=None):
         """Extract the job status from a result document
         """
@@ -695,7 +712,7 @@ class Bandit(object):
         return {'status': STATUS_NEW}
 
 
-def as_bandit(loss_target=None,):
+def as_bandit(*b_args, **b_kwargs):
     """
     Decorate a function that returns a pyll expressions so that
     it becomes a Bandit instance instead of a function
@@ -710,7 +727,8 @@ def as_bandit(loss_target=None,):
     def deco(f):
         def wrapper(*args, **kwargs):
             f_rval = f(*args, **kwargs)
-            return Bandit(f_rval)
+            bandit = Bandit(f_rval, *b_args, **b_kwargs)
+            return bandit
         wrapper.__name__ = f.__name__
         return wrapper
     return deco
@@ -780,8 +798,8 @@ class BanditAlgo(object):
             # -- sample new specs, idxs, vals
             idxs, vals = pyll.rec_eval(self.s_idxs_vals,
                     memo={self.s_new_ids: [new_id]})
-            print 'BandigAlgo.suggest IDXS', idxs
-            print 'BandigAlgo.suggest VALS', vals
+            #print 'BandigAlgo.suggest IDXS', idxs
+            #print 'BandigAlgo.suggest VALS', vals
             new_result = self.bandit.new_result()
             new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
             miscs_update_idxs_vals([new_misc], idxs, vals)
