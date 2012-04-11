@@ -11,18 +11,26 @@ from pyll import scope
 
 import hyperopt.bandits
 
+from hyperopt import Bandit
 from hyperopt import Experiment
 from hyperopt import Random
 from hyperopt import Trials
 
 from hyperopt.base import miscs_to_idxs_vals
 
-from hyperopt.bandits import Quadratic1
-from hyperopt.bandits import Q1Lognormal
-from hyperopt.bandits import TwoArms
-from hyperopt.bandits import Distractor
-from hyperopt.bandits import GaussWave
-from hyperopt.bandits import GaussWave2
+from hyperopt.bandits import quadratic1
+from hyperopt.bandits import q1_lognormal
+from hyperopt.bandits import n_arms
+from hyperopt.bandits import distractor
+from hyperopt.bandits import gauss_wave
+from hyperopt.bandits import gauss_wave2
+
+from hyperopt.pyll_utils import hp_choice
+from hyperopt.pyll_utils import hp_randint
+from hyperopt.pyll_utils import hp_uniform, hp_loguniform
+from hyperopt.pyll_utils import hp_quniform, hp_qloguniform
+from hyperopt.pyll_utils import hp_normal, hp_lognormal
+from hyperopt.pyll_utils import hp_qnormal, hp_qlognormal
 
 from hyperopt.tpe import adaptive_parzen_normal_orig
 from hyperopt.tpe import adaptive_parzen_normal
@@ -36,25 +44,20 @@ from hyperopt.tpe import LGMM1_lpdf
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
 
-class ManyDists(hyperopt.bandits.Base):
-    loss_target = 0
-
-    def __init__(self):
-        hyperopt.bandits.Base.__init__(self, dict(
-            a=scope.one_of(0, 1, 2),
-            b=scope.randint(10),
-            c=scope.uniform(4, 7),
-            d=scope.loguniform(-2, 0),
-            e=scope.quniform(0, 10, 3),
-            f=scope.qloguniform(0, 3, 2),
-            g=scope.normal(4, 7),
-            h=scope.lognormal(-2, 2),
-            i=scope.qnormal(0, 10, 2),
-            x=scope.qlognormal(0, 2, 1),
-            ))
-
-    def score(self, config):
-        return - float(np.log(1e-12 + np.sum(config.values()) ** 2))
+@hyperopt.as_bandit(loss_target=0)
+def many_dists():
+    a=hp_choice('a', [0, 1, 2])
+    b=hp_randint('b', 10)
+    c=hp_uniform('c', 4, 7)
+    d=hp_loguniform('d', -2, 0)
+    e=hp_quniform('e', 0, 10, 3)
+    f=hp_qloguniform('f', 0, 3, 2)
+    g=hp_normal('g', 4, 7)
+    h=hp_lognormal('h', -2, 2)
+    i=hp_qnormal('i', 0, 10, 2)
+    j=hp_qlognormal('j', 0, 2, 1)
+    z = a + b + c + d + e + f + g + h + i + j
+    return {'loss': scope.float(scope.log(1e-12 + z ** 2))}
 
 
 def test_adaptive_parzen_normal_orig():
@@ -538,31 +541,31 @@ class TestQLGMM1Math(unittest.TestCase):
 class CasePerBandit(object):
 
     def test_quadratic1(self):
-        self.bandit = Quadratic1()
+        self.bandit = quadratic1()
         self.work()
 
     def test_q1lognormal(self):
-        self.bandit = Q1Lognormal()
+        self.bandit = q1_lognormal()
         self.work()
 
     def test_twoarms(self):
-        self.bandit = TwoArms()
+        self.bandit = n_arms()
         self.work()
 
     def test_distractor(self):
-        self.bandit = Distractor()
+        self.bandit = distractor()
         self.work()
 
     def test_gausswave(self):
-        self.bandit = GaussWave()
+        self.bandit = gauss_wave()
         self.work()
 
     def test_gausswave2(self):
-        self.bandit = GaussWave2()
+        self.bandit = gauss_wave2()
         self.work()
 
     def test_many_dists(self):
-        self.bandit = ManyDists()
+        self.bandit = many_dists()
         self.work()
 
 
@@ -630,41 +633,41 @@ class TestSuggest(unittest.TestCase, CasePerBandit):
 
 class TestOpt(unittest.TestCase, CasePerBandit):
     thresholds = dict(
-            Quadratic1=1e-5,
-            Q1Lognormal=0.01,
-            Distractor=-1.96,
-            GaussWave=-2.0,
-            GaussWave2=-2.0,
-            TwoArms=-2.5,
-            ManyDists=.0005,
+            quadratic1=1e-5,
+            q1_lognormal=0.01,
+            distractor=-1.96,
+            gauss_wave=-2.0,
+            gauss_wave2=-2.0,
+            n_arms=-2.5,
+            many_dists=.0005,
             )
 
     LEN = dict(
             # -- running a long way out tests overflow/underflow
             #    to some extent
-            Quadratic1=1000,
-            ManyDists=200,
-            Distractor=100,
+            quadratic1=1000,
+            many_dists=200,
+            distractor=100,
             #XXX
-            Q1Lognormal=250,
+            q1_lognormal=250,
             )
 
     gammas = dict(
-            Distractor=.05,
+            distractor=.05,
             )
 
     prior_weights = dict(
-            Distractor=.01,
+            distractor=.01,
             )
 
     n_EIs = dict(
             #XXX
             # -- this can be low in a few dimensions
-            Quadratic1=5,
+            quadratic1=5,
             # -- lower number encourages exploration
             # XXX: this is a damned finicky way to get TPE
             #      to solve the Distractor problem
-            Distractor=15,
+            distractor=15,
             )
 
     def setUp(self):
@@ -677,17 +680,17 @@ class TestOpt(unittest.TestCase, CasePerBandit):
     def work(self):
 
         bandit = self.bandit
-        bname = bandit.__class__.__name__
-        print 'Bandit', bname
+        assert bandit.name is not None
+        print 'Bandit', bandit.name
         algo = TreeParzenEstimator(bandit,
-                gamma=self.gammas.get(bname,
+                gamma=self.gammas.get(bandit.name,
                     TreeParzenEstimator.gamma),
-                prior_weight=self.prior_weights.get(bname,
+                prior_weight=self.prior_weights.get(bandit.name,
                     TreeParzenEstimator.prior_weight),
-                n_EI_candidates=self.n_EIs.get(bname,
+                n_EI_candidates=self.n_EIs.get(bandit.name,
                     TreeParzenEstimator.n_EI_candidates),
                 )
-        LEN = self.LEN.get(bname, 50)
+        LEN = self.LEN.get(bandit.name, 50)
 
         trials = Trials()
         exp = Experiment(trials, algo)
@@ -732,30 +735,19 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         #logx = np.log([s['x'] for s in trials.specs])
         #print 'TPE MEAN', np.mean(logx)
         #print 'TPE STD ', np.std(logx)
-        thresh = self.thresholds[bname]
+        thresh = self.thresholds[bandit.name]
         print 'Thresh', thresh
         assert min(trials.losses()) < thresh
 
 
-class QU(hyperopt.bandits.Base):
-    loss_target = 0
-
-    def __init__(self, N, f):
-        hyperopt.bandits.Base.__init__(self, dict(
-            us=[f(0, 1) for i in range(N)]))
-
-    def score(self, config):
-        rval = - (np.asarray(config['us']) ** 2).sum()
-        print 'SCORE: ', rval
-        return rval
-
-
 def test_opt_qn_uniform():
-    test_opt_qn_normal(scope.uniform)
+    test_opt_qn_normal(hp_uniform)
 
-
-def test_opt_qn_normal(f=scope.normal):
-    bandit = QU(25, f=f)
+def test_opt_qn_normal(f=hp_normal):
+    bandit = Bandit(
+            {'loss': -scope.sum([f('v%i' % ii, 0, 1)
+                for ii in range(25)]) ** 2},
+            loss_target=0)
     algo = TreeParzenEstimator(bandit,
             prior_weight=.5,
             linear_forgetting=0,
@@ -785,21 +777,12 @@ def test_opt_qn_normal(f=scope.normal):
         plt.hist(np.asarray(end).flatten())
         plt.show()
 
+@hyperopt.as_bandit(loss_target=0, rseed=123)
+def opt_q_uniform(target):
+    x = hp_quniform('x', 1.01, 10, 1)
+    return {'loss': (x - target) ** 2 + scope.normal(0, 1)}
 
 class TestOptQUniform():
-    class Bandit(hyperopt.bandits.Base):
-        loss_target = 0
-
-        def __init__(self, target, rng):
-            hyperopt.bandits.Base.__init__(self, dict(
-                x=scope.quniform(1.01, 10, 1)))
-            self.target = target
-            self.rng = rng
-
-        def score(self, config):
-            rval = - (config['x'] - self.target) ** 2 + self.rng.randn()
-            print config['x'], rval
-            return rval
 
     show_steps = False
     show_vars = DO_SHOW
@@ -807,10 +790,7 @@ class TestOptQUniform():
 
     def work(self, **kwargs):
         self.__dict__.update(kwargs)
-        bandit = TestOptQUniform.Bandit(
-                self.target,
-                np.random.RandomState(3))
-
+        bandit = opt_q_uniform(self.target)
         prior_weight = 2.5
         gamma = 0.20
         algo = TreeParzenEstimator(bandit,
@@ -819,6 +799,9 @@ class TestOptQUniform():
                 n_startup_jobs=2,
                 n_EI_candidates=128,
                 gamma=gamma)
+        print algo.opt_idxs['x']
+        print algo.opt_vals['x']
+
         trials = Trials()
         experiment = Experiment(trials, algo)
         experiment.run(self.LEN)
@@ -827,8 +810,8 @@ class TestOptQUniform():
             hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
 
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        idxs = idxs['node_3']
-        vals = vals['node_3']
+        idxs = idxs['x']
+        vals = vals['x']
         print "VALS", vals
 
         losses = trials.losses()

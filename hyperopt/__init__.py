@@ -18,6 +18,7 @@ from base import JOB_STATE_DONE
 from base import JOB_STATE_ERROR
 
 from base import Bandit
+from base import as_bandit
 from base import BanditAlgo
 from base import Ctrl
 from base import Experiment

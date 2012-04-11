@@ -103,11 +103,11 @@ def idxs_take(idxs, vals, which):
     """
     Return `vals[which]` where `which` is a subset of `idxs`
     """
-    # XXX: consider insisting on sorted idxs
-    # XXX: use np.searchsorted instead of dct
+    # TODO: consider insisting on sorted idxs
+    # TODO: use np.searchsorted instead of dct
     assert len(idxs) == len(vals)
     table = dict(zip(idxs, vals))
-    return [table[w] for w in which]
+    return np.asarray([table[w] for w in which])
 
 
 @scope.define_pure
@@ -131,24 +131,27 @@ def vectorize_stochastic(orig):
             assert arg.name == 'pos_args'
             assert len(arg.pos_args) == 2
             arg_vals = arg.pos_args[1]
-            if (arg_vals.name == 'asarray'
-                    and arg_vals.inputs()[0].name == 'repeat'):
-                # -- draws are iid, so forget about
-                #    repeating the distribution parameters
-                repeated_thing = arg_vals.inputs()[0].inputs()[1]
-                return repeated_thing
+
+            # XXX: write a pattern-substitution rule for this case
+            if arg_vals.name == 'idxs_take':
+                if arg_vals.arg['vals'].name == 'asarray':
+                    if arg_vals.arg['vals'].inputs()[0].name == 'repeat':
+                        # -- draws are iid, so forget about
+                        #    repeating the distribution parameters
+                        repeated_thing = arg_vals.arg['vals'].inputs()[0].inputs()[1]
+                        return repeated_thing
+            if arg.pos_args[0] is idxs:
+                return arg_vals
             else:
-                if arg.pos_args[0] is idxs:
-                    return arg_vals
-                else:
-                    # -- arg.pos_args[0] is a superset of idxs
-                    #    TODO: slice out correct elements using
-                    #    idxs_take, but more importantly - test this case.
-                    raise NotImplementedError()
+                # -- arg.pos_args[0] is a superset of idxs
+                #    TODO: slice out correct elements using
+                #    idxs_take, but more importantly - test this case.
+                raise NotImplementedError()
         new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
+        print new_pos_args
         new_named_args = [[aname, foo(arg)]
                 for aname, arg in orig.named_args]
-        vnode = Apply(dist, new_pos_args, new_named_args, None)
+        vnode = Apply(dist, new_pos_args, new_named_args, o_len=None)
         n_times = scope.len(idxs)
         if 'size' in dict(vnode.named_args):
             raise NotImplementedError('random node already has size')

@@ -446,7 +446,7 @@ class Trials(object):
         self._dynamic_trials = []
         self.attachments = {}
         self.refresh()
-        
+
     def count_by_state_synced(self, arg, trials=None):
         """
         Return trial counts by looking at self._trials
@@ -478,13 +478,15 @@ class Trials(object):
 
     def losses(self, bandit=None):
         if bandit is None:
-            bandit = Bandit(None)
-        return map(bandit.loss, self.results, self.specs)
+            return [r.get('loss') for r in self.results]
+        else:
+            return map(bandit.loss, self.results, self.specs)
 
     def statuses(self, bandit=None):
         if bandit is None:
-            bandit = Bandit(None)
-        return map(bandit.status, self.results, self.specs)
+            return [r.get('status') for r in self.results]
+        else:
+            return map(bandit.status, self.results, self.specs)
 
     def average_best_error(self, bandit=None):
         """Return the average best error of the experiment
@@ -609,20 +611,23 @@ class Bandit(object):
     """
 
     def __init__(self, expr,
+            name = None,
             rseed = None,
             loss_target = None,
             exceptions = None,
             ):
         if isinstance(expr, pyll.Apply):
             self.expr = expr
+            # XXX: verify that expr is a dictionary with the right keys,
+            #      then refactor the code below
         elif isinstance(expr, dict):
             if 'loss' not in expr:
-                raise ValueError('as_bandit function must define a loss')
+                raise ValueError('expr must define a loss')
             if 'status' not in expr:
                 expr['status'] = STATUS_OK
             self.expr = pyll.as_apply(expr)
         else:
-            raise TypeError('as_bandit function must return a dict')
+            raise TypeError('expr must be a dictionary')
 
         self.params =  {}
         for node in pyll.dfs(self.expr):
@@ -639,6 +644,8 @@ class Bandit(object):
             self.rng = None
         else:
             self.rng = np.random.RandomState(rseed)
+
+        self.name = name
 
     def memo_from_config(self, config):
         memo = {}
@@ -712,7 +719,7 @@ class Bandit(object):
         return {'status': STATUS_NEW}
 
 
-def as_bandit(*b_args, **b_kwargs):
+def as_bandit(**b_kwargs):
     """
     Decorate a function that returns a pyll expressions so that
     it becomes a Bandit instance instead of a function
@@ -726,8 +733,12 @@ def as_bandit(*b_args, **b_kwargs):
     """
     def deco(f):
         def wrapper(*args, **kwargs):
+            if 'name' in b_kwargs:
+                _b_kwargs = b_kwargs
+            else:
+                _b_kwargs = dict(b_kwargs, name=f.__name__)
             f_rval = f(*args, **kwargs)
-            bandit = Bandit(f_rval, *b_args, **b_kwargs)
+            bandit = Bandit(f_rval, **_b_kwargs)
             return bandit
         wrapper.__name__ = f.__name__
         return wrapper

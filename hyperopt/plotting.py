@@ -97,13 +97,10 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
         plt.show()
 
 
-def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10,
+def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         colorize_best=None,
         ):
     import matplotlib.pyplot as plt
-
-    if bandit is None:
-        bandit = Bandit({})
 
     BA = BanditAlgo(bandit)
 
@@ -146,33 +143,33 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10,
             else:
                 return (t, t, t)    # -- white=worst, black=best
 
-    all_nids = list(idxs.keys())
-    titles = ['%s (%s)' % (BA.doc_coords[nid], BA.name_by_nid[nid])
-            for nid in all_nids]
+    all_labels = list(idxs.keys())
+    titles = ['%s (%s)' % (label, bandit.params[label].name)
+            for label in all_labels]
     order = np.argsort(titles)
 
     C = 5
-    R = int(np.ceil(len(all_nids) / float(C)))
+    R = int(np.ceil(len(all_labels) / float(C)))
 
     for plotnum, varnum in enumerate(order):
         #print varnum, titles[varnum]
-        nid = all_nids[varnum]
+        label = all_labels[varnum]
         plt.subplot(R, C, plotnum + 1)
         #print '-' * 80
-        #print 'Node', nid
+        #print 'Node', label
 
         # hide x ticks
         ticks_num, ticks_txt = plt.xticks()
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
-        dist_name = BA.name_by_nid[nid]
-        x = idxs[nid]
+        dist_name = bandit.params[label].name
+        x = idxs[label]
         if 'log' in dist_name:
-            y = np.log(vals[nid])
+            y = np.log(vals[label])
         else:
-            y = vals[nid]
+            y = vals[label]
         plt.title(titles[varnum], fontsize=fontsize)
-        c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]])
+        c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[label]])
         plt.scatter(x, y, c=c)
 
     if do_show:
