@@ -95,7 +95,7 @@ def gauss_wave():
     return {'loss': - (f1 + f2)}
 
 
-@base.as_bandit(loss_target=-3, rseed=123)
+@base.as_bandit(loss_target=-2.5, rseed=123)
 def gauss_wave2():
     """
     Variant of the GaussWave problem in which noise is added to the score

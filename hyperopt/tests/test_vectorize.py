@@ -226,11 +226,11 @@ def test_distributions():
     # test that the distributions come out right
 
     # XXX: test more distributions
-    bandit = Bandit({
+    bandit = base.Bandit({
                 'loss': hp_loguniform('lu', -2, 2) +
                     hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2) +
                     hp_quniform('qu', -4.999, 5, 1) +
-                    hp_uniform('u', 0, 10)}
+                    hp_uniform('u', 0, 10)})
     algo = base.Random(bandit)
     trials = base.Trials()
     exp = base.Experiment(trials, algo)
