@@ -418,15 +418,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
         sigma[0] = lsigma
         sigma[-1] = usigma
 
-    # -- magic formula:
-    maxsigma = prior_sigma / np.sqrt(len(srtd_mus))
-    minsigma = prior_sigma / float(len(srtd_mus))
-
-    #print 'maxsigma, minsigma', maxsigma, minsigma
-    sigma = np.clip(sigma, minsigma, maxsigma)
-
-    sigma[prior_pos] = prior_sigma
-
     if LF and LF < len(mus):
         assert LF > 0
         ramplen = len(mus) - LF
@@ -438,9 +429,20 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
         srtd_weights[:prior_pos] = unsrtd_weights[order[:prior_pos]]
         srtd_weights[prior_pos] = prior_weight
         srtd_weights[prior_pos + 1:] = unsrtd_weights[order[prior_pos:]]
+
     else:
         srtd_weights = np.ones(len(srtd_mus))
         srtd_weights[prior_pos] = prior_weight
+
+    # -- magic formula:
+    maxsigma = prior_sigma / 1.0
+    minsigma = prior_sigma / (1 + len(srtd_mus))
+
+    #print 'maxsigma, minsigma', maxsigma, minsigma
+    sigma = np.clip(sigma, minsigma, maxsigma)
+
+    sigma[prior_pos] = prior_sigma
+
 
     #print weights.dtype
     srtd_weights /= srtd_weights.sum()
@@ -561,7 +563,7 @@ def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
 #
 
 @scope.define_info(o_len=2)
-def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma):
+def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=20):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
@@ -570,7 +572,7 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma):
     # XXX if this is working, refactor this sort for efficiency
 
     # Splitting is done this way to cope with duplicate loss values.
-    n_below = int(np.ceil(gamma * len(l_vals)))
+    n_below = min(int(np.ceil(gamma * np.sqrt(len(l_vals)))), gamma_cap)
     l_order = np.argsort(l_vals)
 
     keep_idxs = set(l_idxs[l_order[:n_below]])
@@ -712,13 +714,13 @@ class TreeParzenEstimator(BanditAlgo):
     # -- the prior takes a weight in the Parzen mixture
     #    that is the sqrt of the number of observations
     #    times this number.
-    prior_weight = 2.5
+    prior_weight = 1.0
 
     # -- suggest best of this many draws on every iteration
     n_EI_candidates = 24
 
-    # -- fraction of trials to consider as good
-    gamma = 0.20
+    # -- gamma * sqrt(n_trials) is fraction of to use as good
+    gamma = 0.50
 
     n_startup_jobs = 10
 
