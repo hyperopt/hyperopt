@@ -18,8 +18,7 @@ from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import StopExperiment
 from hyperopt.base import Bandit
-from hyperopt.base import CoinFlip
-from hyperopt.base import CoinFlipInjector
+from hyperopt.base import coin_flip
 from hyperopt.base import Ctrl
 from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
@@ -29,7 +28,10 @@ from hyperopt.base import RandomStop
 from hyperopt.base import SONify
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
-from hyperopt.vectorize import pretty_names
+
+from hyperopt.pyll_utils import hp_uniform
+from hyperopt.pyll_utils import hp_normal
+from hyperopt.pyll_utils import hp_choice
 
 
 def ok_trial(tid, *args, **kwargs):
@@ -117,35 +119,23 @@ class TestTrials(unittest.TestCase):
         assert len(trials) == len(trials.miscs)
 
 
-class BanditMixin(object):
-
-    @classmethod
-    def make(cls, bandit_cls_to_test):
-        class Tester(unittest.TestCase, cls):
-            bandit_cls = bandit_cls_to_test
-        Tester.__name__ = bandit_cls_to_test.__name__ + 'Tester'
-        return Tester
-
-
-CoinFlipTester = BanditMixin.make(CoinFlip)
-
 
 class TestRandom(unittest.TestCase):
     def setUp(self):
-        self.bandit = CoinFlip()
+        self.bandit = coin_flip()
         self.algo = Random(self.bandit)
 
     def test_suggest_1(self):
-        print 'TEMPLATE', self.bandit.template
+        print 'EXPR', self.bandit.expr
         docs = self.algo.suggest([0], Trials())
         assert len(docs) == 1
         print 'DOCS', docs
         # -- assert validity of docs
         trials = trials_from_docs(docs)
         print 'TRIALS', trials
-        assert docs[0]['misc']['idxs']['node_1'] == [0]
+        assert docs[0]['misc']['idxs']['flip'] == [0]
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        assert idxs['node_1'] == [0]
+        assert idxs['flip'] == [0]
 
     def test_suggest_5(self):
         docs = self.algo.suggest(range(5), Trials())
@@ -158,8 +148,8 @@ class TestRandom(unittest.TestCase):
         print vals
         assert len(idxs) == 1
         assert len(vals) == 1
-        assert idxs['node_1'] == range(5)
-        assert np.all(vals['node_1'] == [1, 1, 0, 1, 0])
+        assert idxs['flip'] == range(5)
+        assert np.all(vals['flip'] == [1, 1, 0, 1, 0])
 
     def test_arbitrary_range(self):
         new_ids = [-2, 0, 7, 'a', '007']
@@ -171,13 +161,13 @@ class TestRandom(unittest.TestCase):
         assert len(idxs) == 1
         assert len(vals) == 1
         print vals
-        assert idxs['node_1'] == new_ids
-        assert np.all(vals['node_1'] == [0, 1, 0, 1, 1])
+        assert idxs['flip'] == new_ids
+        assert np.all(vals['flip'] == [0, 1, 0, 1, 1])
 
 
 class TestCoinFlipExperiment(unittest.TestCase):
     def setUp(self):
-        self.bandit = CoinFlip()
+        self.bandit = coin_flip()
         self.algo = Random(self.bandit)
         self.trials = Trials()
         self.experiment = Experiment(self.trials, self.algo, async=False)
@@ -194,13 +184,13 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.miscs
         print self.trials.idxs
         print self.trials.vals
-        assert self.trials.idxs['node_1'] == [0, 1, 2]
-        assert self.trials.vals['node_1'] == [1, 1, 0]
+        assert self.trials.idxs['flip'] == [0, 1, 2]
+        assert self.trials.vals['flip'] == [1, 1, 0]
 
 
 class TestCoinFlipStopExperiment(unittest.TestCase):
     def setUp(self):
-        self.bandit = CoinFlip()
+        self.bandit = coin_flip()
         self.algo = RandomStop(5, self.bandit)
         self.trials = Trials()
         self.experiment = Experiment(self.trials, self.algo, async=False)
@@ -215,50 +205,33 @@ class TestCoinFlipStopExperiment(unittest.TestCase):
         self.experiment.run(2)
         assert len(self.trials._trials) == 5
         self.experiment.run(1)
-        assert len(self.trials._trials) == 5 
+        assert len(self.trials._trials) == 5
         self.experiment.run(1)
-        assert len(self.trials._trials) == 5 
-
-
-class TestCoinFlipInjectorExperiment(unittest.TestCase):
-    def setUp(self):
-        self.bandit = CoinFlipInjector()
-        self.algo = Random(self.bandit)
-        self.trials = Trials()
-        self.experiment = Experiment(self.trials, self.algo, async=False)
-
-    def test_run_1(self):
-        self.experiment.run(1)
-        assert len(self.trials._trials) == 2
-
-
-class ZeroBandit(Bandit):
-    def __init__(self, template):
-        Bandit.__init__(self, template)
-
-    def evaluate(self, config, ctrl):
-        return dict(loss=0.0, status=STATUS_OK)
+        assert len(self.trials._trials) == 5
 
 
 class TestConfigs(unittest.TestCase):
     def foo(self):
-        self.bandit = bandit = ZeroBandit(self.expr)
+        self.bandit = bandit = Bandit(self.expr)
         self.algo = algo = Random(bandit)
         if hasattr(self, 'n_randints'):
-            n_randints = len([nn for nn in algo.vh.name_by_id().values()
-                if nn == 'randint'])
+            n_randints = len(filter(
+                lambda x: x.name == 'randint',
+                algo.vh.params.values()))
             assert n_randints == self.n_randints
 
-        self.trials = trials = Trials()
-        self.experiment = Experiment(trials, algo, async=False)
+        self.trials = Trials()
+        self.experiment = Experiment(self.trials, algo, async=False)
         self.experiment.run(5)
-        trials = self.trials._trials
         self.output = output = []
-        for trial in trials:
+        for trial in self.trials._trials:
             print ''
             tmp = []
             for nid in trial['misc']['idxs']:
-                thing = self.algo.doc_coords[nid], trial['misc']['idxs'][nid], trial['misc']['vals'][nid]
+                thing = (
+                        nid,
+                        trial['misc']['idxs'][nid],
+                        trial['misc']['vals'][nid])
                 print thing
                 tmp.append(thing)
             tmp.sort()
@@ -272,7 +245,7 @@ class TestConfigs(unittest.TestCase):
         assert output == self.wanted
 
     def test0(self):
-        self.expr = as_apply(dict(p0=uniform(0, 1)))
+        self.expr = {'loss': hp_uniform('p0', 0, 1)}
         self.wanted = [
                 [('p0', [0], [0.69646918559786164])],
                 [('p0', [1], [0.28613933495037946])],
@@ -351,13 +324,11 @@ class TestConfigs(unittest.TestCase):
         self.foo()
 
     def test7(self):
-        p0 = uniform(0, 1)
-        p1 = normal(0, 1)
-        self.expr = as_apply(dict(
-            p0=p0,
-            p1=p1,
-            p2=one_of(1, p0),
-            p3=one_of(2, p1, uniform(2, 3))))
+        p0 = hp_uniform('p0', 0, 1)
+        p1 = hp_normal('p1', 0, 1)
+        p2 = hp_choice('p2', [1, p0])
+        p3 = hp_choice('p3', [2, p1, p2, hp_uniform('a0', 2, 3)])
+        self.expr = {'loss': p0 + p1 + p2 + p3}
         self.n_randints = 2
         self.wanted = [
                 [
@@ -440,10 +411,13 @@ class TestSONify(unittest.TestCase):
 
 
 def test_failure():
+
+    #XXX also test the Bandit.exceptions mechanism that actually catches them
     class BanditE(Exception):
         pass
+
     class DummyBandit(Bandit):
-        param_gen = {"a":10}
+        param_gen = {"loss": 10}
         def __init__(self):
             super(DummyBandit, self).__init__(self.param_gen)
 

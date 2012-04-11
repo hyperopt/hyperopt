@@ -15,6 +15,7 @@ stoch = stochastic.implicit_stochastic_symbols
 def ERR(msg):
     print >> sys.stderr, msg
 
+
 @scope.define_pure
 def vchoice_split(idxs, choices, n_options):
     rval = [[] for ii in range(n_options)]
@@ -221,11 +222,11 @@ class VectorizeHelper(object):
         self.expr = expr
         self.expr_idxs = expr_idxs
         self.dfs_nodes = dfs(expr)
-        self.param_nodes = {}
+        self.params = {}
         for ii, node in enumerate(self.dfs_nodes):
             if node.name == 'hyperopt_param':
                 label = node.arg['label'].obj
-                self.param_nodes[label] = node.arg['obj']
+                self.params[label] = node.arg['obj']
         # -- recursive construction
         #    This makes one term in each idxs, vals memo for every
         #    directed path through the switches in the graph.
@@ -239,6 +240,8 @@ class VectorizeHelper(object):
     def assert_integrity_idxs_take(self):
         idxs_memo = self.idxs_memo
         take_memo = self.take_memo
+        after = dfs(self.expr)
+        assert after == self.dfs_nodes
         assert set(idxs_memo.keys()) == set(take_memo.keys())
         for node in idxs_memo:
             idxs = idxs_memo[node]
@@ -254,6 +257,8 @@ class VectorizeHelper(object):
         This recursive procedure should be called on an output-node.
         """
         def checkpoint():
+            return
+            #  -- DEBUG
             self.assert_integrity_idxs_take()
 
         checkpoint()
@@ -342,22 +347,27 @@ class VectorizeHelper(object):
                     and wanted_idxs in self.idxs_memo[node].pos_args):
                 # -- phew, easy case
                 all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
-                wanted_vals = scope.take(all_idxs, all_vals, wanted_idxs)
+                wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
                 self.take_memo[node].append(wanted_vals)
                 checkpoint()
             else:
                 # -- we need to add some indexes
+                checkpoint()
                 if node in self.idxs_memo:
                     all_idxs = self.idxs_memo[node]
                 else:
                     all_idxs = scope.array_union(wanted_idxs)
+                checkpoint()
 
                 all_vals = scope.idxs_map(all_idxs, node.name)
-                all_vals.pos_args.extend(node.pos_args)
-                all_vals.named_args.extend(node.named_args)
-                for arg in node.inputs():
-                    arg_vnode = self.build_idxs_vals(arg, all_idxs)
-                    all_vals.replace_input(arg, as_apply([all_idxs, arg_vnode]))
+                for ii, aa in enumerate(node.pos_args):
+                    all_vals.pos_args.append(as_apply([
+                        all_idxs, self.build_idxs_vals(aa, all_idxs)]))
+                    checkpoint()
+                for ii, (nn, aa) in enumerate(node.named_args):
+                    all_vals.named_args.append([nn, as_apply([
+                        all_idxs, self.build_idxs_vals(aa, all_idxs)])])
+                    checkpoint()
                 all_vals = vectorize_stochastic(all_vals)
 
                 checkpoint()
@@ -382,10 +392,10 @@ class VectorizeHelper(object):
 
     def idxs_by_label(self):
         return dict([(name, self.idxs_memo[node])
-                for name, node in self.param_nodes.items()])
+                for name, node in self.params.items()])
 
     def vals_by_label(self):
         return dict([(name, self.take_memo[node][0].pos_args[1])
-                for name, node in self.param_nodes.items()])
+                for name, node in self.params.items()])
 
 

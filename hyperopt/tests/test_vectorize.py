@@ -7,7 +7,6 @@ from pyll.stochastic import recursive_set_rng_kwarg
 from hyperopt import base
 from hyperopt.vectorize import VectorizeHelper
 from hyperopt.vectorize import replace_repeat_stochastic
-from hyperopt.pyll_utils import PBandit
 from hyperopt.pyll_utils import hp_choice
 from hyperopt.pyll_utils import hp_uniform
 from hyperopt.pyll_utils import hp_quniform
@@ -227,12 +226,11 @@ def test_distributions():
     # test that the distributions come out right
 
     # XXX: test more distributions
-    bandit = PBandit(as_apply([
-                hp_loguniform('lu', -2, 2),
-                hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2),
-                hp_quniform('qu', -4.999, 5, 1),
-                hp_uniform('u', 0, 10)])
-            )
+    bandit = Bandit({
+                'loss': hp_loguniform('lu', -2, 2) +
+                    hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2) +
+                    hp_quniform('qu', -4.999, 5, 1) +
+                    hp_uniform('u', 0, 10)}
     algo = base.Random(bandit)
     trials = base.Trials()
     exp = base.Experiment(trials, algo)
@@ -243,18 +241,21 @@ def test_distributions():
     idxs, vals = base.miscs_to_idxs_vals(trials.miscs)
     print idxs.keys()
 
+    COUNTMAX = 130
+    COUNTMIN = 70
+
     # -- loguniform
-    log_lu = np.log(vals[bandit.node_id('lu', algo)])
+    log_lu = np.log(vals['lu'])
     assert len(log_lu) == N
     assert -2 < np.min(log_lu)
     assert np.max(log_lu) < 2
     h = np.histogram(log_lu)[0]
     print h
-    assert np.all(75 < h)
-    assert np.all(h < 125)
+    assert np.all(COUNTMIN < h)
+    assert np.all(h < COUNTMAX)
 
     # -- quantized log uniform
-    qlu = vals[bandit.node_id('qlu', algo)]
+    qlu = vals['qlu']
     assert np.all(np.fmod(qlu, 2) == 0)
     assert np.min(qlu) == 2
     assert np.max(qlu) == 20
@@ -262,7 +263,7 @@ def test_distributions():
     assert bc_qlu[2] > bc_qlu[4] > bc_qlu[6] > bc_qlu[8]
 
     # -- quantized uniform
-    qu = vals[bandit.node_id('qu', algo)]
+    qu = vals['qu']
     assert np.min(qu) == -5
     assert np.max(qu) == 5
     assert np.all(np.fmod(qu, 1) == 0)
@@ -270,16 +271,16 @@ def test_distributions():
     assert np.all(40 < bc_qu), bc_qu  # XXX: how to get the distribution flat
     # with new rounding rule?
     assert np.all(bc_qu < 125), bc_qu
+    assert np.all(bc_qu < COUNTMAX)
 
     # -- uniform
-    u = vals[bandit.node_id('u', algo)]
+    u = vals['u']
     assert np.min(u) > 0
     assert np.max(u) < 10
     h = np.histogram(u)[0]
     print h
-    assert np.all(75 < h)
-    assert np.all(h < 125)
-
+    assert np.all(COUNTMIN < h)
+    assert np.all(h < COUNTMAX)
 
     #import matplotlib.pyplot as plt
     #plt.hist(np.log(vals['node_2']))

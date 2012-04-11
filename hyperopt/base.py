@@ -45,6 +45,7 @@ from bson.objectid import ObjectId
 import pyll
 from pyll import scope
 from pyll.stochastic import recursive_set_rng_kwarg
+from .pyll_utils import hp_choice
 
 from .utils import pmin_sampled
 from .vectorize import VectorizeHelper
@@ -214,6 +215,16 @@ def miscs_to_idxs_vals(miscs, keys=None):
             vals[node_id].extend(t_vals)
     return idxs, vals
 
+def spec_from_misc(misc):
+    spec = {}
+    for k, v in misc['vals'].items():
+        if len(v) == 0:
+            pass
+        elif len(v) == 1:
+            spec[k] = v[0]
+        else:
+            raise NotImplementedError('multiple values', (k, v))
+    return spec
 
 class InvalidTrial(Exception):
     pass
@@ -597,8 +608,35 @@ class Bandit(object):
 
     """
 
-    def __init__(self, template):
-        self.template = pyll.as_apply(template)
+    # -- catch the following exceptions and do the following actions
+    #    for exceptions raised by rec_eval in self.evaluate
+    exceptions = []
+
+
+    def __init__(self, expr):
+        if isinstance(expr, pyll.Apply):
+            self.expr = expr
+        elif isinstance(expr, dict):
+            if 'loss' not in expr:
+                raise ValueError('as_bandit function must define a loss')
+            if 'status' not in expr:
+                expr['status'] = STATUS_OK
+            self.expr = pyll.as_apply(expr)
+        else:
+            raise TypeError('as_bandit function must return a dict')
+        self.params =  {}
+        for node in pyll.dfs(self.expr):
+            if node.name == 'hyperopt_param':
+                self.params[node.arg['label'].obj] = node.arg['obj']
+
+    def memo_from_config(self, config):
+        memo = {}
+        for node in pyll.dfs(self.expr):
+            if node.name == 'hyperopt_param':
+                label = node.arg['label'].obj
+                memo[node] = config[label]
+        assert len(memo) == len(config)
+        return memo
 
     def short_str(self):
         return self.__class__.__name__
@@ -606,7 +644,19 @@ class Bandit(object):
     def evaluate(self, config, ctrl):
         """Return a result document
         """
-        raise NotImplementedError('override me')
+        memo = self.memo_from_config(config)
+        try:
+            r_dct = pyll.rec_eval(self.expr, memo=memo)
+        except Exception, e:
+            n_match = 0
+            for match, match_pair in self.exceptions:
+                if match(e):
+                    r_dct = match_pair(e)
+                    break
+            raise
+        assert 'loss' in r_dct
+        assert 'status' in r_dct
+        return r_dct
 
     def loss(self, result, config=None):
         """Extract the scalar-valued loss from a result document
@@ -645,42 +695,37 @@ class Bandit(object):
         return {'status': STATUS_NEW}
 
 
-class CoinFlip(Bandit):
+def as_bandit(loss_target=None,):
+    """
+    Decorate a function that returns a pyll expressions so that
+    it becomes a Bandit instance instead of a function
+
+    Example:
+
+    @as_bandit(loss_target=0)
+    def f(low, high):
+        return {'loss': hp_uniform('x', low, high) ** 2 }
+
+    """
+    def deco(f):
+        def wrapper(*args, **kwargs):
+            f_rval = f(*args, **kwargs)
+            return Bandit(f_rval)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return deco
+
+
+@as_bandit()
+def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-
-    def __init__(self):
-        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
-
-    def evaluate(self, config, ctrl):
-        scores = dict(heads=1.0, tails=0.0)
-        return dict(loss=scores[config['flip']], status=STATUS_OK)
-
-
-class CoinFlipInjector(Bandit):
-
-    def __init__(self):
-        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
-
-    def evaluate(self, config, ctrl):
-        scores = dict(heads=1.0, tails=0.0)
-        
-        reverse = lambda x : 'tails' if x == 'heads' else 'heads'
-        
-        other_spec = dict(flip=reverse(config['flip']))
-        other_result = dict(status=STATUS_OK,
-                            loss=scores[other_spec['flip']])
-        other_misc = {'idxs':None, 'vals':None}
-        ctrl.inject_results([other_spec], [other_result], [other_misc])
-        
-        return dict(loss=scores[config['flip']], status=STATUS_OK)
+    return {'loss': hp_choice('flip', [0.0, 1.0])}
 
 
 class BanditAlgo(object):
     """
-    Algorithm for solving Config-armed bandit (arms are from tree domain)
-
-    X-armed bandit problems, and N-armed bandit problems are special cases.
+    Algorithm for optimizing Bandits.
 
     :type bandit: Bandit
     :param bandit: the bandit problem this algorithm should solve
@@ -697,35 +742,21 @@ class BanditAlgo(object):
         self.rng = np.random.RandomState(self.seed)
         self.cmd = cmd
         self.workdir = workdir
-        self.new_ids = ['dummy_id']
-        # -- N.B. not necessarily actually a range
-        self.s_new_ids = pyll.Literal(self.new_ids)
-        self.template_clone_memo = {}
-        template = pyll.clone(self.bandit.template, self.template_clone_memo)
-        vh = self.vh = VectorizeHelper(template, self.s_new_ids)
+        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
+        before = pyll.dfs(self.bandit.expr)
+        vh = self.vh = VectorizeHelper(self.bandit.expr, self.s_new_ids)
         idxs_by_label = vh.idxs_by_label()
         vals_by_label = vh.vals_by_label()
+        after = pyll.dfs(self.bandit.expr)
+        assert before == after
         assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
-
-        # -- replace repeat(dist(...)) with vectorized versions
-        t_i_v = replace_repeat_stochastic(
-                pyll.as_apply([
-                    vh.v_expr, idxs_by_label, vals_by_label]))
-        assert t_i_v.name == 'pos_args'
-        template, s_idxs_by_label, s_vals_by_label = t_i_v.pos_args
-        # -- fetch the dictionaries off the top of the cloned graph
-        idxs_by_label = dict(s_idxs_by_label.named_args)
-        vals_by_label = dict(s_vals_by_label.named_args)
+        assert set(idxs_by_label.keys()) == set(self.bandit.params.keys())
 
         # -- make the graph runnable and SON-encodable
         # N.B. operates inplace
-        self.s_specs_idxs_vals = recursive_set_rng_kwarg(
-                scope.pos_args(template, idxs_by_label, vals_by_label),
+        self.s_idxs_vals = recursive_set_rng_kwarg(
+                scope.pos_args(idxs_by_label, vals_by_label),
                 pyll.as_apply(self.rng))
-
-        self.vtemplate = template
-        self.idxs_by_label = idxs_by_label
-        self.vals_by_label = vals_by_label
 
     def short_str(self):
         return self.__class__.__name__
@@ -740,21 +771,22 @@ class BanditAlgo(object):
         # -- install new_ids as program arguments
         rval = []
         for new_id in new_ids:
-            self.new_ids[:] = [new_id]
-
+            # the results are not computed all at once so that we can
+            # seed the generator based on each new_id
             sh1 = hashlib.sha1()
             sh1.update(str(new_id))
-            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
+            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2 ** 31)))
 
             # -- sample new specs, idxs, vals
-            new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
-            print 'IDXS', idxs
-            print 'VALS', vals
+            idxs, vals = pyll.rec_eval(self.s_idxs_vals,
+                    memo={self.s_new_ids: [new_id]})
+            print 'BandigAlgo.suggest IDXS', idxs
+            print 'BandigAlgo.suggest VALS', vals
             new_result = self.bandit.new_result()
             new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
             miscs_update_idxs_vals([new_misc], idxs, vals)
             rval.extend(trials.new_trial_docs([new_id],
-                    new_specs, [new_result], [new_misc]))
+                    [None], [new_result], [new_misc]))
         return rval
 
 
@@ -803,7 +835,7 @@ class Experiment(object):
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
-                spec = copy.deepcopy(trial['spec'])
+                spec = spec_from_misc(trial['misc'])
                 ctrl = Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
@@ -817,7 +849,6 @@ class Experiment(object):
                     #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
-
                 N -= 1
                 if N == 0:
                     break
