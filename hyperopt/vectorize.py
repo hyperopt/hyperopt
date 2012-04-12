@@ -148,7 +148,6 @@ def vectorize_stochastic(orig):
                 #    idxs_take, but more importantly - test this case.
                 raise NotImplementedError()
         new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
-        print new_pos_args
         new_named_args = [[aname, foo(arg)]
                 for aname, arg in orig.named_args]
         vnode = Apply(dist, new_pos_args, new_named_args, o_len=None)
@@ -299,7 +298,7 @@ class VectorizeHelper(object):
                     and wanted_idxs in self.idxs_memo[node].pos_args):
                 # -- phew, easy case
                 all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
-                wanted_vals = scope.take(all_idxs, all_vals, wanted_idxs)
+                wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
                 self.take_memo[node].append(wanted_vals)
                 checkpoint()
             else:

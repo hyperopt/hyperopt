@@ -970,6 +970,12 @@ class MongoWorker(object):
             os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
+        attachments = result.pop('attachments', {})
+        for aname, aval in attachments.items():
+            logger.info(
+                'mongoexp: saving attachment name=%s (%i bytes)' % (
+                    aname, len(aval)))
+            ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
 

@@ -642,8 +642,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
 
-                improvement = below_llik - above_llik
-
+                #improvement = below_llik - above_llik
                 #new_node = scope.broadcast_best(b_post, improvement)
                 new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, 'obj'):
@@ -794,6 +793,8 @@ class TreeParzenEstimator(BanditAlgo):
             if loss is None:
                 # -- associate infinite loss to new/running/failed jobs
                 loss = float('inf')
+            else:
+                loss = float(loss)
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
                 best_docs_loss[tid] = loss

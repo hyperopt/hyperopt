@@ -687,10 +687,16 @@ class Bandit(object):
             for match, match_pair in self.exceptions:
                 if match(e):
                     r_dct = match_pair(e)
+                    n_match += 1
                     break
-            raise
+            if n_match == 0:
+                raise
         assert 'loss' in r_dct
-        assert 'status' in r_dct
+        if r_dct['loss'] is not None:
+            # -- assert that it can at least be cast to float
+            float(r_dct['loss'])
+        if r_dct['status'] not in STATUS_STRINGS:
+            raise ValueError('invalid status string', r_dct['status'])
         return r_dct
 
     def loss(self, result, config=None):
