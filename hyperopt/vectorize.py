@@ -5,6 +5,7 @@ import numpy as np
 from pyll import Apply
 from pyll import as_apply
 from pyll import dfs
+from pyll import toposort
 from pyll import scope
 from pyll import stochastic
 from pyll import clone_merge
@@ -237,6 +238,11 @@ class VectorizeHelper(object):
         self.take_memo = {}  # node -> list of idxs_take retrieving node vals
         self.v_expr = self.build_idxs_vals(expr, expr_idxs)
 
+        #TODO: graph-optimization pass to remove cruft:
+        #  - unions of 1
+        #  - unions of full sets with their subsets
+        #  - idxs_take that can be merged
+
         self.assert_integrity_idxs_take()
 
     def assert_integrity_idxs_take(self):
@@ -258,21 +264,34 @@ class VectorizeHelper(object):
         """
         This recursive procedure should be called on an output-node.
         """
+        checkpoint_asserts = False
         def checkpoint():
-            return
-            #  -- DEBUG
-            self.assert_integrity_idxs_take()
+            if checkpoint_asserts:
+                self.assert_integrity_idxs_take()
+                if node in self.idxs_memo:
+                    toposort(self.idxs_memo[node])
+                if node in self.take_memo:
+                    for take in self.take_memo[node]:
+                        toposort(take)
 
         checkpoint()
 
+        # wanted_idxs are fixed, whereas idxs_memo
+        # is full of unions, that can grow in subsequent recursive
+        # calls to build_idxs_vals with node as argument.
+        assert wanted_idxs != self.idxs_memo.get(node)
+
+        # -- easy exit case
         if node.name == 'hyperopt_param':
             # -- ignore, not vectorizing
             return self.build_idxs_vals(node.arg['obj'], wanted_idxs)
 
+        # -- easy exit case
         elif node.name == 'hyperopt_result':
             # -- ignore, not vectorizing
             return self.build_idxs_vals(node.arg['obj'], wanted_idxs)
 
+        # -- literal case: always take from universal set
         elif node.name == 'literal':
             if node in self.idxs_memo:
                 all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
@@ -292,7 +311,9 @@ class VectorizeHelper(object):
                 assert node not in self.take_memo
                 self.take_memo[node] = [wanted_vals]
                 checkpoint()
+            return wanted_vals
 
+        # -- switch case: complicated
         elif node.name == 'switch':
             if (node in self.idxs_memo
                     and wanted_idxs in self.idxs_memo[node].pos_args):
@@ -340,23 +361,37 @@ class VectorizeHelper(object):
                     self.take_memo[node] = [wanted_vals]
                 checkpoint()
 
+        # -- general case
         else:
             # -- this is a general node.
-            #    It is generally handled with idxs_map,
+            #    It is generally handled with idxs_memo,
             #    but vectorize_stochastic may immediately transform it into
             #    a more compact form.
             if (node in self.idxs_memo
                     and wanted_idxs in self.idxs_memo[node].pos_args):
                 # -- phew, easy case
-                all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
-                wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
-                self.take_memo[node].append(wanted_vals)
-                checkpoint()
+                for take in self.take_memo[node]:
+                    if take.pos_args[2] == wanted_idxs:
+                        return take
+                raise NotImplementedError('how did this happen?')
+                #all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
+                #wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
+                #self.take_memo[node].append(wanted_vals)
+                #checkpoint()
             else:
-                # -- we need to add some indexes
+                # XXX
+                # -- determine if wanted_idxs is actually a subset of the idxs
+                # that we are already computing.  This is not only an
+                # optimization, but prevents the creation of cycles, which
+                # would otherwise occur if we have a graph of the form
+                # switch(f(a), g(a), 0). If there are other switches inside f
+                # and g, does this get trickier?
+
+                # -- assume we need to add some indexes
                 checkpoint()
                 if node in self.idxs_memo:
                     all_idxs = self.idxs_memo[node]
+
                 else:
                     all_idxs = scope.array_union(wanted_idxs)
                 checkpoint()
@@ -379,7 +414,14 @@ class VectorizeHelper(object):
                         wanted_idxs)  # -- fixed.
                 if node in self.idxs_memo:
                     assert self.idxs_memo[node].name == 'array_union'
+                    checkpoint()
                     self.idxs_memo[node].pos_args.append(wanted_idxs)
+                    toposort(self.idxs_memo[node])
+                    try:
+                        checkpoint()
+                    except:
+                        print as_apply([all_idxs, wanted_idxs])
+                        raise
                     for take in self.take_memo[node]:
                         assert take.name == 'idxs_take'
                         take.pos_args[1] = all_vals

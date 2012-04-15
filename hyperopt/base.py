@@ -792,10 +792,16 @@ class BanditAlgo(object):
         self.workdir = workdir
         self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
         before = pyll.dfs(self.bandit.expr)
+        # -- raises exception if expr contains cycles
+        pyll.toposort(self.bandit.expr)
         vh = self.vh = VectorizeHelper(self.bandit.expr, self.s_new_ids)
+        # -- raises exception if v_expr contains cycles
+        pyll.toposort(vh.v_expr)
+
         idxs_by_label = vh.idxs_by_label()
         vals_by_label = vh.vals_by_label()
         after = pyll.dfs(self.bandit.expr)
+        # -- try to detect if VectorizeHelper screwed up anything inplace
         assert before == after
         assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
         assert set(idxs_by_label.keys()) == set(self.bandit.params.keys())
@@ -805,6 +811,9 @@ class BanditAlgo(object):
         self.s_idxs_vals = recursive_set_rng_kwarg(
                 scope.pos_args(idxs_by_label, vals_by_label),
                 pyll.as_apply(self.rng))
+
+        # -- raises an exception if no topological ordering exists
+        pyll.toposort(self.s_idxs_vals)
 
     def short_str(self):
         return self.__class__.__name__

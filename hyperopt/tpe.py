@@ -21,6 +21,7 @@ from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 
 EPS = 1e-12
+DEFAULT_LF = 20
 
 
 adaptive_parzen_samplers = {}
@@ -373,10 +374,20 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     return weights, mus, sigma
 
 
+@scope.define
+def linear_forgetting_weights(N, LF):
+    assert N > 0
+    assert LF > 0
+    ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
+    flat = np.ones(LF)
+    weights = np.concatenate([ramp, flat], axis=0)
+    return weights
+
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
 @scope.define_info(o_len=3)
-def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
+def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
+        LF=DEFAULT_LF):
     """
     mus - matrix (N, M) of M, N-dimensional component centers
     """
@@ -419,11 +430,7 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
         sigma[-1] = usigma
 
     if LF and LF < len(mus):
-        assert LF > 0
-        ramplen = len(mus) - LF
-        ramp = np.linspace(1.0 / len(mus), 1.0, num=ramplen)
-        flat = np.ones(LF)
-        unsrtd_weights = np.concatenate((ramp, flat), axis=0)
+        unsrtd_weights = linear_forgetting_weights(len(mus), LF)
         srtd_weights = np.zeros_like(srtd_mus)
         assert len(unsrtd_weights) + 1 == len(srtd_mus)
         srtd_weights[:prior_pos] = unsrtd_weights[order[:prior_pos]]
@@ -550,8 +557,10 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 # -- Categorical
 
 @adaptive_parzen_sampler('randint')
-def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
-    counts = scope.bincount(obs, minlength=upper)
+def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None,
+        LF=DEFAULT_LF):
+    weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    counts = scope.bincount(obs, minlength=upper, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
@@ -563,7 +572,8 @@ def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
 #
 
 @scope.define_info(o_len=2)
-def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=20):
+def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
+        gamma_cap=DEFAULT_LF):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
@@ -723,7 +733,7 @@ class TreeParzenEstimator(BanditAlgo):
 
     n_startup_jobs = 10
 
-    linear_forgetting = 50
+    linear_forgetting = DEFAULT_LF
 
     def __init__(self, bandit,
             gamma=gamma,
@@ -738,6 +748,9 @@ class TreeParzenEstimator(BanditAlgo):
         self.n_EI_candidates = n_EI_candidates
         self.n_startup_jobs = n_startup_jobs
         self.linear_forgetting = linear_forgetting
+        if linear_forgetting != DEFAULT_LF:
+            raise NotImplementedError(
+                'linear_forgetting is not passed around properly')
 
         self.s_prior_weight = pyll.Literal(float(self.prior_weight))
 
