@@ -378,10 +378,14 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
 def linear_forgetting_weights(N, LF):
     assert N > 0
     assert LF > 0
-    ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
-    flat = np.ones(LF)
-    weights = np.concatenate([ramp, flat], axis=0)
-    return weights
+    if N < LF:
+        return np.ones(N)
+    else:
+        ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
+        flat = np.ones(LF)
+        weights = np.concatenate([ramp, flat], axis=0)
+        assert weights.shape == (N,), (weights.shape, N)
+        return weights
 
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
@@ -443,12 +447,14 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
 
     # -- magic formula:
     maxsigma = prior_sigma / 1.0
-    minsigma = prior_sigma / (1 + len(srtd_mus))
+    minsigma = prior_sigma / (1.0 + len(srtd_mus))
 
     #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     sigma[prior_pos] = prior_sigma
+    assert prior_sigma > 0
+    assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
 
     #print weights.dtype

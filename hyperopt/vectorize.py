@@ -414,23 +414,17 @@ class VectorizeHelper(object):
                         wanted_idxs)  # -- fixed.
                 if node in self.idxs_memo:
                     assert self.idxs_memo[node].name == 'array_union'
-                    checkpoint()
                     self.idxs_memo[node].pos_args.append(wanted_idxs)
                     toposort(self.idxs_memo[node])
-                    try:
-                        checkpoint()
-                    except:
-                        print as_apply([all_idxs, wanted_idxs])
-                        raise
+                    # -- this catches the cycle bug mentioned above
                     for take in self.take_memo[node]:
                         assert take.name == 'idxs_take'
                         take.pos_args[1] = all_vals
                     self.take_memo[node].append(wanted_vals)
-                    checkpoint()
                 else:
                     self.idxs_memo[node] = all_idxs
                     self.take_memo[node] = [wanted_vals]
-                    checkpoint()
+                checkpoint()
 
         return wanted_vals
 
