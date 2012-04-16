@@ -164,7 +164,11 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
             y = vals[label]
         plt.title(titles[varnum], fontsize=fontsize)
         c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[label]])
-        plt.scatter(x, y, c=c)
+        if len(y):
+            plt.scatter(x, y, c=c)
+        if 'log' in dist_name:
+            nums, texts = plt.yticks()
+            plt.yticks(nums, ['%.2e' % np.exp(t) for t in nums])
 
     if do_show:
         plt.show()
