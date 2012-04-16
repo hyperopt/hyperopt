@@ -750,7 +750,6 @@ def test_opt_qn_normal(f=hp_normal):
             loss_target=0)
     algo = TreeParzenEstimator(bandit,
             prior_weight=.5,
-            linear_forgetting=0,
             n_startup_jobs=0,
             n_EI_candidates=1,
             gamma=0.15)
@@ -795,7 +794,6 @@ class TestOptQUniform():
         gamma = 0.20
         algo = TreeParzenEstimator(bandit,
                 prior_weight=prior_weight,
-                linear_forgetting=0,
                 n_startup_jobs=2,
                 n_EI_candidates=128,
                 gamma=gamma)

@@ -26,7 +26,7 @@ class TestPlotting(unittest.TestCase):
     def setUp(self):
         bandit = self.bandit = many_dists()
         #algo = Random(bandit)
-        algo = TreeParzenEstimator(bandit, linear_forgetting=True)
+        algo = TreeParzenEstimator(bandit)
         trials = Trials()
         experiment = Experiment(trials, algo, async=False)
         experiment.max_queue_len = 1
