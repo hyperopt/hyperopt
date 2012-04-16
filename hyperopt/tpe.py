@@ -21,7 +21,10 @@ from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 
 EPS = 1e-12
-DEFAULT_LF = 20
+
+# -- default linear forgetting. don't try to change by writing this variable
+# because it's captured in function default args when this file is read
+DEFAULT_LF = 25
 
 
 adaptive_parzen_samplers = {}
