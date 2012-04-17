@@ -92,6 +92,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
 
 def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         colorize_best=None,
+        columns=5,
         ):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
@@ -142,7 +143,7 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
             for label in all_labels]
     order = np.argsort(titles)
 
-    C = 5
+    C = columns
     R = int(np.ceil(len(all_labels) / float(C)))
 
     for plotnum, varnum in enumerate(order):
