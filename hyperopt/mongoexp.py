@@ -1048,13 +1048,14 @@ def as_mongo_str(s):
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
 
+    def sighandler_shutdown(signum, frame):
+        logger.info('Caught signal %i, shutting down.' % signum)
+        raise Shutdown(signum)
+    signal.signal(signal.SIGINT, sighandler_shutdown)
+    signal.signal(signal.SIGHUP, sighandler_shutdown)
+    signal.signal(signal.SIGTERM, sighandler_shutdown)
+
     if N > 1:
-        def sighandler_shutdown(signum, frame):
-            logger.info('Caught signal %i, shutting down.' % signum)
-            raise Shutdown(signum)
-        signal.signal(signal.SIGINT, sighandler_shutdown)
-        signal.signal(signal.SIGHUP, sighandler_shutdown)
-        signal.signal(signal.SIGTERM, sighandler_shutdown)
         proc = None
         cons_errs = 0
         while N and cons_errs < int(options.max_consecutive_failures):
