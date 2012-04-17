@@ -379,9 +379,11 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
 
 @scope.define
 def linear_forgetting_weights(N, LF):
-    assert N > 0
+    assert N >= 0
     assert LF > 0
-    if N < LF:
+    if N == 0:
+        return np.asarray([])
+    elif N < LF:
         return np.ones(N)
     else:
         ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
