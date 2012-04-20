@@ -617,12 +617,13 @@ class Bandit(object):
     evaluate - interruptible/checkpt calling convention for evaluation routine
 
     """
+    pyll_ctrl = pyll.as_apply(None)
 
     def __init__(self, expr,
-            name = None,
-            rseed = None,
-            loss_target = None,
-            exceptions = None,
+            name=None,
+            rseed=None,
+            loss_target=None,
+            exceptions=None,
             ):
         if isinstance(expr, pyll.Apply):
             self.expr = expr
@@ -674,6 +675,7 @@ class Bandit(object):
         """Return a result document
         """
         memo = self.memo_from_config(config)
+        memo[self.pyll_ctrl] = ctrl
         if self.rng is not None and not self.installed_rng:
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
