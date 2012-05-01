@@ -547,7 +547,10 @@ class MongoJobs(object):
         return doc
 
     def attachment_names(self, doc):
-        return [a[0] for a in doc.get('_attachments', [])]
+        def as_str(name_id):
+            assert isinstance(name_id[0], basestring), name
+            return str(name_id[0])
+        return map(as_str, doc.get('_attachments', []))
 
     def set_attachment(self, doc, blob, name, collection=None):
         """Attach potentially large data string `blob` to `doc` by name `name`
@@ -805,14 +808,21 @@ class MongoTrials(Trials):
 
     def trial_attachments(self, trial):
         """
-        Support syntax for load:  self.attachments[name]
-        Support syntax for store: self.attachments[name] = value
+        Attachments to a single trial (e.g. learned weights)
+
+        Returns a dictionary interface to the attachments.
         """
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
             def __contains__(_self, name):
-                name in self.handle.attachment_names(doc=trial)
+                return name in self.handle.attachment_names(doc=trial)
+
+            def __len__(_self):
+                return len(self.handle.attachment_names(doc=trial))
+
+            def __iter__(_self):
+                return iter(self.handle.attachment_names(doc=trial))
 
             def __getitem__(_self, name):
                 try:
@@ -831,19 +841,16 @@ class MongoTrials(Trials):
 
             def __delitem__(_self, name):
                 raise NotImplementedError('delete trial_attachment')
-                #self.handle.delete_attachment(
-                #    doc=doc,
-                #    name=name, 
-                #    collection=None)  #<-- what's the proper collection?
 
         return Attachments()
 
     @property
     def attachments(self):
         """
+        Attachments to a Trials set (such as bandit args).
+
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
-        NB THIS IS TRIALS-LEVEL ATTACHMENTS, NOT DOCUMENT-LEVEL ATTACHMENTS!!!
         """
         gfs = self.handle.gfs
         class Attachments(object):
