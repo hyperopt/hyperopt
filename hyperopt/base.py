@@ -45,10 +45,10 @@ from bson.objectid import ObjectId
 import pyll
 from pyll import scope
 from pyll.stochastic import recursive_set_rng_kwarg
+from .pyll_utils import hp_choice
 
 from .utils import pmin_sampled
 from .vectorize import VectorizeHelper
-from .vectorize import pretty_names
 from .vectorize import replace_repeat_stochastic
 
 logger = logging.getLogger(__name__)
@@ -214,6 +214,18 @@ def miscs_to_idxs_vals(miscs, keys=None):
             idxs[node_id].extend(t_idxs)
             vals[node_id].extend(t_vals)
     return idxs, vals
+
+
+def spec_from_misc(misc):
+    spec = {}
+    for k, v in misc['vals'].items():
+        if len(v) == 0:
+            pass
+        elif len(v) == 1:
+            spec[k] = v[0]
+        else:
+            raise NotImplementedError('multiple values', (k, v))
+    return spec
 
 
 class InvalidTrial(Exception):
@@ -436,7 +448,7 @@ class Trials(object):
         self._dynamic_trials = []
         self.attachments = {}
         self.refresh()
-        
+
     def count_by_state_synced(self, arg, trials=None):
         """
         Return trial counts by looking at self._trials
@@ -468,13 +480,15 @@ class Trials(object):
 
     def losses(self, bandit=None):
         if bandit is None:
-            bandit = Bandit(None)
-        return map(bandit.loss, self.results, self.specs)
+            return [r.get('loss') for r in self.results]
+        else:
+            return map(bandit.loss, self.results, self.specs)
 
     def statuses(self, bandit=None):
         if bandit is None:
-            bandit = Bandit(None)
-        return map(bandit.status, self.results, self.specs)
+            return [r.get('status') for r in self.results]
+        else:
+            return map(bandit.status, self.results, self.specs)
 
     def average_best_error(self, bandit=None):
         """Return the average best error of the experiment
@@ -485,23 +499,29 @@ class Trials(object):
         For bandits with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
-        if bandit is None:
-            bandit = Bandit(None)
 
-        def fmap(f):
-            rval = np.asarray([f(r, s)
-                    for (r, s) in zip(self.results, self.specs)
-                    if bandit.status(r) == STATUS_OK]).astype('float')
-            if not np.all(np.isfinite(rval)):
-                raise ValueError()
-            return rval
-        loss = fmap(bandit.loss)
-        loss_v = fmap(bandit.loss_variance)
-        if bandit.true_loss is not Bandit.true_loss:
-            true_loss = fmap(bandit.true_loss)
-            loss3 = zip(loss, loss_v, true_loss)
+
+        if bandit is None:
+            results = self.results
+            loss = [r['loss']
+                    for r in results if r['status'] == STATUS_OK]
+            loss_v = [r.get('loss_variance', 0)
+                    for r in results if r['status'] == STATUS_OK]
+            true_loss = [r.get('true_loss', r['loss'])
+                    for r in results if r['status'] == STATUS_OK]
+
         else:
-            loss3 = zip(loss, loss_v, loss)
+            def fmap(f):
+                rval = np.asarray([f(r, s)
+                        for (r, s) in zip(self.results, self.specs)
+                        if bandit.status(r) == STATUS_OK]).astype('float')
+                if not np.all(np.isfinite(rval)):
+                    raise ValueError()
+                return rval
+            loss = fmap(bandit.loss)
+            loss_v = fmap(bandit.loss_variance)
+            true_loss = fmap(bandit.true_loss)
+        loss3 = zip(loss, loss_v, true_loss)
         loss3.sort()
         loss3 = np.asarray(loss3)
         if np.all(loss3[:, 1] == 0):
@@ -597,49 +617,116 @@ class Bandit(object):
     evaluate - interruptible/checkpt calling convention for evaluation routine
 
     """
+    pyll_ctrl = pyll.as_apply(None)
 
-    def __init__(self, template):
-        self.template = pyll.as_apply(template)
+    def __init__(self, expr,
+            name=None,
+            rseed=None,
+            loss_target=None,
+            exceptions=None,
+            ):
+        if isinstance(expr, pyll.Apply):
+            self.expr = expr
+            # XXX: verify that expr is a dictionary with the right keys,
+            #      then refactor the code below
+        elif isinstance(expr, dict):
+            if 'loss' not in expr:
+                raise ValueError('expr must define a loss')
+            if 'status' not in expr:
+                expr['status'] = STATUS_OK
+            self.expr = pyll.as_apply(expr)
+        else:
+            raise TypeError('expr must be a dictionary')
+
+        self.params =  {}
+        for node in pyll.dfs(self.expr):
+            if node.name == 'hyperopt_param':
+                self.params[node.arg['label'].obj] = node.arg['obj']
+
+        if exceptions is None:
+            self.exceptions = []
+        else:
+            self.exceptions = exceptions
+        self.loss_target = loss_target
+        self.installed_rng = False
+        if rseed is None:
+            self.rng = None
+        else:
+            self.rng = np.random.RandomState(rseed)
+
+        self.name = name
+
+    def memo_from_config(self, config):
+        memo = {}
+        for node in pyll.dfs(self.expr):
+            if node.name == 'hyperopt_param':
+                label = node.arg['label'].obj
+                # -- hack because it's not really garbagecollected
+                #    this does have the desired effect of crashing the
+                #    function if rec_eval actually needs a value that
+                #    the the optimization algorithm thought to be unnecessary
+                memo[node] = config.get(label, pyll.base.GarbageCollected)
+        return memo
 
     def short_str(self):
         return self.__class__.__name__
 
-    def dryrun_config(self):
-        """Return a point that could have been drawn from the template
-        that is useful for small trial debugging.
-        """
-        rng = np.random.RandomState(1)
-        return pyll.stochastic.sample(self.template, rng)
-
     def evaluate(self, config, ctrl):
         """Return a result document
         """
-        raise NotImplementedError('override me')
+        memo = self.memo_from_config(config)
+        memo[self.pyll_ctrl] = ctrl
+        if self.rng is not None and not self.installed_rng:
+            # -- N.B. this modifies the expr graph in-place
+            #    XXX this feels wrong
+            self.expr = recursive_set_rng_kwarg(self.expr,
+                pyll.as_apply(self.rng))
+            self.installed_rng = True
+        try:
+            r_dct = pyll.rec_eval(self.expr, memo=memo)
+        except Exception, e:
+            n_match = 0
+            for match, match_pair in self.exceptions:
+                if match(e):
+                    r_dct = match_pair(e)
+                    n_match += 1
+                    break
+            if n_match == 0:
+                raise
+        assert 'loss' in r_dct
+        if r_dct['loss'] is not None:
+            # -- assert that it can at least be cast to float
+            float(r_dct['loss'])
+        if r_dct['status'] not in STATUS_STRINGS:
+            raise ValueError('invalid status string', r_dct['status'])
+        return r_dct
 
     def loss(self, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
-        try:
-            return result['loss']
-        except KeyError:
-            return None
+        return result.get('loss', None)
 
     def loss_variance(self, result, config=None):
         """Return the variance in the estimate of the loss"""
-        return 0
+        return result.get('loss_variance', 0.0)
 
     def true_loss(self, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
-        return self.loss(result, config=config)
+        # N.B. don't use get() here, it evaluates self.loss un-necessarily
+        try:
+            return result['true_loss']
+        except KeyError:
+            return self.loss(result, config=config)
 
     def true_loss_variance(self, config=None):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
-        return 0
-
-    def loss_target(self):
-        raise NotImplementedError('override-me')
+        # N.B. don't use get() here, it evaluates self.loss un-necessarily
+        try:
+            return result['true_loss_variance']
+        except KeyError:
+            return self.loss_variance(result, config=config)
 
     def status(self, result, config=None):
         """Extract the job status from a result document
@@ -652,50 +739,43 @@ class Bandit(object):
         """
         return {'status': STATUS_NEW}
 
-    @classmethod
-    def main_dryrun(cls):
-        self = cls()
-        ctrl = Ctrl(Trials())
-        config = self.dryrun_config()
-        return self.evaluate(config, ctrl)
+
+def as_bandit(**b_kwargs):
+    """
+    Decorate a function that returns a pyll expressions so that
+    it becomes a Bandit instance instead of a function
+
+    Example:
+
+    @as_bandit(loss_target=0)
+    def f(low, high):
+        return {'loss': hp_uniform('x', low, high) ** 2 }
+
+    """
+    def deco(f):
+        def wrapper(*args, **kwargs):
+            if 'name' in b_kwargs:
+                _b_kwargs = b_kwargs
+            else:
+                _b_kwargs = dict(b_kwargs, name=f.__name__)
+            f_rval = f(*args, **kwargs)
+            bandit = Bandit(f_rval, **_b_kwargs)
+            return bandit
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return deco
 
 
-class CoinFlip(Bandit):
+@as_bandit()
+def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-
-    def __init__(self):
-        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
-
-    def evaluate(self, config, ctrl):
-        scores = dict(heads=1.0, tails=0.0)
-        return dict(loss=scores[config['flip']], status=STATUS_OK)
-
-
-class CoinFlipInjector(Bandit):
-
-    def __init__(self):
-        Bandit.__init__(self, dict(flip=scope.one_of('heads', 'tails')))
-
-    def evaluate(self, config, ctrl):
-        scores = dict(heads=1.0, tails=0.0)
-        
-        reverse = lambda x : 'tails' if x == 'heads' else 'heads'
-        
-        other_spec = dict(flip=reverse(config['flip']))
-        other_result = dict(status=STATUS_OK,
-                            loss=scores[other_spec['flip']])
-        other_misc = {'idxs':None, 'vals':None}
-        ctrl.inject_results([other_spec], [other_result], [other_misc])
-        
-        return dict(loss=scores[config['flip']], status=STATUS_OK)
+    return {'loss': hp_choice('flip', [0.0, 1.0])}
 
 
 class BanditAlgo(object):
     """
-    Algorithm for solving Config-armed bandit (arms are from tree domain)
-
-    X-armed bandit problems, and N-armed bandit problems are special cases.
+    Algorithm for optimizing Bandits.
 
     :type bandit: Bandit
     :param bandit: the bandit problem this algorithm should solve
@@ -712,75 +792,30 @@ class BanditAlgo(object):
         self.rng = np.random.RandomState(self.seed)
         self.cmd = cmd
         self.workdir = workdir
-        self.new_ids = ['dummy_id']
-        # -- N.B. not necessarily actually a range
-        self.s_new_ids = pyll.Literal(self.new_ids)
-        self.template_clone_memo = {}
-        template = pyll.clone(self.bandit.template, self.template_clone_memo)
-        vh = self.vh = VectorizeHelper(template, self.s_new_ids)
-        vh.build_idxs()
-        vh.build_vals()
-        # the keys (nid) here are strings like 'node_5'
-        idxs_by_nid = vh.idxs_by_id()
-        vals_by_nid = vh.vals_by_id()
-        name_by_nid = vh.name_by_id()
-        assert set(idxs_by_nid.keys()) == set(vals_by_nid.keys())
-        assert set(name_by_nid.keys()) == set(vals_by_nid.keys())
+        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
+        before = pyll.dfs(self.bandit.expr)
+        # -- raises exception if expr contains cycles
+        pyll.toposort(self.bandit.expr)
+        vh = self.vh = VectorizeHelper(self.bandit.expr, self.s_new_ids)
+        # -- raises exception if v_expr contains cycles
+        pyll.toposort(vh.v_expr)
 
-        # -- replace repeat(dist(...)) with vectorized versions
-        t_i_v = replace_repeat_stochastic(
-                pyll.as_apply([
-                    vh.vals_memo[template], idxs_by_nid, vals_by_nid]))
-        assert t_i_v.name == 'pos_args'
-        template, s_idxs_by_nid, s_vals_by_nid = t_i_v.pos_args
-        # -- fetch the dictionaries off the top of the cloned graph
-        idxs_by_nid = dict(s_idxs_by_nid.named_args)
-        vals_by_nid = dict(s_vals_by_nid.named_args)
-
-        # -- remove non-stochastic nodes from the idxs and vals
-        #    because
-        #    (a) they should be irrelevant for BanditAlgo operation,
-        #    (b) they can be reconstructed from the template and the
-        #    stochastic choices, and
-        #    (c) they are often annoying when printing / saving.
-        for node_id, name in name_by_nid.items():
-            if name not in pyll.stochastic.implicit_stochastic_symbols:
-                del name_by_nid[node_id]
-                del vals_by_nid[node_id]
-                del idxs_by_nid[node_id]
-            elif name == 'one_of':
-                # -- one_of nodes too, because they are duplicates of randint
-                del name_by_nid[node_id]
-                del vals_by_nid[node_id]
-                del idxs_by_nid[node_id]
+        idxs_by_label = vh.idxs_by_label()
+        vals_by_label = vh.vals_by_label()
+        after = pyll.dfs(self.bandit.expr)
+        # -- try to detect if VectorizeHelper screwed up anything inplace
+        assert before == after
+        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
+        assert set(idxs_by_label.keys()) == set(self.bandit.params.keys())
 
         # -- make the graph runnable and SON-encodable
         # N.B. operates inplace
-        self.s_specs_idxs_vals = recursive_set_rng_kwarg(
-                scope.pos_args(template, idxs_by_nid, vals_by_nid),
+        self.s_idxs_vals = recursive_set_rng_kwarg(
+                scope.pos_args(idxs_by_label, vals_by_label),
                 pyll.as_apply(self.rng))
 
-        self.vtemplate = template
-        self.idxs_by_nid = idxs_by_nid
-        self.vals_by_nid = vals_by_nid
-        self.name_by_nid = name_by_nid
-
-        # -- compute some document coordinate strings for the node_ids
-        pnames = pretty_names(bandit.template, prefix=None)
-        doc_coords = self.doc_coords = {}
-        for node, pname in pnames.items():
-            cnode = self.template_clone_memo[node]
-            if cnode.name == 'one_of':
-                choice_node = vh.choice_memo[cnode]
-                assert choice_node.name == 'randint'
-                doc_coords[vh.node_id[choice_node]] = pname #+ '.randint'
-            if cnode in vh.node_id and vh.node_id[cnode] in name_by_nid:
-                doc_coords[vh.node_id[cnode]] = pname
-            else:
-                #print 'DROPPING', node
-                pass
-        #print 'DOC_COORDS'
-        #print doc_coords
+        # -- raises an exception if no topological ordering exists
+        pyll.toposort(self.s_idxs_vals)
 
     def short_str(self):
         return self.__class__.__name__
@@ -795,19 +830,22 @@ class BanditAlgo(object):
         # -- install new_ids as program arguments
         rval = []
         for new_id in new_ids:
-            self.new_ids[:] = [new_id]
-
+            # the results are not computed all at once so that we can
+            # seed the generator based on each new_id
             sh1 = hashlib.sha1()
             sh1.update(str(new_id))
-            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2**31)))
+            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2 ** 31)))
 
             # -- sample new specs, idxs, vals
-            new_specs, idxs, vals = pyll.rec_eval(self.s_specs_idxs_vals)
+            idxs, vals = pyll.rec_eval(self.s_idxs_vals,
+                    memo={self.s_new_ids: [new_id]})
+            #print 'BandigAlgo.suggest IDXS', idxs
+            #print 'BandigAlgo.suggest VALS', vals
             new_result = self.bandit.new_result()
             new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
             miscs_update_idxs_vals([new_misc], idxs, vals)
             rval.extend(trials.new_trial_docs([new_id],
-                    new_specs, [new_result], [new_misc]))
+                    [None], [new_result], [new_misc]))
         return rval
 
 
@@ -856,7 +894,7 @@ class Experiment(object):
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == JOB_STATE_NEW:
-                spec = copy.deepcopy(trial['spec'])
+                spec = spec_from_misc(trial['misc'])
                 ctrl = Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.bandit.evaluate(spec, ctrl)
@@ -870,7 +908,6 @@ class Experiment(object):
                     #logger.debug('job returned: %s' % str(result))
                     trial['state'] = JOB_STATE_DONE
                     trial['result'] = result
-
                 N -= 1
                 if N == 0:
                     break
