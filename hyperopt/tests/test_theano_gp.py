@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 import hyperopt
 #from hyperopt.idxs_vals_rnd import IdxsValsList
-from hyperopt.bandits import TwoArms, GaussWave, GaussWave2
+#from hyperopt.bandits import TwoArms, GaussWave, GaussWave2
 from hyperopt.base import Bandit, BanditAlgo
 #from hyperopt.theano_gp import GP_BanditAlgo
 #from hyperopt.theano_gm import AdaptiveParzenGM

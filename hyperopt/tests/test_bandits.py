@@ -10,9 +10,12 @@ import hyperopt.bandits
 class BanditExperimentMixin(object):
     def test_basic(self):
         bandit = self._bandit_cls()
+        print 'bandit params', bandit.params
         algo = Random(bandit)
+        print 'algo params', algo.vh.params
         trials = Trials()
         experiment = Experiment(trials, algo, async=False)
+        experiment.catch_bandit_exceptions = False
         experiment.max_queue_len = 50
         experiment.run(self._n_steps)
         print
@@ -22,19 +25,20 @@ class BanditExperimentMixin(object):
         assert trials.average_best_error(bandit) - bandit.loss_target  < .2
         print
 
-
     @classmethod
     def make(cls, bandit_cls, n_steps=500):
         class Tester(unittest.TestCase, cls):
-            _n_steps = n_steps
-            _bandit_cls = bandit_cls
+            def setUp(self):
+                self._n_steps = n_steps
+                self._bandit_cls = bandit_cls
         Tester.__name__ = bandit_cls.__name__ + 'Tester'
         return Tester
 
-Quadratic1Tester = BanditExperimentMixin.make(hyperopt.bandits.Quadratic1)
-Q1LognormalTester = BanditExperimentMixin.make(hyperopt.bandits.Q1Lognormal)
-TwoArmsTester = BanditExperimentMixin.make(hyperopt.bandits.TwoArms)
-DistractorTester = BanditExperimentMixin.make(hyperopt.bandits.Distractor)
-GaussWaveTester = BanditExperimentMixin.make(hyperopt.bandits.GaussWave)
-GaussWave2Tester = BanditExperimentMixin.make(hyperopt.bandits.GaussWave2,
+quadratic1Tester = BanditExperimentMixin.make(hyperopt.bandits.quadratic1)
+q1_lognormalTester = BanditExperimentMixin.make(hyperopt.bandits.q1_lognormal)
+q1_choiceTester = BanditExperimentMixin.make(hyperopt.bandits.q1_choice)
+n_armsTester = BanditExperimentMixin.make(hyperopt.bandits.n_arms)
+distractorTester = BanditExperimentMixin.make(hyperopt.bandits.distractor)
+gauss_waveTester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave)
+gauss_wave2Tester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave2,
         n_steps=5000)

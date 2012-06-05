@@ -29,9 +29,8 @@ def algo_as_str(algo):
 
 def main_plot_history(trials, bandit=None, algo=None, do_show=True,
         status_colors=None):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
-    if bandit is None:
-        bandit = Bandit(None)
 
     # self is an Experiment
     if status_colors is None:
@@ -45,16 +44,11 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
     plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
-    try:
-        loss_target = bandit.loss_target()
-        have_losstarget = True
-    except NotImplementedError:
-        loss_target = np.min(Ys)
-        have_losstarget = False
-    if have_losstarget:
-        plt.axhline(loss_target)
-        ymin = min(np.min(Ys), loss_target)
-        ymax = max(np.max(Ys), loss_target)
+
+    if bandit is not None and bandit.loss_target is not None:
+        plt.axhline(bandit.loss_target)
+        ymin = min(np.min(Ys), bandit.loss_target)
+        ymax = max(np.max(Ys), bandit.loss_target)
         yrange = ymax - ymin
         ymean = (ymax + ymin) / 2.0
         plt.ylim(
@@ -66,16 +60,15 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
     plt.axhline(best_err, c='g')
 
     plt.title('bandit: %s algo: %s' % (
-        bandit.short_str(),
+        bandit.short_str() if bandit else '-',
         algo_as_str(algo)))
     if do_show:
         plt.show()
 
 
 def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
-    if bandit is None:
-        bandit = Bandit(None)
 
     status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
     Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
@@ -91,26 +84,36 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     plt.ylabel('frequency')
 
     plt.title('bandit: %s algo: %s' % (
-        bandit.short_str(),
+        bandit.short_str() if bandit else '-',
         algo_as_str(algo)))
     if do_show:
         plt.show()
 
 
-def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
+def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
+        colorize_best=None,
+        columns=5,
+        ):
+    # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
-
-    if bandit is None:
-        bandit = Bandit({})
 
     BA = BanditAlgo(bandit)
 
     idxs, vals = miscs_to_idxs_vals(trials.miscs)
+    losses = trials.losses()
+    finite_losses = [y for y in losses if y not in (None, float('inf'))]
+    asrt = np.argsort(finite_losses)
+    if colorize_best != None:
+        colorize_thresh = finite_losses[asrt[colorize_best + 1]]
+    else:
+        # -- set to lower than best (disabled)
+        colorize_thresh = finite_losses[asrt[0]] - 1
 
-    loss_min = min([y for y in trials.losses() if y is not None])
-    loss_max = max([y for y in trials.losses() if y is not None])
+    loss_min = min(finite_losses)
+    loss_max = max(finite_losses)
+    print 'finite loss range', loss_min, loss_max, colorize_thresh
 
-    loss_by_tid = dict(zip(trials.tids, trials.losses()))
+    loss_by_tid = dict(zip(trials.tids, losses))
 
     def color_fn(lossval):
         if lossval is None:
@@ -126,40 +129,47 @@ def main_plot_vars(trials, bandit=None, algo=None, do_show=True, fontsize=10):
             return 0, 0, 4-t
 
     def color_fn_bw(lossval):
-        if lossval is None:
+        if lossval in (None, float('inf')):
             return (1, 1, 1)
         else:
             t = (lossval - loss_min) / (loss_max - loss_min + .0001)
-            return (t, t, t)
+            if lossval < colorize_thresh:
+                return (0., 1. - t, 0.)  # -- red best black worst
+            else:
+                return (t, t, t)    # -- white=worst, black=best
 
-    all_nids = list(idxs.keys())
-    titles = ['%s (%s)' % (BA.doc_coords[nid], BA.name_by_nid[nid])
-            for nid in all_nids]
+    all_labels = list(idxs.keys())
+    titles = ['%s (%s)' % (label, bandit.params[label].name)
+            for label in all_labels]
     order = np.argsort(titles)
 
-    C = 5
-    R = int(np.ceil(len(all_nids) / float(C)))
+    C = columns
+    R = int(np.ceil(len(all_labels) / float(C)))
 
     for plotnum, varnum in enumerate(order):
         #print varnum, titles[varnum]
-        nid = all_nids[varnum]
+        label = all_labels[varnum]
         plt.subplot(R, C, plotnum + 1)
         #print '-' * 80
-        #print 'Node', nid
+        #print 'Node', label
 
         # hide x ticks
         ticks_num, ticks_txt = plt.xticks()
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
-        dist_name = BA.name_by_nid[nid]
-        x = idxs[nid]
+        dist_name = bandit.params[label].name
+        x = idxs[label]
         if 'log' in dist_name:
-            y = np.log(vals[nid])
+            y = np.log(vals[label])
         else:
-            y = vals[nid]
+            y = vals[label]
         plt.title(titles[varnum], fontsize=fontsize)
-        plt.scatter(x, y,
-                c=map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[nid]]))
+        c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[label]])
+        if len(y):
+            plt.scatter(x, y, c=c)
+        if 'log' in dist_name:
+            nums, texts = plt.yticks()
+            plt.yticks(nums, ['%.2e' % np.exp(t) for t in nums])
 
     if do_show:
         plt.show()

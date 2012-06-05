@@ -22,6 +22,10 @@ from .base import miscs_update_idxs_vals
 
 EPS = 1e-12
 
+# -- default linear forgetting. don't try to change by writing this variable
+# because it's captured in function default args when this file is read
+DEFAULT_LF = 25
+
 
 adaptive_parzen_samplers = {}
 
@@ -313,13 +317,6 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     mus_orig = np.array(mus)
     mus = np.array(mus)
     assert str(mus.dtype) != 'object'
-    # XXX: I think prior_mu arrives a list whose length matches the number of
-    # new_ids that we're drawing for. VectorizeHelper is the cause, not sure
-    # what's the solution.
-    if hasattr(prior_mu, '__iter__'):
-        prior_mu, = prior_mu
-    if hasattr(prior_sigma, '__iter__'):
-        prior_sigma, = prior_sigma
 
     if mus.ndim != 1:
         raise TypeError('mus must be vector', mus)
@@ -380,23 +377,32 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     return weights, mus, sigma
 
 
+@scope.define
+def linear_forgetting_weights(N, LF):
+    assert N >= 0
+    assert LF > 0
+    if N == 0:
+        return np.asarray([])
+    elif N < LF:
+        return np.ones(N)
+    else:
+        ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
+        flat = np.ones(LF)
+        weights = np.concatenate([ramp, flat], axis=0)
+        assert weights.shape == (N,), (weights.shape, N)
+        return weights
+
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
 @scope.define_info(o_len=3)
-def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
+def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
+        LF=DEFAULT_LF):
     """
     mus - matrix (N, M) of M, N-dimensional component centers
     """
     #mus_orig = np.array(mus)
     mus = np.array(mus)
     assert str(mus.dtype) != 'object'
-    # XXX: I think prior_mu arrives a list whose length matches the number of
-    # new_ids that we're drawing for. VectorizeHelper is the cause, not sure
-    # what's the solution.
-    if hasattr(prior_mu, '__iter__'):
-        prior_mu, = prior_mu
-    if hasattr(prior_sigma, '__iter__'):
-        prior_sigma, = prior_sigma
 
     if mus.ndim != 1:
         raise TypeError('mus must be vector', mus)
@@ -433,11 +439,7 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
         sigma[-1] = usigma
 
     if LF and LF < len(mus):
-        assert LF > 0
-        ramplen = len(mus) - LF
-        ramp = np.linspace(1.0 / len(mus), 1.0, num=ramplen)
-        flat = np.ones(LF)
-        unsrtd_weights = np.concatenate((ramp, flat), axis=0)
+        unsrtd_weights = linear_forgetting_weights(len(mus), LF)
         srtd_weights = np.zeros_like(srtd_mus)
         assert len(unsrtd_weights) + 1 == len(srtd_mus)
         srtd_weights[:prior_pos] = unsrtd_weights[order[:prior_pos]]
@@ -450,12 +452,14 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=50):
 
     # -- magic formula:
     maxsigma = prior_sigma / 1.0
-    minsigma = prior_sigma / (1 + len(srtd_mus))
+    minsigma = prior_sigma / min(100, (1.0 + len(srtd_mus)))
 
     #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     sigma[prior_pos] = prior_sigma
+    assert prior_sigma > 0
+    assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
 
     #print weights.dtype
@@ -564,8 +568,10 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 # -- Categorical
 
 @adaptive_parzen_sampler('randint')
-def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
-    counts = scope.bincount(obs, minlength=upper)
+def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None,
+        LF=DEFAULT_LF):
+    weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    counts = scope.bincount(obs, minlength=upper, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
@@ -577,7 +583,8 @@ def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None):
 #
 
 @scope.define_info(o_len=2)
-def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=20):
+def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
+        gamma_cap=DEFAULT_LF):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
@@ -656,8 +663,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
 
-                improvement = below_llik - above_llik
-
+                #improvement = below_llik - above_llik
                 #new_node = scope.broadcast_best(b_post, improvement)
                 new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, 'obj'):
@@ -678,13 +684,13 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
 
 @scope.define
-def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
+def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
     """Add all of the  log-likelihoods together by id.
 
     Example arguments:
     full_idxs = [0, 1, ... N-1]
-    idxs_by_nid = {'node_a': [1, 3], 'node_b': [3]}
-    llik_by_nid = {'node_a': [0.1, -3.3], node_b: [1.0]}
+    idxs_by_label = {'node_a': [1, 3], 'node_b': [3]}
+    llik_by_label = {'node_a': [0.1, -3.3], node_b: [1.0]}
 
     This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
     """
@@ -694,10 +700,10 @@ def idxs_prod(full_idxs, idxs_by_nid, llik_by_nid):
     full_idxs = list(full_idxs)
     rval = np.zeros(len(full_idxs))
     pos_of_tid = dict(zip(full_idxs, range(len(full_idxs))))
-    assert set(idxs_by_nid.keys()) == set(llik_by_nid.keys())
-    for nid in idxs_by_nid:
-        idxs = idxs_by_nid[nid]
-        llik = llik_by_nid[nid]
+    assert set(idxs_by_label.keys()) == set(llik_by_label.keys())
+    for nid in idxs_by_label:
+        idxs = idxs_by_label[nid]
+        llik = llik_by_label[nid]
         assert np.all(np.asarray(idxs) > 1)
         assert len(set(idxs)) == len(idxs)
         assert len(idxs) == len(llik)
@@ -738,7 +744,7 @@ class TreeParzenEstimator(BanditAlgo):
 
     n_startup_jobs = 10
 
-    linear_forgetting = 50
+    linear_forgetting = DEFAULT_LF
 
     def __init__(self, bandit,
             gamma=gamma,
@@ -753,6 +759,9 @@ class TreeParzenEstimator(BanditAlgo):
         self.n_EI_candidates = n_EI_candidates
         self.n_startup_jobs = n_startup_jobs
         self.linear_forgetting = linear_forgetting
+        if linear_forgetting != DEFAULT_LF:
+            raise NotImplementedError(
+                'linear_forgetting is not passed around properly')
 
         self.s_prior_weight = pyll.Literal(float(self.prior_weight))
 
@@ -765,10 +774,12 @@ class TreeParzenEstimator(BanditAlgo):
                 vals=pyll.Literal())
 
         specs, idxs, vals = build_posterior(
-                self.vtemplate,    # vectorized clone of bandit template
-                self.idxs_by_nid,  # this dict and next represent prior dists
-                self.vals_by_nid,
-                self.observed['idxs'],  # these dicts, represent observations
+                # -- vectorized clone of bandit template
+                self.vh.v_expr,
+                # -- this dict and next represent prior dists
+                self.vh.idxs_by_label(),
+                self.vh.vals_by_label(),
+                self.observed['idxs'],
                 self.observed['vals'],
                 self.observed_loss['idxs'],
                 self.observed_loss['vals'],
@@ -785,12 +796,10 @@ class TreeParzenEstimator(BanditAlgo):
             # TODO: insert constant liar for tentative suggestions
             raise NotImplementedError()
         else:
-            return self.suggest1(new_ids, trials)
+            return self.suggest1(new_ids[0], trials)
 
-    def suggest1(self, new_ids, trials):
+    def suggest1(self, new_id, trials):
         """Suggest a single new document"""
-        assert len(new_ids) == 1
-        new_id, = new_ids
         #print self.post_llik
 
         bandit = self.bandit
@@ -808,6 +817,8 @@ class TreeParzenEstimator(BanditAlgo):
             if loss is None:
                 # -- associate infinite loss to new/running/failed jobs
                 loss = float('inf')
+            else:
+                loss = float(loss)
             best_docs_loss.setdefault(tid, loss)
             if loss <= best_docs_loss[tid]:
                 best_docs_loss[tid] = loss
@@ -828,8 +839,8 @@ class TreeParzenEstimator(BanditAlgo):
             logger.info('TPE using 0 trials')
 
         if len(docs) < self.n_startup_jobs:
-            # N.B. THIS SEEDS THE RNG BASED ON THE new_ids
-            return BanditAlgo.suggest(self, new_ids, trials)
+            # N.B. THIS SEEDS THE RNG BASED ON THE new_id
+            return BanditAlgo.suggest(self, [new_id], trials)
 
         #    Sample and compute log-probability.
         if tids:
@@ -842,36 +853,34 @@ class TreeParzenEstimator(BanditAlgo):
             fake_id_0 = new_id + 2
 
         fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
-        self.new_ids[:] = fake_ids
 
         # -- this dictionary will map pyll nodes to the values
         #    they should take during the evaluation of the pyll program
-        memo = {}
+        memo = {self.s_new_ids: fake_ids}
 
         o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-            [d['misc'] for d in docs], keys=self.idxs_by_nid.keys())
+            [d['misc'] for d in docs], keys=bandit.params.keys())
         memo[self.observed['idxs']] = o_idxs_d
         memo[self.observed['vals']] = o_vals_d
 
         memo[self.observed_loss['idxs']] = tids
         memo[self.observed_loss['vals']] = losses
 
-        specs, idxs, vals = pyll.rec_eval(
-                [self.opt_specs, self.opt_idxs, self.opt_vals],
+        idxs, vals = pyll.rec_eval(
+                [self.opt_idxs, self.opt_vals],
                 memo=memo)
 
         # -- retrieve the best of the samples and form the return tuple
         # the build_posterior makes all specs the same
-        assert all(specs[0] == s for s in specs[1:])
 
-        rval_specs = specs[:1]
+        rval_specs = [None]  # -- specs are deprecated
         rval_results = [bandit.new_result()]
         rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
 
         miscs_update_idxs_vals(rval_miscs, idxs, vals,
                 idxs_map={fake_ids[0]: new_id},
                 assert_all_vals_used=False)
-        rval_docs = trials.new_trial_docs(new_ids,
+        rval_docs = trials.new_trial_docs([new_id],
                 rval_specs, rval_results, rval_miscs)
 
         return rval_docs

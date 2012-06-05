@@ -165,6 +165,7 @@ from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
+from .base import spec_from_misc
 from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
@@ -546,7 +547,10 @@ class MongoJobs(object):
         return doc
 
     def attachment_names(self, doc):
-        return [a[0] for a in doc.get('_attachments', [])]
+        def as_str(name_id):
+            assert isinstance(name_id[0], basestring), name
+            return str(name_id[0])
+        return map(as_str, doc.get('_attachments', []))
 
     def set_attachment(self, doc, blob, name, collection=None):
         """Attach potentially large data string `blob` to `doc` by name `name`
@@ -804,14 +808,21 @@ class MongoTrials(Trials):
 
     def trial_attachments(self, trial):
         """
-        Support syntax for load:  self.attachments[name]
-        Support syntax for store: self.attachments[name] = value
+        Attachments to a single trial (e.g. learned weights)
+
+        Returns a dictionary interface to the attachments.
         """
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
             def __contains__(_self, name):
-                name in self.handle.attachment_names(doc=trial)
+                return name in self.handle.attachment_names(doc=trial)
+
+            def __len__(_self):
+                return len(self.handle.attachment_names(doc=trial))
+
+            def __iter__(_self):
+                return iter(self.handle.attachment_names(doc=trial))
 
             def __getitem__(_self, name):
                 try:
@@ -830,19 +841,16 @@ class MongoTrials(Trials):
 
             def __delitem__(_self, name):
                 raise NotImplementedError('delete trial_attachment')
-                #self.handle.delete_attachment(
-                #    doc=doc,
-                #    name=name, 
-                #    collection=None)  #<-- what's the proper collection?
 
         return Attachments()
 
     @property
     def attachments(self):
         """
+        Attachments to a Trials set (such as bandit args).
+
         Support syntax for load:  self.attachments[name]
         Support syntax for store: self.attachments[name] = value
-        NB THIS IS TRIALS-LEVEL ATTACHMENTS, NOT DOCUMENT-LEVEL ATTACHMENTS!!!
         """
         gfs = self.handle.gfs
         class Attachments(object):
@@ -909,7 +917,7 @@ class MongoWorker(object):
         logger.debug('job found: %s' % str(job))
 
         # -- don't let the cmd mess up our trial object
-        spec = copy.deepcopy(job['spec'])
+        spec = spec_from_misc(job['misc'])
 
         ctrl = MongoCtrl(
                 trials=MongoTrials(mj, exp_key=job['exp_key'], refresh=False),
@@ -969,6 +977,12 @@ class MongoWorker(object):
             os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
+        attachments = result.pop('attachments', {})
+        for aname, aval in attachments.items():
+            logger.info(
+                'mongoexp: saving attachment name=%s (%i bytes)' % (
+                    aname, len(aval)))
+            ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
 
@@ -1041,13 +1055,14 @@ def as_mongo_str(s):
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
 
+    def sighandler_shutdown(signum, frame):
+        logger.info('Caught signal %i, shutting down.' % signum)
+        raise Shutdown(signum)
+    signal.signal(signal.SIGINT, sighandler_shutdown)
+    signal.signal(signal.SIGHUP, sighandler_shutdown)
+    signal.signal(signal.SIGTERM, sighandler_shutdown)
+
     if N > 1:
-        def sighandler_shutdown(signum, frame):
-            logger.info('Caught signal %i, shutting down.' % signum)
-            raise Shutdown(signum)
-        signal.signal(signal.SIGINT, sighandler_shutdown)
-        signal.signal(signal.SIGHUP, sighandler_shutdown)
-        signal.signal(signal.SIGTERM, sighandler_shutdown)
         proc = None
         cons_errs = 0
         while N and cons_errs < int(options.max_consecutive_failures):

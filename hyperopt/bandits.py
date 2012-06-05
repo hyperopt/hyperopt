@@ -1,109 +1,82 @@
 """
 Sample problems on which to test algorithms.
 
+XXX: get some standard optimization problems from literature
+
 """
-import numpy
+import numpy as np
 
 import base
+from pyll import as_apply
 from pyll import scope
 
-
-class Base(base.Bandit):
-    def __init__(self, template):
-        self.rng = numpy.random.RandomState(55)
-        base.Bandit.__init__(self, template)
-
-    def dryrun_config(self):
-        return self.template.render_sample(self.rng)
-
-    def evaluate(self, config, ctrl):
-        return dict(
-                loss = -self.score(config),
-                status = 'ok')
+from pyll_utils import hp_choice
+from pyll_utils import hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform
+from pyll_utils import hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
 
 
-class Quadratic1(Base):
+@base.as_bandit(loss_target=0)
+def quadratic1():
     """
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-
-    loss_target = 0
-
-    def __init__(self):
-        Base.__init__(self, dict(x=scope.uniform(-5, 5)))
-
-    def score(self, config):
-        return -(config['x'] - 3)**2
+    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2}
 
 
-class Q1Lognormal(Base):
+@base.as_bandit(loss_target=0)
+def q1_choice():
+    o_x = hp_choice('o_x', [
+        (-3, hp_uniform('x_neg', -5, 5)),
+        ( 3, hp_uniform('x_pos', -5, 5)),
+        ])
+    return {'loss': (o_x[0] - o_x[1])  ** 2}
+
+
+@base.as_bandit(loss_target=0)
+def q1_lognormal():
     """
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-
-    loss_target = 0
-
-    def __init__(self):
-        Base.__init__(self, dict(x=scope.lognormal(0, 2)))
-
-    def score(self, config):
-        return max(-(config['x'] - 3) ** 2, -100)
+    return {'loss': scope.max(-(hp_lognormal('x', 0, 2) - 3) ** 2, -100)}
 
 
-class TwoArms(Base):
+@base.as_bandit(loss_target=-2, rseed=123)
+def n_arms(N=2):
     """
     Each arm yields a reward from a different Gaussian.
 
     The correct arm is arm 0.
 
     """
-
-    loss_target = -2
-
-    def __init__(self):
-        Base.__init__(self, dict(x=scope.one_of(0, 1)))
-
-    def score(self, config):
-        arms = 2
-        reward_mus = [1] + [0] * (arms - 1)
-        reward_sigmas = [1] * arms
-        return self.rng.normal(size=(),
-                loc=reward_mus[config['x']],
-                scale=reward_sigmas[config['x']])
-
-    @classmethod
-    def loss_variance(cls, result, config):
-        return 1.0
+    x = hp_choice('x', [0, 1])
+    reward_mus = as_apply([-1] + [0] * (N - 1))
+    reward_sigmas = as_apply([1] * N)
+    return {'loss': scope.normal(reward_mus[x], reward_sigmas[x]),
+            'loss_variance': 1.0}
 
 
-class Distractor(Base):
+@base.as_bandit(loss_target=-2)
+def distractor():
     """
     This is a nasty function: it has a max in a spike near -10, and a long
     asymptote that is easy to find, but guides hill-climbing approaches away
     from the true max.
+
+    The second peak is at x=-10.
+    The prior mean is 0.
     """
 
     loss_target = -2
-
-    def __init__(self, sigma=10):
-        """
-        The second peak is at x=-10.
-        The prior mean is 0.
-        """
-        Base.__init__(self, dict(x=scope.uniform(-15, 15)))
-
-    def score(self, config):
-        f1 = 1.0 / (1.0 + numpy.exp(-config['x']))    # climbs rightward from 0.0 to 1.0
-        f2 = 2 * numpy.exp(-(config['x'] + 10) ** 2)  # bump with height 2 at (x=-10)
-        return f1 + f2
-
-    def loss_variance(self, result, config=None):
-        return 0.0
+    x = hp_uniform('x', -15, 15)
+    f1 = 1.0 / (1.0 + scope.exp(-x))    # climbs rightward from 0.0 to 1.0
+    f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
+    return {'loss': -f1 - f2}
 
 
-class GaussWave(Base):
+@base.as_bandit(loss_target=-1)
+def gauss_wave():
     """
     Essentially, this is a high-frequency sinusoidal function plus a broad quadratic.
     One variable controls the position along the curve.
@@ -115,27 +88,15 @@ class GaussWave(Base):
 
     """
 
-    loss_target = -1
-
-    def __init__(self):
-        Base.__init__(self, dict(
-            curve=scope.one_of(0, 1),
-            x=scope.uniform(-20, 20)))
-
-    def score(self, config):
-        if config['curve']:
-            x = config['x']
-        else:
-            x = config['x'] + numpy.pi
-        f1 = numpy.sin(x)                # climbs rightward from 0.0 to 1.0
-        f2 = 2 * numpy.exp(-(x/5.0)**2)  # bump with height 2 at (x=-10)
-        return f1 + f2
-
-    def loss_variance(self, result, config=None):
-        return 0.0
+    x = hp_uniform('x', -20, 20)
+    t = hp_choice('curve', [x, x + np.pi])
+    f1 = scope.sin(t)
+    f2 = 2 * scope.exp(-(t / 5.0) ** 2)
+    return {'loss': - (f1 + f2)}
 
 
-class GaussWave2(Base):
+@base.as_bandit(loss_target=-2.5, rseed=123)
+def gauss_wave2():
     """
     Variant of the GaussWave problem in which noise is added to the score
     function, and there is an option to either have no sinusoidal variation, or
@@ -146,24 +107,10 @@ class GaussWave2(Base):
     up the amp to 1.
     """
 
-    loss_target = -3
-
-    def __init__(self):
-        Base.__init__(self, dict(
-            x=scope.uniform(-20, 20),
-            hf=scope.one_of(
-                dict(kind='raw'),
-                dict(kind='negcos', amp=scope.uniform(0, 1)))))
-
-    def score(self, config):
-        r = self.rng.randn() * .1
-        x = config['x']
-        r += 2 * numpy.exp(-(x/5.0)**2) # up to 2
-        if config['hf']['kind'] == 'negcos':
-            r += numpy.sin(x) * config['hf']['amp']
-
-        return r
-
-    def loss_variance(self, result, config=None):
-        return 0.01
+    var = .1
+    x = hp_uniform('x', -20, 20)
+    amp = hp_uniform('amp', 0, 1)
+    t = (scope.normal(0, var) + 2 * scope.exp(-(x / 5.0) ** 2))
+    return {'loss': - hp_choice('hf', [t, t + scope.sin(x) * amp]),
+            'loss_variance': var}
 
