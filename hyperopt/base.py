@@ -827,6 +827,15 @@ class BanditAlgo(object):
 
         All lists have the same length.
         """
+        # XXX: this used to be the implementation for the Random class and the
+        # base class.  But then I was doing an experiment with Random() a
+        # different seed every time and I was surprised to see it generating
+        # the same thing all the time!  In response, I gave the Random
+        # subclass its own simpler and more random implementation of suggest
+        # that does not re-seed self.rng based on the new_ids. That leaves
+        # this strange implementation here in the base class, and I'm not sure
+        # whether to delete it. -JB June 19 2012
+        #
         # -- install new_ids as program arguments
         rval = []
         for new_id in new_ids:
@@ -856,6 +865,28 @@ class Random(BanditAlgo):
     This class is defined so that hyperopt.Random can be used to mean random
     sampling.
     """
+
+    def suggest(self, new_ids, trials):
+        """
+        new_ids - a list of unique identifiers (not necessarily ints!)
+                  for the suggestions that this function should return.
+
+        All lists have the same length.
+        """
+        rval = []
+        for new_id in new_ids:
+            # -- sample new specs, idxs, vals
+            idxs, vals = pyll.rec_eval(self.s_idxs_vals,
+                    memo={self.s_new_ids: [new_id]})
+            #print 'BandigAlgo.suggest IDXS', idxs
+            #print 'BandigAlgo.suggest VALS', vals
+            new_result = self.bandit.new_result()
+            new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
+            miscs_update_idxs_vals([new_misc], idxs, vals)
+            rval.extend(trials.new_trial_docs([new_id],
+                    [None], [new_result], [new_misc]))
+        return rval
+
 
 
 class RandomStop(Random):
