@@ -1,5 +1,7 @@
 import numpy as np
 
+import pyll
+
 import base
 
 class _FBandit(base.Bandit):
@@ -9,11 +11,30 @@ class _FBandit(base.Bandit):
         base.Bandit.__init__(self, domain, **kwargs)
 
     def evaluate(self, config, ctrl):
-        f = self.f
-        if 'ctrl' in config:
-            raise ValueError('reserved key "ctrl" found in config')
-        config_copy = dict(config, ctrl=ctrl)
-        rval = f(config_copy)
+        memo = self.memo_from_config(config)
+        memo[self.pyll_ctrl] = ctrl
+        if self.rng is not None and not self.installed_rng:
+            # -- N.B. this modifies the expr graph in-place
+            #    XXX this feels wrong
+            self.expr = recursive_set_rng_kwarg(self.expr,
+                pyll.as_apply(self.rng))
+            self.installed_rng = True
+        try:
+            # -- the "work" of evaluating `config` can be written
+            #    either into the pyll part (self.expr)
+            #    or the normal Python part (self.f)
+            pyll_rval = pyll.rec_eval(self.expr, memo=memo)
+            rval = self.f(pyll_rval)
+        except Exception, e:
+            n_match = 0
+            for match, match_pair in self.exceptions:
+                if match(e):
+                    pyll_rval = match_pair(e)
+                    n_match += 1
+                    break
+            if n_match == 0:
+                raise
+
         if isinstance(rval, (float, int, np.number)):
             dict_rval = {'loss': rval}
         elif isinstance(rval, (dict,)):

@@ -16,7 +16,7 @@ from hyperopt.rand import fmin_random
 def test_quadratic1():
 
     report = fmin_random(
-            lambda d: (d['x'] - 3) ** 2,
+            lambda x: (x - 3) ** 2,
             hp_uniform('x', -5, 5),
             max_evals=500)
 
