@@ -619,6 +619,8 @@ class Bandit(object):
     """
     pyll_ctrl = pyll.as_apply(None)
 
+    exceptions = []
+
     def __init__(self, expr,
             name=None,
             rseed=None,
@@ -643,9 +645,7 @@ class Bandit(object):
             if node.name == 'hyperopt_param':
                 self.params[node.arg['label'].obj] = node.arg['obj']
 
-        if exceptions is None:
-            self.exceptions = []
-        else:
+        if exceptions is not None:
             self.exceptions = exceptions
         self.loss_target = loss_target
         self.installed_rng = False
@@ -1015,3 +1015,5 @@ class Experiment(object):
             if qlen:
                 msg = 'Exiting run, not waiting for %d jobs.' % qlen
                 logger.info(msg)
+
+
