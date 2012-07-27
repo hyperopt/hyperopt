@@ -10,16 +10,17 @@ from hyperopt.pyll_utils import hp_lognormal
 from hyperopt.pyll_utils import hp_qnormal
 from hyperopt.pyll_utils import hp_qlognormal
 
-from hyperopt.rand import fmin_random
+from hyperopt import fmin, algo
 
 
 def test_quadratic1():
 
-    report = fmin_random(
-            lambda x: (x - 3) ** 2,
-            hp_uniform('x', -5, 5),
+    report = fmin(
+            fn=lambda x: (x - 3) ** 2,
+            space=hp_uniform('x', -5, 5),
+            algo=algo.random,
             max_evals=500)
 
     assert len(report.trials) == 500
-    assert abs(report.argmin['x'] - 3.0) < .25
+    assert abs(report.trials.argmin['x'] - 3.0) < .25
 

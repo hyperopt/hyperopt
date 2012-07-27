@@ -27,4 +27,12 @@ from base import Random
 from base import Trials
 from base import trials_from_docs
 
+from fmin import fmin
+
+import algo
+
+import rand  # -- registers in algo
+
+# -- TODO: register in algo
 from tpe import TreeParzenEstimator
+
