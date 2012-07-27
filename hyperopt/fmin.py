@@ -76,6 +76,7 @@ class Domain(base.Bandit):
             for match, match_pair in self.exceptions:
                 if match(e):
                     rval = match_pair(e)
+                    logger.info('Caught fn exception %s' % str(rval))
                     n_match += 1
                     break
             if n_match == 0:
@@ -99,6 +100,10 @@ class Domain(base.Bandit):
         if dict_rval['status'] not in base.STATUS_STRINGS:
             raise ValueError('invalid status string', dict_rval['status'])
 
+        attachments = dict_rval.pop('attachments', {})
+        for key, val in attachments.items():
+            ctrl.attachments[key] = val
+
         return dict_rval
 
     def short_str(self):
@@ -109,7 +114,7 @@ class Domain(base.Bandit):
 class FMinIter(object):
     """Object for conducting search experiments.
     """
-    catch_bandit_exceptions = True
+    catch_bandit_exceptions = False
 
     def __init__(self, algo, domain, trials, async=None,
             max_queue_len=1,
@@ -141,7 +146,8 @@ class FMinIter(object):
                     if not self.catch_bandit_exceptions:
                         raise
                 else:
-                    #logger.debug('job returned: %s' % str(result))
+                    logger.info('job returned status: %s' % result['status'])
+                    logger.info('job returned loss: %s' % result.get('loss' ))
                     trial['state'] = base.JOB_STATE_DONE
                     trial['result'] = result
                 N -= 1

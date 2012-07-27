@@ -6,7 +6,7 @@ from .base import miscs_update_idxs_vals
 import pyll
 import hyperopt
 
-def suggest_random(new_ids, domain, trials, seed=123):
+def suggest(new_ids, domain, trials, seed=123):
 
     rval = []
     for new_id in new_ids:
@@ -20,6 +20,3 @@ def suggest_random(new_ids, domain, trials, seed=123):
                 [None], [new_result], [new_misc]))
     return rval
 
-hyperopt.algo.register_suggest(
-        suggest_random,
-        name='random')

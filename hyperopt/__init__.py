@@ -29,10 +29,10 @@ from base import trials_from_docs
 
 from fmin import fmin
 
-import algo
+import rand
 
-import rand  # -- registers in algo
+import tpe
 
-# -- TODO: register in algo
+# -- TODO: deprecate in favour of tpe.suggest
 from tpe import TreeParzenEstimator
 

@@ -7,7 +7,7 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
 import logging
-logger = logging.getLogger(__name__)
+import time
 
 import numpy as np
 from scipy.special import erf
@@ -19,6 +19,8 @@ from .base import BanditAlgo
 from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
+
+logger = logging.getLogger(__name__)
 
 EPS = 1e-12
 
@@ -726,6 +728,148 @@ def broadcast_best(samples, below_llik, above_llik):
         return []
 
 
+_default_prior_weight = 1.0
+
+# -- suggest best of this many draws on every iteration
+_default_n_EI_candidates = 24
+
+# -- gamma * sqrt(n_trials) is fraction of to use as good
+_default_gamma = 0.25
+
+_default_n_startup_jobs = 20
+
+_default_linear_forgetting = DEFAULT_LF
+
+
+def tpe_transform(domain, prior_weight, gamma):
+    s_prior_weight = pyll.Literal(float(prior_weight))
+
+    # -- these dummy values will be replaced in suggest1() and never used
+    observed = dict(
+            idxs=pyll.Literal(),
+            vals=pyll.Literal())
+    observed_loss = dict(
+            idxs=pyll.Literal(),
+            vals=pyll.Literal())
+
+    specs, idxs, vals = build_posterior(
+            # -- vectorized clone of bandit template
+            domain.vh.v_expr,
+            # -- this dict and next represent prior dists
+            domain.vh.idxs_by_label(),
+            domain.vh.vals_by_label(),
+            observed['idxs'],
+            observed['vals'],
+            observed_loss['idxs'],
+            observed_loss['vals'],
+            pyll.Literal(gamma),
+            s_prior_weight
+            )
+
+    return (s_prior_weight, observed, observed_loss,
+            specs, idxs, vals)
+
+
+def suggest(new_ids, domain, trials,
+        seed=123,
+        prior_weight=_default_prior_weight,
+        n_startup_jobs=_default_n_startup_jobs,
+        n_EI_candidates=_default_n_EI_candidates,
+        gamma=_default_gamma,
+        linear_forgetting=_default_linear_forgetting,
+        ):
+
+    if len(new_ids) > 1:
+        # write a loop to draw new points sequentially
+        # TODO: insert constant liar for tentative suggestions
+        raise NotImplementedError('generates one at a time')
+    else:
+        new_id, = new_ids
+
+    t0 = time.time()
+    (s_prior_weight, observed, observed_loss, specs, idxs, vals) \
+            = tpe_transform(domain, prior_weight, gamma)
+    tt = time.time() - t0
+    logger.info('tpe_transform took %f seconds' % tt)
+
+    docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
+    best_docs = dict()
+    best_docs_loss = dict()
+    for doc in trials.trials:
+        # get either this docs own tid or the one that it's from
+        tid = doc['misc'].get('from_tid', doc['tid'])
+        loss = domain.loss(doc['result'], doc['spec'])
+        if loss is None:
+            # -- associate infinite loss to new/running/failed jobs
+            loss = float('inf')
+        else:
+            loss = float(loss)
+        best_docs_loss.setdefault(tid, loss)
+        if loss <= best_docs_loss[tid]:
+            best_docs_loss[tid] = loss
+            best_docs[tid] = doc
+
+    tid_docs = best_docs.items()
+    # -- sort docs by order of suggestion
+    #    so that linear_forgetting removes the oldest ones
+    tid_docs.sort()
+    losses = [best_docs_loss[k] for k, v in tid_docs]
+    tids = [k for k, v in tid_docs]
+    docs = [v for k, v in tid_docs]
+
+    if docs:
+        logger.info('TPE using %i/%i trials with best loss %f' % (
+            len(docs), len(trials), min(best_docs_loss.values())))
+    else:
+        logger.info('TPE using 0 trials')
+
+    if len(docs) < n_startup_jobs:
+        # N.B. THIS SEEDS THE RNG BASED ON THE new_id
+        return suggest_random(new_ids, domain, trials, seed)
+
+    #    Sample and compute log-probability.
+    if tids:
+        # -- the +2 co-ordinates with an assertion above
+        #    to ensure that fake ids are used during sampling
+        fake_id_0 = max(max(tids), new_id) + 2
+    else:
+        # -- weird - we're running the TPE algo from scratch
+        assert n_startup_jobs <= 0
+        fake_id_0 = new_id + 2
+
+    fake_ids = range(fake_id_0, fake_id_0 + n_EI_candidates)
+
+    # -- this dictionary will map pyll nodes to the values
+    #    they should take during the evaluation of the pyll program
+    memo = {domain.s_new_ids: fake_ids}
+
+    o_idxs_d, o_vals_d = miscs_to_idxs_vals(
+        [d['misc'] for d in docs], keys=domain.params.keys())
+    memo[observed['idxs']] = o_idxs_d
+    memo[observed['vals']] = o_vals_d
+
+    memo[observed_loss['idxs']] = tids
+    memo[observed_loss['vals']] = losses
+
+    idxs, vals = pyll.rec_eval([opt_idxs, opt_vals], memo=memo)
+
+    # -- retrieve the best of the samples and form the return tuple
+    # the build_posterior makes all specs the same
+
+    rval_specs = [None]  # -- specs are deprecated
+    rval_results = [domain.new_result()]
+    rval_miscs = [dict(tid=new_id, cmd=domain.cmd, workdir=domain.workdir)]
+
+    miscs_update_idxs_vals(rval_miscs, idxs, vals,
+            idxs_map={fake_ids[0]: new_id},
+            assert_all_vals_used=False)
+    rval_docs = trials.new_trial_docs([new_id],
+            rval_specs, rval_results, rval_miscs)
+
+    return rval_docs
+
+
+# XXX deprecate me in favour of suggest() above
 class TreeParzenEstimator(BanditAlgo):
     """
     XXX
