@@ -269,8 +269,10 @@ class Trials(object):
 
     def trial_attachments(self, trial):
         """
-        Support syntax for load:  self.attachments[name]
-        Support syntax for store: self.attachments[name] = value
+        Support syntax for load:  self.trial_attachments(doc)[name]
+        # -- does this work syntactically?
+        #    (In any event a 2-stage store will work)
+        Support syntax for store: self.trial_attachments(doc)[name] = value
         """
 
         # don't offer more here than in MongoCtrl
@@ -541,6 +543,20 @@ class Trials(object):
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
             return avg_true_loss
 
+    @property
+    def argmin(self):
+        self.refresh()
+        results = self.results
+        miscs = self.miscs
+        best = np.argmin([r['loss'] for r in results])
+        vals = self.miscs[best]['vals']
+        # unpack the one-element lists to values
+        # and skip over the 0-element lists
+        rval = {}
+        for k, v in vals.items():
+            if v:
+                rval[k] = v[0]
+        return rval
 
 def trials_from_docs(docs, validate=True, **kwargs):
     """Construct a Trials base class instance from a list of trials documents
@@ -626,19 +642,24 @@ class Bandit(object):
             rseed=None,
             loss_target=None,
             exceptions=None,
+            do_checks=True,
             ):
-        if isinstance(expr, pyll.Apply):
-            self.expr = expr
-            # XXX: verify that expr is a dictionary with the right keys,
-            #      then refactor the code below
-        elif isinstance(expr, dict):
-            if 'loss' not in expr:
-                raise ValueError('expr must define a loss')
-            if 'status' not in expr:
-                expr['status'] = STATUS_OK
-            self.expr = pyll.as_apply(expr)
+
+        if do_checks:
+            if isinstance(expr, pyll.Apply):
+                self.expr = expr
+                # XXX: verify that expr is a dictionary with the right keys,
+                #      then refactor the code below
+            elif isinstance(expr, dict):
+                if 'loss' not in expr:
+                    raise ValueError('expr must define a loss')
+                if 'status' not in expr:
+                    expr['status'] = STATUS_OK
+                self.expr = pyll.as_apply(expr)
+            else:
+                raise TypeError('expr must be a dictionary')
         else:
-            raise TypeError('expr must be a dictionary')
+            self.expr = pyll.as_apply(expr)
 
         self.params =  {}
         for node in pyll.dfs(self.expr):
