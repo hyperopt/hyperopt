@@ -1,3 +1,4 @@
+import logging
 import sys
 
 import numpy as np
@@ -7,6 +8,8 @@ from pyll.stochastic import recursive_set_rng_kwarg
 
 from .vectorize import VectorizeHelper
 import base
+
+logger = logging.getLogger(__name__)
 
 
 class Domain(base.Bandit):
