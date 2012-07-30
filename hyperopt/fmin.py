@@ -2,6 +2,7 @@ import logging
 import sys
 
 import numpy as np
+import time
 
 import pyll
 from pyll.stochastic import recursive_set_rng_kwarg
