@@ -19,6 +19,7 @@ from .base import BanditAlgo
 from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
+import rand
 
 logger = logging.getLogger(__name__)
 
@@ -787,7 +788,7 @@ def suggest(new_ids, domain, trials,
         new_id, = new_ids
 
     t0 = time.time()
-    (s_prior_weight, observed, observed_loss, specs, idxs, vals) \
+    (s_prior_weight, observed, observed_loss, specs, opt_idxs, opt_vals) \
             = tpe_transform(domain, prior_weight, gamma)
     tt = time.time() - t0
     logger.info('tpe_transform took %f seconds' % tt)
@@ -825,7 +826,7 @@ def suggest(new_ids, domain, trials,
 
     if len(docs) < n_startup_jobs:
         # N.B. THIS SEEDS THE RNG BASED ON THE new_id
-        return suggest_random(new_ids, domain, trials, seed)
+        return rand.suggest(new_ids, domain, trials, seed)
 
     #    Sample and compute log-probability.
     if tids:

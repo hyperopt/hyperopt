@@ -1,19 +1,9 @@
-import numpy as np
-
-from hyperopt.pyll_utils import hp_choice
 from hyperopt.pyll_utils import hp_uniform
-from hyperopt.pyll_utils import hp_loguniform
-from hyperopt.pyll_utils import hp_quniform
-from hyperopt.pyll_utils import hp_qloguniform
-from hyperopt.pyll_utils import hp_normal
-from hyperopt.pyll_utils import hp_lognormal
-from hyperopt.pyll_utils import hp_qnormal
-from hyperopt.pyll_utils import hp_qlognormal
 
-from hyperopt import fmin, rand
+from hyperopt import fmin, rand, tpe
 
 
-def test_quadratic1():
+def test_quadratic1_rand():
 
     report = fmin(
             fn=lambda x: (x - 3) ** 2,
@@ -24,3 +14,14 @@ def test_quadratic1():
     assert len(report.trials) == 500
     assert abs(report.trials.argmin['x'] - 3.0) < .25
 
+
+def test_quadratic1_tpe():
+
+    report = fmin(
+            fn=lambda x: (x - 3) ** 2,
+            space=hp_uniform('x', -5, 5),
+            algo=tpe.suggest,
+            max_evals=500)
+
+    assert len(report.trials) == 500
+    assert abs(report.trials.argmin['x'] - 3.0) < .25
