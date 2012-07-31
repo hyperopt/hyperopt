@@ -35,14 +35,18 @@ class Domain(base.Bandit):
     """
     rec_eval_print_node_on_error=False
 
-    def __init__(self, fn, expr, init_pyll_memo=None,
-            cmd=None,
+    def __init__(self, fn, expr,
             workdir=None,
+            pass_expr_memo_ctrl=None,
             **bandit_kwargs):
         self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
         self.expr = expr
-        self.init_pyll_memo = init_pyll_memo
+        if pass_expr_memo_ctrl is None:
+            self.pass_expr_memo_ctrl = getattr(fn,
+                    'fmin_pass_expr_memo_ctrl', False)
+        else:
+            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
         base.Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
 
         # -- This code was stolen from base.BanditAlgo, a class which may soon
@@ -75,32 +79,25 @@ class Domain(base.Bandit):
 
     def evaluate(self, config, ctrl):
         memo = self.memo_from_config(config)
-        memo[self.pyll_ctrl] = ctrl
-        if self.init_pyll_memo:
-            memo = self.init_pyll_memo(memo, config=config, ctrl=ctrl)
+        self.use_obj_for_literal_in_memo(ctrl, base.Ctrl, memo)
         if self.rng is not None and not self.installed_rng:
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
             self.expr = recursive_set_rng_kwarg(self.expr,
                 pyll.as_apply(self.rng))
             self.installed_rng = True
-        try:
+        if self.pass_expr_memo_ctrl:
+            rval = self.fn(
+                    expr=self.expr,
+                    memo=memo,
+                    ctrl=ctrl)
+        else:
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
             #    or the normal Python part (self.fn)
             pyll_rval = pyll.rec_eval(self.expr, memo=memo,
                     print_node_on_error=self.rec_eval_print_node_on_error)
             rval = self.fn(pyll_rval)
-        except Exception, e:
-            n_match = 0
-            for match, match_pair in self.exceptions:
-                if match(e):
-                    rval = match_pair(e)
-                    logger.info('Caught fn exception %s' % str(rval))
-                    n_match += 1
-                    break
-            if n_match == 0:
-                raise
 
         if isinstance(rval, (float, int, np.number)):
             dict_rval = {'loss': rval}
@@ -272,12 +269,7 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals,
-        trials=None,
-        fn_exceptions=(),
-        init_pyll_memo=None,
-        rseed=123,
-        ):
+def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
     """
     Minimize `f` over the given `space` using random search.
 
@@ -306,10 +298,7 @@ def fmin(fn, space, algo, max_evals,
     if trials is None:
         trials = base.Trials()
 
-    domain = Domain(fn, space,
-            exceptions=fn_exceptions,
-            init_pyll_memo=init_pyll_memo,
-            rseed=rseed)
+    domain = Domain(fn, space, rseed=rseed)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals)
     rval.exhaust()
