@@ -28,6 +28,7 @@ from base import Trials
 from base import trials_from_docs
 
 from fmin import fmin
+from fmin import fmin_pass_expr_memo_ctrl
 
 import rand
 

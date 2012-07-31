@@ -13,6 +13,21 @@ import base
 logger = logging.getLogger(__name__)
 
 
+def fmin_pass_expr_memo_ctrl(f):
+    """
+    Mark a function as expecting kwargs 'expr', 'memo' and 'ctrl' from
+    hyperopt.fmin.
+
+    expr - the pyll expression of the search space
+    memo - a partially-filled memo dictionary such that
+           `rec_eval(expr, memo=memo)` will build the proposed trial point.
+    ctrl - the Experiment control object (see base.Ctrl)
+
+    """
+    f.fmin_pass_expr_memo_ctrl = True
+    return f
+
+
 class Domain(base.Bandit):
     """
     Picklable representation of search space and evaluation function.
