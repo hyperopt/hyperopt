@@ -16,6 +16,8 @@ class Domain(base.Bandit):
     """
     Picklable representation of search space and evaluation function.
     """
+    rec_eval_print_node_on_error=False
+
     def __init__(self, fn, expr, init_pyll_memo=None,
             cmd=None,
             workdir=None,
@@ -69,7 +71,8 @@ class Domain(base.Bandit):
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
             #    or the normal Python part (self.fn)
-            pyll_rval = pyll.rec_eval(self.expr, memo=memo)
+            pyll_rval = pyll.rec_eval(self.expr, memo=memo,
+                    print_node_on_error=self.rec_eval_print_node_on_error)
             rval = self.fn(pyll_rval)
         except Exception, e:
             n_match = 0
