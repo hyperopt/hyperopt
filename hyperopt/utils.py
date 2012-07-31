@@ -6,6 +6,8 @@ logger = logging.getLogger(__name__)
 
 import numpy
 
+import pyll
+
 def import_tokens(tokens):
     # XXX Document me
     # import as many as we can
@@ -121,7 +123,7 @@ def fast_isin(X,Y):
             return (T[D] == X)
     else:
         return np.zeros((len(X),),bool)
-        
+
 
 def get_most_recent_inds(obj):
     data = numpy.rec.array([(x['_id'], int(x['version']))
@@ -132,3 +134,26 @@ def get_most_recent_inds(obj):
     recent = (data['_id'][1:] != data['_id'][:-1]).nonzero()[0]
     recent = numpy.append(recent, [len(data)-1])
     return s[recent]
+
+
+def use_obj_for_literal_in_memo(expr, obj, lit, memo):
+    """
+    Set `memo[node] = obj` for all nodes in expr such that `node.obj == lit`
+
+    This is a useful routine for fmin-compatible functions that are searching
+    domains that include some leaf nodes that are complicated
+    runtime-generated objects. One option is to make such leaf nodes pyll
+    functions, but it can be easier to construct those objects the normal
+    Python way in the fmin function, and just stick them into the evaluation
+    memo.  The experiment ctrl object itself is inserted using this technique.
+    """
+    for node in pyll.dfs(expr):
+        try:
+            if node.obj == lit:
+                memo[node] = obj
+        except AttributeError:
+            # -- non-literal nodes don't have node.obj
+            pass
+    return memo
+
+
