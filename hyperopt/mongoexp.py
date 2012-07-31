@@ -1394,7 +1394,7 @@ def main_show_helper(options, args):
         cPickle.dump(trials_from_docs(trials.trials),
                 open(args[1], 'w'))
     elif 'vars' == cmd:
-        return plotting.main_plot_vars(trials)
+        return plotting.main_plot_vars(trials, bandit=bandit)
     else:
         logger.error("Invalid cmd %s" % cmd)
         parser.print_help()
