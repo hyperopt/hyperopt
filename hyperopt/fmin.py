@@ -1,3 +1,4 @@
+import cPickle
 import logging
 import sys
 
@@ -38,6 +39,7 @@ class Domain(base.Bandit):
             cmd=None,
             workdir=None,
             **bandit_kwargs):
+        self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
         self.expr = expr
         self.init_pyll_memo = init_pyll_memo
@@ -45,7 +47,6 @@ class Domain(base.Bandit):
 
         # -- This code was stolen from base.BanditAlgo, a class which may soon
         #    be gone
-        self.cmd = cmd
         self.workdir = workdir
         self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
         before = pyll.dfs(self.expr)
@@ -134,6 +135,7 @@ class FMinIter(object):
     """Object for conducting search experiments.
     """
     catch_bandit_exceptions = False
+    cPickle_protocol = -1
 
     def __init__(self, algo, domain, trials, async=None,
             max_queue_len=1,
@@ -150,6 +152,14 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+
+        if self.async:
+            if 'FMinIter_Domain' not in trials.attachments:
+                msg = cPickle.dumps(
+                        domain, protocol=self.cPickle_protocol)
+                # -- sanity check for unpickling
+                cPickle.loads(msg)
+                trials.attachments['FMinIter_Domain'] = msg
 
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:

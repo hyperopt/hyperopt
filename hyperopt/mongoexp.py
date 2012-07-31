@@ -963,6 +963,10 @@ class MongoWorker(object):
                     worker_fn = json_call(bandit_name,
                             args=bandit_args,
                             kwargs=bandit_kwargs).evaluate
+                elif cmd_protocol == 'domain_attachment':
+                    blob = ctrl.trials.attachments[cmd[1]]
+                    domain = cPickle.loads(blob)
+                    worker_fn = domain.evaluate
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
