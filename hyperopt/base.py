@@ -48,6 +48,7 @@ from pyll.stochastic import recursive_set_rng_kwarg
 from .pyll_utils import hp_choice
 
 from .utils import pmin_sampled
+from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
 from .vectorize import replace_repeat_stochastic
 
@@ -558,6 +559,7 @@ class Trials(object):
                 rval[k] = v[0]
         return rval
 
+
 def trials_from_docs(docs, validate=True, **kwargs):
     """Construct a Trials base class instance from a list of trials documents
     """
@@ -633,7 +635,11 @@ class Bandit(object):
     evaluate - interruptible/checkpt calling convention for evaluation routine
 
     """
-    pyll_ctrl = pyll.as_apply(None)
+    # -- the Ctrl object is not used directly, but rather
+    #    a live Ctrl instance is inserted for the pyll_ctrl
+    #    in self.evaluate so that it can be accessed from within
+    #    the pyll graph describing the search space.
+    pyll_ctrl = pyll.as_apply(Ctrl)
 
     exceptions = []
 
@@ -692,11 +698,14 @@ class Bandit(object):
     def short_str(self):
         return self.__class__.__name__
 
+    def use_obj_for_literal_in_memo(self, obj, lit, memo):
+        return use_obj_for_literal_in_memo(self.expr, obj, lit, memo)
+
     def evaluate(self, config, ctrl):
         """Return a result document
         """
         memo = self.memo_from_config(config)
-        memo[self.pyll_ctrl] = ctrl
+        self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
         if self.rng is not None and not self.installed_rng:
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
