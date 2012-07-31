@@ -182,6 +182,7 @@ class FMinIter(object):
         self.trials.refresh()
 
     def block_until_done(self):
+        already_printed = False
         if self.async:
             unfinished_states = [base.JOB_STATE_NEW, base.JOB_STATE_RUNNING]
 
@@ -190,7 +191,9 @@ class FMinIter(object):
 
             qlen = get_queue_len()
             while qlen > 0:
-                logger.info('Waiting for %d jobs to finish ...' % qlen)
+                if not already_printed:
+                    logger.info('Waiting for %d jobs to finish ...' % qlen)
+                    already_printed = True
                 time.sleep(self.poll_interval_secs)
                 qlen = get_queue_len()
             self.trials.refresh()
@@ -260,7 +263,7 @@ class FMinIter(object):
         self.run(1, block_until_done=self.async)
         if len(self.trials) >= self.max_evals:
             raise StopIteration()
-        return self.trials._dynamic_trials[-1]
+        return self.trials
 
     def exhaust(self):
         for foo in self:
