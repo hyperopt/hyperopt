@@ -853,25 +853,30 @@ class MongoTrials(Trials):
         Support syntax for store: self.attachments[name] = value
         """
         gfs = self.handle.gfs
+
+        query = {}
+        if self._exp_key:
+            query['exp_key'] = self._exp_key
+
         class Attachments(object):
             def __contains__(_self, name):
-                return gfs.exists(filename=name)
+                return gfs.exists(filename=name, **query)
 
             def __getitem__(_self, name):
                 try:
-                    rval = gfs.get_version(name).read()
+                    rval = gfs.get_version(filename=name, **query).read()
                     return rval
                 except gridfs.NoFile, e:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
-                if gfs.exists(filename=name):
-                    gout = gfs.get_last_version(name)
+                if gfs.exists(filename=name, **query):
+                    gout = gfs.get_last_version(filename=name, **query)
                     gfs.delete(gout._id)
-                gfs.put(value, filename=name)
+                gfs.put(value, filename=name, **query)
 
             def __delitem__(_self, name):
-                gout = gfs.get_last_version(name)
+                gout = gfs.get_last_version(filename=name, **query)
                 gfs.delete(gout._id)
 
         return Attachments()
