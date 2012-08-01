@@ -222,6 +222,10 @@ class FMinIter(object):
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
+                if 0:
+                    for d in self.trials.trials:
+                        print 'trial %i %s %s' % (d['tid'], d['state'],
+                            d['result'].get('status'))
                 new_trials = algo(new_ids, self.domain, trials)
                 if new_trials is base.StopExperiment:
                     stopped = True
