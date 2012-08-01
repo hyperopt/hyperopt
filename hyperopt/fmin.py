@@ -151,12 +151,13 @@ class FMinIter(object):
         self.max_evals = max_evals
 
         if self.async:
-            if 'FMinIter_Domain' not in trials.attachments:
-                msg = cPickle.dumps(
-                        domain, protocol=self.cPickle_protocol)
-                # -- sanity check for unpickling
-                cPickle.loads(msg)
-                trials.attachments['FMinIter_Domain'] = msg
+            if 'FMinIter_Domain' in trials.attachments:
+                logger.warn('over-writing old domain trials attachment')
+            msg = cPickle.dumps(
+                    domain, protocol=self.cPickle_protocol)
+            # -- sanity check for unpickling
+            cPickle.loads(msg)
+            trials.attachments['FMinIter_Domain'] = msg
 
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
