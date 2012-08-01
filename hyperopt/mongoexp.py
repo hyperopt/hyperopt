@@ -779,7 +779,9 @@ class MongoTrials(Trials):
         self.handle.delete_all(cond)
         gfs = self.handle.gfs
         for filename in gfs.list():
-            gfs.delete(gfs.get_last_version(filename)._id)
+            fdoc = gfs.get_last_version(filename=filename, **cond)
+            if hasattr(fdoc, '_id'):
+                gfs.delete(fdoc._id)
         self.refresh()
 
     def new_trial_ids(self, N):

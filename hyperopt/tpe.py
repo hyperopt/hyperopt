@@ -977,13 +977,15 @@ class TreeParzenEstimator(BanditAlgo):
         tids = [k for k, v in tid_docs]
         docs = [v for k, v in tid_docs]
 
+        n_ok = len([d for d in docs if d['result']['status'] == STATUS_OK])
+
         if docs:
-            logger.info('TPE using %i/%i trials with best loss %f' % (
-                len(docs), len(trials), min(best_docs_loss.values())))
+            logger.info('TPE %i/%i w best loss %f' % (
+                n_ok, len(docs), min(best_docs_loss.values())))
         else:
             logger.info('TPE using 0 trials')
 
-        if len(docs) < self.n_startup_jobs:
+        if n_ok < self.n_startup_jobs:
             # N.B. THIS SEEDS THE RNG BASED ON THE new_id
             return BanditAlgo.suggest(self, [new_id], trials)
 
