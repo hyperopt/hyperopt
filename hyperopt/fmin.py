@@ -310,5 +310,5 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals)
     rval.exhaust()
-    return rval
+    return trials.argmin
 

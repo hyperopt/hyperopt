@@ -37,3 +37,5 @@ import tpe
 # -- TODO: deprecate in favour of tpe.suggest
 from tpe import TreeParzenEstimator
 
+# -- syntactic sugar
+import hp
