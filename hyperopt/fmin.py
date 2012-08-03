@@ -271,8 +271,8 @@ class FMinIter(object):
         return self.trials
 
     def exhaust(self):
-        for foo in self:
-            pass
+        n_done = len(self.trials)
+        self.run(self.max_evals - n_done, block_until_done=self.async)
         self.trials.refresh()
         return self
 
