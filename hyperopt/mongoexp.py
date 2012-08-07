@@ -430,9 +430,13 @@ class MongoJobs(object):
         """Delete all jobs and attachments"""
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
-                for name, file_id in d.get('_attachments', []):
-                    self.gfs.delete(file_id)
                 logger.info('deleting job %s' % d['_id'])
+                for name, file_id in d.get('_attachments', []):
+                    try:
+                        self.gfs.delete(file_id)
+                    except gridfs.errors.NoFile:
+                        logger.error('failed to remove attachment %s:%s' % (
+                            name, file_id))
                 self.jobs.remove(d, safe=safe)
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
@@ -779,9 +783,11 @@ class MongoTrials(Trials):
         self.handle.delete_all(cond)
         gfs = self.handle.gfs
         for filename in gfs.list():
-            fdoc = gfs.get_last_version(filename=filename, **cond)
-            if hasattr(fdoc, '_id'):
-                gfs.delete(fdoc._id)
+            try:
+                fdoc = gfs.get_last_version(filename=filename, **cond)
+            except gridfs.errors.NoFile:
+                continue
+            gfs.delete(fdoc._id)
         self.refresh()
 
     def new_trial_ids(self, N):
