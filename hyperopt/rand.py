@@ -1,12 +1,18 @@
 """
 Random search - presented as hyperopt.fmin_random
 """
+import logging
 
-from .base import miscs_update_idxs_vals
 import pyll
 import hyperopt
 
+from .base import miscs_update_idxs_vals
+
+logger = logging.getLogger(__name__)
+
+
 def suggest(new_ids, domain, trials, seed=123):
+    logger.info('generating trials for new_ids: %s' % str(new_ids))
 
     rval = []
     for new_id in new_ids:
