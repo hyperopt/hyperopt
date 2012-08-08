@@ -774,11 +774,14 @@ class MongoTrials(Trials):
         rval = self.handle.jobs.find(query).count()
         return rval
 
-    def delete_all(self):
-        if self._exp_key:
-            cond = cond={'exp_key': self._exp_key}
-        else:
+    def delete_all(self, cond=None):
+        if cond is None:
             cond = {}
+        else:
+            cond = dict(cond)
+
+        if self._exp_key:
+            cond['exp_key'] = self._exp_key
         # -- remove all documents matching condition
         self.handle.delete_all(cond)
         gfs = self.handle.gfs
