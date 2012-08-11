@@ -591,7 +591,8 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
-    o_idxs, o_vals, l_idxs = map(np.asarray, [o_idxs, o_vals, l_idxs])
+    o_idxs, o_vals, l_idxs, l_vals = map(np.asarray, [o_idxs, o_vals, l_idxs,
+        l_vals])
 
     # XXX if this is working, refactor this sort for efficiency
 
@@ -599,8 +600,12 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
     n_below = min(int(np.ceil(gamma * np.sqrt(len(l_vals)))), gamma_cap)
     l_order = np.argsort(l_vals)
 
+
     keep_idxs = set(l_idxs[l_order[:n_below]])
     below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
+
+    if 0:
+        print 'DEBUG: thresh', l_vals[l_order[:n_below]]
 
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
