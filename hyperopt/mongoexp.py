@@ -184,6 +184,12 @@ class Shutdown(Exception):
     """
 
 
+class WaitQuit(Exception):
+    """
+    Exception for telling mongo_worker loop to quit
+    """
+
+
 class InvalidMongoTrial(InvalidTrial):
     pass
 
@@ -1078,9 +1084,15 @@ def main_worker_helper(options, args):
     def sighandler_shutdown(signum, frame):
         logger.info('Caught signal %i, shutting down.' % signum)
         raise Shutdown(signum)
+
+    def sighandler_wait_quit(signum, frame):
+        logger.info('Caught signal %i, shutting down.' % signum)
+        raise WaitQuit(signum)
+
     signal.signal(signal.SIGINT, sighandler_shutdown)
     signal.signal(signal.SIGHUP, sighandler_shutdown)
     signal.signal(signal.SIGTERM, sighandler_shutdown)
+    signal.signal(signal.SIGUSR1, sighandler_wait_quit)
 
     if N > 1:
         proc = None
@@ -1104,11 +1116,21 @@ def main_worker_helper(options, args):
                 proc = subprocess.Popen(sub_argv)
                 retcode = proc.wait()
                 proc = None
+
             except Shutdown, e:
                 #this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
                     #proc.terminate() is only available as of 2.6
                     os.kill(proc.pid, signal.SIGTERM)
+                    return proc.wait()
+                else:
+                    return 0
+
+            except WaitQuit, e:
+                # -- sending SIGUSR1 to a looping process will cause it to
+                # break out of the loop after the current subprocess finishes
+                # normally.
+                if proc:
                     return proc.wait()
                 else:
                     return 0
