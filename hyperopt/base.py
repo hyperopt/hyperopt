@@ -45,8 +45,10 @@ from bson.objectid import ObjectId
 import pyll
 from pyll import scope
 from pyll.stochastic import recursive_set_rng_kwarg
-from .pyll_utils import hp_choice
 
+from .exceptions import DuplicateLabel
+from .exceptions import InvalidTrial
+from .pyll_utils import hp_choice
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
@@ -227,10 +229,6 @@ def spec_from_misc(misc):
         else:
             raise NotImplementedError('multiple values', (k, v))
     return spec
-
-
-class InvalidTrial(Exception):
-    pass
 
 
 class Trials(object):
@@ -670,7 +668,10 @@ class Bandit(object):
         self.params =  {}
         for node in pyll.dfs(self.expr):
             if node.name == 'hyperopt_param':
-                self.params[node.arg['label'].obj] = node.arg['obj']
+                label = node.arg['label'].obj
+                if label in self.params:
+                    raise DuplicateLabel(label)
+                self.params[label] = node.arg['obj']
 
         if exceptions is not None:
             self.exceptions = exceptions

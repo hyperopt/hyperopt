@@ -42,3 +42,4 @@ distractorTester = BanditExperimentMixin.make(hyperopt.bandits.distractor)
 gauss_waveTester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave)
 gauss_wave2Tester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave2,
         n_steps=5000)
+

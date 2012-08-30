@@ -1,5 +1,6 @@
+import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions
 
 
 def test_quadratic1_rand():
@@ -28,3 +29,22 @@ def test_quadratic1_tpe():
 
     assert len(trials) == 50, len(trials)
     assert abs(argmin['x'] - 3.0) < .25, argmin
+
+
+@nose.tools.raises(exceptions.DuplicateLabel)
+def test_duplicate_label_is_error():
+    trials = Trials()
+
+    def fn(xy):
+        x, y = xy
+        return x ** 2 + y ** 2
+
+    fmin(fn=fn,
+            space=[
+                hp.uniform('x', -5, 5),
+                hp.uniform('x', -5, 5),
+                ],
+            algo=rand.suggest,
+            max_evals=500,
+            trials=trials)
+
