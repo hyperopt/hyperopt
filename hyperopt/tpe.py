@@ -455,13 +455,15 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
 
     # -- magic formula:
     maxsigma = prior_sigma / 1.0
-    minsigma = prior_sigma / min(100, (1.0 + len(srtd_mus)))
+    minsigma = prior_sigma / min(100.0, (1.0 + len(srtd_mus)))
 
     #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     sigma[prior_pos] = prior_sigma
     assert prior_sigma > 0
+    assert maxsigma > 0
+    assert minsigma > 0
     assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
 
