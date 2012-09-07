@@ -543,12 +543,16 @@ class Trials(object):
             return avg_true_loss
 
     @property
-    def argmin(self):
+    def best_trial(self):
         self.refresh()
         results = self.results
-        miscs = self.miscs
         best = np.argmin([r['loss'] for r in results])
-        vals = self.miscs[best]['vals']
+        return self.trials[best]
+
+    @property
+    def argmin(self):
+        best_trial = self.best_trial
+        vals = best_trial['misc']['vals']
         # unpack the one-element lists to values
         # and skip over the 0-element lists
         rval = {}
