@@ -906,7 +906,9 @@ class MongoWorker(object):
     def __init__(self, mj,
             poll_interval=poll_interval,
             workdir=workdir,
-            exp_key=None):
+            exp_key=None,
+            logfilename='logfile.txt',
+            ):
         """
         mj - MongoJobs interface to jobs collection
         poll_interval - seconds
@@ -917,6 +919,13 @@ class MongoWorker(object):
         self.poll_interval = poll_interval
         self.workdir = workdir
         self.exp_key = exp_key
+
+        self.logfilename = logfilename
+        self.log_handler = logging.FileHandler(self.logfilename)
+        self.log_handler.setFormatter(
+            logging.Formatter(
+                fmt='%(levelname)s (%(name)s): %(message)s'))
+        self.log_handler.setLevel(logging.INFO)
 
     def run_one(self, host_id=None, reserve_timeout=None):
         if host_id == None:
@@ -1152,7 +1161,12 @@ def main_worker_helper(options, args):
                 float(options.poll_interval),
                 workdir=options.workdir,
                 exp_key=options.exp_key)
-        mworker.run_one(reserve_timeout=float(options.reserve_timeout))
+        try:
+            root_logger = logging.getLogger()
+            root_logger.addHandler(mworker.log_handler)
+            mworker.run_one(reserve_timeout=float(options.reserve_timeout))
+        finally:
+            root_logger.removeHandler(mworker.log_handler)
     else:
         parser.print_help()
         return -1
