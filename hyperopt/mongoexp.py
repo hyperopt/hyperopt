@@ -1126,7 +1126,7 @@ def main_worker_helper(options, args):
                 retcode = proc.wait()
                 proc = None
 
-            except Shutdown, e:
+            except Shutdown:
                 #this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
                     #proc.terminate() is only available as of 2.6
@@ -1135,7 +1135,7 @@ def main_worker_helper(options, args):
                 else:
                     return 0
 
-            except WaitQuit, e:
+            except WaitQuit:
                 # -- sending SIGUSR1 to a looping process will cause it to
                 # break out of the loop after the current subprocess finishes
                 # normally.
@@ -1234,7 +1234,6 @@ def bandit_from_options(options):
     return (bandit,
             (bandit_name, bandit_argv, bandit_kwargs),
             bandit_argfile_text)
-
 
 
 def algo_from_options(options, bandit):
