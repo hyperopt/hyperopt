@@ -1168,8 +1168,7 @@ def main_worker_helper(options, args):
         finally:
             root_logger.removeHandler(mworker.log_handler)
     else:
-        parser.print_help()
-        return -1
+        raise ValueError("N <= 0")
 
 
 def main_worker():
