@@ -29,6 +29,8 @@ from .base import trials_from_docs
 
 from .fmin import fmin
 from .fmin import fmin_pass_expr_memo_ctrl
+from .fmin import Domain
+from .fmin import FMinIter
 
 # -- syntactic sugar
 import hp
