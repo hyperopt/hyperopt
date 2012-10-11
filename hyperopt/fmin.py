@@ -77,7 +77,7 @@ class Domain(base.Bandit):
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
 
-    def evaluate(self, config, ctrl):
+    def evaluate(self, config, ctrl, attach_attachments=True):
         memo = self.memo_from_config(config)
         self.use_obj_for_literal_in_memo(ctrl, base.Ctrl, memo)
         if self.rng is not None and not self.installed_rng:
@@ -117,9 +117,10 @@ class Domain(base.Bandit):
         if dict_rval['status'] not in base.STATUS_STRINGS:
             raise ValueError('invalid status string', dict_rval['status'])
 
-        attachments = dict_rval.pop('attachments', {})
-        for key, val in attachments.items():
-            ctrl.attachments[key] = val
+        if attach_attachments:
+            attachments = dict_rval.pop('attachments', {})
+            for key, val in attachments.items():
+                ctrl.attachments[key] = val
 
         return dict_rval
 
