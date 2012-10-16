@@ -30,7 +30,6 @@ __authors__   = "James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "github.com/jaberg/hyperopt"
 
-import copy
 import hashlib
 import logging
 import time
@@ -52,7 +51,6 @@ from .pyll_utils import hp_choice
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
-from .vectorize import replace_repeat_stochastic
 
 logger = logging.getLogger(__name__)
 
