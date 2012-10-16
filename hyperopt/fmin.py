@@ -122,7 +122,11 @@ class Domain(base.Bandit):
             for key, val in attachments.items():
                 ctrl.attachments[key] = val
 
-        return base.SONify(dict_rval)
+        # -- don't do this here because SON-compatibility is only a requirement
+        #    for trials destined for a mongodb. In-memory rvals can contain
+        #    anything.
+        #return base.SONify(dict_rval)
+        return dict_rval
 
     def short_str(self):
         return 'Domain{%s}' % str(self.fn)
