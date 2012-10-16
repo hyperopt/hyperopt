@@ -815,11 +815,16 @@ class MongoTrials(Trials):
         # -- mongo docs say you can't upsert an empty document
         query = {'a': 0}
 
-        doc = db.job_ids.find_and_modify(
-                query,
-                {'$inc' : {'last_id': N}},
-                upsert=True,
-                safe=True)
+        doc = None
+        while doc is None:
+            doc = db.job_ids.find_and_modify(
+                    query,
+                    {'$inc' : {'last_id': N}},
+                    upsert=True,
+                    safe=True)
+            if doc is None:
+                logger.warning('no last_id found, re-trying')
+                time.sleep(1.0)
         lid = doc.get('last_id', 0)
         return range(lid, lid + N)
 
