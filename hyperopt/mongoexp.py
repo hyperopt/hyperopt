@@ -924,8 +924,9 @@ class MongoWorker(object):
         self.poll_interval = poll_interval
         self.workdir = workdir
         self.exp_key = exp_key
-
         self.logfilename = logfilename
+
+    def make_log_handler(self):
         self.log_handler = logging.FileHandler(self.logfilename)
         self.log_handler.setFormatter(
             logging.Formatter(
@@ -972,6 +973,10 @@ class MongoWorker(object):
         cwd = os.getcwd()
         os.chdir(workdir)
         try:
+            root_logger = logging.getLogger()
+            self.make_log_handler()
+            root_logger.addHandler(self.log_handler)
+
             cmd = job['misc']['cmd']
             cmd_protocol = cmd[0]
             try:
@@ -1014,6 +1019,7 @@ class MongoWorker(object):
                         safe=True)
                 raise
         finally:
+            root_logger.removeHandler(self.log_handler)
             os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
@@ -1166,12 +1172,7 @@ def main_worker_helper(options, args):
                 float(options.poll_interval),
                 workdir=options.workdir,
                 exp_key=options.exp_key)
-        try:
-            root_logger = logging.getLogger()
-            root_logger.addHandler(mworker.log_handler)
-            mworker.run_one(reserve_timeout=float(options.reserve_timeout))
-        finally:
-            root_logger.removeHandler(mworker.log_handler)
+        mworker.run_one(reserve_timeout=float(options.reserve_timeout))
     else:
         raise ValueError("N <= 0")
 
