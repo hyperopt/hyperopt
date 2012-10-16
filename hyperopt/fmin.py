@@ -122,7 +122,7 @@ class Domain(base.Bandit):
             for key, val in attachments.items():
                 ctrl.attachments[key] = val
 
-        return dict_rval
+        return base.SONify(dict_rval)
 
     def short_str(self):
         return 'Domain{%s}' % str(self.fn)
