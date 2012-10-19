@@ -668,7 +668,23 @@ class MongoTrials(Trials):
                 refresh=refresh)
         return rval
 
-    def refresh(self):
+    def refresh_tids(self, tids):
+        """ Sync documents with `['tid']` in the list of `tids` from the
+        database.
+
+        Local trial documents whose tid is not in `tids` are not
+        affected by this call.  Local trial documents whose tid is in `tids` may
+        be:
+
+        * *deleted* (if db no longer has corresponding document), or
+        * *updated* (if db has an updated document) or,
+        * *left alone* (if db document matches local one).
+
+        Additionally, if the db has a matching document, but there is no
+        local trial with a matching tid, then the db document will be
+        *inserted* into the local collection.
+
+        """
         exp_key = self._exp_key
         if exp_key != None:
             query = {'exp_key' : exp_key}
@@ -676,6 +692,8 @@ class MongoTrials(Trials):
             query = {}
         t0 = time.time()
         query['state'] = {'$ne': JOB_STATE_ERROR}
+        if tids is not None:
+            query['tid'] = {'$in': list(tids)}
         _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
         if _trials:
             db_data = list(self.handle.jobs.find(query,
@@ -749,13 +767,27 @@ class MongoTrials(Trials):
         logger.debug('Refresh data download took %f seconds for %d ids' %
                          (time.time() - t0, num_new))
 
+        if tids is not None:
+            # -- If tids were given, then _trials only contains
+            #    documents with matching tids. Here we augment these
+            #    fresh matching documents, with our current ones whose
+            #    tids don't match.
+            new_trials = _trials
+            tids_set = set(tids)
+            assert all(t['tid'] in tids_set for t in new_trials)
+            old_trials = [t for t in self._trials if t['tid'] not in tids_set]
+            _trials = new_trials + old_trials
+
+        # -- reassign new trials to self, in order of increasing tid
         jarray = numpy.array([j['_id'] for j in _trials])
         jobsort = jarray.argsort()
-  
         self._trials = [_trials[_idx] for _idx in jobsort]
         self._specs = [_trials[_idx]['spec'] for _idx in jobsort]
         self._results = [_trials[_idx]['result'] for _idx in jobsort]
         self._miscs = [_trials[_idx]['misc'] for _idx in jobsort]
+
+    def refresh(self):
+        self.refresh_tids(None)
 
     def _insert_trial_docs(self, docs):
         rval = []
