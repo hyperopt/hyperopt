@@ -147,6 +147,7 @@ import subprocess
 import sys
 import time
 import urlparse
+import warnings
 
 import numpy
 import pymongo
@@ -502,12 +503,17 @@ class MongoJobs(object):
             collection = self.coll
 
         dct = copy.deepcopy(dct)
-        if '_id' in dct:
-            raise ValueError('cannot update the _id field')
-        if 'version' in dct:
-            raise ValueError('cannot update the version field')
         if '_id' not in doc:
             raise ValueError('doc must have an "_id" key to be updated')
+
+        if '_id' in dct:
+            if dct['_id'] != doc['_id']:
+                raise ValueError('cannot update the _id field')
+            del dct['_id']
+
+        if 'version' in dct:
+            if dct['version'] != doc['version']:
+                warnings.warn('Ignoring "version" field in update dictionary')
 
         if 'version' in doc:
             doc_query = dict(_id=doc['_id'], version=doc['version'])
@@ -558,7 +564,7 @@ class MongoJobs(object):
 
     def attachment_names(self, doc):
         def as_str(name_id):
-            assert isinstance(name_id[0], basestring), name
+            assert isinstance(name_id[0], basestring), name_id
             return str(name_id[0])
         return map(as_str, doc.get('_attachments', []))
 
@@ -643,6 +649,17 @@ class MongoTrials(Trials):
     As a concession to performance, this object permits trial filtering based
     on the exp_key, but I feel that's a hack. The case of `cmd` is similar--
     the exp_key and cmd are semantically coupled.
+
+    WRITING TO THE DATABASE
+    -----------------------
+    The trials object is meant for *reading* a trials database. Writing
+    to a database is different enough from writing to an in-memory
+    collection that no attempt has been made to abstract away that
+    difference.  If you want to update the documents within
+    a MongoTrials collection, then retrieve the `.handle` attribute (a
+    MongoJobs instance) and use lower-level methods, or pymongo's
+    interface directly.  When you are done writing, call refresh() or
+    refresh_tids() to bring the MongoTrials up to date.
     """
     async = True
 
@@ -670,7 +687,7 @@ class MongoTrials(Trials):
 
     def refresh_tids(self, tids):
         """ Sync documents with `['tid']` in the list of `tids` from the
-        database.
+        database (not *to* the database).
 
         Local trial documents whose tid is not in `tids` are not
         affected by this call.  Local trial documents whose tid is in `tids` may
@@ -694,7 +711,8 @@ class MongoTrials(Trials):
         query['state'] = {'$ne': JOB_STATE_ERROR}
         if tids is not None:
             query['tid'] = {'$in': list(tids)}
-        _trials = getattr(self, '_trials', [])[:] #copy to make sure it doesn't get screwed up
+        orig_trials = getattr(self, '_trials', [])
+        _trials = orig_trials[:] #copy to make sure it doesn't get screwed up
         if _trials:
             db_data = list(self.handle.jobs.find(query,
                                             fields=['_id', 'version']))
@@ -775,7 +793,7 @@ class MongoTrials(Trials):
             new_trials = _trials
             tids_set = set(tids)
             assert all(t['tid'] in tids_set for t in new_trials)
-            old_trials = [t for t in self._trials if t['tid'] not in tids_set]
+            old_trials = [t for t in orig_trials if t['tid'] not in tids_set]
             _trials = new_trials + old_trials
 
         # -- reassign new trials to self, in order of increasing tid
@@ -895,6 +913,15 @@ class MongoTrials(Trials):
 
             def __delitem__(_self, name):
                 raise NotImplementedError('delete trial_attachment')
+
+            def keys(self):
+                return [k for k in self]
+
+            def values(self):
+                return [self[k] for k in self]
+
+            def items(self):
+                return [(k, self[k]) for k in self]
 
         return Attachments()
 

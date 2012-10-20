@@ -140,7 +140,7 @@ def SONify(arg, memo=None):
         elif isinstance(arg, dict):
             rval = dict([(SONify(k, memo), SONify(v, memo))
                 for k, v in arg.items()])
-        elif isinstance(arg, (basestring, float, int, type(None))):
+        elif isinstance(arg, (basestring, float, int, long, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:
