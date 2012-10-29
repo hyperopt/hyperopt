@@ -1,4 +1,5 @@
 import cPickle
+import functools
 import logging
 import sys
 
@@ -27,6 +28,16 @@ def fmin_pass_expr_memo_ctrl(f):
     """
     f.fmin_pass_expr_memo_ctrl = True
     return f
+
+
+def partial(fn, **kwargs):
+    """functools.partial work-alike for functions decorated with
+    fmin_pass_expr_memo_ctrl
+    """
+    rval = functools.partial(fn, **kwargs)
+    if hasattr(fn, 'fmin_pass_expr_memo_ctrl'):
+        rval.fmin_pass_expr_memo_ctrl = fn.fmin_pass_expr_memo_ctrl
+    return rval
 
 
 class Domain(base.Bandit):
