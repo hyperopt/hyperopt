@@ -553,7 +553,6 @@ class Trials(object):
 
     @property
     def best_trial(self):
-        self.refresh()
         results = self.results
         best = np.argmin([r.get('loss', float('inf')) for r in results])
         return self.trials[best]
