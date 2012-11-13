@@ -24,7 +24,7 @@ dependency_links = None
 # ----- control flags -----
 
 # fallback to setuptools if distribute isn't found
-setup_tools_fallback = False
+setup_tools_fallback = True
 
 # don't include subdir named 'tests' in package_data
 skip_tests = True
