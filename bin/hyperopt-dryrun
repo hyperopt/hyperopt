@@ -1,4 +1,0 @@
-#!/usr/bin/env python
-import sys
-import hyperopt.main
-sys.exit(hyperopt.main.main('dryrun'))
