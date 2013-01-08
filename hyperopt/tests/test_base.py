@@ -1,25 +1,20 @@
 import copy
-import sys
 import unittest
 import numpy as np
 import nose
 import bson
 
-from pyll import as_apply, scope, rec_eval, clone, dfs
+from hyperopt.pyll import as_apply, scope
 uniform = scope.uniform
 normal = scope.normal
 one_of = scope.one_of
 
-from hyperopt import STATUS_STRINGS
-from hyperopt import STATUS_OK
 from hyperopt.base import JOB_STATE_NEW
 from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
-from hyperopt.base import StopExperiment
 from hyperopt.base import Bandit
 from hyperopt.base import coin_flip
-from hyperopt.base import Ctrl
 from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
 from hyperopt.base import miscs_to_idxs_vals
@@ -50,7 +45,7 @@ def ok_trial(tid, *args, **kwargs):
         version=0,
         book_time=None,
         refresh_time=None,
-        exp_key='my_experiment',
+        exp_key=None,
         )
 
 
