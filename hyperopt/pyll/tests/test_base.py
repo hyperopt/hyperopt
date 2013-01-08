@@ -1,9 +1,9 @@
-from pyll.base import *
+from hyperopt.pyll.base import *
 
 import nose
 import numpy as np
 
-from pyll import base
+from hyperopt.pyll import base
 
 
 def test_literal_pprint():

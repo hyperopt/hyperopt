@@ -1,6 +1,6 @@
 import numpy as np
-from pyll import scope, as_apply, dfs, rec_eval
-from pyll.stochastic import *
+from hyperopt.pyll import scope, as_apply, dfs, rec_eval
+from hyperopt.pyll.stochastic import *
 
 def test_recursive_set_rng_kwarg():
     uniform = scope.uniform
