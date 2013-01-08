@@ -510,6 +510,8 @@ def test_injector(trials):
     # -- test is disabled because CoinFlipInjector is gone
     # The point of the test would be to ensure that there is no problem
     # submitting jobs from worker processes.
+
+    CoinFlipInjector = None # XXX find old def with `git grep`
     bandit_algo = hyperopt.Random(CoinFlipInjector(),
                  cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
     # -- also test that injections from a particular experiment (exp_key)
