@@ -125,6 +125,19 @@ class TempMongo(object):
         except:  # XXX: don't know what exceptions to put here
             return False
 
+# -- If we can't create a TempMongo instance, then
+#    simply print what happened, 
+try:
+    with TempMongo() as temp_mongo:
+        pass
+except OSError, e:
+    print >> sys.stderr, e
+    print >> sys.stderr, ("Failed to create a TempMongo context,"
+        " skipping all mongo tests.")
+    if "such file" in str(e):
+        print >> sys.stderr, "Hint: is mongod executable on path?"
+    raise nose.SkipTest()
+
 
 class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
     def setUp(self):
