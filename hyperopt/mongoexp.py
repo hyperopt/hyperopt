@@ -141,6 +141,7 @@ import hashlib
 import logging
 import optparse
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -1003,7 +1004,11 @@ class MongoWorker(object):
                 fmt='%(levelname)s (%(name)s): %(message)s'))
         self.log_handler.setLevel(logging.INFO)
 
-    def run_one(self, host_id=None, reserve_timeout=None):
+    def run_one(self,
+        host_id=None,
+        reserve_timeout=None,
+        erase_created_workdir=False,
+        ):
         if host_id == None:
             host_id = '%s:%i'%(socket.gethostname(), os.getpid()),
         job = None
@@ -1037,11 +1042,25 @@ class MongoWorker(object):
             workdir = os.path.join(workdir, str(job['_id']))
         else:
             workdir = self.workdir
-        workdir = os.path.expanduser(workdir)
-        if not os.path.isdir(workdir):
-            os.makedirs(workdir)
+        workdir = os.path.abspath(os.path.expanduser(workdir))
         cwd = os.getcwd()
-        os.chdir(workdir)
+        sentinal = None
+        if not os.path.isdir(workdir):
+            # -- figure out the closest point to the workdir in the filesystem
+            closest_dir = ''
+            for wdi in os.path.split(workdir):
+                if os.path.isdir(os.path.join(closest_dir, wdi)):
+                    closest_dir = os.path.join(closest_dir, wdi)
+                else:
+                    break
+            assert closest_dir != workdir
+
+            # -- touch a sentinal file so that recursive directory
+            #    removal stops at the right place
+            sentinal = os.path.join(closest_dir, wdi + '.inuse')
+            open(sentinal, 'w').close()
+            # -- now just make the rest of the folders
+            os.makedirs(workdir)
         try:
             root_logger = logging.getLogger()
             self.make_log_handler()
@@ -1101,6 +1120,20 @@ class MongoWorker(object):
             ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
+
+        if sentinal:
+            if erase_created_workdir:
+                logger.debug('MongoWorker.run_one: rmtree %s' % workdir)
+                shutil.rmtree(workdir)
+                # -- put it back so that recursive removedirs works
+                os.mkdir(workdir)
+                # -- recursive backtrack to sentinal
+                logger.debug('MongoWorker.run_one: removedirs %s'
+                             % workdir)
+                os.removedirs(workdir)
+            # -- remove sentinal
+            logger.debug('MongoWorker.run_one: rm %s' % sentinal)
+            os.remove(sentinal)
 
 
 class MongoCtrl(Ctrl):

@@ -269,7 +269,7 @@ class TestExperimentWithThreads(unittest.TestCase):
     def worker_thread_fn(host_id, n_jobs, timeout):
         mw = MongoWorker(mj=TempMongo.mongo_jobs('foodb'))
         while n_jobs:
-            mw.run_one(host_id, timeout)
+            mw.run_one(host_id, timeout, erase_created_workdir=True)
             print 'worker: %s ran job' % str(host_id)
             n_jobs -= 1
 
