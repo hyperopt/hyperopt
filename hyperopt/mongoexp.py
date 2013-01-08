@@ -940,6 +940,17 @@ class MongoTrials(Trials):
             query['exp_key'] = self._exp_key
 
         class Attachments(object):
+            def __iter__(_self):
+                if query:
+                    # -- gfs.list does not accept query kwargs
+                    #    (at least, as of pymongo 2.4)
+                    filenames = [fname
+                                 for fname in gfs.list()
+                                 if fname in _self]
+                else:
+                    filenames = gfs.list()
+                return iter(filenames)
+
             def __contains__(_self, name):
                 return gfs.exists(filename=name, **query)
 
@@ -947,7 +958,7 @@ class MongoTrials(Trials):
                 try:
                     rval = gfs.get_version(filename=name, **query).read()
                     return rval
-                except gridfs.NoFile, e:
+                except gridfs.NoFile:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
@@ -1345,7 +1356,13 @@ def expkey_from_options(options, bandit_stuff, algo_stuff):
 def main_search_helper(options, args, input=input, cmd_type=None):
     """
     input is an argument so that unittest can replace stdin
+
+    cmd_type can be set to "D.A." to force interpretation of bandit as driver
+    attachment. This mechanism is used by unit tests.
     """
+    assert getattr(options, 'bandit', None) is None
+    assert getattr(options, 'bandit_algo', None) is None
+    assert len(args) == 2
     options.bandit = args[0]
     options.bandit_algo = args[1]
 
@@ -1371,7 +1388,6 @@ def main_search_helper(options, args, input=input, cmd_type=None):
         y, n = 'y', 'n'
         if input() != 'y':
             print >> sys.stdout, "aborting"
-            del self
             return 1
         trials.delete_all()
 
@@ -1380,7 +1396,6 @@ def main_search_helper(options, args, input=input, cmd_type=None):
     #
     if bandit_argfile_text or algo_argfile_text or cmd_type=='D.A.':
         aname = 'driver_attachment_%s.pkl' % exp_key
-        worker_cmd = ('driver_attachment', aname)
         if aname in trials.attachments:
             atup = cPickle.loads(trials.attachments[aname])
             if bandit_NAK != atup:
@@ -1388,6 +1403,7 @@ def main_search_helper(options, args, input=input, cmd_type=None):
         else:
             blob = cPickle.dumps(bandit_NAK)
             trials.attachments[aname] = blob
+        worker_cmd = ('driver_attachment', aname)
     else:
         worker_cmd = ('bandit_json evaluate', bandit_name)
 

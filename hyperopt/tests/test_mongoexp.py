@@ -28,7 +28,6 @@ from hyperopt import Random
 from hyperopt.bandits import gauss_wave2
 from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
-#from hyperopt.base import CoinFlipInjector
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
@@ -484,7 +483,7 @@ def test_main_search_driver_attachment(trials):
 
 
 @nose.tools.raises(BanditSwapError)
-@with_mongo_trials
+@functools.partial(with_mongo_trials, exp_key='hello')
 def test_main_search_driver_reattachment(trials):
     # pretend we already attached a different bandit
     trials.attachments['driver_attachment_hello.pkl'] = cPickle.dumps(
@@ -508,6 +507,9 @@ def test_main_search_driver_reattachment(trials):
 @with_mongo_trials
 @with_worker_threads(3, 'foo', timeout=5.0)
 def test_injector(trials):
+    # -- test is disabled because CoinFlipInjector is gone
+    # The point of the test would be to ensure that there is no problem
+    # submitting jobs from worker processes.
     bandit_algo = hyperopt.Random(CoinFlipInjector(),
                  cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
     # -- also test that injections from a particular experiment (exp_key)
