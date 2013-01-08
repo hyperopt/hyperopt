@@ -1,3 +1,5 @@
-numpy
+networkx
 pymongo
+nose
 scipy
+numpy
