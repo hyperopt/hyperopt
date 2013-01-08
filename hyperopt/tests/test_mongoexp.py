@@ -161,11 +161,13 @@ def with_mongo_trials(f, exp_key=None):
     return wrapper
 
 
-def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foo'):
-    mw = MongoWorker(mj=TempMongo.mongo_jobs(dbname))
+def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foo', logfilename=None):
+    mw = MongoWorker(
+        mj=TempMongo.mongo_jobs(dbname),
+        logfilename=logfilename)
     try:
         while n_jobs:
-            mw.run_one(host_id, timeout)
+            mw.run_one(host_id, timeout, erase_created_workdir=True)
             print 'worker: %s ran job' % str(host_id)
             n_jobs -= 1
     except ReserveTimeout:
@@ -267,7 +269,9 @@ class TestExperimentWithThreads(unittest.TestCase):
 
     @staticmethod
     def worker_thread_fn(host_id, n_jobs, timeout):
-        mw = MongoWorker(mj=TempMongo.mongo_jobs('foodb'))
+        mw = MongoWorker(
+            mj=TempMongo.mongo_jobs('foodb'),
+            logfilename=None)
         while n_jobs:
             mw.run_one(host_id, timeout, erase_created_workdir=True)
             print 'worker: %s ran job' % str(host_id)

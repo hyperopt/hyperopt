@@ -1058,13 +1058,16 @@ class MongoWorker(object):
             # -- touch a sentinal file so that recursive directory
             #    removal stops at the right place
             sentinal = os.path.join(closest_dir, wdi + '.inuse')
+            logger.debug("touching sentinal file: %s" % sentinal)
             open(sentinal, 'w').close()
             # -- now just make the rest of the folders
+            logger.debug("making workdir: %s" % workdir)
             os.makedirs(workdir)
         try:
             root_logger = logging.getLogger()
-            self.make_log_handler()
-            root_logger.addHandler(self.log_handler)
+            if self.logfilename:
+                self.make_log_handler()
+                root_logger.addHandler(self.log_handler)
 
             cmd = job['misc']['cmd']
             cmd_protocol = cmd[0]
@@ -1108,7 +1111,8 @@ class MongoWorker(object):
                         safe=True)
                 raise
         finally:
-            root_logger.removeHandler(self.log_handler)
+            if self.logfilename:
+                root_logger.removeHandler(self.log_handler)
             os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
