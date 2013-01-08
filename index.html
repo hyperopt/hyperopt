@@ -62,11 +62,8 @@ dimensions.</p>
     <span class="p">])</span>
 
 <span class="c"># minimize the objective over the space</span>
-<span class="kn">import</span> <span class="nn">hyperopt</span>
-<span class="n">best</span> <span class="o">=</span> <span class="n">hyperopt</span><span class="o">.</span><span class="n">fmin</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
-    <span class="n">algo</span><span class="o">=</span><span class="n">hyperopt</span><span class="o">.</span><span class="n">tpe</span><span class="o">.</span><span class="n">suggest</span><span class="p">,</span>
-    <span class="n">max_evals</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-
+<span class="kn">from</span> <span class="nn">hyperopt</span> <span class="kn">import</span> <span class="n">fmin</span><span class="p">,</span> <span class="n">tpe</span>
+<span class="n">best</span> <span class="o">=</span> <span class="n">fmin</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">algo</span><span class="o">=</span><span class="n">tpe</span><span class="o">.</span><span class="n">suggest</span><span class="p">,</span> <span class="n">max_evals</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="k">print</span> <span class="n">best</span>
 <span class="c"># -&gt; {'a': 1, 'c2': 0.01420615366247227}</span>
 </pre></div>
@@ -78,11 +75,11 @@ dimensions.</p>
 <ul>
 <li>Random Search</li>
 <li>Tree of Parzen Estimators (TPE)</li>
-</ul><p>Hyperopt has been designed to accommodate bayesian optimization algorithms
-based on gaussian processes and regression trees, but these are not
+</ul><p>Hyperopt has been designed to accommodate Bayesian optimization algorithms
+based on Gaussian processes and regression trees, but these are not
 currently implemented.</p>
 
-<p>All algorithms can be run either serially, or in parallel by communicating via MongoDB.</p>
+<p>All algorithms can be run either serially, or in parallel by communicating via <a href="http://www.mongodb.org">MongoDB</a>.</p>
 
 <h1>Installation</h1>
 
@@ -96,6 +93,8 @@ currently implemented.</p>
 <pre><code>(cd hyperopt &amp;&amp; python setup.py install)
 </code></pre>
 
+<p>For more information see <a href="https://github.com/jaberg/hyperopt/wiki/Installation-Notes">Installation Notes</a>.</p>
+
 <h1>Testing</h1>
 
 <p>Run the test suite with <code>py.test</code> or <code>nose</code>. I use nose myself:</p>
@@ -103,14 +102,19 @@ currently implemented.</p>
 <pre><code>(cd hyperopt &amp;&amp; nosetests)
 </code></pre>
 
+<p>All tests should pass, or be skipped. Please file a github issue if you see errors or failures.</p>
+
 <h1>Documentation</h1>
 
+<p><a href="https://github.com/jaberg/hyperopt/wiki/Home">Documentation is currently hosted on the wiki</a>, but here are some quick links to the most relevant pages:</p>
+
 <ul>
-<li><a href="https://github.com/jaberg/hyperopt/wiki/FMin">FMin tutorial</a></li>
+<li><a href="https://github.com/jaberg/hyperopt/wiki/FMin">Basic tutorial</a></li>
+<li><a href="https://github.com/jaberg/hyperopt/wiki/Installation-Notes">Installation notes</a></li>
 <li><a href="https://github.com/jaberg/hyperopt/wiki/Parallelizing-Evaluations-During-Search-via-MongoDB">Using mongodb</a></li>
 </ul><h1>Examples</h1>
 
-<p>See the wiki page with links to <a href="https://github.com/jaberg/hyperopt/wiki/Hyperopt-in-Other-Projects">projects using hyperopt</a>.</p>
+<p>See <a href="https://github.com/jaberg/hyperopt/wiki/Hyperopt-in-Other-Projects">projects using hyperopt</a> on the wiki.</p>
       </section>
       <footer>
         <p>Project maintained by <a href="https://github.com/jaberg">jaberg</a></p>
