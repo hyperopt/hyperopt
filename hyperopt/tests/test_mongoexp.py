@@ -11,6 +11,7 @@ if 0:
     copy_reg._reduce_ex = my_reduce_ex
 
 import cPickle
+import functools
 import os
 import signal
 import subprocess
@@ -137,11 +138,11 @@ class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
         self.temp_mongo.__exit__(*args)
 
 
-def with_mongo_trials(f):
+def with_mongo_trials(f, exp_key=None):
     def wrapper():
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
-                    exp_key=None)
+                    exp_key=exp_key)
             print(len(trials.results))
             f(trials)
     wrapper.__name__ = f.__name__
@@ -416,11 +417,15 @@ def test_main_search_runs(trials):
     main_search_helper(options, args)
 
 
-@with_mongo_trials
+@functools.partial(with_mongo_trials, exp_key='hello')
 def test_main_search_clear_existing(trials):
+    # -- main_search (the CLI) has no way of specifying an
+    #    exp_key of None.
+    assert trials._exp_key == 'hello'
     doc = hyperopt.tests.test_base.ok_trial(70, 0)
     doc['exp_key'] = 'hello'
     trials.insert_trial_doc(doc)
+    print 'Setting up trials with exp_key', doc['exp_key']
     options = FakeOptions(
             bandit_argfile='',
             bandit_algo_argfile='',
