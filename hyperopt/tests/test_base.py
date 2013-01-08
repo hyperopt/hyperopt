@@ -194,7 +194,8 @@ class TestCoinFlipExperiment(unittest.TestCase):
         print self.trials.idxs
         print self.trials.vals
         assert self.trials.idxs['flip'] == [0, 1, 2]
-        assert self.trials.vals['flip'] == [1, 1, 0]
+        # -- assert that the random seed matches that of Jan 8/2013
+        assert self.trials.vals['flip'] == [0, 1, 0]
 
 
 class TestCoinFlipStopExperiment(unittest.TestCase):
