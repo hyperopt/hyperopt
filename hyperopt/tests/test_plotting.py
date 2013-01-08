@@ -7,12 +7,15 @@ then the plots actually appear.
 """
 import unittest
 import os
-import nose
 
-import matplotlib
-matplotlib.use('svg')  # -- prevents trying to connect to X server
+try:
+    import matplotlib
+    matplotlib.use('svg')  # -- prevents trying to connect to X server
+except ImportError:
+    import nose
+    raise nose.SkipTest()
 
-from hyperopt import Random, Experiment, Trials, TreeParzenEstimator
+from hyperopt import Experiment, Trials, TreeParzenEstimator
 from .test_tpe import many_dists
 import hyperopt.bandits
 import hyperopt.plotting
