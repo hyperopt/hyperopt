@@ -132,33 +132,47 @@ class TestRandom(unittest.TestCase):
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
         assert idxs['flip'] == [0]
 
-    def test_suggest_5(self):
-        docs = self.algo.suggest(range(5), Trials())
-        print docs
-        assert len(docs) == 5
+    def test_suggest_N(self, N=10):
+        assert N <= 10
+        docs = self.algo.suggest(range(N), Trials())
+        print 'docs', docs
+        assert len(docs) == N
         # -- assert validity of docs
         trials = trials_from_docs(docs)
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        print idxs
-        print vals
+        print 'idxs', idxs
+        print 'vals', vals
         assert len(idxs) == 1
         assert len(vals) == 1
-        assert idxs['flip'] == range(5)
-        assert np.all(vals['flip'] == [1, 1, 0, 1, 0])
+        assert idxs['flip'] == range(N)
+        # -- only works when N == 5
+        assert np.all(vals['flip'] == [0, 1, 0, 0, 0, 0,  0, 1, 1, 0][:N])
 
-    def test_arbitrary_range(self):
-        new_ids = [-2, 0, 7, 'a', '007']
+    def test_arbitrary_range(self, N=10):
+        assert N <= 10
+        new_ids = [-2, 0, 7, 'a', '007', 66, 'a3', '899', 23, 2333][:N]
         docs = self.algo.suggest(new_ids, Trials())
         # -- assert validity of docs
         trials = trials_from_docs(docs)
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        assert len(docs) == 5
+        assert len(docs) == N
         assert len(idxs) == 1
         assert len(vals) == 1
         print vals
         assert idxs['flip'] == new_ids
-        assert np.all(vals['flip'] == [0, 1, 0, 1, 1])
 
+        # -- assert that the random seed matches that of Jan 8/2013
+        assert np.all(vals['flip'] == [0, 1, 0, 0, 0, 0, 0, 1, 1, 0][:N])
+
+    def test_suggest_all(self):
+        for ii in range(1, 10):
+            self.setUp()
+            self.test_suggest_N(ii)
+
+    def test_arbitrary_all(self):
+        for ii in range(1, 10):
+            self.setUp()
+            self.test_arbitrary_range(ii)
 
 class TestCoinFlipExperiment(unittest.TestCase):
     def setUp(self):
