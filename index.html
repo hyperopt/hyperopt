@@ -45,8 +45,6 @@
 search spaces with real-valued, discrete, and conditional
 dimensions.</p>
 
-<p>In a nutshell, you use it like this:</p>
-
 <div class="highlight"><pre><span class="c"># define an objective function</span>
 <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="s">'a'</span><span class="p">]:</span>
@@ -71,8 +69,6 @@ dimensions.</p>
 <span class="k">print</span> <span class="n">best_abc</span>
 </pre></div>
 
-<p>This program runs serially, but parallel evaluation is possible via MongoDB.</p>
-
 <h1>Algorithms</h1>
 
 <p>Currently two algorithms are implemented in hyperopt:</p>
@@ -83,6 +79,8 @@ dimensions.</p>
 </ul><p>Hyperopt has been designed to accommodate bayesian optimization algorithms
 based on gaussian processes and regression trees, but these are not
 currently implemented.</p>
+
+<p>All algorithms can be run either serially, or in parallel by communicating via MongoDB.</p>
 
 <h1>Installation</h1>
 
