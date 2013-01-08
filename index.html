@@ -45,28 +45,30 @@
 search spaces with real-valued, discrete, and conditional
 dimensions.</p>
 
-<div class="highlight"><pre><span class="c"># define an objective function</span>
-<span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="s">'a'</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="s">'b'</span><span class="p">]</span>
+<div class="highlight"><pre><span class="c"># define an objective function                                                                                                                                                                                       </span>
+<span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">case</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="k">if</span> <span class="n">case</span> <span class="o">==</span> <span class="s">'case 1'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">val</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="s">'c'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="n">val</span> <span class="o">**</span> <span class="mi">2</span>
 
 <span class="c"># define a search space</span>
 <span class="kn">from</span> <span class="nn">hyperopt</span> <span class="kn">import</span> <span class="n">hp</span>
-<span class="n">space</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s">'a'</span><span class="p">:</span> <span class="n">hp</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="s">'a'</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
-    <span class="s">'b'</span><span class="p">:</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">hp</span><span class="o">.</span><span class="n">lognormal</span><span class="p">(</span><span class="s">'logb1'</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-    <span class="s">'c'</span><span class="p">:</span> <span class="n">hp</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="s">'c'</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
-<span class="p">}</span>
+<span class="n">space</span> <span class="o">=</span> <span class="n">hp</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="s">'a'</span><span class="p">,</span>
+    <span class="p">[</span>
+        <span class="p">(</span><span class="s">'case 1'</span><span class="p">,</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">hp</span><span class="o">.</span><span class="n">lognormal</span><span class="p">(</span><span class="s">'c1'</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s">'case 2'</span><span class="p">,</span> <span class="n">hp</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="s">'c2'</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+    <span class="p">])</span>
 
 <span class="c"># minimize the objective over the space</span>
 <span class="kn">import</span> <span class="nn">hyperopt</span>
-<span class="n">best_abc</span> <span class="o">=</span> <span class="n">hyperopt</span><span class="o">.</span><span class="n">fmin</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
+<span class="n">best</span> <span class="o">=</span> <span class="n">hyperopt</span><span class="o">.</span><span class="n">fmin</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
     <span class="n">algo</span><span class="o">=</span><span class="n">hyperopt</span><span class="o">.</span><span class="n">tpe</span><span class="o">.</span><span class="n">suggest</span><span class="p">,</span>
-    <span class="n">max_iters</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">max_evals</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
-<span class="k">print</span> <span class="n">best_abc</span>
+<span class="k">print</span> <span class="n">best</span>
+<span class="c"># -&gt; {'a': 1, 'c2': 0.01420615366247227}</span>
 </pre></div>
 
 <h1>Algorithms</h1>
