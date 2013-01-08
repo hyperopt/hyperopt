@@ -4,10 +4,13 @@ import os
 import nose
 
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
-import pyll
-from pyll import scope
+from hyperopt import pyll
+from hyperopt.pyll import scope
 
 import hyperopt.bandits
 
@@ -33,7 +36,7 @@ from hyperopt.pyll_utils import hp_normal, hp_lognormal
 from hyperopt.pyll_utils import hp_qnormal, hp_qlognormal
 
 from hyperopt.tpe import adaptive_parzen_normal_orig
-from hyperopt.tpe import adaptive_parzen_normal
+#from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
@@ -250,7 +253,6 @@ class TestGMM1Math(unittest.TestCase):
         y = 1 / dx / len(dx)
 
         if self.show:
-            import matplotlib.pyplot as plt
             plt.scatter(edges[:-1], y)
             plt.plot(edges[:-1], pdf)
             plt.show()
@@ -315,7 +317,6 @@ class TestQGMM1Math(unittest.TestCase):
         y = counts / float(self.n_samples)
 
         if self.show:
-            import matplotlib.pyplot as plt
             plt.scatter(xcoords, y, c='r', label='empirical')
             plt.scatter(xcoords, prob, c='b', label='predicted')
             plt.legend()
@@ -424,7 +425,6 @@ class TestLGMM1Math(unittest.TestCase):
         y = 1 / dx / len(dx)
 
         if self.show:
-            import matplotlib.pyplot as plt
             plt.scatter(centers, y)
             plt.plot(centers, pdf)
             plt.show()
@@ -495,7 +495,6 @@ class TestQLGMM1Math(unittest.TestCase):
         y = counts / float(self.n_samples)
 
         if self.show:
-            import matplotlib.pyplot as plt
             plt.scatter(xcoords, y, c='r', label='empirical')
             plt.scatter(xcoords, prob, c='b', label='predicted')
             plt.legend()
@@ -740,12 +739,12 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         assert min(trials.losses()) < thresh
 
 
-def test_opt_qn_uniform():
-    test_opt_qn_normal(hp_uniform)
+def notest_opt_qn_uniform():
+    notest_opt_qn_normal(hp_uniform)
 
-def test_opt_qn_normal(f=hp_normal):
+def notest_opt_qn_normal(f=hp_normal):
     bandit = Bandit(
-            {'loss': -scope.sum([f('v%i' % ii, 0, 1)
+            {'loss': scope.sum([f('v%i' % ii, 0, 1)
                 for ii in range(25)]) ** 2},
             loss_target=0)
     algo = TreeParzenEstimator(bandit,
@@ -757,7 +756,7 @@ def test_opt_qn_normal(f=hp_normal):
     experiment = Experiment(trials, algo, async=False)
     experiment.max_queue_len = 1
     experiment.run(40)
-    print list(sorted(trials.losses()))
+    print 'sorted losses:', list(sorted(trials.losses()))
 
     idxs, vals = miscs_to_idxs_vals(trials.miscs)
 
@@ -844,7 +843,6 @@ class TestOptQUniform():
 
         do_show = self.show_steps
 
-        import matplotlib.pyplot as plt
         for ii in range(2, 9):
             if ii > len(idxs):
                 break
