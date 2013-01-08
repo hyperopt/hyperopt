@@ -1,8 +1,7 @@
-import unittest
 import numpy as np
 
-from pyll import as_apply, scope, rec_eval, clone, dfs, clone_merge
-from pyll.stochastic import recursive_set_rng_kwarg
+from hyperopt.pyll import as_apply, scope, rec_eval, clone, dfs
+from hyperopt.pyll.stochastic import recursive_set_rng_kwarg
 
 from hyperopt import base
 from hyperopt.vectorize import VectorizeHelper
