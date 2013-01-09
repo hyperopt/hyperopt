@@ -17,7 +17,6 @@ scripts = None
 requirements_file = None
 requirements = None
 dependency_links = None
-
 # ---------------------
 
 
@@ -27,7 +26,7 @@ dependency_links = None
 setup_tools_fallback = True
 
 # don't include subdir named 'tests' in package_data
-skip_tests = True
+skip_tests = False
 
 # print some extra debugging info
 debug = True
@@ -184,15 +183,44 @@ if debug:
     for dl in dependency_links:
         logging.debug("\t%s" % dl)
 
+# -- HACK to make sure the hard-coded requirements stay in sync with
+#    requirements.txt which is *not* included in releases.
+
+_hard_code_requirements = ['numpy', 'scipy', 'nose', 'pymongo', 'networkx']
+if requirements:
+    assert set(requirements) == set(_hard_code_requirements), (
+        requirements, _hard_code_requirements)
+
 setuptools.setup(
     name = package_name,
-    version = 'dev',
+    version = '0.0.1',
     packages = packages,
     scripts = scripts,
-    
+    url = 'http://jaberg.github.com/hyperopt/',
+    author = 'James Bergstra',
+    author_email = 'anon@anon.com',
+    description = 'Distributed Asynchronous Hyperparameter Optimization',
+    long_description = open('README.txt').read(),
+    classifiers = [
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Education',
+        'Intended Audience :: Science/Research',
+        'Intended Audience :: Developers',
+        'Environment :: Console',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: MacOS :: MacOS X',
+        'Operating System :: Microsoft :: Windows',
+        'Operating System :: POSIX',
+        'Operating System :: Unix',
+        'Programming Language :: Python',
+        'Topic :: Scientific/Engineering',
+        'Topic :: Software Development',
+    ],
+    platforms = ['Linux', 'OS-X', 'Windows'],
+    license = 'BSD',
+    keywords = 'Bayesian optimization hyperparameter model selection',
     package_data = package_data,
     include_package_data = True,
-
-    install_requires = requirements,
-    dependency_links = dependency_links
+    install_requires = _hard_code_requirements,
+    #dependency_links = dependency_links # -- what are these?
 )
