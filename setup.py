@@ -14,9 +14,6 @@ packages = None
 package_name = None
 package_data = None
 scripts = None
-requirements_file = None
-requirements = None
-dependency_links = None
 # ---------------------
 
 
@@ -112,37 +109,6 @@ def find_package_data(packages):
             package_data[package] += subdir_findall(package_to_path(package), subdir)
     return package_data
 
-def parse_requirements(file_name):
-    """
-    from:
-        http://cburgmer.posterous.com/pip-requirementstxt-and-setuppy
-    """
-    requirements = []
-    with open(file_name, 'r') as f:
-        for line in f:
-            if re.match(r'(\s*#)|(\s*$)', line): continue
-            if re.match(r'\s*-e\s+', line):
-                requirements.append(re.sub(r'\s*-e\s+.*#egg=(.*)$',\
-                        r'\1', line).strip())
-            elif re.match(r'\s*-f\s+', line):
-                pass
-            else:
-                requirements.append(line.strip())
-    return requirements
-
-def parse_dependency_links(file_name):
-    """
-    from:
-        http://cburgmer.posterous.com/pip-requirementstxt-and-setuppy
-    """
-    dependency_links = []
-    with open(file_name) as f:
-        for line in f:
-            if re.match(r'\s*-[ef]\s+', line):
-                dependency_links.append(re.sub(r'\s*-[ef]\s+',\
-                        '', line))
-    return dependency_links
-
 # ----------- Override defaults here ----------------
 if packages is None: packages = setuptools.find_packages()
 
@@ -153,43 +119,6 @@ if package_name is None: package_name = packages[0]
 if package_data is None: package_data = find_package_data(packages)
 
 if scripts is None: scripts = find_scripts()
-
-if requirements_file is None:
-    requirements_file = 'requirements.txt'
-
-if os.path.exists(requirements_file):
-    if requirements is None:
-        requirements = parse_requirements(requirements_file)
-    if dependency_links is None:
-        dependency_links = parse_dependency_links(requirements_file)
-else:
-    if requirements is None:
-        requirements = []
-    if dependency_links is None:
-        dependency_links = []
-
-if debug:
-    logging.debug("Module name: %s" % package_name)
-    for package in packages:
-        logging.debug("Package: %s" % package)
-        logging.debug("\tData: %s" % str(package_data[package]))
-    logging.debug("Scripts:")
-    for script in scripts:
-        logging.debug("\tScript: %s" % script)
-    logging.debug("Requirements:")
-    for req in requirements:
-        logging.debug("\t%s" % req)
-    logging.debug("Dependency links:")
-    for dl in dependency_links:
-        logging.debug("\t%s" % dl)
-
-# -- HACK to make sure the hard-coded requirements stay in sync with
-#    requirements.txt which is *not* included in releases.
-
-_hard_code_requirements = ['numpy', 'scipy', 'nose', 'pymongo', 'networkx']
-if requirements:
-    assert set(requirements) == set(_hard_code_requirements), (
-        requirements, _hard_code_requirements)
 
 setuptools.setup(
     name = package_name,
@@ -221,6 +150,5 @@ setuptools.setup(
     keywords = 'Bayesian optimization hyperparameter model selection',
     package_data = package_data,
     include_package_data = True,
-    install_requires = _hard_code_requirements,
-    #dependency_links = dependency_links # -- what are these?
+    install_requires = ['numpy', 'scipy', 'nose', 'pymongo', 'networkx'],
 )
