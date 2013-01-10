@@ -35,7 +35,6 @@ import logging
 import time
 import datetime
 import sys
-import warnings
 
 import numpy as np
 
@@ -603,7 +602,6 @@ class Ctrl(object):
         self.current_trial = current_trial
 
     def checkpoint(self, r=None):
-        # warnings.warn('Ctrl.checkpoint base implementation is no-op')
         assert self.current_trial in self.trials._trials
         if r is not None:
             self.current_trial['result'] = r

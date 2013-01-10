@@ -1,6 +1,6 @@
 import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials, exceptions
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval
 
 
 def test_quadratic1_rand():
@@ -47,4 +47,15 @@ def test_duplicate_label_is_error():
             algo=rand.suggest,
             max_evals=500,
             trials=trials)
+
+def test_space_eval():
+    space = hp.choice('a',
+        [
+            ('case 1', 1 + hp.lognormal('c1', 0, 1)),
+            ('case 2', hp.uniform('c2', -10, 10))
+        ])
+
+    assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
+    assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
+    
 

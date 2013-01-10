@@ -332,6 +332,7 @@ class Apply(object):
             binding[param_i] = arg_i
 
         if extra_args_ok:
+            # XXX: THIS IS NOT BEING TESTED AND IS OBVIOUSLY BROKEN
             binding[args_param].extend(args[code.co_argcount:])
 
         # -- bind keyword arguments

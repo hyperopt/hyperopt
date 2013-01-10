@@ -328,3 +328,24 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
     rval.exhaust()
     return trials.argmin
 
+
+def space_eval(space, hp_assignment):
+    """Compute a point in a search space from a hyperparameter assignment.
+
+    Parameters:
+    -----------
+    space - a pyll graph involving hp nodes (see `pyll_utils`).
+
+    hp_assignment - a dictionary mapping hp node labels to values.
+    """
+    nodes = pyll.toposort(space)
+    memo = {}
+    for node in nodes:
+        if node.name == 'hyperopt_param':
+            label = node.arg['label'].eval()
+            if label in hp_assignment:
+                memo[node] = hp_assignment[label]
+    rval = pyll.rec_eval(space, memo=memo)
+    return rval
+
+

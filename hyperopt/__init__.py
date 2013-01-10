@@ -32,6 +32,7 @@ from .fmin import fmin_pass_expr_memo_ctrl
 from .fmin import Domain
 from .fmin import FMinIter
 from .fmin import partial
+from .fmin import space_eval
 
 # -- syntactic sugar
 import hp
