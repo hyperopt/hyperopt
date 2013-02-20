@@ -8,3 +8,6 @@ dimensions.
 For installation instructions and documentation, refer to:
 http://jaberg.github.com/hyperopt
 
+Thanks
+------
+This work was supported in part by the National Science Foundation (IIS-0963668).
