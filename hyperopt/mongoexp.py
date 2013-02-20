@@ -318,7 +318,7 @@ def coarse_utcnow():
     """
     # MongoDB stores only to the nearest millisecond
     # This is mentioned in a footnote here:
-    # http://api.mongodb.org/python/1.9%2B/api/bson/son.html#dt
+    # http://api.mongodb.org/python/current/api/bson/son.html#dt
     """
     now = datetime.datetime.utcnow()
     microsec = (now.microsecond//10**3)*(10**3)
