@@ -1,5 +1,0 @@
-networkx
-pymongo
-nose
-scipy
-numpy
