@@ -1,10 +1,10 @@
 from hyperopt.pyll.base import *
 
-import nose
+from nose import SkipTest
+from nose.tools import assert_raises
 import numpy as np
 
 from hyperopt.pyll import base
-
 
 def test_literal_pprint():
     l = Literal(5)
@@ -193,16 +193,20 @@ def test_bincount():
         counts = f(r, minlength=7) # -- pad to minlength
         assert list(counts) == [0, 0, 0, 4, 3, 3, 0]
 
-    test_f(base._bincount_slow)
-    test_f(base.bincount)
-
+    try:
+        test_f(base._bincount_slow)
+        test_f(base.bincount)
+    except TypeError, e:
+        if 'function takes at most 2 arguments' in str(e):
+            raise SkipTest()
+        raise
 
 def test_switch_and_Raise():
     i = Literal()
     ab = scope.switch(i, 'a', 'b', scope.Raise(Exception))
     assert rec_eval(ab, memo={i: 0}) == 'a'
     assert rec_eval(ab, memo={i: 1}) == 'b'
-    nose.tools.assert_raises(Exception, rec_eval, ab, memo={i:2})
+    assert_raises(Exception, rec_eval, ab, memo={i:2})
 
 
 def test_recursion():
@@ -227,7 +231,7 @@ def test_partial():
     assert 'SymbolTableEntry' in str(thing)
 
     # add2() evaluates to a failure because it's only a partial application
-    nose.tools.assert_raises(NotImplementedError, rec_eval, add2())
+    assert_raises(NotImplementedError, rec_eval, add2())
 
     # add2(3) evaluates to 5 because we've filled in all the blanks
     thing = rec_eval(add2(3))
@@ -248,7 +252,7 @@ def test_callpipe():
     assert thing == 1
 
 
-def clone_merge():
+def test_clone_merge():
     a, b, c = as_apply((2, 3, 2))
     d = (a + b) * (c + b)
     len_d = len(dfs(d))
@@ -258,7 +262,7 @@ def clone_merge():
     assert len_d > len(dfs(e))
     assert e.eval() == d.eval()
 
-def clone_merge_no_merge_literals():
+def test_clone_merge_no_merge_literals():
     a, b, c = as_apply((2, 3, 2))
     d = (a + b) * (c + b)
     len_d = len(dfs(d))
@@ -266,3 +270,8 @@ def clone_merge_no_merge_literals():
     assert len_d == len(dfs(d))
     assert len_d == len(dfs(e))
     assert e.eval() == d.eval()
+
+def test_len():
+    assert_raises(TypeError, len, scope.uniform(0, 1))
+
+
