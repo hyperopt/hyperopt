@@ -203,10 +203,19 @@ def test_bincount():
 
 def test_switch_and_Raise():
     i = Literal()
-    ab = scope.switch(i, 'a', 'b', scope.Raise(Exception))
+    ab = scope.switch(i, 'a', 'b', scope.Raise(Exception), key='c')
     assert rec_eval(ab, memo={i: 0}) == 'a'
     assert rec_eval(ab, memo={i: 1}) == 'b'
     assert_raises(Exception, rec_eval, ab, memo={i:2})
+    # String -> kwargs
+    assert rec_eval(ab, memo={i: 'key'}) == 'c'
+    # Booleans
+    assert rec_eval(ab, memo={i: False}) == 'a'
+    assert rec_eval(ab, memo={i: True}) == 'b'
+    # '0' should not be treated as 0
+    assert_raises(ValueError, rec_eval, ab, memo={i:'0'})
+    # Negative is prohibited
+    assert_raises(ValueError, rec_eval, ab, memo={i:-2})
 
 
 def test_recursion():
