@@ -809,24 +809,35 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
         # -- different kinds of nodes are treated differently:
         if node.name == 'switch':
             # -- switch is the conditional evaluation node
-            switch_i_var = node.pos_args[0]
-            if switch_i_var in memo:
-                switch_i = memo[switch_i_var]
+            switch_key_var = node.pos_args[0]
+            if switch_key_var in memo:
+                switch_key = memo[switch_key_var]
                 try:
-                    int(switch_i)
-                except:
-                    raise TypeError('switch argument was', switch_i)
-                if switch_i != int(switch_i) or switch_i < 0:
-                    raise ValueError('switch pos must be positive int',
-                            switch_i)
-                rval_var = node.pos_args[switch_i + 1]
+                    # assertion is False for switch_key == '1'
+                    # but True for booleans, numpy 0d-array, float.
+                    assert int(switch_key) == switch_key
+                except (TypeError, ValueError, AssertionError):
+                    # get named arg
+                    for k, v in node.named_args:
+                        if k == switch_key:
+                            rval_var = v
+                            break
+                    else:
+                        raise ValueError('switch argument was', switch_key)
+                else:
+                    # get positional arg
+                    if switch_key < 0:
+                        raise ValueError('switch pos must be positive int',
+                                switch_key)
+                    rval_var = node.pos_args[switch_key + 1]
+
                 if rval_var in memo:
                     set_memo(node, memo[rval_var])
                     continue
                 else:
                     waiting_on = [rval_var]
             else:
-                waiting_on = [switch_i_var]
+                waiting_on = [switch_key_var]
         elif isinstance(node, Literal):
             # -- constants go straight into the memo
             set_memo(node, node.obj)
@@ -1095,7 +1106,7 @@ def copy_call_method_pure(obj, methodname, *args, **kwargs):
 
 
 @scope.define_pure
-def switch(pos, *args):
+def switch(pos, *args, **kwargs):
     # switch is an unusual expression, in that it affects control flow
     # when executed with rec_eval. args are not all evaluated, only
     # args[pos] is evaluated.
@@ -1103,7 +1114,10 @@ def switch(pos, *args):
     #
     # .. However, in quick-evaluation schemes it is handy that this be defined
     # as follows:
-    return args[pos]
+    try:
+        return args[pos]
+    except TypeError:
+        return kwargs[pos]
 
 
 @scope.define_pure
