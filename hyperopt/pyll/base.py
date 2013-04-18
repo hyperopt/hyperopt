@@ -827,6 +827,11 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                     waiting_on = [rval_var]
             else:
                 waiting_on = [switch_i_var]
+        elif node.name == 'kwswitch':
+            if node.pos_args[0] not in memo:
+                waiting_on = node.pos_args
+            else:
+                waiting_on = []
         elif isinstance(node, Literal):
             # -- constants go straight into the memo
             set_memo(node, node.obj)
@@ -1104,6 +1109,16 @@ def switch(pos, *args):
     # .. However, in quick-evaluation schemes it is handy that this be defined
     # as follows:
     return args[pos]
+
+
+def _kwswitch(kw, **kwargs):
+    """conditional evaluation according to string value"""
+    # Get the index of the string in kwargs to use switch
+    keys, values = zip(*kwargs.items())
+    match_idx = scope.call_method_pure(keys, 'index', kw)
+    return scope.switch(match_idx, *values)
+
+scope.kwswitch = _kwswitch
 
 
 @scope.define_pure
