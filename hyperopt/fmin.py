@@ -46,13 +46,14 @@ class Domain(base.Bandit):
     """
     rec_eval_print_node_on_error=False
 
-    def __init__(self, fn, expr,
+    def __init__(self, fn, expr, args=[],
             workdir=None,
             pass_expr_memo_ctrl=None,
             **bandit_kwargs):
         self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
         self.expr = expr
+        self.args = args
         if pass_expr_memo_ctrl is None:
             self.pass_expr_memo_ctrl = getattr(fn,
                     'fmin_pass_expr_memo_ctrl', False)
@@ -101,14 +102,15 @@ class Domain(base.Bandit):
             rval = self.fn(
                     expr=self.expr,
                     memo=memo,
-                    ctrl=ctrl)
+                    ctrl=ctrl,
+                    *self.args)
         else:
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
             #    or the normal Python part (self.fn)
             pyll_rval = pyll.rec_eval(self.expr, memo=memo,
                     print_node_on_error=self.rec_eval_print_node_on_error)
-            rval = self.fn(pyll_rval)
+            rval = self.fn(pyll_rval, *self.args)
 
         if isinstance(rval, (float, int, np.number)):
             dict_rval = {'loss': rval}
@@ -293,7 +295,7 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
+def fmin(fn, space, algo, max_evals, args=[], trials=None, rseed=123):
     """
     Minimize `f` over the given `space` using random search.
 
@@ -322,7 +324,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
     if trials is None:
         trials = base.Trials()
 
-    domain = Domain(fn, space, rseed=rseed)
+    domain = Domain(fn, space, args, rseed=rseed)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals)
     rval.exhaust()
