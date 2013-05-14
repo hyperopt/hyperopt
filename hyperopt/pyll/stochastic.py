@@ -91,7 +91,6 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 def randint(upper, rng=None, size=()):
     # this is tricky because numpy doesn't support
     # upper being a list of len size[0]
-    print 'inside stochastic.py', upper, rng
     if isinstance(upper, (list, tuple)):
         if isinstance(size, int):
             assert len(upper) == size

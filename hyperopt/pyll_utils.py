@@ -29,8 +29,7 @@ def hp_choice(label, options):
         raise TypeError('require string label')
     ch = scope.hyperopt_param(label,
         scope.randint(len(options)))
-    rety = scope.switch(ch, *options)
-    return rety
+    return scope.switch(ch, *options)
 
 
 def hp_randint(label, *args, **kwargs):
