@@ -1,4 +1,3 @@
-import pyll
 from pyll import scope
 
 
@@ -13,12 +12,25 @@ def hyperopt_param(label, obj):
     return obj
 
 
+def hp_probs(label, probabs, options):
+    """ Probabilities must add to 1. Takes two lists, probabilities and
+    options. Example
+    space = hp.probs('a', [.2, .8], ['first', 'second'])
+    Worst case: O(len(probabs))
+    """
+    if not isinstance(label, basestring):
+        raise TypeError('require string label')
+    ch = scope.hyperopt_param(label, scope.probs(probabs))
+    return scope.switch(ch, *options)
+
+
 def hp_choice(label, options):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
     ch = scope.hyperopt_param(label,
         scope.randint(len(options)))
-    return scope.switch(ch, *options)
+    rety = scope.switch(ch, *options)
+    return rety
 
 
 def hp_randint(label, *args, **kwargs):
