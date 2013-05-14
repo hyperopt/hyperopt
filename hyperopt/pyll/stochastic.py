@@ -91,7 +91,6 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 def randint(upper, rng=None, size=()):
     # this is tricky because numpy doesn't support
     # upper being a list of len size[0]
-    asdf = 9
     if isinstance(upper, (list, tuple)):
         if isinstance(size, int):
             assert len(upper) == size
@@ -100,6 +99,16 @@ def randint(upper, rng=None, size=()):
             assert len(upper) == size[0]
             return np.asarray([rng.randint(uu) for uu in upper])
     return rng.randint(upper, size=size)
+
+    
+@implicit_stochastic
+@scope.define
+def probs(probabs, rng=None, size=()):
+    ch, current, epsilon = np.random.random_sample(), .0, .000000001
+    for i, prob in enumerate(probabs):
+        current += prob
+        if current + epsilon >= ch:
+            return i
 
 
 @implicit_stochastic

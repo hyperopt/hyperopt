@@ -5,6 +5,7 @@ Support nicer user syntax:
 """
 from pyll_utils import hp_choice as choice
 from pyll_utils import hp_randint as randint
+from pyll_utils import hp_probs as probs
 
 from pyll_utils import hp_uniform as uniform
 from pyll_utils import hp_quniform as quniform
