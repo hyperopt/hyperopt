@@ -1,4 +1,3 @@
-import pyll
 from pyll import scope
 
 
@@ -13,6 +12,14 @@ def hyperopt_param(label, obj):
     return obj
 
 
+def hp_pchoice(label, p, options):
+    if not isinstance(label, basestring):
+        raise TypeError('require string label')
+    ch = scope.hyperopt_param(label,
+                              scope.categorical(p))
+    return scope.switch(ch, *options)
+
+        
 def hp_choice(label, options):
     if not isinstance(label, basestring):
         raise TypeError('require string label')

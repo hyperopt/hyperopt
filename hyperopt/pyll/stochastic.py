@@ -91,7 +91,6 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 def randint(upper, rng=None, size=()):
     # this is tricky because numpy doesn't support
     # upper being a list of len size[0]
-    asdf = 9
     if isinstance(upper, (list, tuple)):
         if isinstance(size, int):
             assert len(upper) == size
@@ -106,13 +105,16 @@ def randint(upper, rng=None, size=()):
 @scope.define
 def categorical(p, rng=None, size=()):
     """Draws i with probability p[i]"""
-    #XXX: OMG this is the craziest shit
+    if p != [] and isinstance(p[0], np.ndarray):
+        p = p[0]
     p = np.asarray(p)
+    if size == ():
+        size = (1,)
     if isinstance(size, (int, np.number)):
         size = (size,)
     else:
         size = tuple(size)
-    n_draws = np.prod(size)
+    n_draws = np.int64(np.prod(size))
     sample = rng.multinomial(n=1, pvals=p, size=size)
     assert sample.shape == size + (len(p),)
     if size:
@@ -130,10 +132,23 @@ def choice(args):
 scope.choice = choice
 
 
+# Probably not used - just in case.
+def pchoice(p, args):
+    return scope.one_of_p(p, *args)
+scope.pchoice = pchoice
+
+
 def one_of(*args):
     ii = scope.randint(len(args))
     return scope.switch(ii, *args)
 scope.one_of = one_of
+
+
+# Probably not used - just in case.
+def one_of_p(p, *args):
+    ii = scope.categorical(p)
+    return scope.switch(ii, *args)
+scope.one_of_p = one_of_p
 
 
 def recursive_set_rng_kwarg(expr, rng=None):

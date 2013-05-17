@@ -583,6 +583,15 @@ def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None,
             size=size, rng=rng)
 
 
+@adaptive_parzen_sampler('categorical')
+def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None,
+                           LF=DEFAULT_LF):
+    weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    counts = scope.bincount(obs, minlength=upper, weights=weights)
+    pseudocounts = counts + prior_weight
+    return scope.categorical(upper, size=size, rng=rng)
+
+
 #
 # Posterior clone performs symbolic inference on the pyll graph of priors.
 #
