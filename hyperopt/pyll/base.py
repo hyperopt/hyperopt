@@ -481,7 +481,7 @@ class Apply(object):
 
     def __len__(self):
         if self.o_len is None:
-            return object.__len__(self)
+            raise TypeError('len of pyll.Apply either undefined or unknown')
         return self.o_len
 
     def __call__(self, *args, **kwargs):

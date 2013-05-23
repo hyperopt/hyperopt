@@ -531,6 +531,8 @@ class Trials(object):
             loss_v = fmap(bandit.loss_variance)
             true_loss = fmap(bandit.true_loss)
         loss3 = zip(loss, loss_v, true_loss)
+        if not loss3:
+            raise ValueError('Empty loss vector')
         loss3.sort()
         loss3 = np.asarray(loss3)
         if np.all(loss3[:, 1] == 0):
