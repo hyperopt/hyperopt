@@ -103,11 +103,13 @@ def randint(upper, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
-def categorical(p, rng=None, size=()):
+def categorical(p, upper=None, rng=None, size=()):
     """Draws i with probability p[i]"""
     if p != [] and isinstance(p[0], np.ndarray):
         p = p[0]
     p = np.asarray(p)
+    if upper is not None:
+        assert upper == len(p)
     if size == ():
         size = (1,)
     if isinstance(size, (int, np.number)):
@@ -132,23 +134,10 @@ def choice(args):
 scope.choice = choice
 
 
-# Probably not used - just in case.
-def pchoice(p, args):
-    return scope.one_of_p(p, *args)
-scope.pchoice = pchoice
-
-
 def one_of(*args):
     ii = scope.randint(len(args))
     return scope.switch(ii, *args)
 scope.one_of = one_of
-
-
-# Probably not used - just in case.
-def one_of_p(p, *args):
-    ii = scope.categorical(p)
-    return scope.switch(ii, *args)
-scope.one_of_p = one_of_p
 
 
 def recursive_set_rng_kwarg(expr, rng=None):
