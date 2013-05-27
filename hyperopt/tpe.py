@@ -49,7 +49,7 @@ def adaptive_parzen_sampler(name):
 # -- Categorical
 
 @scope.define
-def categorical_lpdf(sample, p):
+def categorical_lpdf(sample, p, upper):
     """
     Return a random integer from 0 .. N-1 inclusive according to the
     probabilities p[0] .. P[N-1].
@@ -573,15 +573,24 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 # -- Categorical
 
 @adaptive_parzen_sampler('randint')
-def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None,
-        LF=DEFAULT_LF):
+def ap_categorical_sampler(obs, prior_weight, upper,
+        size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
-            size=size, rng=rng)
+            upper=upper, size=size, rng=rng)
 
+
+@adaptive_parzen_sampler('categorical')
+def ap_categorical_sampler(obs, prior_weight, p, upper,
+        size=(), rng=None, LF=DEFAULT_LF):
+    weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    counts = scope.bincount(obs, minlength=upper, weights=weights)
+    pseudocounts = counts + upper * (prior_weight * p)
+    return scope.categorical(pseudocounts / scope.sum(pseudocounts),
+            upper=upper, size=size, rng=rng)
 
 #
 # Posterior clone performs symbolic inference on the pyll graph of priors.

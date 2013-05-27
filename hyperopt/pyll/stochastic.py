@@ -91,7 +91,6 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 def randint(upper, rng=None, size=()):
     # this is tricky because numpy doesn't support
     # upper being a list of len size[0]
-    asdf = 9
     if isinstance(upper, (list, tuple)):
         if isinstance(size, int):
             assert len(upper) == size
@@ -104,15 +103,20 @@ def randint(upper, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
-def categorical(p, rng=None, size=()):
+def categorical(p, upper=None, rng=None, size=()):
     """Draws i with probability p[i]"""
-    #XXX: OMG this is the craziest shit
+    if p != [] and isinstance(p[0], np.ndarray):
+        p = p[0]
     p = np.asarray(p)
+    if upper is not None:
+        assert upper == len(p)
+    if size == ():
+        size = (1,)
     if isinstance(size, (int, np.number)):
         size = (size,)
     else:
         size = tuple(size)
-    n_draws = np.prod(size)
+    n_draws = np.int64(np.prod(size))
     sample = rng.multinomial(n=1, pvals=p, size=size)
     assert sample.shape == size + (len(p),)
     if size:
