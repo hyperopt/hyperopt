@@ -132,23 +132,10 @@ def choice(args):
 scope.choice = choice
 
 
-# Probably not used - just in case.
-def pchoice(p, args):
-    return scope.one_of_p(p, *args)
-scope.pchoice = pchoice
-
-
 def one_of(*args):
     ii = scope.randint(len(args))
     return scope.switch(ii, *args)
 scope.one_of = one_of
-
-
-# Probably not used - just in case.
-def one_of_p(p, *args):
-    ii = scope.categorical(p)
-    return scope.switch(ii, *args)
-scope.one_of_p = one_of_p
 
 
 def recursive_set_rng_kwarg(expr, rng=None):
