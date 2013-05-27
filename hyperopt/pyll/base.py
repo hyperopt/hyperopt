@@ -827,11 +827,6 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                     waiting_on = [rval_var]
             else:
                 waiting_on = [switch_i_var]
-        elif node.name == 'kwswitch':
-            if node.pos_args[0] not in memo:
-                waiting_on = node.pos_args
-            else:
-                waiting_on = []
         elif isinstance(node, Literal):
             # -- constants go straight into the memo
             set_memo(node, node.obj)
