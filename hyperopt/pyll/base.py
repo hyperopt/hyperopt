@@ -1109,7 +1109,7 @@ def switch(pos, *args):
 def _kwswitch(kw, **kwargs):
     """conditional evaluation according to string value"""
     # Get the index of the string in kwargs to use switch
-    keys, values = zip(*kwargs.items())
+    keys, values = zip(*sorted(kwargs.iteritems()))
     match_idx = scope.call_method_pure(keys, 'index', kw)
     return scope.switch(match_idx, *values)
 
