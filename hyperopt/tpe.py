@@ -583,12 +583,23 @@ def ap_categorical_sampler(obs, prior_weight, upper,
             upper=upper, size=size, rng=rng)
 
 
+# @adaptive_parzen_sampler('categorical')
+# def ap_categorical_sampler(obs, prior_weight, p, upper, size=(), rng=None,
+#                            LF=DEFAULT_LF):
+#     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+#     counts = scope.bincount(obs, minlength=upper, weights=weights)
+#     pseudocounts = counts + prior_weight
+#     return scope.categorical(p, upper, size=size, rng
+#                              =rng)
 @adaptive_parzen_sampler('categorical')
 def ap_categorical_sampler(obs, prior_weight, p, upper,
         size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
     pseudocounts = counts + upper * (prior_weight * p)
+    #print('before the return')
+    #print(pseudocounts)
+    # assert len(pseudocounts / scope.sum(pseudocounts)) != len(p)
     return scope.categorical(pseudocounts / scope.sum(pseudocounts),
             upper=upper, size=size, rng=rng)
 
