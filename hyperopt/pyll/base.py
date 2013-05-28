@@ -1106,6 +1106,16 @@ def switch(pos, *args):
     return args[pos]
 
 
+def _kwswitch(kw, **kwargs):
+    """conditional evaluation according to string value"""
+    # Get the index of the string in kwargs to use switch
+    keys, values = zip(*sorted(kwargs.iteritems()))
+    match_idx = scope.call_method_pure(keys, 'index', kw)
+    return scope.switch(match_idx, *values)
+
+scope.kwswitch = _kwswitch
+
+
 @scope.define_pure
 def Raise(etype, *args, **kwargs):
     raise etype(*args, **kwargs)
