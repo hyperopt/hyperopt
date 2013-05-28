@@ -55,6 +55,32 @@ class TestPChoice(unittest.TestCase):
         assert b > 2 * a
         assert b > 2 * c
 
+    def test_basic3(self):
+        space = hp.pchoice('something', [
+            (.2, hp.pchoice('number', [(.8, 2), (.2, 1)])),
+            (.8, hp.pchoice('number1', [(.7, 5), (.3, 6)]))
+        ])
+        a, b, c, d = 0, 0, 0, 0
+        rng=np.random.RandomState(123)
+        for i in range(0, 2000):
+            nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
+            if nesto == 2:
+                a += 1
+            elif nesto == 1:
+                b += 1
+            elif nesto == 5:
+                c += 1
+            elif nesto == 6:
+                d += 1
+            else:
+                assert 0, nesto
+        print(a, b, c, d)
+        assert a + b + c + d == 2000
+        assert 300 < a + b < 500
+        assert 1500 < c + d < 1700
+        assert a * .3 > b  # a * 1.2 > 4 * b
+        assert c * 3 * 1.2 > d * 7
+        
 
 class TestSimpleFMin(unittest.TestCase):
     # test that that a space with a pchoice in it is
