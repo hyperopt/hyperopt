@@ -105,7 +105,6 @@ def randint(upper, rng=None, size=()):
 @scope.define
 def categorical(p, upper=None, rng=None, size=()):
     """Draws i with probability p[i]"""
-    print(type(p))
     if p != [] and isinstance(p[0], np.ndarray):
         p = p[0]
     p = np.asarray(p)
