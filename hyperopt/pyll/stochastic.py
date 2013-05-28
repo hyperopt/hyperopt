@@ -109,9 +109,8 @@ def categorical(p, upper=None, rng=None, size=()):
     if p != [] and isinstance(p[0], np.ndarray):
         p = p[0]
     p = np.asarray(p)
-    # fails when p = []
-    # if upper is not None:
-    #     assert upper == len(p)
+    if upper is not None:
+        assert upper == len(p)
     if size == ():
         size = (1,)
     if isinstance(size, (int, np.number)):

@@ -21,12 +21,6 @@ def hp_pchoice(label, p_options):
         raise TypeError('require string label')
     p, options = zip(*p_options)
     n_options = len(options)
-    # print('the options')
-    # print(p_options)
-    # print('the p')
-    # print(p)
-    # print('the options alone')
-    # print(n_options)
     ch = scope.hyperopt_param(label,
                               scope.categorical(
                                   p,
