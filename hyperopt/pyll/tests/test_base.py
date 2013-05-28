@@ -209,6 +209,14 @@ def test_switch_and_Raise():
     assert_raises(Exception, rec_eval, ab, memo={i:2})
 
 
+def test_kwswitch():
+    i = Literal()
+    ab = scope.kwswitch(i, k1='a', k2='b', err=scope.Raise(Exception))
+    assert rec_eval(ab, memo={i: 'k1'}) == 'a'
+    assert rec_eval(ab, memo={i: 'k2'}) == 'b'
+    assert_raises(Exception, rec_eval, ab, memo={i: 'err'})
+
+
 def test_recursion():
     scope.define(Lambda('Fact', [('x', p0)],
             expr=scope.switch(
