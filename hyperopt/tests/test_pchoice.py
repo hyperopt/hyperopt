@@ -133,9 +133,6 @@ class TestSimpleFMin(unittest.TestCase):
             {'pwhiten': hp.pchoice('whiten_randomPCA',
                                    [(.3, False), (.7, True)])},
             {'palgo': False}])
-        print('\n\n')
-        print(space)
-        print('\n\n')
         try:
             best = fmin(fn=lambda x: 1,
                         space=space,
