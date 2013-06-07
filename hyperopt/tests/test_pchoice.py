@@ -61,7 +61,7 @@ class TestPChoice(unittest.TestCase):
             (.8, hp.pchoice('number1', [(.7, 5), (.3, 6)]))
         ])
         a, b, c, d = 0, 0, 0, 0
-        rng=np.random.RandomState(123)
+        rng = np.random.RandomState(123)
         for i in range(0, 2000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
             if nesto == 2:
@@ -80,7 +80,7 @@ class TestPChoice(unittest.TestCase):
         assert 1500 < c + d < 1700
         assert a * .3 > b  # a * 1.2 > 4 * b
         assert c * 3 * 1.2 > d * 7
-        
+
 
 class TestSimpleFMin(unittest.TestCase):
     # test that that a space with a pchoice in it is
@@ -128,3 +128,18 @@ class TestSimpleFMin(unittest.TestCase):
         print counts
         assert counts[3] > N * .7
 
+    def random_small_test(self):
+        space = hp.choice('preprocess_choice', [
+            {'pwhiten': hp.pchoice('whiten_randomPCA',
+                                   [(.3, False), (.7, True)])},
+            {'palgo': False}])
+        print('\n\n')
+        print(space)
+        print('\n\n')
+        try:
+            best = fmin(fn=lambda x: 1,
+                        space=space,
+                        algo=tpe.suggest,
+                        max_evals=10)
+        except:
+            assert 1 == 0
