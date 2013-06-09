@@ -105,28 +105,41 @@ def randint(upper, rng=None, size=()):
 @scope.define
 def categorical(p, upper=None, rng=None, size=()):
     """Draws i with probability p[i]"""
-    if p != [] and isinstance(p[0], np.ndarray):
+    if len(p) == 1 and isinstance(p[0], np.ndarray):
         p = p[0]
     p = np.asarray(p)
-    if upper is not None:
-        assert upper == len(p)
+
     if size == ():
         size = (1,)
-    if isinstance(size, (int, np.number)):
+    elif isinstance(size, (int, np.number)):
         size = (size,)
     else:
         size = tuple(size)
-    n_draws = np.int64(np.prod(size))
-    sample = rng.multinomial(n=1, pvals=p, size=size)
-    assert sample.shape == size + (len(p),)
-    if size:
-        rval = np.sum(sample * np.arange(len(p)), axis=len(size))
+
+    if size == (0,):
+        return np.asarray([])
+    assert len(size)
+
+    if p.ndim == 0:
+        raise NotImplementedError()
+    elif p.ndim == 1:
+        n_draws = int(np.prod(size))
+        sample = rng.multinomial(n=1, pvals=p, size=int(n_draws))
+        assert sample.shape == size + (len(p),)
+        rval = np.dot(sample, np.arange(len(p)))
+        rval.shape = size
+        return rval
+    elif p.ndim == 2:
+        n_draws_, n_choices = p.shape
+        n_draws, = size
+        assert n_draws == n_draws_
+        rval = [np.where(rng.multinomial(pvals=p[ii], n=1))[0][0]
+                                for ii in xrange(n_draws)]
+        rval = np.asarray(rval)
+        rval.shape = size
+        return rval
     else:
-        rval = [np.where(rng.multinomial(pvals=p, n=1))[0][0]
-                for i in xrange(n_draws)]
-        rval = np.asarray(rval, dtype=self.otype.dtype)
-    rval.shape = size
-    return rval
+        raise NotImplementedError()
 
 
 def choice(args):

@@ -51,12 +51,11 @@ def adaptive_parzen_sampler(name):
 @scope.define
 def categorical_lpdf(sample, p, upper):
     """
-    Return a random integer from 0 .. N-1 inclusive according to the
-    probabilities p[0] .. P[N-1].
-
-    This is formally equivalent to np.where(multinomial(n=1, p))
     """
-    return np.log(np.asarray(p)[sample])
+    if sample.size:
+        return np.log(np.asarray(p)[sample])
+    else:
+        return np.asarray([])
 
 
 # -- Bounded Gaussian Mixture Model (BGMM)
@@ -589,14 +588,24 @@ def ap_categorical_sampler(obs, prior_weight, upper,
 #     return scope.categorical(p, upper, size=size, rng
 #                              =rng)
 
+@scope.define
+def tpe_cat_pseudocounts(counts, upper, prior_weight, p, size):
+    #print counts
+    if size == 0 or np.prod(size) == 0:
+        return []
+    if p.ndim == 2:
+        assert np.all(p == p[0])
+        p = p[0]
+    pseudocounts = counts + upper * (prior_weight * p)
+    return pseudocounts / np.sum(pseudocounts)
+
 @adaptive_parzen_sampler('categorical')
-def ap_categorical_sampler(obs, prior_weight, p, upper,
+def ap_categorical_sampler(obs, prior_weight, p, upper=None,
         size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
-    pseudocounts = counts + upper * (prior_weight * p)
-    return scope.categorical(pseudocounts / scope.sum(pseudocounts),
-            upper=upper, size=size, rng=rng)
+    pseudocounts = scope.tpe_cat_pseudocounts(counts, upper, prior_weight, p, size)
+    return scope.categorical(pseudocounts, upper=upper, size=size, rng=rng)
 
 #
 # Posterior clone performs symbolic inference on the pyll graph of priors.
@@ -874,7 +883,8 @@ def suggest(new_ids, domain, trials,
     memo[observed_loss['idxs']] = tids
     memo[observed_loss['vals']] = losses
 
-    idxs, vals = pyll.rec_eval([opt_idxs, opt_vals], memo=memo)
+    idxs, vals = pyll.rec_eval([opt_idxs, opt_vals], memo=memo,
+            print_node_on_error=False)
 
     # -- retrieve the best of the samples and form the return tuple
     # the build_posterior makes all specs the same
