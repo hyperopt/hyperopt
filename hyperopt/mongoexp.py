@@ -135,7 +135,10 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
 import copy
-import cPickle
+try:
+    import dill as cPickle
+except ImporError:
+    import cPickle
 import datetime
 import hashlib
 import logging
