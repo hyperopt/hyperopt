@@ -1025,6 +1025,8 @@ class MongoWorker(object):
                         * (float(self.poll_interval) - 1.0))
                 logger.info('no job found, sleeping for %.1fs' % interval)
                 time.sleep(interval)
+                # reset timer
+                start_time = time.time()
 
         logger.debug('job found: %s' % str(job))
 
