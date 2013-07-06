@@ -69,15 +69,16 @@ class IPythonTrials(Trials):
     def fmin(self, fn, space, algo, max_evals,
         rseed=0,
         verbose=0,
+        wait=True,
         ):
         lb_view = self._client.load_balanced_view()
 
         domain = Domain(fn, space, rseed=int(rseed),
                 pass_expr_memo_ctrl=True)
 
-        while len(self.trials) < max_evals:
+        while len(self._dynamic_trials) < max_evals:
             if lb_view.queue_status()['unassigned']:
-                sleep(1e-3)
+                sleep(1e-1)
                 continue
             self.refresh()
             if verbose:
@@ -111,17 +112,41 @@ class IPythonTrials(Trials):
                 tid, = self.insert_trial_docs(new_trials)
                 assert self._dynamic_trials[-1]['tid'] == tid
                 self._dynamic_trials[-1]['ar'] = task
+        if wait:
+            self.wait()
+
+        return self.argmin
 
     def wait(self):
         while True:
             self.refresh()
             if self.count_by_state_unsynced(JOB_STATE_NEW):
-                sleep(1e-3)
+                sleep(1e-1)
                 continue
             if self.count_by_state_unsynced(JOB_STATE_RUNNING):
-                sleep(1e-3)
+                sleep(1e-1)
                 continue
             break
+
+    def __getstate__(self):
+        dt = []
+        for trial in self._dynamic_trials:
+            tmp = dict(trial)
+            if trial['ar']:
+                tmp['ar'] = None
+                tmp['state'] = JOB_STATE_ERROR
+                tmp['error'] = 'IPython handle lost during serialization'
+            dt.append(tmp)
+        rval = dict(self.__dict__)
+        del rval['_client']
+        del rval['_trials']
+        rval['_dynamic_trials'] = dt
+        print rval.keys()
+        return rval
+
+    def __setstate__(self, dct):
+        self.__dict__ = dct
+        self.refresh()
 
 
 @interactive
