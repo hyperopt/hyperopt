@@ -1096,7 +1096,11 @@ class MongoWorker(object):
                             kwargs=bandit_kwargs).evaluate
                 elif cmd_protocol == 'domain_attachment':
                     blob = ctrl.trials.attachments[cmd[1]]
-                    domain = cPickle.loads(blob)
+                    try:
+                        domain = cPickle.loads(blob)
+                    except BaseException, e:
+                        logger.info('Error while unpickling. Try installing dill via "pip install dill" for enhanced pickling support.')
+                        raise
                     worker_fn = domain.evaluate
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
