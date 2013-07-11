@@ -135,7 +135,10 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
 import copy
-import cPickle
+try:
+    import dill as cPickle
+except ImporError:
+    import cPickle
 import datetime
 import hashlib
 import logging
@@ -1093,7 +1096,11 @@ class MongoWorker(object):
                             kwargs=bandit_kwargs).evaluate
                 elif cmd_protocol == 'domain_attachment':
                     blob = ctrl.trials.attachments[cmd[1]]
-                    domain = cPickle.loads(blob)
+                    try:
+                        domain = cPickle.loads(blob)
+                    except BaseException, e:
+                        logger.info('Error while unpickling. Try installing dill via "pip install dill" for enhanced pickling support.')
+                        raise
                     worker_fn = domain.evaluate
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -1235,7 +1242,8 @@ def main_worker_helper(options, args):
                 sub_argv = [sys.argv[0],
                         '--poll-interval=%s' % options.poll_interval,
                         '--max-jobs=1',
-                        '--mongo=%s' % options.mongo]
+                        '--mongo=%s' % options.mongo,
+                        '--reserve-timeout=%s' % options.reserve_timeout]
                 if options.workdir is not None:
                     sub_argv.append('--workdir=%s' % options.workdir)
                 if options.exp_key is not None:
