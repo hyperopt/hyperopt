@@ -1445,7 +1445,11 @@ def main_search_helper(options, args, input=input, cmd_type=None):
             if bandit_NAK != atup:
                 raise BanditSwapError((bandit_NAK, atup))
         else:
-            blob = cPickle.dumps(bandit_NAK)
+            try:
+                blob = cPickle.dumps(bandit_NAK)
+            except BaseException, e:
+                print >> sys.stdout, "Error pickling. Try installing dill via 'pip install dill'."
+                raise e
             trials.attachments[aname] = blob
         worker_cmd = ('driver_attachment', aname)
     else:
