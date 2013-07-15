@@ -169,6 +169,17 @@ def recursive_set_rng_kwarg(expr, rng=None):
 
 
 def sample(expr, rng=None, **kwargs):
+    """
+    Parameters:
+    expr - a pyll expression to be evaluated
+
+    rng - a np.random.RandomState instance
+          default: `np.random.RandomState()`
+          
+    **kwargs - optional arguments passed along to
+               `hyperopt.pyll.rec_eval`
+
+    """
     if rng is None:
         rng = np.random.RandomState()
     foo = recursive_set_rng_kwarg(clone(as_apply(expr)), as_apply(rng))
