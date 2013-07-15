@@ -135,7 +135,10 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
 import copy
-import cPickle
+try:
+    import dill as cPickle
+except ImporError:
+    import cPickle
 import datetime
 import hashlib
 import logging
@@ -1093,7 +1096,11 @@ class MongoWorker(object):
                             kwargs=bandit_kwargs).evaluate
                 elif cmd_protocol == 'domain_attachment':
                     blob = ctrl.trials.attachments[cmd[1]]
-                    domain = cPickle.loads(blob)
+                    try:
+                        domain = cPickle.loads(blob)
+                    except BaseException, e:
+                        logger.info('Error while unpickling. Try installing dill via "pip install dill" for enhanced pickling support.')
+                        raise
                     worker_fn = domain.evaluate
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
@@ -1439,7 +1446,11 @@ def main_search_helper(options, args, input=input, cmd_type=None):
             if bandit_NAK != atup:
                 raise BanditSwapError((bandit_NAK, atup))
         else:
-            blob = cPickle.dumps(bandit_NAK)
+            try:
+                blob = cPickle.dumps(bandit_NAK)
+            except BaseException, e:
+                print >> sys.stdout, "Error pickling. Try installing dill via 'pip install dill'."
+                raise e
             trials.attachments[aname] = blob
         worker_cmd = ('driver_attachment', aname)
     else:
