@@ -137,7 +137,7 @@ __contact__ = "github.com/jaberg/hyperopt"
 import copy
 try:
     import dill as cPickle
-except ImporError:
+except ImportError:
     import cPickle
 import datetime
 import hashlib
