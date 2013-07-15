@@ -1,4 +1,8 @@
-import cPickle
+try:
+    import dill as cPickle
+except ImportError:
+    import cPickle
+
 import functools
 import logging
 import sys
