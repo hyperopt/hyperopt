@@ -56,7 +56,6 @@ class Domain(base.Bandit):
             **bandit_kwargs):
         self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
-        self.expr = expr
         if pass_expr_memo_ctrl is None:
             self.pass_expr_memo_ctrl = getattr(fn,
                     'fmin_pass_expr_memo_ctrl', False)
@@ -342,6 +341,7 @@ def space_eval(space, hp_assignment):
 
     hp_assignment - a dictionary mapping hp node labels to values.
     """
+    space = pyll.as_apply(space)
     nodes = pyll.toposort(space)
     memo = {}
     for node in nodes:
