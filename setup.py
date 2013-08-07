@@ -122,12 +122,12 @@ if scripts is None: scripts = find_scripts()
 
 setuptools.setup(
     name = package_name,
-    version = '0.0.1',
+    version = '0.0.2',
     packages = packages,
     scripts = scripts,
     url = 'http://jaberg.github.com/hyperopt/',
     author = 'James Bergstra',
-    author_email = 'anon@anon.com',
+    author_email = 'james.bergstra@gmail.com',
     description = 'Distributed Asynchronous Hyperparameter Optimization',
     long_description = open('README.txt').read(),
     classifiers = [
