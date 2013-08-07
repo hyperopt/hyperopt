@@ -1,0 +1,15 @@
+
+1. Update the version number in setup.py
+2. python setup.py sdist
+3. git tag <version>
+4. git push origin <version>
+5. python setup.py sdist upload
+7. announce to hyperopt-announce (maybe also scikit-learn?)
+
+# Aug 7 - using vader, I built and uploaded a bdist, but
+# when I tried to intall hyperopt from pypi on the mac, it failed to find a
+# file in some build directory... deleting the bdist from pypi resulted in a
+# successful installation on the mac.
+# -> For now, don't upload a bdist.
+
+
