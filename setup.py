@@ -122,7 +122,7 @@ if scripts is None: scripts = find_scripts()
 
 setuptools.setup(
     name = package_name,
-    version = '0.0.2',
+    version = '0.0.3.dev',
     packages = packages,
     scripts = scripts,
     url = 'http://jaberg.github.com/hyperopt/',
