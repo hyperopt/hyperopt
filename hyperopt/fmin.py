@@ -321,6 +321,9 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
     [2] Optimization algorithms may in some cases use or require auxiliary
         feedback.
     """
+    if hasattr(trials, 'fmin'):
+        return trials.fmin(fn, space, algo=algo, max_evals=max_evals,
+                rseed=rseed)
 
     if trials is None:
         trials = base.Trials()

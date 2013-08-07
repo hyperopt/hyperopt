@@ -19,6 +19,7 @@ from .base import BanditAlgo
 from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
+from .base import Trials
 import rand
 
 logger = logging.getLogger(__name__)
@@ -812,9 +813,23 @@ def suggest(new_ids, domain, trials,
         ):
 
     if len(new_ids) > 1:
-        # write a loop to draw new points sequentially
-        # TODO: insert constant liar for tentative suggestions
-        raise NotImplementedError('generates one at a time')
+        # -- greedy loop rolling forward
+        trials_copy = Trials()
+        trials_copy._dynamic_trials = trials.trials
+        trials_copy.refresh()
+        rval = []
+        for new_id in new_ids:
+            new_trials1 = suggest([new_id], domain, trials_copy,
+                seed=seed,
+                prior_weight=prior_weight,
+                n_startup_jobs=n_startup_jobs,
+                n_EI_candidates=n_EI_candidates,
+                gamma=gamma,
+                linear_forgetting=linear_forgetting)
+            trials_copy.insert_trial_docs(new_trials1)
+            trials_copy.refresh()
+            rval.extend(new_trials1)
+        return rval
     else:
         new_id, = new_ids
 

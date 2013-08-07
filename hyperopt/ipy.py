@@ -20,12 +20,26 @@ from .base import JOB_STATE_ERROR
 from .base import StopExperiment
 from .base import spec_from_misc
 
+import sys
+print >> sys.stderr, "WARNING: IPythonTrials is not as complete, stable"
+print >> sys.stderr, "         or well tested as Trials or MongoTrials."
+
+
+class LostEngineError(RuntimeError):
+    """An IPEngine disappeared during computation, and a job with it."""
+
 
 class IPythonTrials(Trials):
-    def __init__(self, client, job_error_reaction='raise'):
-        Trials.__init__(self)
+
+    def __init__(self, client,
+            job_error_reaction='raise',
+            save_ipy_metadata=True):
         self._client = client
+        self.job_map = {}
         self.job_error_reaction = job_error_reaction
+        self.save_ipy_metadata = save_ipy_metadata
+        Trials.__init__(self)
+        self._testing_fmin_was_called = False
 
     def _insert_trial_docs(self, docs):
         rval = [doc['tid'] for doc in docs]
@@ -33,10 +47,31 @@ class IPythonTrials(Trials):
         return rval
 
     def refresh(self):
-        for tt in self._dynamic_trials:
-            if tt['ar'] and tt['ar'].ready():
+        job_map = {}
+
+        # -- carry over state for active engines
+        for eid in self._client.ids:
+            job_map[eid] = self.job_map.pop(eid, (None, None))
+
+        # -- deal with lost engines, abandoned promises
+        for eid, (p, tt) in self.job_map.items():
+            if self.job_error_reaction == 'raise':
+                raise LostEngineError(p)
+            elif self.job_error_reaction == 'log':
+                tt['error'] = 'LostEngineError (%s)' % str(p)
+                tt['state'] = JOB_STATE_ERROR
+            else:
+                raise ValueError(self.job_error_reaction)
+
+        # -- remove completed jobs from job_map
+        for eid, (p, tt) in job_map.items():
+            if p is None:
+                continue
+            #print p
+            #assert eid == p.engine_id
+            if p.ready():
                 try:
-                    tt['result'] = tt['ar'].get()
+                    tt['result'] = p.get()
                     tt['state'] = JOB_STATE_DONE
                 except Exception, e:
                     if self.job_error_reaction == 'raise':
@@ -46,23 +81,11 @@ class IPythonTrials(Trials):
                         tt['state'] = JOB_STATE_ERROR
                     else:
                         raise ValueError(self.job_error_reaction)
-                tt['ar_meta'] = tt['ar'].metadata
-                tt['ar'] = None
-            elif tt['ar']:
-                #print dir(tt['ar'])
-                #print dir(tt['ar'].metadata)
-                #print 'sent', tt['ar'].sent
-                #print 'elapsed', tt['ar'].elapsed
-                #print 'prog', tt['ar'].progress
-                #print 'succ', tt['ar'].successful
-                #print tt['ar'].metadata
-                if tt['ar'].sent:
-                    tt['state'] = JOB_STATE_RUNNING
-            #elif (tt['state'] != JOB_STATE_RUNNING):
-                    #and tt['ar'].metadata['started']):
-            #if tt['state'] == JOB_STATE_NEW:
-                #print id(tt['ar']), tt['ar'], tt['ar'].metadata #['status']
-            # XXX mark errors
+                if self.save_ipy_metadata:
+                    tt['ipy_metadata'] = p.metadata
+                job_map[eid] = (None, None)
+
+        self.job_map = job_map
 
         Trials.refresh(self)
 
@@ -70,17 +93,24 @@ class IPythonTrials(Trials):
         rseed=0,
         verbose=0,
         wait=True,
+        pass_expr_memo_ctrl=None,
         ):
-        lb_view = self._client.load_balanced_view()
+
+        # -- used in test_ipy
+        self._testing_fmin_was_called = True
+
+        if pass_expr_memo_ctrl is None:
+            try:
+                pass_expr_memo_ctrl = fn.pass_expr_memo_ctrl
+            except AttributeError:
+                pass_expr_memo_ctrl = False
 
         domain = Domain(fn, space, rseed=int(rseed),
-                pass_expr_memo_ctrl=True)
+                pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
         while len(self._dynamic_trials) < max_evals:
-            if lb_view.queue_status()['unassigned']:
-                sleep(1e-1)
-                continue
             self.refresh()
+
             if verbose:
                 print 'fmin : %4i/%4i/%4i/%4i  %f' % (
                     self.count_by_state_unsynced(JOB_STATE_NEW),
@@ -90,28 +120,34 @@ class IPythonTrials(Trials):
                     min([float('inf')] + [l for l in self.losses() if l is not None])
                     )
 
-            new_ids = self.new_trial_ids(1)
-            new_trials = algo(new_ids, domain, self)
-            if new_trials is StopExperiment:
-                stopped = True
-                break
-            elif len(new_trials) == 0:
-                break
-            else:
-                assert len(new_trials) == 1
+            idles = [eid for (eid, (p, tt)) in self.job_map.items() if p is None]
 
-                task = lb_view.apply_async(
-                    call_domain,
-                    domain,
-                    config=spec_from_misc(new_trials[0]['misc']),
-                    )
+            if idles:
+                new_ids = self.new_trial_ids(len(idles))
+                new_trials = algo(new_ids, domain, self)
+                if new_trials is StopExperiment:
+                    stopped = True
+                    break
+                elif len(new_trials) == 0:
+                    break
+                else:
+                    assert len(idles) == len(new_trials)
+                    for eid, new_trial in zip(idles, new_trials):
+                        promise = self._client[eid].apply_async(
+                            call_domain,
+                            domain,
+                            config=spec_from_misc(new_trial['misc']),
+                            )
 
-                # -- XXX bypassing checks because 'ar'
-                # is not ok for SONify... but should check
-                # for all else being SONify
-                tid, = self.insert_trial_docs(new_trials)
-                assert self._dynamic_trials[-1]['tid'] == tid
-                self._dynamic_trials[-1]['ar'] = task
+                        # -- XXX bypassing checks because 'ar'
+                        # is not ok for SONify... but should check
+                        # for all else being SONify
+                        tid, = self.insert_trial_docs([new_trial])
+                        tt = self._dynamic_trials[-1]
+                        assert tt['tid'] == tid
+                        self.job_map[eid] = (promise, tt)
+                        tt['state'] = JOB_STATE_RUNNING
+
         if wait:
             self.wait()
 
@@ -140,6 +176,7 @@ class IPythonTrials(Trials):
         rval = dict(self.__dict__)
         del rval['_client']
         del rval['_trials']
+        del rval['job_map']
         rval['_dynamic_trials'] = dt
         print rval.keys()
         return rval
