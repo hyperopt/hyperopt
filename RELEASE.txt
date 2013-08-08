@@ -2,7 +2,7 @@
 1. Update the version number in setup.py
 1.5 Update the version in hyperopt/__init__.py
 2. python setup.py sdist
-3. git tag <version>
+3. git tag -s <version> # TODO: determine annotated vs. signed [1]
 4. git push origin <version>
 5. python setup.py sdist upload
 7. announce to hyperopt-announce (maybe also scikit-learn?)
@@ -12,5 +12,9 @@
 # file in some build directory... deleting the bdist from pypi resulted in a
 # successful installation on the mac.
 # -> For now, don't upload a bdist.
+
+
+# [1] Yaroslav Halchenko posted in issue #122 about signed vs. annotated tags
+# being good for releases. TODO, decide which to use and how, etc.
 
 
