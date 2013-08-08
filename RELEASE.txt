@@ -1,5 +1,6 @@
 
 1. Update the version number in setup.py
+1.5 Update the version in hyperopt/__init__.py
 2. python setup.py sdist
 3. git tag <version>
 4. git push origin <version>

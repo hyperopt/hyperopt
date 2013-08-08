@@ -47,3 +47,5 @@ import tpe
 # -- TODO: deprecate in favour of tpe.suggest
 from tpe import TreeParzenEstimator
 
+__version__ = '0.0.3.dev'
+
