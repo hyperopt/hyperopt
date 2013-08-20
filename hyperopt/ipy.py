@@ -110,17 +110,20 @@ class IPythonTrials(Trials):
         domain = Domain(fn, space, rseed=int(rseed),
                 pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
+        last_print_time = 0
+
         while len(self._dynamic_trials) < max_evals:
             self.refresh()
 
-            if verbose:
-                print 'fmin : %4i/%4i/%4i/%4i  %f' % (
+            if verbose and last_print_time + 1 < time():
+                print 'fmin: %4i/%4i/%4i/%4i  %f' % (
                     self.count_by_state_unsynced(JOB_STATE_NEW),
                     self.count_by_state_unsynced(JOB_STATE_RUNNING),
                     self.count_by_state_unsynced(JOB_STATE_DONE),
                     self.count_by_state_unsynced(JOB_STATE_ERROR),
                     min([float('inf')] + [l for l in self.losses() if l is not None])
                     )
+                last_print_time = time()
 
             idles = [eid for (eid, (p, tt)) in self.job_map.items() if p is None]
 
@@ -128,7 +131,7 @@ class IPythonTrials(Trials):
                 new_ids = self.new_trial_ids(len(idles))
                 new_trials = algo(new_ids, domain, self)
                 if new_trials is StopExperiment:
-                    stopped = True
+                    stopped = True # -- XXX: this should be returned somehow
                     break
                 elif len(new_trials) == 0:
                     break
@@ -154,6 +157,8 @@ class IPythonTrials(Trials):
                         tt['state'] = JOB_STATE_RUNNING
 
         if wait:
+            if verbose:
+                print 'fmin: Waiting on remaining jobs...'
             self.wait()
 
         return self.argmin
