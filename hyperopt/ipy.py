@@ -175,25 +175,16 @@ class IPythonTrials(Trials):
             break
 
     def __getstate__(self):
-        dt = []
-        for trial in self._dynamic_trials:
-            tmp = dict(trial)
-            if trial['ar']:
-                tmp['ar'] = None
-                tmp['state'] = JOB_STATE_ERROR
-                tmp['error'] = 'IPython handle lost during serialization'
-            dt.append(tmp)
         rval = dict(self.__dict__)
         del rval['_client']
         del rval['_trials']
         del rval['job_map']
-        rval['_dynamic_trials'] = dt
-        print rval.keys()
+        #print rval.keys()
         return rval
 
     def __setstate__(self, dct):
         self.__dict__ = dct
-        self.refresh()
+        Trials.refresh(self)
 
 
 @interactive
