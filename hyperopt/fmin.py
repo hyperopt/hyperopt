@@ -14,6 +14,7 @@ import pyll
 from pyll.stochastic import recursive_set_rng_kwarg
 
 from .vectorize import VectorizeHelper
+from .utils import coarse_utcnow
 import base
 
 logger = logging.getLogger(__name__)

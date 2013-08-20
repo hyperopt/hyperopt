@@ -139,7 +139,6 @@ try:
     import dill as cPickle
 except ImportError:
     import cPickle
-import datetime
 import hashlib
 import logging
 import optparse
@@ -171,6 +170,7 @@ from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
 from .base import spec_from_misc
+from .utils import coarse_utcnow
 from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
@@ -315,17 +315,6 @@ def connection_from_string(s):
             port=port,
             )
     return connection, tunnel, connection[db], connection[db][collection]
-
-
-def coarse_utcnow():
-    """
-    # MongoDB stores only to the nearest millisecond
-    # This is mentioned in a footnote here:
-    # http://api.mongodb.org/python/current/api/bson/son.html#dt
-    """
-    now = datetime.datetime.utcnow()
-    microsec = (now.microsecond//10**3)*(10**3)
-    return datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second, microsec)
 
 
 class MongoJobs(object):
