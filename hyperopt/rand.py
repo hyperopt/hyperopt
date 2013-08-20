@@ -4,7 +4,6 @@ Random search - presented as hyperopt.fmin_random
 import logging
 
 import pyll
-import hyperopt
 
 from .base import miscs_update_idxs_vals
 

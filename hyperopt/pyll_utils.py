@@ -1,5 +1,11 @@
+from functools import partial
+from base import DuplicateLabel
+from pyll.base import Apply
 from pyll import scope
 
+#
+# Hyperparameter Types
+#
 
 @scope.define
 def hyperopt_param(label, obj):
@@ -105,4 +111,57 @@ def hp_qlognormal(label, *args, **kwargs):
     return scope.float(
             scope.hyperopt_param(label,
                 scope.qlognormal(*args, **kwargs)))
+
+
+#
+# Tools for extracting a search space from a Pyll graph
+#
+
+
+class Cond(object):
+    def __init__(self, name, val, op):
+        self.op = op
+        self.name = name
+        self.val = val
+
+    def __str__(self):
+        return 'Cond{%s %s %s}' %  (self.name, self.op, self.val)
+
+    def __eq__(self, other):
+        return self.op == other.op and self.name == other.name and self.val == other.val
+
+    def __hash__(self):
+        return hash((self.op, self.name, self.val))
+
+    def __repr__(self):
+        return str(self)
+
+EQ = partial(Cond, op='=')
+
+def expr_to_config(expr, conditions, hps):
+    if conditions is None:
+        conditions = ()
+    assert isinstance(expr, Apply)
+    if expr.name == 'switch':
+        idx = expr.inputs()[0]
+        options = expr.inputs()[1:]
+        assert idx.name == 'hyperopt_param'
+        assert idx.arg['obj'].name == 'randint'
+        expr_to_config(idx, conditions, hps)
+        for ii, opt in enumerate(options):
+            expr_to_config(opt,
+                           conditions + (EQ(idx.arg['label'].obj, ii),),
+                           hps)
+    elif expr.name == 'hyperopt_param':
+        label = expr.arg['label'].obj
+        if label in hps:
+            if hps[label]['node'] != expr.arg['obj']:
+                raise DuplicateLabel(label)
+            hps[label]['conditions'].add(conditions)
+        else:
+            hps[label] = {'node': expr.arg['obj'],
+                          'conditions': set((conditions,))}
+    else:
+        for ii in expr.inputs():
+            expr_to_config(ii, conditions, hps)
 
