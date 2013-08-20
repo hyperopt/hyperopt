@@ -182,6 +182,10 @@ class FMinIter(object):
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == base.JOB_STATE_NEW:
+                trial['state'] == base.JOB_STATE_RUNNING
+                now = coarse_utcnow()
+                trial['book_time'] = now
+                trial['refresh_time'] = now
                 spec = base.spec_from_misc(trial['misc'])
                 ctrl = base.Ctrl(self.trials, current_trial=trial)
                 try:
@@ -190,6 +194,7 @@ class FMinIter(object):
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = base.JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
+                    trial['refresh_time'] = coarse_utcnow()
                     if not self.catch_bandit_exceptions:
                         raise
                 else:
@@ -197,6 +202,7 @@ class FMinIter(object):
                     logger.info('job returned loss: %s' % result.get('loss' ))
                     trial['state'] = base.JOB_STATE_DONE
                     trial['result'] = result
+                    trial['refresh_time'] = coarse_utcnow()
                 N -= 1
                 if N == 0:
                     break

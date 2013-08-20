@@ -3,7 +3,7 @@
 Author: James Bergstra <james.bergstra@gmail.com>
 Licensed: MIT
 """
-from time import sleep
+from time import sleep, time
 
 from IPython.parallel import interactive
 from IPython.parallel import TaskAborted
@@ -19,6 +19,7 @@ from .base import JOB_STATE_DONE
 from .base import JOB_STATE_ERROR
 from .base import StopExperiment
 from .base import spec_from_misc
+from .utils import coarse_utcnow
 
 import sys
 print >> sys.stderr, "WARNING: IPythonTrials is not as complete, stable"
@@ -83,6 +84,7 @@ class IPythonTrials(Trials):
                         raise ValueError(self.job_error_reaction)
                 if self.save_ipy_metadata:
                     tt['ipy_metadata'] = p.metadata
+                tt['refresh_time'] = coarse_utcnow()
                 job_map[eid] = (None, None)
 
         self.job_map = job_map
@@ -133,6 +135,9 @@ class IPythonTrials(Trials):
                 else:
                     assert len(idles) == len(new_trials)
                     for eid, new_trial in zip(idles, new_trials):
+                        now = coarse_utcnow()
+                        new_trial['book_time'] = now
+                        new_trial['refresh_time'] = now
                         promise = self._client[eid].apply_async(
                             call_domain,
                             domain,
