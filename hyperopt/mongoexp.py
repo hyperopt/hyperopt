@@ -1203,6 +1203,10 @@ def as_mongo_str(s):
 
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
+    if options.last_job_timeout is not None:
+        last_job_timeout = time.time() + float(options.last_job_timeout)
+    else:
+        last_job_timeout = None
 
     def sighandler_shutdown(signum, frame):
         logger.info('Caught signal %i, shutting down.' % signum)
@@ -1220,6 +1224,10 @@ def main_worker_helper(options, args):
     if N > 1:
         proc = None
         cons_errs = 0
+        if last_job_timeout and time.time() > last_job_timeout:
+            logger.info("Exiting due to last_job_timeout")
+            return
+
         while N and cons_errs < int(options.max_consecutive_failures):
             try:
                 # recursive Popen, dropping N from the argv
@@ -1284,22 +1292,21 @@ def main_worker_helper(options, args):
 def main_worker():
     parser = optparse.OptionParser(usage="%prog [options]")
 
-    parser.add_option("--max-consecutive-failures",
-            dest="max_consecutive_failures",
-            metavar='N',
-            default=4,
-            help="stop if N consecutive jobs fail (default: 4)",
-            )
     parser.add_option("--exp-key",
             dest='exp_key',
             default = None,
             metavar='str',
             help="identifier for this workers's jobs")
-    parser.add_option("--poll-interval",
-            dest='poll_interval',
+    parser.add_option("--last-job-timeout",
+            dest='last_job_timeout',
+            metavar='T',
+            default=None,
+            help="Do not reserve a job after T seconds have passed")
+    parser.add_option("--max-consecutive-failures",
+            dest="max_consecutive_failures",
             metavar='N',
-            default=5,
-            help="check work queue every 1 < T < N seconds (default: 5")
+            default=4,
+            help="stop if N consecutive jobs fail (default: 4)")
     parser.add_option("--max-jobs",
             dest='max_jobs',
             default=sys.maxint,
@@ -1308,6 +1315,11 @@ def main_worker():
             dest='mongo',
             default='localhost/hyperopt',
             help="<host>[:port]/<db> for IPC and job storage")
+    parser.add_option("--poll-interval",
+            dest='poll_interval',
+            metavar='N',
+            default=5,
+            help="check work queue every 1 < T < N seconds (default: 5")
     parser.add_option("--reserve-timeout",
             dest='reserve_timeout',
             metavar='T',
