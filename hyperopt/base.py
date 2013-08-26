@@ -570,6 +570,22 @@ class Trials(object):
                 rval[k] = v[0]
         return rval
 
+    def fmin(self, fn, space, algo, max_evals, rseed=0,
+        verbose=0,
+        wait=True,
+        pass_expr_memo_ctrl=None,
+        ):
+        # -- Stop-gap implementation!
+        #    fmin should have been a Trials method in the first place
+        #    but for now it's still sitting in another file.
+        if pass_expr_memo_ctrl != None:
+            raise NotImplementedError()
+        if wait == False:
+            raise NotImplementedError()
+        import fmin as fmin_module
+        return fmin_module.fmin_function(fn, space, algo, max_evals,
+                trials=self, rseed=rseed)
+
 
 def trials_from_docs(docs, validate=True, **kwargs):
     """Construct a Trials base class instance from a list of trials documents
