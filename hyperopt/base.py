@@ -583,8 +583,10 @@ class Trials(object):
         if wait == False:
             raise NotImplementedError()
         import fmin as fmin_module
-        return fmin_module.fmin_function(fn, space, algo, max_evals,
-                trials=self, rseed=rseed)
+        return fmin_module.fmin(fn, space, algo, max_evals,
+            trials=self,
+            rseed=rseed,
+            allow_trials_fmin=False)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):

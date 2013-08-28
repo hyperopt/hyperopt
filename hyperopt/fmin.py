@@ -303,7 +303,8 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
+def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
+         allow_trials_fmin=True):
     """
     Minimize `f` over the given `space` using random search.
 
@@ -328,7 +329,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123):
     [2] Optimization algorithms may in some cases use or require auxiliary
         feedback.
     """
-    if hasattr(trials, 'fmin'):
+    if allow_trials_fmin and hasattr(trials, 'fmin'):
         return trials.fmin(fn, space, algo=algo, max_evals=max_evals,
                 rseed=rseed)
 
