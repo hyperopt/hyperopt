@@ -578,15 +578,14 @@ class Trials(object):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        if pass_expr_memo_ctrl != None:
-            raise NotImplementedError()
         if wait == False:
             raise NotImplementedError()
         import fmin as fmin_module
         return fmin_module.fmin(fn, space, algo, max_evals,
             trials=self,
             rseed=rseed,
-            allow_trials_fmin=False)
+            allow_trials_fmin=False,
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):

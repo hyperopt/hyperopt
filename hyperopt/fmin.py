@@ -158,6 +158,7 @@ class FMinIter(object):
             max_queue_len=1,
             poll_interval_secs=1.0,
             max_evals=sys.maxint,
+            verbose=0,
             ):
         self.algo = algo
         self.domain = domain
@@ -304,7 +305,8 @@ class FMinIter(object):
 
 
 def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
-         allow_trials_fmin=True):
+         allow_trials_fmin=True, pass_expr_memo_ctrl=None,
+         verbose=0):
     """
     Minimize `f` over the given `space` using random search.
 
@@ -330,15 +332,22 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         feedback.
     """
     if allow_trials_fmin and hasattr(trials, 'fmin'):
-        return trials.fmin(fn, space, algo=algo, max_evals=max_evals,
-                rseed=rseed)
+        return trials.fmin(fn, space,
+                algo=algo,
+                max_evals=max_evals,
+                rseed=rseed,
+                pass_expr_memo_ctrl=pass_expr_memo_ctrl,
+                verbose=verbose)
 
     if trials is None:
         trials = base.Trials()
 
-    domain = Domain(fn, space, rseed=rseed)
+    domain = Domain(fn, space,
+        rseed=rseed,
+        pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
-    rval = FMinIter(algo, domain, trials, max_evals=max_evals)
+    rval = FMinIter(algo, domain, trials, max_evals=max_evals,
+            verbose=verbose)
     rval.exhaust()
     return trials.argmin
 
