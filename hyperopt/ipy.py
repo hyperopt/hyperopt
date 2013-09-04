@@ -159,13 +159,24 @@ class IPythonTrials(Trials):
         if wait:
             if verbose:
                 print 'fmin: Waiting on remaining jobs...'
-            self.wait()
+            self.wait(verbose=verbose)
 
         return self.argmin
 
-    def wait(self):
+    def wait(self, verbose=False, verbose_print_interval=1.0):
+        last_print_time = 0
         while True:
             self.refresh()
+            if verbose and last_print_time + verbose_print_interval < time():
+                print 'fmin: %4i/%4i/%4i/%4i  %f' % (
+                    self.count_by_state_unsynced(JOB_STATE_NEW),
+                    self.count_by_state_unsynced(JOB_STATE_RUNNING),
+                    self.count_by_state_unsynced(JOB_STATE_DONE),
+                    self.count_by_state_unsynced(JOB_STATE_ERROR),
+                    min([float('inf')]
+                        + [l for l in self.losses() if l is not None])
+                    )
+                last_print_time = time()
             if self.count_by_state_unsynced(JOB_STATE_NEW):
                 sleep(1e-1)
                 continue
