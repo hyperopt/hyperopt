@@ -2,6 +2,7 @@ from functools import partial
 from base import DuplicateLabel
 from pyll.base import Apply
 from pyll import scope
+from pyll import as_apply
 
 #
 # Hyperparameter Types
@@ -139,6 +140,7 @@ class Cond(object):
 EQ = partial(Cond, op='=')
 
 def expr_to_config(expr, conditions, hps):
+    expr = as_apply(expr)
     if conditions is None:
         conditions = ()
     assert isinstance(expr, Apply)
@@ -146,7 +148,10 @@ def expr_to_config(expr, conditions, hps):
         idx = expr.inputs()[0]
         options = expr.inputs()[1:]
         assert idx.name == 'hyperopt_param'
-        assert idx.arg['obj'].name == 'randint'
+        assert idx.arg['obj'].name in (
+                'randint',     # -- in case of hp.choice
+                'categorical', # -- in case of hp.pchoice
+                )
         expr_to_config(idx, conditions, hps)
         for ii, opt in enumerate(options):
             expr_to_config(opt,
