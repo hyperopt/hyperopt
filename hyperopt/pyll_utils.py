@@ -181,7 +181,9 @@ def expr_to_config(expr, conditions, hps):
             hps[label]['conditions'].add(conditions)
         else:
             hps[label] = {'node': expr.arg['obj'],
-                          'conditions': set((conditions,))}
+                          'conditions': set((conditions,)),
+                          'label': label,
+                          }
     else:
         for ii in expr.inputs():
             expr_to_config(ii, conditions, hps)
