@@ -140,6 +140,22 @@ class Cond(object):
 EQ = partial(Cond, op='=')
 
 def expr_to_config(expr, conditions, hps):
+    """
+    Populate dictionary `hps` with the hyperparameters in pyll graph `expr`
+    and conditions for participation in the evaluation of `expr`.
+
+    Arguments:
+    expr       - a pyll expression root.
+    conditions - a tuple of conditions (`Cond`) that must be True for
+                 `expr` to be evaluated.
+    hps        - dictionary to populate
+
+    Creates `hps` dictionary:
+        label -> { 'node': apply node of hyperparameter distribution,
+                   'conditions': `conditions` + tuple,
+                   'label': label
+                   }
+    """
     expr = as_apply(expr)
     if conditions is None:
         conditions = ()
