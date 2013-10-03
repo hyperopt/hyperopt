@@ -408,7 +408,8 @@ def test_main_worker(trials):
             reserve_timeout=1,
             poll_interval=.5,
             workdir=None,
-            exp_key='foo'
+            exp_key='foo',
+            last_job_timeout=None,
             )
     # -- check that it runs
     #    and that the reserve timeout is respected
@@ -453,6 +454,7 @@ def test_main_search_clear_existing(trials):
             poll_interval=1,
             max_queue_len=1,
             mongo=as_mongo_str('localhost:22334/foo'),
+            last_job_timeout=None,
             )
     args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
     def input():
@@ -479,6 +481,7 @@ def test_main_search_driver_attachment(trials):
             poll_interval=1,
             max_queue_len=1,
             mongo=as_mongo_str('localhost:22334/foo'),
+            last_job_timeout=None,
             )
     args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
     main_search_helper(options, args, cmd_type='D.A.')
@@ -503,6 +506,7 @@ def test_main_search_driver_reattachment(trials):
             poll_interval=1,
             max_queue_len=1,
             mongo=as_mongo_str('localhost:22334/foo'),
+            last_job_timeout=None,
             )
     args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
     main_search_helper(options, args, cmd_type='D.A.')
