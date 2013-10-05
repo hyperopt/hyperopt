@@ -59,3 +59,23 @@ def test_space_eval():
     assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
     
 
+def test_quadratic1_anneal():
+    trials = Trials()
+    import hyperopt.anneal
+
+    N = 20
+    def fn(x):
+        return (x - 3) ** 2
+
+    argmin = fmin(
+            fn=fn,
+            space=hp.uniform('x', -5, 5),
+            algo=hyperopt.anneal.suggest,
+            max_evals=N,
+            trials=trials)
+
+    print argmin
+
+    assert len(trials) == N
+    assert abs(argmin['x'] - 3.0) < .25
+
