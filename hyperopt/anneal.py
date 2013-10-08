@@ -318,7 +318,11 @@ class annealing_algo(suggest_algo):
         else:
             best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx))
             best_idx = min(best_idx, len(losses_vals) - 1)
-            return getattr(self, 'hp_%s' % node.name)(
+            try:
+                handler = getattr(self, 'hp_%s' % node.name)
+            except AttributeError:
+                raise NotImplementedError('Annealing', node.name)
+            return handler(
                 memo, node, label, losses_vals, best_idx)
 
     def hp_uniform(self, memo, node, label, losses_vals, best_idx):
