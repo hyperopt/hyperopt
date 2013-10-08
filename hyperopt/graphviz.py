@@ -18,6 +18,15 @@ def dot_hyperparameters(expr):
 
     The direction of the arrows corresponds to the sequence of events
     in an ancestral sampling process.
+
+    E.g.:
+    >>> open('foo.dot', 'wb').write(dot_hyperparameters(search_space()))
+
+    Then later from the shell, type e.g.
+    dot -Tpng foo.dot > foo.png && eog foo.png
+
+    Graphviz has other tools too: http://www.graphviz.org
+
     """
     conditions = ()
     hps = {}
