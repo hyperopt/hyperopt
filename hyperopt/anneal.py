@@ -335,7 +335,8 @@ class AnnealingAlgo(SuggestAlgo):
         if len(vals) == 0:
             return ExprEvaluator.on_node(self, memo, node)
         else:
-            best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx))
+            best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx)) - 1
+            assert best_idx >= 0
             best_idx = min(best_idx, len(losses_vals) - 1)
             try:
                 handler = getattr(self, 'hp_%s' % node.name)
@@ -345,7 +346,7 @@ class AnnealingAlgo(SuggestAlgo):
                 memo, node, label, losses_vals, best_idx)
 
     def hp_uniform(self, memo, node, label, losses_vals, best_idx,
-            log_scale=False, pass_q=False, fn=uniform):
+            log_scale=False, pass_q=False, uniform_like=uniform):
         """
         Return a new value for a uniform hyperparameter.
 
@@ -368,14 +369,16 @@ class AnnealingAlgo(SuggestAlgo):
         Returns: a list with one value in it: the suggested value for this
         hyperparameter
         """
+        losses, vals = zip(*losses_vals)
         if log_scale:
-            best_val = np.log(losses_vals[best_idx][1])
+            best_val = np.log(vals[best_idx])
         else:
-            best_val = losses_vals[best_idx][1]
+            best_val = vals[best_idx]
+        print 'foo', best_idx, best_val, losses_vals[:3]
         high = memo[node.arg['high']]
         low = memo[node.arg['low']]
         assert low <= best_val <= high
-        width = (high - low) * self.shrinking(len(losses_vals))
+        width = (high - low) * self.shrinking(len(vals))
         new_high = min(high, best_val + width / 2)
         if new_high == high:
             new_low = new_high - width
@@ -386,14 +389,14 @@ class AnnealingAlgo(SuggestAlgo):
         assert low <= new_low <= new_high <= high
         #print 'new bounds', new_low, new_high, width
         if pass_q:
-            return fn(
+            return uniform_like(
                 low=new_low,
                 high=new_high,
                 rng=self.rng,
                 q=memo[node.arg['q']],
                 size=(1,))
         else:
-            return fn(
+            return uniform_like(
                 low=new_low,
                 high=new_high,
                 rng=self.rng,
@@ -402,7 +405,7 @@ class AnnealingAlgo(SuggestAlgo):
     def hp_quniform(self, *args, **kwargs):
         return self.hp_uniform(
             pass_q=True,
-            fn=quniform,
+            uniform_like=quniform,
             *args,
             **kwargs)
 
@@ -410,7 +413,7 @@ class AnnealingAlgo(SuggestAlgo):
         return self.hp_uniform(
             log_scale=True,
             pass_q=False,
-            fn=loguniform,
+            uniform_like=loguniform,
             *args,
             **kwargs)
 
@@ -418,26 +421,36 @@ class AnnealingAlgo(SuggestAlgo):
         return self.hp_uniform(
             log_scale=True,
             pass_q=True,
-            fn=qloguniform,
+            uniform_like=qloguniform,
             *args,
             **kwargs)
 
     def hp_randint(self, memo, node, label, losses_vals, best_idx):
         upper = memo[node.arg['upper']]
         losses, vals = zip(*losses_vals)
-        counts = np.bincount(vals, minlength=upper).astype(np.float64)
+        counts = np.zeros(upper)
+        counts[vals[best_idx]] += 1
         prior = self.shrinking(len(vals))
-        p = (1 - prior) * counts / counts.sum() + prior * (1.0 / upper)
-        return categorical(p=p, upper=upper, rng=self.rng,
-                size=())
+        p = (1 - prior) * counts + prior * (1.0 / upper)
+        rval = categorical(p=p, upper=upper, rng=self.rng,
+                size=(1,))
+        print 'randint', rval
+        return rval
 
     def hp_categorical(self, memo, node, label, losses_vals, best_idx):
         losses, vals = zip(*losses_vals)
-        p = memo[node.arg['p']]
-        counts = np.bincount(vals, minlength=len(p)).astype(np.float64)
+        p = np.asarray(memo[node.arg['p']])
+        print p
+        if p.ndim == 2:
+            assert len(p) == 1
+            p = p[0]
+        counts = np.zeros_like(p)
+        counts[vals[best_idx]] += 1
         prior = self.shrinking(len(vals))
-        new_p = (1 - prior) * counts / counts.sum() + prior * p
-        return categorical(p=new_p, rng=self.rng, size=())
+        new_p = (1 - prior) * counts + prior * p
+        rval = categorical(p=new_p, rng=self.rng, size=(1,))
+        print 'categorical', rval
+        return rval
 
     def hp_normal(self, memo, node, label, losses_vals, best_idx):
         losses, vals = zip(*losses_vals)
@@ -458,7 +471,8 @@ class AnnealingAlgo(SuggestAlgo):
     def hp_qlognormal(self, memo, node, label, losses_vals, best_idx):
         losses, vals = zip(*losses_vals)
         return qlognormal(
-            mu=np.log(vals[best_idx]),
+            # -- prevent log(0) without messing up algo
+            mu=np.log(1e-16 + vals[best_idx]),
             sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
             q=memo[node.arg['q']],
             rng=self.rng,

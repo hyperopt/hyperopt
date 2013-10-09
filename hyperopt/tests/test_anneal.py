@@ -1,5 +1,8 @@
+from functools import partial
 import unittest
+import numpy as np
 from hyperopt import anneal
+from hyperopt import rand
 from hyperopt import Trials, fmin
 
 from test_bandits import CasePerBandit
@@ -35,9 +38,9 @@ class TestItActuallyWorks(unittest.TestCase, CasePerBandit):
             #    to some extent
             quadratic1=1000,
             many_dists=200,
-            distractor=100,
-            #XXX
-            q1_lognormal=250,
+            # -- anneal is pretty bad at this kind of function
+            distractor=150,
+            #q1_lognormal=100,
             )
 
     def setUp(self):
@@ -56,19 +59,21 @@ class TestItActuallyWorks(unittest.TestCase, CasePerBandit):
         LEN = self.LEN.get(bandit.name, 50)
 
         trials = Trials()
-        exp = Experiment(trials, algo)
-        exp.catch_bandit_exceptions = False
-        exp.run(LEN)
+        fmin(fn=passthrough,
+            space=self.bandit.expr,
+            trials=trials,
+            algo=algo,
+            max_evals=LEN)
         assert len(trials) == LEN
 
         if 1:
             rtrials = Trials()
-            exp = Experiment(rtrials, Random(bandit))
-            exp.run(LEN)
-            print 'RANDOM MINS', list(sorted(rtrials.losses()))[:6]
-            #logx = np.log([s['x'] for s in rtrials.specs])
-            #print 'RND MEAN', np.mean(logx)
-            #print 'RND STD ', np.std(logx)
+            fmin(fn=passthrough,
+                space=self.bandit.expr,
+                trials=rtrials,
+                algo=rand.suggest,
+                max_evals=LEN)
+            print 'RANDOM BEST 6:', list(sorted(rtrials.losses()))[:6]
 
         if 0:
             plt.subplot(2, 2, 1)
@@ -90,7 +95,7 @@ class TestItActuallyWorks(unittest.TestCase, CasePerBandit):
                     bins=20)
 
         #print trials.losses()
-        print 'TPE    MINS', list(sorted(trials.losses()))[:6]
+        print 'TPE    BEST 6:', list(sorted(trials.losses()))[:6]
         #logx = np.log([s['x'] for s in trials.specs])
         #print 'TPE MEAN', np.mean(logx)
         #print 'TPE STD ', np.std(logx)
