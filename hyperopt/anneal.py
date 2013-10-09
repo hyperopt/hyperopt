@@ -19,6 +19,22 @@ from collections import deque
 import numpy as np
 import pyll
 from pyll import scope
+from pyll.stochastic import (
+    # -- integer
+    categorical,
+    randint,
+    # -- normal
+    normal,
+    lognormal,
+    qnormal,
+    qlognormal,
+    # -- uniform
+    uniform,
+    loguniform,
+    quniform,
+    qloguniform,
+    )
+from pyll.stochastic import categorical
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 
@@ -254,11 +270,11 @@ class AnnealingAlgo(SuggestAlgo):
 
     def __init__(self, domain, trials,
             avg_best_idx=2.0,
-            per_dimension_half_life=10.0,
+            shrink_coef=0.1, # -- this
             seed=123):
         SuggestAlgo.__init__(self, domain, trials, seed=seed)
         self.avg_best_idx = avg_best_idx
-        self.per_dimension_half_life = per_dimension_half_life
+        self.shrink_coef = shrink_coef
         doc_by_tid = {}
         for doc in trials.trials:
             # get either this docs own tid or the one that it's from
@@ -276,6 +292,9 @@ class AnnealingAlgo(SuggestAlgo):
         self.node_tids, self.node_vals = miscs_to_idxs_vals(
             [d['misc'] for (tid, (d, l)) in self.tid_docs_losses],
             keys=domain.params.keys())
+
+    def shrinking(self, T):
+        return 1.0 / (1.0 + T * self.shrink_coef)
 
     def on_node_hyperparameter(self, memo, node, label):
         """
@@ -325,7 +344,8 @@ class AnnealingAlgo(SuggestAlgo):
             return handler(
                 memo, node, label, losses_vals, best_idx)
 
-    def hp_uniform(self, memo, node, label, losses_vals, best_idx):
+    def hp_uniform(self, memo, node, label, losses_vals, best_idx,
+            log_scale=False, pass_q=False, fn=uniform):
         """
         Return a new value for a uniform hyperparameter.
 
@@ -348,16 +368,111 @@ class AnnealingAlgo(SuggestAlgo):
         Returns: a list with one value in it: the suggested value for this
         hyperparameter
         """
-        best_val = losses_vals[best_idx][1]
-        high = node.arg['high']._obj
-        low = node.arg['low']._obj
-        T = len(losses_vals)
-        width = (high - low) * (
-            0.5 ** (T / self.per_dimension_half_life))
+        if log_scale:
+            best_val = np.log(losses_vals[best_idx][1])
+        else:
+            best_val = losses_vals[best_idx][1]
+        high = memo[node.arg['high']]
+        low = memo[node.arg['low']]
+        assert low <= best_val <= high
+        width = (high - low) * self.shrinking(len(losses_vals))
         new_high = min(high, best_val + width / 2)
-        new_low = max(low, best_val - width / 2)
+        if new_high == high:
+            new_low = new_high - width
+        else:
+            new_low = max(low, best_val - width / 2)
+            if new_low == low:
+                new_high = new_low + width
+        assert low <= new_low <= new_high <= high
         #print 'new bounds', new_low, new_high, width
-        return [self.rng.uniform(low=new_low, high=new_high)]
+        if pass_q:
+            return fn(
+                low=new_low,
+                high=new_high,
+                rng=self.rng,
+                q=memo[node.arg['q']],
+                size=(1,))
+        else:
+            return fn(
+                low=new_low,
+                high=new_high,
+                rng=self.rng,
+                size=(1,))
+
+    def hp_quniform(self, *args, **kwargs):
+        return self.hp_uniform(
+            pass_q=True,
+            fn=quniform,
+            *args,
+            **kwargs)
+
+    def hp_loguniform(self, *args, **kwargs):
+        return self.hp_uniform(
+            log_scale=True,
+            pass_q=False,
+            fn=loguniform,
+            *args,
+            **kwargs)
+
+    def hp_qloguniform(self, *args, **kwargs):
+        return self.hp_uniform(
+            log_scale=True,
+            pass_q=True,
+            fn=qloguniform,
+            *args,
+            **kwargs)
+
+    def hp_randint(self, memo, node, label, losses_vals, best_idx):
+        upper = memo[node.arg['upper']]
+        losses, vals = zip(*losses_vals)
+        counts = np.bincount(vals, minlength=upper).astype(np.float64)
+        prior = self.shrinking(len(vals))
+        p = (1 - prior) * counts / counts.sum() + prior * (1.0 / upper)
+        return categorical(p=p, upper=upper, rng=self.rng,
+                size=())
+
+    def hp_categorical(self, memo, node, label, losses_vals, best_idx):
+        losses, vals = zip(*losses_vals)
+        p = memo[node.arg['p']]
+        counts = np.bincount(vals, minlength=len(p)).astype(np.float64)
+        prior = self.shrinking(len(vals))
+        new_p = (1 - prior) * counts / counts.sum() + prior * p
+        return categorical(p=new_p, rng=self.rng, size=())
+
+    def hp_normal(self, memo, node, label, losses_vals, best_idx):
+        losses, vals = zip(*losses_vals)
+        return normal(
+            mu=vals[best_idx],
+            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            rng=self.rng,
+            size=(1,))
+
+    def hp_lognormal(self, memo, node, label, losses_vals, best_idx):
+        losses, vals = zip(*losses_vals)
+        return lognormal(
+            mu=np.log(vals[best_idx]),
+            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            rng=self.rng,
+            size=(1,))
+
+    def hp_qlognormal(self, memo, node, label, losses_vals, best_idx):
+        losses, vals = zip(*losses_vals)
+        return qlognormal(
+            mu=np.log(vals[best_idx]),
+            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            q=memo[node.arg['q']],
+            rng=self.rng,
+            size=(1,))
+
+    def hp_qnormal(self, memo, node, label, losses_vals, best_idx):
+        losses, vals = zip(*losses_vals)
+        return qnormal(
+            mu=vals[best_idx],
+            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            q=memo[node.arg['q']],
+            rng=self.rng,
+            size=(1,))
+
 
 
 @make_suggest_many_from_suggest_one
