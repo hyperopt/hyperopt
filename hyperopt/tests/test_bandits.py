@@ -34,6 +34,7 @@ class BanditExperimentMixin(object):
         Tester.__name__ = bandit_cls.__name__ + 'Tester'
         return Tester
 
+
 quadratic1Tester = BanditExperimentMixin.make(hyperopt.bandits.quadratic1)
 q1_lognormalTester = BanditExperimentMixin.make(hyperopt.bandits.q1_lognormal)
 q1_choiceTester = BanditExperimentMixin.make(hyperopt.bandits.q1_choice)
@@ -42,4 +43,36 @@ distractorTester = BanditExperimentMixin.make(hyperopt.bandits.distractor)
 gauss_waveTester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave)
 gauss_wave2Tester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave2,
         n_steps=5000)
+
+
+class CasePerBandit(object):
+
+    def test_quadratic1(self):
+        self.bandit = hyperopt.bandits.quadratic1()
+        self.work()
+
+    def test_q1lognormal(self):
+        self.bandit = hyperopt.bandits.q1_lognormal()
+        self.work()
+
+    def test_twoarms(self):
+        self.bandit = hyperopt.bandits.n_arms()
+        self.work()
+
+    def test_distractor(self):
+        self.bandit = hyperopt.bandits.distractor()
+        self.work()
+
+    def test_gausswave(self):
+        self.bandit = hyperopt.bandits.gauss_wave()
+        self.work()
+
+    def test_gausswave2(self):
+        self.bandit = hyperopt.bandits.gauss_wave2()
+        self.work()
+
+    def test_many_dists(self):
+        self.bandit = hyperopt.bandits.many_dists()
+        self.work()
+
 

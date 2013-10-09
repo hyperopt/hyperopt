@@ -27,6 +27,7 @@ from hyperopt.bandits import n_arms
 from hyperopt.bandits import distractor
 from hyperopt.bandits import gauss_wave
 from hyperopt.bandits import gauss_wave2
+from hyperopt.bandits import many_dists
 
 from hyperopt.pyll_utils import hp_choice
 from hyperopt.pyll_utils import hp_randint
@@ -36,31 +37,15 @@ from hyperopt.pyll_utils import hp_normal, hp_lognormal
 from hyperopt.pyll_utils import hp_qnormal, hp_qlognormal
 
 from hyperopt.tpe import adaptive_parzen_normal_orig
-#from hyperopt.tpe import adaptive_parzen_normal
 from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
 from hyperopt.tpe import LGMM1
 from hyperopt.tpe import LGMM1_lpdf
 
+from test_bandits import CasePerBandit
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
-
-
-@hyperopt.as_bandit(loss_target=0)
-def many_dists():
-    a=hp_choice('a', [0, 1, 2])
-    b=hp_randint('b', 10)
-    c=hp_uniform('c', 4, 7)
-    d=hp_loguniform('d', -2, 0)
-    e=hp_quniform('e', 0, 10, 3)
-    f=hp_qloguniform('f', 0, 3, 2)
-    g=hp_normal('g', 4, 7)
-    h=hp_lognormal('h', -2, 2)
-    i=hp_qnormal('i', 0, 10, 2)
-    j=hp_qlognormal('j', 0, 2, 1)
-    z = a + b + c + d + e + f + g + h + i + j
-    return {'loss': scope.float(scope.log(1e-12 + z ** 2))}
 
 
 def test_adaptive_parzen_normal_orig():
@@ -535,89 +520,6 @@ class TestQLGMM1Math(unittest.TestCase):
 
     def test_bounded_2b(self):
         self.work(q=2, low=1, high=4.1)
-
-
-class CasePerBandit(object):
-
-    def test_quadratic1(self):
-        self.bandit = quadratic1()
-        self.work()
-
-    def test_q1lognormal(self):
-        self.bandit = q1_lognormal()
-        self.work()
-
-    def test_twoarms(self):
-        self.bandit = n_arms()
-        self.work()
-
-    def test_distractor(self):
-        self.bandit = distractor()
-        self.work()
-
-    def test_gausswave(self):
-        self.bandit = gauss_wave()
-        self.work()
-
-    def test_gausswave2(self):
-        self.bandit = gauss_wave2()
-        self.work()
-
-    def test_many_dists(self):
-        self.bandit = many_dists()
-        self.work()
-
-
-if 0:
-    class TestPosteriorClone(unittest.TestCase, CasePerBandit):
-        def work(self):
-            """Test that all prior samplers are gone"""
-            tpe_algo = TreeParzenEstimator(self.bandit)
-            foo = pyll.as_apply([
-                tpe_algo.post_below['idxs'],
-                tpe_algo.post_below['vals']])
-            prior_names = [
-                    'uniform',
-                    'quniform',
-                    'loguniform',
-                    'qloguniform',
-                    'normal',
-                    'qnormal',
-                    'lognormal',
-                    'qlognormal',
-                    'randint',
-                    ]
-            for node in pyll.dfs(foo):
-                assert node.name not in prior_names
-
-
-if 0:
-    class TestPosteriorCloneSample(unittest.TestCase, CasePerBandit):
-        def work(self):
-            bandit = self.bandit
-            random_algo = Random(bandit)
-            # build an experiment of 10 trials
-            trials = Trials()
-            exp = Experiment(trials, random_algo)
-            #print random_algo.s_specs_idxs_vals
-            exp.run(10)
-            ids = trials.tids
-            assert len(ids) == 10
-            tpe_algo = TreeParzenEstimator(bandit)
-            #print pyll.as_apply(tpe_algo.post_idxs)
-            #print pyll.as_apply(tpe_algo.post_vals)
-            argmemo = {}
-
-            print trials.miscs
-            idxs, vals = miscs_to_idxs_vals(trials.miscs)
-            argmemo[tpe_algo.observed['idxs']] = idxs
-            argmemo[tpe_algo.observed['vals']] = vals
-            argmemo[tpe_algo.observed_loss['idxs']] = trials.tids
-            argmemo[tpe_algo.observed_loss['vals']] = trials.losses()
-            stuff = pyll.rec_eval([tpe_algo.post_below['idxs'],
-                        tpe_algo.post_below['vals']],
-                        memo=argmemo)
-            print stuff
 
 
 class TestSuggest(unittest.TestCase, CasePerBandit):

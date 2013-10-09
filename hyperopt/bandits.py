@@ -10,7 +10,7 @@ import base
 from pyll import as_apply
 from pyll import scope
 
-from pyll_utils import hp_choice
+from pyll_utils import hp_choice, hp_randint, hp_pchoice
 from pyll_utils import hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform
 from pyll_utils import hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
 
@@ -113,4 +113,22 @@ def gauss_wave2():
     t = (scope.normal(0, var) + 2 * scope.exp(-(x / 5.0) ** 2))
     return {'loss': - hp_choice('hf', [t, t + scope.sin(x) * amp]),
             'loss_variance': var}
+
+
+@base.as_bandit(loss_target=0)
+def many_dists():
+    a=hp_choice('a', [0, 1, 2])
+    b=hp_randint('b', 10)
+    c=hp_uniform('c', 4, 7)
+    d=hp_loguniform('d', -2, 0)
+    e=hp_quniform('e', 0, 10, 3)
+    f=hp_qloguniform('f', 0, 3, 2)
+    g=hp_normal('g', 4, 7)
+    h=hp_lognormal('h', -2, 2)
+    i=hp_qnormal('i', 0, 10, 2)
+    j=hp_qlognormal('j', 0, 2, 1)
+    k=hp_pchoice('k', [(.1, 0), (.9, 1)])
+    z = a + b + c + d + e + f + g + h + i + j + k
+    return {'loss': scope.float(scope.log(1e-12 + z ** 2))}
+
 
