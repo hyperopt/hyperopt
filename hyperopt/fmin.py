@@ -199,8 +199,8 @@ class FMinIter(object):
                     if not self.catch_bandit_exceptions:
                         raise
                 else:
-                    logger.info('job returned status: %s' % result['status'])
-                    logger.info('job returned loss: %s' % result.get('loss' ))
+                    logger.debug('job returned status: %s' % result['status'])
+                    logger.debug('job returned loss: %s' % result.get('loss'))
                     trial['state'] = base.JOB_STATE_DONE
                     trial['result'] = result
                     trial['refresh_time'] = coarse_utcnow()
