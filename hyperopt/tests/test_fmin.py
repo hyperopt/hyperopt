@@ -31,34 +31,6 @@ def test_quadratic1_tpe():
     assert abs(argmin['x'] - 3.0) < .25, argmin
 
 
-@nose.tools.raises(exceptions.DuplicateLabel)
-def test_duplicate_label_is_error():
-    trials = Trials()
-
-    def fn(xy):
-        x, y = xy
-        return x ** 2 + y ** 2
-
-    fmin(fn=fn,
-            space=[
-                hp.uniform('x', -5, 5),
-                hp.uniform('x', -5, 5),
-                ],
-            algo=rand.suggest,
-            max_evals=500,
-            trials=trials)
-
-def test_space_eval():
-    space = hp.choice('a',
-        [
-            ('case 1', 1 + hp.lognormal('c1', 0, 1)),
-            ('case 2', hp.uniform('c2', -10, 10))
-        ])
-
-    assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
-    assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
-    
-
 def test_quadratic1_anneal():
     trials = Trials()
     import hyperopt.anneal
@@ -78,4 +50,33 @@ def test_quadratic1_anneal():
 
     assert len(trials) == N
     assert abs(argmin['x'] - 3.0) < .25
+
+
+@nose.tools.raises(exceptions.DuplicateLabel)
+def test_duplicate_label_is_error():
+    trials = Trials()
+
+    def fn(xy):
+        x, y = xy
+        return x ** 2 + y ** 2
+
+    fmin(fn=fn,
+            space=[
+                hp.uniform('x', -5, 5),
+                hp.uniform('x', -5, 5),
+                ],
+            algo=rand.suggest,
+            max_evals=500,
+            trials=trials)
+
+
+def test_space_eval():
+    space = hp.choice('a',
+        [
+            ('case 1', 1 + hp.lognormal('c1', 0, 1)),
+            ('case 2', hp.uniform('c2', -10, 10))
+        ])
+
+    assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
+    assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
 

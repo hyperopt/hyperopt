@@ -54,7 +54,7 @@ def make_suggest_many_from_suggest_one(suggest_one):
     return suggest_many
 
 
-class expr_evaluator(object):
+class ExprEvaluator(object):
     def __init__(self, expr,
         deepcopy_inputs=False,
         max_program_len=None,
@@ -206,9 +206,9 @@ class expr_evaluator(object):
         return scope._impls[node.name](*args, **kwargs)
 
 
-class suggest_algo(expr_evaluator):
+class SuggestAlgo(ExprEvaluator):
     def __init__(self, domain, trials, seed):
-        expr_evaluator.__init__(self, domain.s_idxs_vals)
+        ExprEvaluator.__init__(self, domain.s_idxs_vals)
         self.domain = domain
         self.trials = trials
         self.label_by_node = dict([
@@ -235,10 +235,10 @@ class suggest_algo(expr_evaluator):
         if node in self.label_by_node:
             label = self.label_by_node[node]
             return self.on_node_hyperparameter(memo, node, label)
-        return expr_evaluator.on_node(self, memo, node)
+        return ExprEvaluator.on_node(self, memo, node)
 
 
-class annealing_algo(suggest_algo):
+class AnnealingAlgo(SuggestAlgo):
     """
     This simple annealing algorithm begins by sampling from the prior,
     but tends over time to sample from points closer and closer to the best
@@ -256,7 +256,7 @@ class annealing_algo(suggest_algo):
             avg_best_idx=2.0,
             per_dimension_half_life=10.0,
             seed=123):
-        suggest_algo.__init__(self, domain, trials, seed=seed)
+        SuggestAlgo.__init__(self, domain, trials, seed=seed)
         self.avg_best_idx = avg_best_idx
         self.per_dimension_half_life = per_dimension_half_life
         doc_by_tid = {}
@@ -314,7 +314,7 @@ class annealing_algo(suggest_algo):
         losses_vals = sorted(zip(losses, vals))
         #print losses_vals
         if len(vals) == 0:
-            return expr_evaluator.on_node(self, memo, node)
+            return ExprEvaluator.on_node(self, memo, node)
         else:
             best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx))
             best_idx = min(best_idx, len(losses_vals) - 1)
@@ -363,5 +363,5 @@ class annealing_algo(suggest_algo):
 @make_suggest_many_from_suggest_one
 def suggest(new_ids, domain, trials, *args, **kwargs):
     new_id, = new_ids
-    return annealing_algo(domain, trials, *args, **kwargs)(new_id)
+    return AnnealingAlgo(domain, trials, *args, **kwargs)(new_id)
 
