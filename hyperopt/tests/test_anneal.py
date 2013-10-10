@@ -22,7 +22,7 @@ class TestItJustRuns(unittest.TestCase, CasePerBandit):
             max_evals=10)
 
 
-class TestItActuallyWorks(unittest.TestCase, CasePerBandit):
+class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerBandit):
     thresholds = dict(
             quadratic1=1e-5,
             q1_lognormal=0.01,
@@ -95,7 +95,7 @@ class TestItActuallyWorks(unittest.TestCase, CasePerBandit):
                     bins=20)
 
         #print trials.losses()
-        print 'TPE    BEST 6:', list(sorted(trials.losses()))[:6]
+        print 'ANNEAL BEST 6:', list(sorted(trials.losses()))[:6]
         #logx = np.log([s['x'] for s in trials.specs])
         #print 'TPE MEAN', np.mean(logx)
         #print 'TPE STD ', np.std(logx)

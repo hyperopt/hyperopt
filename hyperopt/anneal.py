@@ -13,6 +13,7 @@ __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/jaberg/hyperopt"
 
+import copy
 import logging
 from collections import deque
 
@@ -35,6 +36,7 @@ from pyll.stochastic import (
     qloguniform,
     )
 from pyll.stochastic import categorical
+from base import Trials
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 
@@ -161,9 +163,15 @@ class ExprEvaluator(object):
                     # it means evaluate that too. Lambdas do this.
                     #
                     # XXX: consider if it is desirable, efficient, buggy
-                    #      etc. to keep using the same memo dictionary
-                    foo = rec_eval(rval, deepcopy_inputs, memo,
-                            memo_gc=memo_gc)
+                    #      etc. to keep using the same memo dictionary.
+                    #      I think it is OK because by using the same dictionary
+                    #      all of the nodes are stored in the memo so all keys
+                    #      are preserved until the entire outer function returns
+                    evaluator = self.__class__(rval,
+                                               self.deep_copy_inputs,
+                                               self.max_program_len,
+                                               self.memo_gc)
+                    foo = evaluator(memo)
                     self.set_memo(memo, node, foo)
                 else:
                     self.set_memo(memo, node, rval)
@@ -297,15 +305,18 @@ class AnnealingAlgo(SuggestAlgo):
     To sample a hyperparameter X within a search space, we look at
     what kind of hyperparameter it is (what kind of distribution it's from)
     and the previous successful values of that hyperparameter, and make
-    a new proposal for that hyperparameter, independently of other
+    a new proposal for that hyperparameter independently of other
     hyperparameters (except technically any choice nodes that led us to use
     this current hyperparameter in the first place).
 
     For example, if X is a uniform-distributed hyperparameters drawn from
     `U(l, h)`, we look at the value `x` of the hyperparameter in the selected
-    trial, and draw from a new uniform density `[x - w/2, x + w/2)`, where w
-    is related to the initial range, and the number of observations of X so
-    far.
+    trial, and draw from a new uniform density `U(x - w/2, x + w/2)`, where w
+    is related to the initial range, and the number of observations we have for
+    X so far. If W is the initial range, and T is the number of observations 
+    we have, then w = W / (1 + T * shrink_coef).  If the resulting range would
+    extend either below l or above h, we shift it to fit into the original
+    bounds.
 
     """
 
@@ -314,7 +325,6 @@ class AnnealingAlgo(SuggestAlgo):
             shrink_coef=0.1, # -- this
             seed=123):
         SuggestAlgo.__init__(self, domain, trials, seed=seed)
-        print "TODO: implement the best_idx 'runner-up' idea from docs"
         self.avg_best_idx = avg_best_idx
         self.shrink_coef = shrink_coef
         doc_by_tid = {}
@@ -331,12 +341,42 @@ class AnnealingAlgo(SuggestAlgo):
         self.tid_docs_losses = sorted(doc_by_tid.items())
         self.tids = np.asarray([t for (t, (d, l)) in self.tid_docs_losses])
         self.losses = np.asarray([l for (t, (d, l)) in self.tid_docs_losses])
+        self.tid_losses_dct = dict(zip(self.tids, self.losses))
         self.node_tids, self.node_vals = miscs_to_idxs_vals(
             [d['misc'] for (tid, (d, l)) in self.tid_docs_losses],
             keys=domain.params.keys())
+        self.best_tids = []
 
-    def shrinking(self, T):
+    def shrinking(self, label):
+        T = len(self.node_vals[label])
         return 1.0 / (1.0 + T * self.shrink_coef)
+
+    def choose_ltv(self, label):
+        """Returns (loss, tid, val) of best/runner-up trial
+        """
+        tids = self.node_tids[label]
+        vals = self.node_vals[label]
+        losses = [self.tid_losses_dct[tid] for tid in tids]
+
+        # -- try to return the value corresponding to one of the
+        #    trials that was previously chosen
+        tid_set = set(tids)
+        for tid in self.best_tids:
+            if tid in tid_set:
+                idx = tids.index(tid)
+                rval = losses[idx], tid, vals[idx]
+                break
+        else:
+            # -- choose a new best idx
+            ltvs = sorted(zip(losses, tids, vals))
+            best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx)) - 1
+            best_idx = min(best_idx, len(ltvs) - 1)
+            assert best_idx >= 0
+            best_loss, best_tid, best_val = ltvs[best_idx]
+            self.best_tids.append(best_tid)
+            rval = best_loss, best_tid, best_val
+        return rval
+
 
     def on_node_hyperparameter(self, memo, node, label):
         """
@@ -371,23 +411,17 @@ class AnnealingAlgo(SuggestAlgo):
 
         """
         vals = self.node_vals[label]
-        losses = self.losses[self.node_tids[label]]
-        losses_vals = sorted(zip(losses, vals))
-        #print losses_vals
         if len(vals) == 0:
             return ExprEvaluator.on_node(self, memo, node)
         else:
-            best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx)) - 1
-            assert best_idx >= 0
-            best_idx = min(best_idx, len(losses_vals) - 1)
+            loss, tid, val = self.choose_ltv(label)
             try:
                 handler = getattr(self, 'hp_%s' % node.name)
             except AttributeError:
                 raise NotImplementedError('Annealing', node.name)
-            return handler(
-                memo, node, label, losses_vals, best_idx)
+            return handler(memo, node, label, tid, val)
 
-    def hp_uniform(self, memo, node, label, losses_vals, best_idx,
+    def hp_uniform(self, memo, node, label, tid, val,
             log_scale=False, pass_q=False, uniform_like=uniform):
         """
         Return a new value for a uniform hyperparameter.
@@ -401,35 +435,27 @@ class AnnealingAlgo(SuggestAlgo):
 
         label - (see on_node_hyperparameter)
 
-        losses_vals - a sorted list of (loss, value) pairs that have been
-                      observed for the current node.  The full history of all
-                      trials can be accessed via self.trials.
+        tid - trial-identifier of the model trial on which to base a new sample
 
-        best_idx - the position within losses_vals whose value should be used as
-                   as the center of the sampling distribution for annealing.
+        val - the value of this hyperparameter on the model trial
 
         Returns: a list with one value in it: the suggested value for this
         hyperparameter
         """
-        losses, vals = zip(*losses_vals)
         if log_scale:
-            best_val = np.log(vals[best_idx])
-        else:
-            best_val = vals[best_idx]
-        print 'foo', best_idx, best_val, losses_vals[:3]
+            val = np.log(val)
         high = memo[node.arg['high']]
         low = memo[node.arg['low']]
-        assert low <= best_val <= high
-        width = (high - low) * self.shrinking(len(vals))
-        new_high = min(high, best_val + width / 2)
+        assert low <= val <= high
+        width = (high - low) * self.shrinking(label)
+        new_high = min(high, val + width / 2)
         if new_high == high:
             new_low = new_high - width
         else:
-            new_low = max(low, best_val - width / 2)
+            new_low = max(low, val - width / 2)
             if new_low == low:
                 new_high = new_low + width
         assert low <= new_low <= new_high <= high
-        #print 'new bounds', new_low, new_high, width
         if pass_q:
             return uniform_like(
                 low=new_low,
@@ -467,64 +493,73 @@ class AnnealingAlgo(SuggestAlgo):
             *args,
             **kwargs)
 
-    def hp_randint(self, memo, node, label, losses_vals, best_idx):
+    def hp_randint(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         upper = memo[node.arg['upper']]
-        losses, vals = zip(*losses_vals)
         counts = np.zeros(upper)
-        counts[vals[best_idx]] += 1
-        prior = self.shrinking(len(vals))
+        counts[val] += 1
+        prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
                 size=(1,))
-        print 'randint', rval
         return rval
 
-    def hp_categorical(self, memo, node, label, losses_vals, best_idx):
-        losses, vals = zip(*losses_vals)
+    def hp_categorical(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         p = np.asarray(memo[node.arg['p']])
-        print p
         if p.ndim == 2:
             assert len(p) == 1
             p = p[0]
         counts = np.zeros_like(p)
-        counts[vals[best_idx]] += 1
-        prior = self.shrinking(len(vals))
+        counts[val] += 1
+        prior = self.shrinking(label)
         new_p = (1 - prior) * counts + prior * p
         rval = categorical(p=new_p, rng=self.rng, size=(1,))
-        print 'categorical', rval
         return rval
 
-    def hp_normal(self, memo, node, label, losses_vals, best_idx):
-        losses, vals = zip(*losses_vals)
+    def hp_normal(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         return normal(
-            mu=vals[best_idx],
-            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            mu=val,
+            sigma=memo[node.arg['sigma']] * self.shrinking(label),
             rng=self.rng,
             size=(1,))
 
-    def hp_lognormal(self, memo, node, label, losses_vals, best_idx):
-        losses, vals = zip(*losses_vals)
+    def hp_lognormal(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         return lognormal(
-            mu=np.log(vals[best_idx]),
-            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            mu=np.log(val),
+            sigma=memo[node.arg['sigma']] * self.shrinking(label),
             rng=self.rng,
             size=(1,))
 
-    def hp_qlognormal(self, memo, node, label, losses_vals, best_idx):
-        losses, vals = zip(*losses_vals)
+    def hp_qlognormal(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         return qlognormal(
             # -- prevent log(0) without messing up algo
-            mu=np.log(1e-16 + vals[best_idx]),
-            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            mu=np.log(1e-16 + val),
+            sigma=memo[node.arg['sigma']] * self.shrinking(label),
             q=memo[node.arg['q']],
             rng=self.rng,
             size=(1,))
 
-    def hp_qnormal(self, memo, node, label, losses_vals, best_idx):
-        losses, vals = zip(*losses_vals)
+    def hp_qnormal(self, memo, node, label, tid, val):
+        """
+        Parameters: See `hp_uniform`
+        """
         return qnormal(
-            mu=vals[best_idx],
-            sigma=memo[node.arg['sigma']] * self.shrinking(len(vals)),
+            mu=val,
+            sigma=memo[node.arg['sigma']] * self.shrinking(label),
             q=memo[node.arg['q']],
             rng=self.rng,
             size=(1,))
