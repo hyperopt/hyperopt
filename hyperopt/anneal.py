@@ -260,11 +260,52 @@ class AnnealingAlgo(SuggestAlgo):
     but tends over time to sample from points closer and closer to the best
     ones observed.
 
+    In addition to the value of this algorithm as a baseline optimization
+    strategy, it is a simple starting point for implementing new algorithms.
+
+    # The Annealing Algorithm
+
+    The annealing algorithm is to choose one of the previous trial points
+    as a starting point, and then to sample each hyperparameter from a similar
+    distribution to the one specified in the prior, but whose density is more
+    concentrated around the trial point we selected.
+
     This algorithm is a simple variation on random search that leverages
     smoothness in the response surface.  The annealing rate is not adaptive.
 
-    In addition to the value of this algorithm as a baseline optimization
-    strategy, it is a simple starting point for implementing new algorithms.
+    ## Choosing a Best Trial
+
+    The algorithm formalizes the notion of "one of the best trials" by
+    sampling a position from a geometric distribution whose mean is the
+    `avg_best_idx` parameter.  The "best trial" is the trial thus selected
+    from the set of all trials (`self.trials`).
+
+    It may happen that in the process of ancestral sampling, we may find that
+    the best trial at some ancestral point did not use the hyperparameter we
+    need to draw.  In such a case, this algorithm will draw a new "runner up"
+    best trial, and use that one as if it had been chosen as the best trial.
+
+    The set of best trials, and runner-up best trials obtained during the
+    process of choosing all hyperparameters is kept sorted by the validation
+    loss, and at each point where the best trial does not define a
+    required hyperparameter value, we actually go through all the list of
+    runners-up too, before giving up and adding a new runner-up trial.
+
+
+    ## Concentrating Prior Distributions
+
+    To sample a hyperparameter X within a search space, we look at
+    what kind of hyperparameter it is (what kind of distribution it's from)
+    and the previous successful values of that hyperparameter, and make
+    a new proposal for that hyperparameter, independently of other
+    hyperparameters (except technically any choice nodes that led us to use
+    this current hyperparameter in the first place).
+
+    For example, if X is a uniform-distributed hyperparameters drawn from
+    `U(l, h)`, we look at the value `x` of the hyperparameter in the selected
+    trial, and draw from a new uniform density `[x - w/2, x + w/2)`, where w
+    is related to the initial range, and the number of observations of X so
+    far.
 
     """
 
@@ -273,6 +314,7 @@ class AnnealingAlgo(SuggestAlgo):
             shrink_coef=0.1, # -- this
             seed=123):
         SuggestAlgo.__init__(self, domain, trials, seed=seed)
+        print "TODO: implement the best_idx 'runner-up' idea from docs"
         self.avg_best_idx = avg_best_idx
         self.shrink_coef = shrink_coef
         doc_by_tid = {}
