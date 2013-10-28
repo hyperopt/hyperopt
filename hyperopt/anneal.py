@@ -259,7 +259,8 @@ class SuggestAlgo(ExprEvaluator):
         if node in self.label_by_node:
             label = self.label_by_node[node]
             return self.on_node_hyperparameter(memo, node, label)
-        return ExprEvaluator.on_node(self, memo, node)
+        else:
+            return ExprEvaluator.on_node(self, memo, node)
 
 
 class AnnealingAlgo(SuggestAlgo):
@@ -462,13 +463,13 @@ class AnnealingAlgo(SuggestAlgo):
                 high=new_high,
                 rng=self.rng,
                 q=memo[node.arg['q']],
-                size=(1,))
+                size=memo[node.arg['size']])
         else:
             return uniform_like(
                 low=new_low,
                 high=new_high,
                 rng=self.rng,
-                size=(1,))
+                size=memo[node.arg['size']])
 
     def hp_quniform(self, *args, **kwargs):
         return self.hp_uniform(
@@ -503,14 +504,14 @@ class AnnealingAlgo(SuggestAlgo):
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
-                size=(1,))
+                size=memo[node.arg['size']])
         return rval
 
     def hp_categorical(self, memo, node, label, tid, val):
         """
         Parameters: See `hp_uniform`
         """
-        p = np.asarray(memo[node.arg['p']])
+        p = p_orig = np.asarray(memo[node.arg['p']])
         if p.ndim == 2:
             assert len(p) == 1
             p = p[0]
@@ -518,7 +519,10 @@ class AnnealingAlgo(SuggestAlgo):
         counts[val] += 1
         prior = self.shrinking(label)
         new_p = (1 - prior) * counts + prior * p
-        rval = categorical(p=new_p, rng=self.rng, size=(1,))
+        if p_orig.ndim == 2:
+            rval = categorical(p=[new_p], rng=self.rng, size=memo[node.arg['size']])
+        else:
+            rval = categorical(p=new_p, rng=self.rng, size=memo[node.arg['size']])
         return rval
 
     def hp_normal(self, memo, node, label, tid, val):
@@ -529,7 +533,7 @@ class AnnealingAlgo(SuggestAlgo):
             mu=val,
             sigma=memo[node.arg['sigma']] * self.shrinking(label),
             rng=self.rng,
-            size=(1,))
+            size=memo[node.arg['size']])
 
     def hp_lognormal(self, memo, node, label, tid, val):
         """
@@ -539,7 +543,7 @@ class AnnealingAlgo(SuggestAlgo):
             mu=np.log(val),
             sigma=memo[node.arg['sigma']] * self.shrinking(label),
             rng=self.rng,
-            size=(1,))
+            size=memo[node.arg['size']])
 
     def hp_qlognormal(self, memo, node, label, tid, val):
         """
@@ -551,7 +555,7 @@ class AnnealingAlgo(SuggestAlgo):
             sigma=memo[node.arg['sigma']] * self.shrinking(label),
             q=memo[node.arg['q']],
             rng=self.rng,
-            size=(1,))
+            size=memo[node.arg['size']])
 
     def hp_qnormal(self, memo, node, label, tid, val):
         """
@@ -562,7 +566,7 @@ class AnnealingAlgo(SuggestAlgo):
             sigma=memo[node.arg['sigma']] * self.shrinking(label),
             q=memo[node.arg['q']],
             rng=self.rng,
-            size=(1,))
+            size=memo[node.arg['size']])
 
 
 

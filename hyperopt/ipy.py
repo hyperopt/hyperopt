@@ -195,6 +195,7 @@ class IPythonTrials(Trials):
 
     def __setstate__(self, dct):
         self.__dict__ = dct
+        self.job_map = {}
         Trials.refresh(self)
 
 
