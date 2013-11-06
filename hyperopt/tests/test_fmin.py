@@ -80,3 +80,24 @@ def test_space_eval():
     assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
     assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
 
+def test_set_fmin_rseed():
+    lossfn = lambda x: (x - 3) ** 2
+    trials_seed0 = Trials()
+    argmin_seed0 = fmin(
+            fn=lossfn,
+            space=hp.uniform('x', -5, 5),
+            algo=rand.suggest,
+            max_evals=1,
+            trials=trials_seed0,
+            rseed=0)
+    assert len(trials_seed0) == 1
+    trials_seed1 = Trials()
+    argmin_seed1 = fmin(
+            fn=lossfn,
+            space=hp.uniform('x', -5, 5),
+            algo=rand.suggest,
+            max_evals=1,
+            trials=trials_seed1,
+            rseed=1)
+    assert len(trials_seed1) == 1
+    assert argmin_seed0 != argmin_seed1

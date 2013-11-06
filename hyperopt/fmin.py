@@ -158,6 +158,7 @@ class FMinIter(object):
             max_queue_len=1,
             poll_interval_secs=1.0,
             max_evals=sys.maxint,
+            rseed=123,
             verbose=0,
             ):
         self.algo = algo
@@ -170,6 +171,7 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.rseed = rseed
 
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
@@ -254,7 +256,7 @@ class FMinIter(object):
                     for d in self.trials.trials:
                         print 'trial %i %s %s' % (d['tid'], d['state'],
                             d['result'].get('status'))
-                new_trials = algo(new_ids, self.domain, trials)
+                new_trials = algo(new_ids, self.domain, trials, self.rseed)
                 if new_trials is base.StopExperiment:
                     stopped = True
                     break
@@ -347,6 +349,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
+            rseed=rseed,
             verbose=verbose)
     rval.exhaust()
     return trials.argmin

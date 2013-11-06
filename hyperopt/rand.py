@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def suggest(new_ids, domain, trials, seed=123):
+    logger.debug("in suggest with seed: %s"%(str(seed)))
     logger.debug('generating trials for new_ids: %s' % str(new_ids))
 
     rval = []
