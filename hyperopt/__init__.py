@@ -19,17 +19,13 @@ from .base import JOB_STATE_ERROR
 
 from .base import Bandit
 from .base import as_bandit
-from .base import BanditAlgo
 from .base import Ctrl
-from .base import Experiment
-from .base import StopExperiment
-from .base import Random
 from .base import Trials
 from .base import trials_from_docs
+from .base import Domain
 
 from .fmin import fmin
 from .fmin import fmin_pass_expr_memo_ctrl
-from .fmin import Domain
 from .fmin import FMinIter
 from .fmin import partial
 from .fmin import space_eval
@@ -43,9 +39,6 @@ import exceptions
 # -- Import built-in optimization algorithms
 import rand
 import tpe
-
-# -- TODO: deprecate in favour of tpe.suggest
-from tpe import TreeParzenEstimator
 
 __version__ = '0.0.3.dev'
 

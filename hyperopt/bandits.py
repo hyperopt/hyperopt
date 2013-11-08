@@ -15,13 +15,17 @@ from pyll_utils import hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform
 from pyll_utils import hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
 
 
+# -- define this bandit here too for completeness' sake
+from base import coin_flip
+
+
 @base.as_bandit(loss_target=0)
 def quadratic1():
     """
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2}
+    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2, 'status': 'ok'}
 
 
 @base.as_bandit(loss_target=0)
@@ -30,7 +34,7 @@ def q1_choice():
         (-3, hp_uniform('x_neg', -5, 5)),
         ( 3, hp_uniform('x_pos', -5, 5)),
         ])
-    return {'loss': (o_x[0] - o_x[1])  ** 2}
+    return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': 'ok'}
 
 
 @base.as_bandit(loss_target=0)
@@ -39,10 +43,11 @@ def q1_lognormal():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': scope.max(-(hp_lognormal('x', 0, 2) - 3) ** 2, -100)}
+    return {'loss': scope.max(-(hp_lognormal('x', 0, 2) - 3) ** 2, -100),
+            'status': 'ok' }
 
 
-@base.as_bandit(loss_target=-2, rseed=123)
+@base.as_bandit(loss_target=-2)
 def n_arms(N=2):
     """
     Each arm yields a reward from a different Gaussian.
@@ -50,11 +55,13 @@ def n_arms(N=2):
     The correct arm is arm 0.
 
     """
+    rng = np.random.RandomState(123)
     x = hp_choice('x', [0, 1])
     reward_mus = as_apply([-1] + [0] * (N - 1))
     reward_sigmas = as_apply([1] * N)
-    return {'loss': scope.normal(reward_mus[x], reward_sigmas[x]),
-            'loss_variance': 1.0}
+    return {'loss': scope.normal(reward_mus[x], reward_sigmas[x], rng=rng),
+            'loss_variance': 1.0,
+            'status': 'ok'}
 
 
 @base.as_bandit(loss_target=-2)
@@ -68,11 +75,10 @@ def distractor():
     The prior mean is 0.
     """
 
-    loss_target = -2
     x = hp_uniform('x', -15, 15)
     f1 = 1.0 / (1.0 + scope.exp(-x))    # climbs rightward from 0.0 to 1.0
     f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
-    return {'loss': -f1 - f2}
+    return {'loss': -f1 - f2, 'status': 'ok'}
 
 
 @base.as_bandit(loss_target=-1)
@@ -92,10 +98,10 @@ def gauss_wave():
     t = hp_choice('curve', [x, x + np.pi])
     f1 = scope.sin(t)
     f2 = 2 * scope.exp(-(t / 5.0) ** 2)
-    return {'loss': - (f1 + f2)}
+    return {'loss': - (f1 + f2), 'status': 'ok'}
 
 
-@base.as_bandit(loss_target=-2.5, rseed=123)
+@base.as_bandit(loss_target=-2.5)
 def gauss_wave2():
     """
     Variant of the GaussWave problem in which noise is added to the score
@@ -107,12 +113,13 @@ def gauss_wave2():
     up the amp to 1.
     """
 
+    rng = np.random.RandomState(123)
     var = .1
     x = hp_uniform('x', -20, 20)
     amp = hp_uniform('amp', 0, 1)
-    t = (scope.normal(0, var) + 2 * scope.exp(-(x / 5.0) ** 2))
+    t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(x / 5.0) ** 2))
     return {'loss': - hp_choice('hf', [t, t + scope.sin(x) * amp]),
-            'loss_variance': var}
+            'loss_variance': var, 'status': 'ok'}
 
 
 @base.as_bandit(loss_target=0)
@@ -129,6 +136,6 @@ def many_dists():
     j=hp_qlognormal('j', 0, 2, 1)
     k=hp_pchoice('k', [(.1, 0), (.9, 1)])
     z = a + b + c + d + e + f + g + h + i + j + k
-    return {'loss': scope.float(scope.log(1e-12 + z ** 2))}
+    return {'loss': scope.float(scope.log(1e-12 + z ** 2)), 'status': 'ok'}
 
 

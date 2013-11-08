@@ -1,5 +1,6 @@
-import unittest
+from functools import partial
 import os
+import unittest
 
 import nose
 
@@ -12,14 +13,10 @@ except ImportError:
 from hyperopt import pyll
 from hyperopt.pyll import scope
 
-import hyperopt.bandits
-
 from hyperopt import Bandit
-from hyperopt import Experiment
-from hyperopt import Random
 from hyperopt import Trials
 
-from hyperopt.base import miscs_to_idxs_vals
+from hyperopt.base import miscs_to_idxs_vals, as_bandit
 
 from hyperopt.bandits import quadratic1
 from hyperopt.bandits import q1_lognormal
@@ -37,15 +34,22 @@ from hyperopt.pyll_utils import hp_normal, hp_lognormal
 from hyperopt.pyll_utils import hp_qnormal, hp_qlognormal
 
 from hyperopt.tpe import adaptive_parzen_normal_orig
-from hyperopt.tpe import TreeParzenEstimator
 from hyperopt.tpe import GMM1
 from hyperopt.tpe import GMM1_lpdf
 from hyperopt.tpe import LGMM1
 from hyperopt.tpe import LGMM1_lpdf
 
+import hyperopt.rand as rand
+import hyperopt.tpe as tpe
+from hyperopt import fmin
+
 from test_bandits import CasePerBandit
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
+
+
+def passthrough(x):
+    return x
 
 
 def test_adaptive_parzen_normal_orig():
@@ -524,12 +528,14 @@ class TestQLGMM1Math(unittest.TestCase):
 
 class TestSuggest(unittest.TestCase, CasePerBandit):
     def work(self):
+        # -- smoke test that things simply run,
+        #    for each type of several search spaces.
         trials = Trials()
-        bandit = self.bandit
-        tpe_algo = TreeParzenEstimator(bandit)
-        tpe_algo.n_EI_candidates = 3
-        exp = Experiment(trials, tpe_algo)
-        exp.run(10)
+        fmin(passthrough,
+            space=self.bandit.expr,
+            algo=partial(tpe.suggest, n_EI_candidates=3),
+            trials=trials,
+            max_evals=10)
 
 
 class TestOpt(unittest.TestCase, CasePerBandit):
@@ -551,6 +557,8 @@ class TestOpt(unittest.TestCase, CasePerBandit):
             distractor=100,
             #XXX
             q1_lognormal=250,
+            gauss_wave2=75, # -- boosted from 50 on Nov/2013 after new
+                            #  sampling order made thresh test fail.
             )
 
     gammas = dict(
@@ -583,34 +591,36 @@ class TestOpt(unittest.TestCase, CasePerBandit):
         bandit = self.bandit
         assert bandit.name is not None
         print 'Bandit', bandit.name
-        algo = TreeParzenEstimator(bandit,
+        algo = partial(tpe.suggest,
                 gamma=self.gammas.get(bandit.name,
-                    TreeParzenEstimator.gamma),
+                    tpe._default_gamma),
                 prior_weight=self.prior_weights.get(bandit.name,
-                    TreeParzenEstimator.prior_weight),
+                    tpe._default_prior_weight),
                 n_EI_candidates=self.n_EIs.get(bandit.name,
-                    TreeParzenEstimator.n_EI_candidates),
+                    tpe._default_n_EI_candidates),
                 )
         LEN = self.LEN.get(bandit.name, 50)
 
         trials = Trials()
-        exp = Experiment(trials, algo)
-        exp.catch_bandit_exceptions = False
-        exp.run(LEN)
+        fmin(passthrough,
+            space=bandit.expr,
+            algo=algo,
+            trials=trials,
+            max_evals=LEN,
+            catch_eval_exceptions=False)
         assert len(trials) == LEN
 
         if 1:
             rtrials = Trials()
-            exp = Experiment(rtrials, Random(bandit))
-            exp.run(LEN)
+            fmin(passthrough,
+                space=bandit.expr,
+                algo=rand.suggest,
+                trials=rtrials,
+                max_evals=LEN)
             print 'RANDOM MINS', list(sorted(rtrials.losses()))[:6]
             #logx = np.log([s['x'] for s in rtrials.specs])
             #print 'RND MEAN', np.mean(logx)
             #print 'RND STD ', np.std(logx)
-
-        print algo.n_EI_candidates
-        print algo.gamma
-        print algo.prior_weight
 
         if 0:
             plt.subplot(2, 2, 1)
@@ -643,6 +653,7 @@ class TestOpt(unittest.TestCase, CasePerBandit):
 
 def notest_opt_qn_uniform():
     notest_opt_qn_normal(hp_uniform)
+
 
 def notest_opt_qn_normal(f=hp_normal):
     bandit = Bandit(
@@ -677,10 +688,14 @@ def notest_opt_qn_normal(f=hp_normal):
         plt.hist(np.asarray(end).flatten())
         plt.show()
 
-@hyperopt.as_bandit(loss_target=0, rseed=123)
+
+@as_bandit(loss_target=0)
 def opt_q_uniform(target):
+    rng = np.random.RandomState(123)
     x = hp_quniform('x', 1.01, 10, 1)
-    return {'loss': (x - target) ** 2 + scope.normal(0, 1)}
+    return {'loss': (x - target) ** 2 + scope.normal(0, 1, rng=rng),
+            'status': 'ok'}
+
 
 class TestOptQUniform():
 
@@ -693,17 +708,20 @@ class TestOptQUniform():
         bandit = opt_q_uniform(self.target)
         prior_weight = 2.5
         gamma = 0.20
-        algo = TreeParzenEstimator(bandit,
+        algo = partial(tpe.suggest,
                 prior_weight=prior_weight,
                 n_startup_jobs=2,
                 n_EI_candidates=128,
                 gamma=gamma)
-        print algo.opt_idxs['x']
-        print algo.opt_vals['x']
+        #print algo.opt_idxs['x']
+        #print algo.opt_vals['x']
 
         trials = Trials()
-        experiment = Experiment(trials, algo)
-        experiment.run(self.LEN)
+        fmin(passthrough,
+            space=bandit.expr,
+            algo=algo,
+            trials=trials,
+            max_evals=self.LEN)
         if self.show_vars:
             import hyperopt.plotting
             hyperopt.plotting.main_plot_vars(trials, bandit, do_show=1)
@@ -711,7 +729,6 @@ class TestOptQUniform():
         idxs, vals = miscs_to_idxs_vals(trials.miscs)
         idxs = idxs['x']
         vals = vals['x']
-        print "VALS", vals
 
         losses = trials.losses()
 
