@@ -15,8 +15,6 @@ import pyll
 from pyll import scope
 from pyll.stochastic import implicit_stochastic
 
-from .base import BanditAlgo
-from .base import STATUS_OK
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
 from .base import Trials
@@ -803,8 +801,7 @@ def tpe_transform(domain, prior_weight, gamma):
             specs, idxs, vals)
 
 
-def suggest(new_ids, domain, trials,
-        seed=123,
+def suggest(new_ids, domain, trials, seed,
         prior_weight=_default_prior_weight,
         n_startup_jobs=_default_n_startup_jobs,
         n_EI_candidates=_default_n_EI_candidates,
@@ -839,7 +836,6 @@ def suggest(new_ids, domain, trials,
     tt = time.time() - t0
     logger.info('tpe_transform took %f seconds' % tt)
 
-    docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
     best_docs = dict()
     best_docs_loss = dict()
     for doc in trials.trials:
@@ -916,166 +912,4 @@ def suggest(new_ids, domain, trials,
 
     return rval_docs
 
-
-# XXX deprecate me in favour of suggest() above
-class TreeParzenEstimator(BanditAlgo):
-    """
-    XXX
-    """
-
-    # -- the prior takes a weight in the Parzen mixture
-    #    that is the sqrt of the number of observations
-    #    times this number.
-    prior_weight = 1.0
-
-    # -- suggest best of this many draws on every iteration
-    n_EI_candidates = 24
-
-    # -- gamma * sqrt(n_trials) is fraction of to use as good
-    gamma = 0.50
-
-    n_startup_jobs = 10
-
-    linear_forgetting = DEFAULT_LF
-
-    def __init__(self, bandit,
-            gamma=gamma,
-            prior_weight=prior_weight,
-            n_EI_candidates=n_EI_candidates,
-            n_startup_jobs=n_startup_jobs,
-            linear_forgetting=linear_forgetting,
-            **kwargs):
-        BanditAlgo.__init__(self, bandit, **kwargs)
-        self.gamma = gamma
-        self.prior_weight = prior_weight
-        self.n_EI_candidates = n_EI_candidates
-        self.n_startup_jobs = n_startup_jobs
-        self.linear_forgetting = linear_forgetting
-        if linear_forgetting != DEFAULT_LF:
-            raise NotImplementedError(
-                'linear_forgetting is not passed around properly')
-
-        self.s_prior_weight = pyll.Literal(float(self.prior_weight))
-
-        # -- these dummy values will be replaced in suggest1() and never used
-        self.observed = dict(
-                idxs=pyll.Literal(),
-                vals=pyll.Literal())
-        self.observed_loss = dict(
-                idxs=pyll.Literal(),
-                vals=pyll.Literal())
-
-        specs, idxs, vals = build_posterior(
-                # -- vectorized clone of bandit template
-                self.vh.v_expr,
-                # -- this dict and next represent prior dists
-                self.vh.idxs_by_label(),
-                self.vh.vals_by_label(),
-                self.observed['idxs'],
-                self.observed['vals'],
-                self.observed_loss['idxs'],
-                self.observed_loss['vals'],
-                pyll.Literal(self.gamma),
-                self.s_prior_weight
-                )
-        self.opt_specs = specs
-        self.opt_idxs = idxs
-        self.opt_vals = vals
-
-    def suggest(self, new_ids, trials):
-        if len(new_ids) > 1:
-            # write a loop to draw new points sequentially
-            # TODO: insert constant liar for tentative suggestions
-            raise NotImplementedError()
-        else:
-            return self.suggest1(new_ids[0], trials)
-
-    def suggest1(self, new_id, trials):
-        """Suggest a single new document"""
-        #print self.post_llik
-
-        bandit = self.bandit
-        docs_by_tid = dict([(d['tid'], d) for d in trials.trials])
-        if len(docs_by_tid) != len(trials.trials):
-            import cPickle
-            cPickle.dump(trials.trials, open('assert_fail_tpe_637.pkl', 'w'))
-            assert 0, 'non-unique docid, dumped to assert_fail_tpe_637.pkl'
-        best_docs = dict()
-        best_docs_loss = dict()
-        for doc in trials.trials:
-            # get either this docs own tid or the one that it's from
-            tid = doc['misc'].get('from_tid', doc['tid'])
-            loss = bandit.loss(doc['result'], doc['spec'])
-            if loss is None:
-                # -- associate infinite loss to new/running/failed jobs
-                loss = float('inf')
-            else:
-                loss = float(loss)
-            best_docs_loss.setdefault(tid, loss)
-            if loss <= best_docs_loss[tid]:
-                best_docs_loss[tid] = loss
-                best_docs[tid] = doc
-
-        tid_docs = best_docs.items()
-        # -- sort docs by order of suggestion
-        #    so that linear_forgetting removes the oldest ones
-        tid_docs.sort()
-        losses = [best_docs_loss[k] for k, v in tid_docs]
-        tids = [k for k, v in tid_docs]
-        docs = [v for k, v in tid_docs]
-
-        n_ok = len([d for d in docs if d['result']['status'] == STATUS_OK])
-
-        if docs:
-            logger.info('TPE %i/%i w best loss %f' % (
-                n_ok, len(docs), min(best_docs_loss.values())))
-        else:
-            logger.info('TPE using 0 trials')
-
-        if n_ok < self.n_startup_jobs:
-            # N.B. THIS SEEDS THE RNG BASED ON THE new_id
-            return BanditAlgo.suggest(self, [new_id], trials)
-
-        #    Sample and compute log-probability.
-        if tids:
-            # -- the +2 co-ordinates with an assertion above
-            #    to ensure that fake ids are used during sampling
-            fake_id_0 = max(max(tids), new_id) + 2
-        else:
-            # -- weird - we're running the TPE algo from scratch
-            assert self.n_startup_jobs <= 0
-            fake_id_0 = new_id + 2
-
-        fake_ids = range(fake_id_0, fake_id_0 + self.n_EI_candidates)
-
-        # -- this dictionary will map pyll nodes to the values
-        #    they should take during the evaluation of the pyll program
-        memo = {self.s_new_ids: fake_ids}
-
-        o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-            [d['misc'] for d in docs], keys=bandit.params.keys())
-        memo[self.observed['idxs']] = o_idxs_d
-        memo[self.observed['vals']] = o_vals_d
-
-        memo[self.observed_loss['idxs']] = tids
-        memo[self.observed_loss['vals']] = losses
-
-        idxs, vals = pyll.rec_eval(
-                [self.opt_idxs, self.opt_vals],
-                memo=memo)
-
-        # -- retrieve the best of the samples and form the return tuple
-        # the build_posterior makes all specs the same
-
-        rval_specs = [None]  # -- specs are deprecated
-        rval_results = [bandit.new_result()]
-        rval_miscs = [dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)]
-
-        miscs_update_idxs_vals(rval_miscs, idxs, vals,
-                idxs_map={fake_ids[0]: new_id},
-                assert_all_vals_used=False)
-        rval_docs = trials.new_trial_docs([new_id],
-                rval_specs, rval_results, rval_miscs)
-
-        return rval_docs
 

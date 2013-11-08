@@ -7,15 +7,13 @@ import functools
 import logging
 import sys
 
-import numpy as np
 import time
 
 import pyll
-from pyll.stochastic import recursive_set_rng_kwarg
 
-from .vectorize import VectorizeHelper
 from .utils import coarse_utcnow
 import base
+from base import Domain
 
 logger = logging.getLogger(__name__)
 
@@ -45,109 +43,6 @@ def partial(fn, **kwargs):
     return rval
 
 
-class Domain(base.Bandit):
-    """
-    Picklable representation of search space and evaluation function.
-    """
-    rec_eval_print_node_on_error=False
-
-    def __init__(self, fn, expr,
-            workdir=None,
-            pass_expr_memo_ctrl=None,
-            **bandit_kwargs):
-        self.cmd = ('domain_attachment', 'FMinIter_Domain')
-        self.fn = fn
-        if pass_expr_memo_ctrl is None:
-            self.pass_expr_memo_ctrl = getattr(fn,
-                    'fmin_pass_expr_memo_ctrl', False)
-        else:
-            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
-        base.Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
-
-        # -- This code was stolen from base.BanditAlgo, a class which may soon
-        #    be gone
-        self.workdir = workdir
-        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
-        before = pyll.dfs(self.expr)
-        # -- raises exception if expr contains cycles
-        pyll.toposort(self.expr)
-        vh = self.vh = VectorizeHelper(self.expr, self.s_new_ids)
-        # -- raises exception if v_expr contains cycles
-        pyll.toposort(vh.v_expr)
-
-        idxs_by_label = vh.idxs_by_label()
-        vals_by_label = vh.vals_by_label()
-        after = pyll.dfs(self.expr)
-        # -- try to detect if VectorizeHelper screwed up anything inplace
-        assert before == after
-        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
-        assert set(idxs_by_label.keys()) == set(self.params.keys())
-
-        # -- make the graph runnable and SON-encodable
-        # N.B. operates inplace
-        self.s_idxs_vals = recursive_set_rng_kwarg(
-                pyll.scope.pos_args(idxs_by_label, vals_by_label),
-                pyll.as_apply(self.rng))
-
-        # -- raises an exception if no topological ordering exists
-        pyll.toposort(self.s_idxs_vals)
-
-    def evaluate(self, config, ctrl, attach_attachments=True):
-        memo = self.memo_from_config(config)
-        self.use_obj_for_literal_in_memo(ctrl, base.Ctrl, memo)
-        if self.rng is not None and not self.installed_rng:
-            # -- N.B. this modifies the expr graph in-place
-            #    XXX this feels wrong
-            self.expr = recursive_set_rng_kwarg(self.expr,
-                pyll.as_apply(self.rng))
-            self.installed_rng = True
-        if self.pass_expr_memo_ctrl:
-            rval = self.fn(
-                    expr=self.expr,
-                    memo=memo,
-                    ctrl=ctrl)
-        else:
-            # -- the "work" of evaluating `config` can be written
-            #    either into the pyll part (self.expr)
-            #    or the normal Python part (self.fn)
-            pyll_rval = pyll.rec_eval(self.expr, memo=memo,
-                    print_node_on_error=self.rec_eval_print_node_on_error)
-            rval = self.fn(pyll_rval)
-
-        if isinstance(rval, (float, int, np.number)):
-            dict_rval = {'loss': rval}
-        elif isinstance(rval, (dict,)):
-            dict_rval = rval
-            if 'loss' not in dict_rval:
-                raise ValueError('dictionary must have "loss" key',
-                        dict_rval.keys())
-        else:
-            raise TypeError('invalid return type (neither number nor dict)', rval)
-
-        if dict_rval['loss'] is not None:
-            # -- fail if cannot be cast to float
-            dict_rval['loss'] = float(dict_rval['loss'])
-
-        dict_rval.setdefault('status', base.STATUS_OK)
-        if dict_rval['status'] not in base.STATUS_STRINGS:
-            raise ValueError('invalid status string', dict_rval['status'])
-
-        if attach_attachments:
-            attachments = dict_rval.pop('attachments', {})
-            for key, val in attachments.items():
-                ctrl.attachments[key] = val
-
-        # -- don't do this here because SON-compatibility is only a requirement
-        #    for trials destined for a mongodb. In-memory rvals can contain
-        #    anything.
-        #return base.SONify(dict_rval)
-        return dict_rval
-
-    def short_str(self):
-        return 'Domain{%s}' % str(self.fn)
-
-
-# TODO: deprecate base.Experiment
 class FMinIter(object):
     """Object for conducting search experiments.
     """

@@ -4,26 +4,26 @@ experiment proceeds as expected
 """
 import unittest
 
-from hyperopt import Random, Experiment, Trials
+from hyperopt import Trials
 import hyperopt.bandits
+from hyperopt.fmin import fmin
+from hyperopt.rand import suggest
 
 class BanditExperimentMixin(object):
     def test_basic(self):
         bandit = self._bandit_cls()
-        print 'bandit params', bandit.params
-        algo = Random(bandit)
-        print 'algo params', algo.vh.params
+        #print 'bandit params', bandit.params
+        #print 'algo params', algo.vh.params
         trials = Trials()
-        experiment = Experiment(trials, algo, async=False)
-        experiment.catch_bandit_exceptions = False
-        experiment.max_queue_len = 50
-        experiment.run(self._n_steps)
-        print
-        print self._bandit_cls
-        print bandit.loss_target
-        print trials.average_best_error(bandit)
+        fmin(lambda x: x, bandit.expr,
+             trials=trials,
+             algo=suggest,
+             max_evals=self._n_steps)
+        #print self._bandit_cls
+        #print bandit.loss_target
+        #print trials.average_best_error(bandit)
         assert trials.average_best_error(bandit) - bandit.loss_target  < .2
-        print
+        #print
 
     @classmethod
     def make(cls, bandit_cls, n_steps=500):
@@ -46,6 +46,8 @@ gauss_wave2Tester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave2,
 
 
 class CasePerBandit(object):
+    # -- this is a mixin
+    # -- Override self.work to execute a test for each kind of self.bandit
 
     def test_quadratic1(self):
         self.bandit = hyperopt.bandits.quadratic1()

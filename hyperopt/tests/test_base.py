@@ -15,11 +15,8 @@ from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import Bandit
 from hyperopt.base import coin_flip
-from hyperopt.base import Experiment
 from hyperopt.base import InvalidTrial
 from hyperopt.base import miscs_to_idxs_vals
-from hyperopt.base import Random
-from hyperopt.base import RandomStop
 from hyperopt.base import SONify
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
@@ -114,6 +111,72 @@ class TestTrials(unittest.TestCase):
         assert len(trials) == len(trials.miscs)
 
 
+class Suggest_API(object):
+    """
+    Run some generic sanity-checks of a suggest algorithm to make sure that
+    it respects the semantics expected by e.g. fmin.
+
+    Use it like this:
+
+        TestRand = Suggest_API.make_test_class(rand.suggest, 'TestRand')
+
+    """
+
+    @classmethod
+    def make_tst_class(cls, suggest, domain, name):
+        class Tester(unittest.TestCase, cls):
+            def suggest(self, *args, **kwargs):
+                print args, kwargs
+                return suggest(*args, **kwargs)
+
+            def setUp(self):
+                self.domain = domain
+        Tester.__name__ = name
+        return Tester
+
+
+    seed_randomizes = True
+
+    def idxs_vals_from_ids(self, ids, seed):
+        docs = self.suggest(ids, self.domain, Trials(), seed)
+        trials = trials_from_docs(docs)
+        idxs, vals = miscs_to_idxs_vals(trials.miscs)
+        return idxs, vals
+
+    def test_arbitrary_ids(self):
+        # -- suggest implementations should work for arbitrary ID
+        #    values (possibly assuming they are hashable), and the
+        #    ID values should have no effect on the return values.
+        ids_1 = [-2, 0, 7, 'a', '007', 66, 'a3', '899', 23, 2333]
+        ids_2 = ['a', 'b', 'c', 'd', 1, 2, 3, 0.1, 0.2, 0.3]
+        idxs_1, vals_1 = self.idxs_vals_from_ids(ids=ids_1, seed=45)
+        idxs_2, vals_2 = self.idxs_vals_from_ids(ids=ids_2, seed=45)
+        all_ids_1 = set()
+        for var, ids in idxs_1.items():
+            all_ids_1.update(ids)
+        all_ids_2 = set()
+        for var, ids in idxs_2.items():
+            all_ids_2.update(ids)
+        self.assertEqual(all_ids_1, set(ids_1))
+        self.assertEqual(all_ids_2, set(ids_2))
+        self.assertEqual(vals_1, vals_2)
+
+    def test_seed_randomizes(self):
+        #
+        # suggest() algorithms can be either stochastic (e.g. random search)
+        # or deterministic (e.g. grid search).  If an suggest implementation
+        # is stochastic, then changing the seed argument should change the
+        # return value.
+        #
+        if not self.seed_randomizes:
+            return
+
+        # -- sample 20 points to make sure we get some differences even
+        #    for small search spaces (chance of false failure is 1/million).
+        idxs_1, vals_1 = self.idxs_vals_from_ids(ids=range(20), seed=45)
+        idxs_2, vals_2 = self.idxs_vals_from_ids(ids=range(20), seed=46)
+        self.assertNotEqual((idxs_1, vals_1), (idxs_2, vals_2))
+
 
 class TestRandom(unittest.TestCase):
     def setUp(self):
@@ -147,22 +210,6 @@ class TestRandom(unittest.TestCase):
         assert idxs['flip'] == range(N)
         # -- only works when N == 5
         assert np.all(vals['flip'] == [0, 1, 0, 0, 0, 0,  0, 1, 1, 0][:N])
-
-    def test_arbitrary_range(self, N=10):
-        assert N <= 10
-        new_ids = [-2, 0, 7, 'a', '007', 66, 'a3', '899', 23, 2333][:N]
-        docs = self.algo.suggest(new_ids, Trials())
-        # -- assert validity of docs
-        trials = trials_from_docs(docs)
-        idxs, vals = miscs_to_idxs_vals(trials.miscs)
-        assert len(docs) == N
-        assert len(idxs) == 1
-        assert len(vals) == 1
-        print vals
-        assert idxs['flip'] == new_ids
-
-        # -- assert that the random seed matches that of Jan 8/2013
-        assert np.all(vals['flip'] == [0, 1, 0, 0, 0, 0, 0, 1, 1, 0][:N])
 
     def test_suggest_all(self):
         for ii in range(1, 10):
