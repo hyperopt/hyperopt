@@ -572,7 +572,7 @@ class AnnealingAlgo(SuggestAlgo):
 
 
 @make_suggest_many_from_suggest_one
-def suggest(new_ids, domain, trials, seed=123, *args, **kwargs):
+def suggest(new_ids, domain, trials, *args, **kwargs):
     new_id, = new_ids
-    return AnnealingAlgo(domain, trials, seed, *args, **kwargs)(new_id)
+    return AnnealingAlgo(domain, trials, *args, **kwargs)(new_id)
 
