@@ -12,7 +12,7 @@ from hyperopt.rand import suggest
 class BanditExperimentMixin(object):
     def test_basic(self):
         bandit = self._bandit_cls()
-        #print 'bandit params', bandit.params
+        #print 'bandit params', bandit.params, bandit
         #print 'algo params', algo.vh.params
         trials = Trials()
         fmin(lambda x: x, bandit.expr,

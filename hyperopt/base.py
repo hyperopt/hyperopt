@@ -572,7 +572,7 @@ class Trials(object):
         verbose=0,
         wait=True,
         pass_expr_memo_ctrl=None,
-        ):
+        **kwargs):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
@@ -583,7 +583,7 @@ class Trials(object):
             trials=self,
             rseed=rseed,
             allow_trials_fmin=False,
-            pass_expr_memo_ctrl=pass_expr_memo_ctrl)
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl, **kwargs)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
@@ -849,15 +849,23 @@ class Domain(Bandit):
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
 
+    def install_rng_in_s_idxs_vals(self, rng):
+        self.s_idxs_vals = recursive_set_rng_kwarg(self.s_idxs_vals,
+            pyll.as_apply(rng))
+
+    def install_rng_in_expr(self, rng):
+        assert rng is not None
+        self.expr = recursive_set_rng_kwarg(self.expr,
+            pyll.as_apply(rng))
+        self.installed_rng = (rng is self.rng)
+
     def evaluate(self, config, ctrl, attach_attachments=True):
         memo = self.memo_from_config(config)
         self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
         if self.rng is not None and not self.installed_rng:
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
-            self.expr = recursive_set_rng_kwarg(self.expr,
-                pyll.as_apply(self.rng))
-            self.installed_rng = True
+            self.install_rng_in_expr(self.rng)
         if self.pass_expr_memo_ctrl:
             rval = self.fn(
                     expr=self.expr,

@@ -46,7 +46,7 @@ def partial(fn, **kwargs):
 class FMinIter(object):
     """Object for conducting search experiments.
     """
-    catch_bandit_exceptions = False
+    catch_eval_exceptions = False
     cPickle_protocol = -1
 
     def __init__(self, algo, domain, trials, async=None,
@@ -93,7 +93,11 @@ class FMinIter(object):
                     trial['state'] = base.JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
                     trial['refresh_time'] = coarse_utcnow()
-                    if not self.catch_bandit_exceptions:
+                    if not self.catch_eval_exceptions:
+                        # -- JOB_STATE_ERROR means this trial
+                        #    will be removed from self.trials.trials
+                        #    by this refresh call.
+                        self.trials.refresh()
                         raise
                 else:
                     logger.debug('job returned status: %s' % result['status'])
@@ -204,7 +208,10 @@ class FMinIter(object):
 
 def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
          allow_trials_fmin=True, pass_expr_memo_ctrl=None,
-         verbose=0):
+         catch_eval_exceptions=False,
+         verbose=0,
+         return_argmin=True,
+        ):
     """
     Minimize `f` over the given `space` using random search.
 
@@ -230,12 +237,16 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         feedback.
     """
     if allow_trials_fmin and hasattr(trials, 'fmin'):
-        return trials.fmin(fn, space,
-                algo=algo,
-                max_evals=max_evals,
-                rseed=rseed,
-                pass_expr_memo_ctrl=pass_expr_memo_ctrl,
-                verbose=verbose)
+        return trials.fmin(
+            fn, space,
+            algo=algo,
+            max_evals=max_evals,
+            rseed=rseed,
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl,
+            verbose=verbose,
+            catch_eval_exceptions=catch_eval_exceptions,
+            return_argmin=return_argmin,
+            )
 
     if trials is None:
         trials = base.Trials()
@@ -248,8 +259,10 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
             rseed=rseed + 1, # -- just to be safer against accidental correlations,
                              #    give fmin a different seed than Domain.
             verbose=verbose)
+    rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
-    return trials.argmin
+    if return_argmin:
+        return trials.argmin
 
 
 def space_eval(space, hp_assignment):

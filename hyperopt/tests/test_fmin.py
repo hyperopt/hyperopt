@@ -1,6 +1,9 @@
+import unittest
+
 import nose.tools
 
 from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval
+from hyperopt.base import JOB_STATE_ERROR
 
 
 def test_quadratic1_rand():
@@ -101,3 +104,48 @@ def test_set_fmin_rseed():
             rseed=1)
     assert len(trials_seed1) == 1
     assert argmin_seed0 != argmin_seed1
+
+
+class TestFmin(unittest.TestCase):
+    class BanditE(Exception):
+        #XXX also test Bandit.exceptions mechanism that actually catches this
+        pass
+
+    def eval_fn(self, space):
+        raise TestFmin.BanditE()
+
+    def setUp(self):
+        self.trials = Trials()
+
+    def test_catch_eval_exceptions_True(self):
+
+        # -- should go to max_evals, catching all exceptions, so all jobs
+        #    should have JOB_STATE_ERROR
+        fmin(self.eval_fn,
+             space=hp.uniform('x', 0, 1),
+             algo=rand.suggest,
+             trials=self.trials,
+             max_evals=2,
+             catch_eval_exceptions=True,
+             return_argmin=False,)
+        trials = self.trials
+        assert len(trials) == 0
+        assert len(trials._dynamic_trials) == 2
+        assert trials._dynamic_trials[0]['state'] == JOB_STATE_ERROR
+        assert trials._dynamic_trials[0]['misc']['error'] != None
+        assert trials._dynamic_trials[1]['state'] == JOB_STATE_ERROR
+        assert trials._dynamic_trials[1]['misc']['error'] != None
+
+    def test_catch_eval_exceptions_False(self):
+        with self.assertRaises(TestFmin.BanditE):
+            fmin(self.eval_fn,
+                 space=hp.uniform('x', 0, 1),
+                 algo=rand.suggest,
+                 trials=self.trials,
+                 max_evals=2,
+                 catch_eval_exceptions=False)
+        print len(self.trials)
+        assert len(self.trials) == 0
+        assert len(self.trials._dynamic_trials) == 1
+
+

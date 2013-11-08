@@ -15,6 +15,10 @@ from pyll_utils import hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform
 from pyll_utils import hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
 
 
+# -- define this bandit here too for completeness' sake
+from base import coin_flip
+
+
 @base.as_bandit(loss_target=0)
 def quadratic1():
     """
