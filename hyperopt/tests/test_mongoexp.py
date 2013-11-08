@@ -23,10 +23,10 @@ import unittest
 import nose
 import nose.plugins.skip
 
-from hyperopt import Experiment
-from hyperopt import Random
+#from hyperopt import Experiment
+#from hyperopt import Random
 from hyperopt.bandits import gauss_wave2
-from hyperopt.base import RandomStop
+#from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
@@ -37,6 +37,9 @@ from hyperopt.mongoexp import main_worker_helper
 from hyperopt.mongoexp import main_search_helper
 
 from hyperopt.mongoexp import MongoJobs
+
+from hyperopt.fmin import fmin
+from hyperopt import rand
 
 import hyperopt.tests.test_base
 
@@ -307,18 +310,24 @@ class TestExperimentWithThreads(unittest.TestCase):
                     if hasattr(self, 'prep_trials'):
                         self.prep_trials(trials)
                     bandit = self.bandit
-                    if self.use_stop:
-                        bandit_algo = RandomStop(n_threads * jobs_per_thread,
-                                                    self.bandit, cmd=self.cmd)
-                        print bandit_algo
-                        exp = Experiment(trials, bandit_algo, max_queue_len=1)
-                        exp.run(sys.maxint, block_until_done=False)
-                    else:
-                        bandit_algo = Random(self.bandit, cmd=self.cmd)
-                        exp = Experiment(trials, bandit_algo,
-                                                       max_queue_len=10000)
-                        exp.run(n_threads * jobs_per_thread,
-                                 block_until_done=(len(self.exp_keys) == 1))
+                    #if self.use_stop:
+                        #bandit_algo = RandomStop(n_threads * jobs_per_thread,
+                                                    #self.bandit, cmd=self.cmd)
+                        #print bandit_algo
+                        #exp = Experiment(trials, bandit_algo, max_queue_len=1)
+                        #exp.run(sys.maxint, block_until_done=False)
+                    #else:
+                        #bandit_algo = Random(self.bandit, cmd=self.cmd)
+                        #exp = Experiment(trials, bandit_algo,
+                                                       #max_queue_len=10000)
+                        #exp.run(n_threads * jobs_per_thread,
+                                 #block_until_done=(len(self.exp_keys) == 1))
+                    fmin(
+                        fn=lambda x: x,
+                        space=bandit.expr,
+                        algo=rand.suggest,
+                        trials=trials,
+                        max_evals=n_threads * jobs_per_thread)
                     exp_list.append(exp)
                     trials_list.append(trials)
             finally:
@@ -510,46 +519,6 @@ def test_main_search_driver_reattachment(trials):
             )
     args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
     main_search_helper(options, args, cmd_type='D.A.')
-
-@skiptest
-@with_mongo_trials
-@with_worker_threads(3, 'foo', timeout=5.0)
-def test_injector(trials):
-    # -- test is disabled because CoinFlipInjector is gone
-    # The point of the test would be to ensure that there is no problem
-    # submitting jobs from worker processes.
-
-    CoinFlipInjector = None # XXX find old def with `git grep`
-    bandit_algo = hyperopt.Random(CoinFlipInjector(),
-                 cmd=('bandit_json evaluate','hyperopt.base.CoinFlipInjector'))
-    # -- also test that injections from a particular experiment (exp_key)
-    #    are visible only within that experiment.
-    view2 = trials.view(exp_key='fff')
-    view3 = trials.view(exp_key='asdf')
-    assert len(trials) == 0
-    exp = Experiment(view2, bandit_algo, max_queue_len=1, async=True)
-    exp.run(1, block_until_done=True)
-    ##even though we ran 1 trial, there are 2 results because one was injected
-    trials.refresh()
-    view2.refresh()
-    view3.refresh()
-    assert len(trials) == 2
-    assert len(view2) == 2
-    assert len(view3) == 0
-
-    exp.run(1, block_until_done=True)
-    trials.refresh()
-    view2.refresh()
-    view3.refresh()
-    assert len(trials) == 4
-    assert len(view2) == 4
-    assert len(view3) == 0
-
-    tids = [d['tid'] for d in trials]
-    for doc in trials:
-        if 'from_tid' in doc['misc']:
-            assert doc['misc']['from_tid'] in tids
-        assert doc['exp_key'] == view2._exp_key
 
 # XXX: test each of the bandit calling protocols
 
