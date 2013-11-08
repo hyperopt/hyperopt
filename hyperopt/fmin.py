@@ -257,6 +257,7 @@ class FMinIter(object):
                         print 'trial %i %s %s' % (d['tid'], d['state'],
                             d['result'].get('status'))
                 new_trials = algo(new_ids, self.domain, trials, self.rseed)
+                self.rseed += len(new_trials)
                 if new_trials is base.StopExperiment:
                     stopped = True
                     break
@@ -349,7 +350,8 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
-            rseed=rseed,
+            rseed=rseed + 1, # -- just to be safer against accidental correlations,
+                             #    give fmin a different seed than Domain.
             verbose=verbose)
     rval.exhaust()
     return trials.argmin
