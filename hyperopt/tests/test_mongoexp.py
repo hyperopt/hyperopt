@@ -23,10 +23,7 @@ import unittest
 import nose
 import nose.plugins.skip
 
-#from hyperopt import Experiment
-#from hyperopt import Random
 from hyperopt.bandits import gauss_wave2
-#from hyperopt.base import RandomStop
 from hyperopt.base import JOB_STATE_DONE
 from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
@@ -34,7 +31,6 @@ from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import ReserveTimeout
 from hyperopt.mongoexp import as_mongo_str
 from hyperopt.mongoexp import main_worker_helper
-from hyperopt.mongoexp import main_search_helper
 
 from hyperopt.mongoexp import MongoJobs
 
@@ -264,11 +260,11 @@ def test_handles_are_independent():
         assert len(t2) == 0
 
 
+def passthrough(x):
+    return x
+
+
 class TestExperimentWithThreads(unittest.TestCase):
-    """
-    Test one or more experiments running simultaneously on a single database,
-    with multiple threads evaluating jobs.
-    """
 
     @staticmethod
     def worker_thread_fn(host_id, n_jobs, timeout):
@@ -277,127 +273,93 @@ class TestExperimentWithThreads(unittest.TestCase):
             logfilename=None)
         while n_jobs:
             mw.run_one(host_id, timeout, erase_created_workdir=True)
-            print 'worker: %s ran job' % str(host_id)
+            print('worker: %s ran job' % str(host_id))
             n_jobs -= 1
 
-    def work(self):
-        """
-        Run a small experiment with several workers running in parallel
-        using Python threads.
-        """
-        n_threads = self.n_threads
-        jobs_per_thread = self.jobs_per_thread
-        n_trials_per_exp = n_threads * jobs_per_thread
-        n_trials_total = n_trials_per_exp * len(self.exp_keys)
-        
+    @staticmethod
+    def fmin_thread_fn(space, trials, max_evals, seed):
+        fmin(
+            fn=passthrough,
+            space=space,
+            algo=rand.suggest,
+            trials=trials,
+            rseed=seed,
+            max_evals=max_evals,
+            return_argmin=False)
+
+    def test_seeds_AAB(self):
+        # launch 3 simultaneous experiments with seeds A, A, B.
+        # Verify all experiments run to completion.
+        # Verify first two experiments run identically.
+        # Verify third experiment runs differently.
+
+        exp_keys = ['A0', 'A1', 'B']
+        seeds = [1, 1, 2]
+        n_workers = 2
+        jobs_per_thread = 6
+        # -- total jobs = 2 * 6 = 12
+        # -- divided by 3 experiments: 4 jobs per fmin
+        max_evals = (n_workers * jobs_per_thread) // len(exp_keys)
+
+        # -- should not matter which bandit is used here
+        bandit = gauss_wave2()
+
+        cPickle.dumps(bandit.expr)
+        cPickle.dumps(passthrough)
+
+
+        worker_threads = [
+            threading.Thread(
+                target=TestExperimentWithThreads.worker_thread_fn,
+                args=(('hostname', ii), jobs_per_thread, 30.0))
+            for ii in range(n_workers)]
+
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
-            def newth(ii):
-                n_jobs = jobs_per_thread * len(self.exp_keys)
-                return threading.Thread(
-                        target=self.worker_thread_fn,
-                        args=(('hostname', ii), n_jobs, 30.0))
-            threads = map(newth, range(n_threads))
-            [th.start() for th in threads]
+            trials_list = [
+                MongoTrials(tm.connection_string('foodb'), key)
+                for key in exp_keys]
 
-            exp_list = []
-            trials_list = []
+            fmin_threads = [
+                threading.Thread(
+                    target=TestExperimentWithThreads.fmin_thread_fn,
+                    args=(bandit.expr, trials, max_evals, seed))
+                for seed, trials in zip(seeds, trials_list)]
+
             try:
-                for key in self.exp_keys:
-                    print 'running experiment'
-                    trials = MongoTrials(tm.connection_string('foodb'), key)
-                    assert len(trials) == 0
-                    if hasattr(self, 'prep_trials'):
-                        self.prep_trials(trials)
-                    bandit = self.bandit
-                    #if self.use_stop:
-                        #bandit_algo = RandomStop(n_threads * jobs_per_thread,
-                                                    #self.bandit, cmd=self.cmd)
-                        #print bandit_algo
-                        #exp = Experiment(trials, bandit_algo, max_queue_len=1)
-                        #exp.run(sys.maxint, block_until_done=False)
-                    #else:
-                        #bandit_algo = Random(self.bandit, cmd=self.cmd)
-                        #exp = Experiment(trials, bandit_algo,
-                                                       #max_queue_len=10000)
-                        #exp.run(n_threads * jobs_per_thread,
-                                 #block_until_done=(len(self.exp_keys) == 1))
-                    fmin(
-                        fn=lambda x: x,
-                        space=bandit.expr,
-                        algo=rand.suggest,
-                        trials=trials,
-                        max_evals=n_threads * jobs_per_thread)
-                    exp_list.append(exp)
-                    trials_list.append(trials)
+                [th.start() for th in worker_threads + fmin_threads]
             finally:
-                print 'joining worker thread...'
-                [th.join() for th in threads]
+                print('joining worker threads...')
+                [th.join() for th in worker_threads + fmin_threads]
 
-            for exp in exp_list:
-                exp.block_until_done()
-
-            for trials in trials_list:
-                assert trials.count_by_state_synced(JOB_STATE_DONE)\
-                        == n_trials_per_exp, (trials.count_by_state_synced(JOB_STATE_DONE), n_trials_per_exp)
-                assert trials.count_by_state_unsynced(JOB_STATE_DONE)\
-                        == n_trials_per_exp
-                assert len(trials) == n_trials_per_exp, (
-                    'trials failure %d %d ' % (len(trials) , n_trials_per_exp))
-                assert len(trials.results) == n_trials_per_exp, (
-                    'results failure %d %d ' % (len(trials.results),
-                        n_trials_per_exp))
+            # -- not using an exp_key gives a handle to all the trials
+            #    in foodb
             all_trials = MongoTrials(tm.connection_string('foodb'))
-            assert len(all_trials) == n_trials_total
+            self.assertEqual(len(all_trials), n_workers * jobs_per_thread)
 
-    def test_bandit_json_1(self):
-        self.cmd = ('bandit_json evaluate',
-                'hyperopt.bandits.gauss_wave2')
-        self.exp_keys = ['key0']
-        self.bandit = gauss_wave2()
-        self.use_stop = False
-        self.n_threads = 3
-        self.jobs_per_thread = 2
-        self.work()
+            # Verify that the fmin calls terminated correctly:
+            for trials in trials_list:
+                self.assertEqual(
+                    trials.count_by_state_synced(JOB_STATE_DONE),
+                    max_evals)
+                self.assertEqual(
+                    trials.count_by_state_unsynced(JOB_STATE_DONE),
+                    max_evals)
+                self.assertEqual(len(trials), max_evals)
 
-    def test_bandit_json_2(self):
-        self.cmd = ('bandit_json evaluate',
-                'hyperopt.bandits.gauss_wave2')
-        self.exp_keys = ['key0', 'key1']
-        self.bandit = gauss_wave2()
-        self.use_stop = False
-        self.n_threads = 3
-        self.jobs_per_thread = 2
-        self.work()
 
-    def test_bandit_json_3(self):
-        self.cmd = ('bandit_json evaluate',
-                'hyperopt.bandits.gauss_wave2')
-        self.exp_keys = ['key0']
-        self.bandit = gauss_wave2()
-        self.use_stop = True
-        self.n_threads = 3
-        self.jobs_per_thread = 2
-        self.work()
+            # Verify that the first two experiments match.
+            # (Do these need sorting by trial id?)
+            trials_A0, trials_A1, trials_B0 = trials_list
+            self.assertEqual(
+                [t['misc']['vals'] for t in trials_A0.trials],
+                [t['misc']['vals'] for t in trials_A1.trials])
 
-    def test_driver_attachment_1(self):
-        bandit_name = 'hyperopt.bandits.gauss_wave2'
-        bandit_args = ()
-        bandit_kwargs = {}
-        blob = cPickle.dumps((bandit_name, bandit_args, bandit_kwargs))
-        def prep_trials(trials):
-            print 'storing attachment'
-            trials.attachments['aname'] = blob
-            assert trials.attachments['aname'] == blob
-            assert trials.attachments[u'aname'] == blob
-        self.prep_trials = prep_trials
-        self.cmd = ('driver_attachment', 'aname')
-        self.exp_keys = ['key0']
-        self.bandit = gauss_wave2()
-        self.use_stop = False
-        self.n_threads = 3
-        self.jobs_per_thread = 2
-        self.work()
+            # Verify that the last experiment does not match.
+            # (Do these need sorting by trial id?)
+            self.assertNotEqual(
+                [t['misc']['vals'] for t in trials_A0.trials],
+                [t['misc']['vals'] for t in trials_B0.trials])
 
 
 class FakeOptions(object):
@@ -423,106 +385,4 @@ def test_main_worker(trials):
     # -- check that it runs
     #    and that the reserve timeout is respected
     main_worker_helper(options, ())
-
-
-@with_mongo_trials
-def test_main_search_runs(trials):
-    options = FakeOptions(
-            bandit_argfile='',
-            bandit_algo_argfile='',
-            exp_key=None,
-            clear_existing=False,
-            steps=0,
-            block=True,
-            workdir=None,
-            poll_interval=1,
-            max_queue_len=1,
-            mongo=as_mongo_str('localhost:22334/foodb'),
-            )
-    args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
-    main_search_helper(options, args)
-
-
-@functools.partial(with_mongo_trials, exp_key='hello')
-def test_main_search_clear_existing(trials):
-    # -- main_search (the CLI) has no way of specifying an
-    #    exp_key of None.
-    assert trials._exp_key == 'hello'
-    doc = hyperopt.tests.test_base.ok_trial(70, 0)
-    doc['exp_key'] = 'hello'
-    trials.insert_trial_doc(doc)
-    print 'Setting up trials with exp_key', doc['exp_key']
-    options = FakeOptions(
-            bandit_argfile='',
-            bandit_algo_argfile='',
-            exp_key=doc['exp_key'],
-            clear_existing=True,
-            steps=0,
-            block=True,
-            workdir=None,
-            poll_interval=1,
-            max_queue_len=1,
-            mongo=as_mongo_str('localhost:22334/foo'),
-            last_job_timeout=None,
-            )
-    args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
-    def input():
-        return 'y'
-    trials.refresh()
-    assert len(trials) == 1
-    main_search_helper(options, args, input=input)
-    trials.refresh()
-    assert len(trials) == 0
-
-
-# XXX: Test clear_db only removes things matching exp_key
-
-@with_mongo_trials
-def test_main_search_driver_attachment(trials):
-    options = FakeOptions(
-            bandit_argfile='',
-            bandit_algo_argfile='',
-            exp_key='hello',
-            clear_existing=False,
-            steps=0,
-            block=True,
-            workdir=None,
-            poll_interval=1,
-            max_queue_len=1,
-            mongo=as_mongo_str('localhost:22334/foo'),
-            last_job_timeout=None,
-            )
-    args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
-    main_search_helper(options, args, cmd_type='D.A.')
-    print trials.handle.gfs._GridFS__collection
-    assert 'driver_attachment_hello.pkl' in trials.attachments
-
-
-@nose.tools.raises(BanditSwapError)
-@functools.partial(with_mongo_trials, exp_key='hello')
-def test_main_search_driver_reattachment(trials):
-    # pretend we already attached a different bandit
-    trials.attachments['driver_attachment_hello.pkl'] = cPickle.dumps(
-            (1, 2, 3))
-    options = FakeOptions(
-            bandit_argfile='',
-            bandit_algo_argfile='',
-            exp_key='hello',
-            clear_existing=False,
-            steps=0,
-            block=True,
-            workdir=None,
-            poll_interval=1,
-            max_queue_len=1,
-            mongo=as_mongo_str('localhost:22334/foo'),
-            last_job_timeout=None,
-            )
-    args = ('hyperopt.bandits.n_arms', 'hyperopt.Random')
-    main_search_helper(options, args, cmd_type='D.A.')
-
-# XXX: test each of the bandit calling protocols
-
-# XXX: test blocking behaviour
-
-# XXX: find old mongoexp unit tests and put them in here
 
