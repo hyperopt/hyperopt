@@ -15,10 +15,10 @@ except ImportError:
     import nose
     raise nose.SkipTest()
 
-from hyperopt import Experiment, Trials, TreeParzenEstimator
-from .test_tpe import many_dists
+from hyperopt import Trials
 import hyperopt.bandits
 import hyperopt.plotting
+from hyperopt import rand, fmin
 
 def get_do_show():
     rval = int(os.getenv('HYPEROPT_SHOW', '0'))
@@ -27,23 +27,13 @@ def get_do_show():
 
 class TestPlotting(unittest.TestCase):
     def setUp(self):
-        bandit = self.bandit = many_dists()
-        algo = TreeParzenEstimator(bandit)
-        trials = Trials()
-        experiment = Experiment(trials, algo, async=False)
-        experiment.max_queue_len = 1
-        N=200
-        if 0:
-            import cProfile
-            stats = cProfile.runctx('experiment.run(N)', globals={},
-                    locals=locals(), filename='fooprof')
-            import pstats
-            p = pstats.Stats('fooprof')
-            p.sort_stats('cumulative').print_stats(10)
-            p.sort_stats('time').print_stats(10)
-        else:
-            experiment.run(N)
-        self.trials = trials
+        bandit = self.bandit = hyperopt.bandits.many_dists()
+        trials = self.trials = Trials()
+        fmin(lambda x: x,
+            space=bandit.expr,
+            trials=trials,
+            algo=rand.suggest,
+            max_evals=200)
 
     def test_plot_history(self):
         hyperopt.plotting.main_plot_history(
