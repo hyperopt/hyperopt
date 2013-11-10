@@ -1,8 +1,8 @@
 
 from hyperopt.pyll_utils import EQ
 from hyperopt.pyll_utils import expr_to_config
-import hp
-from pyll import as_apply
+from hyperopt import hp
+from hyperopt.pyll import as_apply
 
 
 def test_expr_to_config():
