@@ -12,8 +12,7 @@ import numpy as np
 
 import pyll
 from .utils import coarse_utcnow
-import base
-from base import Domain
+from . import base
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +305,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     if trials is None:
         trials = base.Trials()
 
-    domain = Domain(fn, space,
+    domain = base.Domain(fn, space,
         rseed=rstate.randint(2 ** 31 - 1),
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 

@@ -22,10 +22,10 @@ from .base import as_bandit
 from .base import Ctrl
 from .base import Trials
 from .base import trials_from_docs
+from .base import Domain
 
 from .fmin import fmin
 from .fmin import fmin_pass_expr_memo_ctrl
-from .fmin import Domain
 from .fmin import FMinIter
 from .fmin import partial
 from .fmin import space_eval
