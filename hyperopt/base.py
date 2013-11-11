@@ -236,14 +236,45 @@ def spec_from_misc(misc):
 
 class Trials(object):
     """
-    Trials are documents (dict-like) with *at least* the following keys:
-        - spec: an instantiation of a Bandit template
-        - tid: a unique trial identification integer within `self.trials`
-        - result: sub-document returned by Bandit.evaluate
-        - idxs:  sub-document mapping stochastic node names
-                    to either [] or [tid]
-        - vals:  sub-document mapping stochastic node names
-                    to either [] or [<val>]
+    Trials is the database interface that supports data-driven model-based
+    optimization.
+
+    The model-based optimization algorithms used by hyperopt's fmin function
+    work by analyzing samples of a response surface--a history of what points
+    in the search space were tested, and what was discovered by those tests.
+    A Trials instance stores that history and makes it available to fmin and
+    to the various optimization algorithms.
+
+    `base.Trials` is a pure-Python implementation of the database in terms of
+    lists of dictionaries.
+
+    `mongoexp.MongoTrials` implements the same API in terms of a mongodb
+    database running in another process.
+
+    The elements of `self.trials` represent all of the completed, in-progress,
+    and scheduled evaluation points from an e.g. `fmin` call.
+
+    Each element of `self.trials` is a dictionary with *at least* the following
+    keys:
+    * tid: a unique trial identification object within this Trials instance
+        usually it is an integer, but it isn't obvious that other sortable,
+        hashable objects couldn't be used at some point.
+    * result: a sub-dictionary representing what was returned by the fmin
+        evaluation function. This sub-dictionary has a key 'status' with
+        a value from `STATUS_STRINGS` and if the status is 'ok', then there
+        should be a 'loss' key as well with a floating-point value.
+        Other special keys in this sub-dictionary may be used by optimization
+        algorithms  (see them for details). Other keys in this sub-dictionary
+        can be used by the evaluation function to store miscelaneous
+        diagnostics and debugging information.
+    * misc: despite generic name, this is currently where the trial's
+         hyperparameter assigments are stored. This sub-dictionary has
+         two elements: `'idxs'` and `'vals'`. The `vals` dictionary is
+         a sub-sub-dictionary mapping each hyperparameter to either `[]`
+         (if the hyperparameter is inactive in this trial), or `[<val>]`
+         (if the hyperparameter is active). The `idxs` dictionary is
+         technically redundant -- it is the same as `vals` but it maps
+         hyperparameter names to either `[]` or `[<tid>]`.
     """
 
     async = False
