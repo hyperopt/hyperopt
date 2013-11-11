@@ -26,9 +26,9 @@ The design is that there are three components fitting together in this project:
 
 """
 
-__authors__   = "James Bergstra"
-__license__   = "3-clause BSD License"
-__contact__   = "github.com/jaberg/hyperopt"
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
 
 import logging
 import datetime
@@ -36,11 +36,11 @@ import sys
 
 import numpy as np
 
-import bson # -- comes with pymongo
+import bson  # -- comes with pymongo
 from bson.objectid import ObjectId
 
 import pyll
-from pyll import scope
+#from pyll import scope  # looks unused but
 from pyll.stochastic import recursive_set_rng_kwarg
 
 from .exceptions import DuplicateLabel
@@ -83,29 +83,33 @@ JOB_STATE_NEW = 0
 JOB_STATE_RUNNING = 1
 JOB_STATE_DONE = 2
 JOB_STATE_ERROR = 3
-JOB_STATES= [JOB_STATE_NEW,
-              JOB_STATE_RUNNING,
-              JOB_STATE_DONE,
-              JOB_STATE_ERROR]
+JOB_STATES = [
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR]
 
 
 TRIAL_KEYS = [
-        'tid',
-        'spec',
-        'result',
-        'misc',
-        'state',
-        'owner',
-        'book_time',
-        'refresh_time',
-        'exp_key']
+    'tid',
+    'spec',
+    'result',
+    'misc',
+    'state',
+    'owner',
+    'book_time',
+    'refresh_time',
+    'exp_key']
 
 TRIAL_MISC_KEYS = [
-        'tid',
-        'cmd',
-        'idxs',
-        'vals',
-        ]
+    'tid',
+    'cmd',
+    'idxs',
+    'vals']
+
+
+def _all_same(*args):
+    return 1 == len(set(args))
 
 
 def StopExperiment(*args, **kwargs):
@@ -136,15 +140,15 @@ def SONify(arg, memo=None):
         elif isinstance(arg, (list, tuple)):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
-            rval = dict([(SONify(k, memo), SONify(v, memo))
-                for k, v in arg.items()])
+            rval = dict(
+                [(SONify(k, memo), SONify(v, memo)) for k, v in arg.items()])
         elif isinstance(arg, (basestring, float, int, long, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:
                 rval = SONify(arg.sum())
             else:
-                rval = map(SONify, arg) # N.B. memo None
+                rval = map(SONify, arg)  # N.B. memo None
         # -- put this after ndarray because ndarray not hashable
         elif arg in (True, False):
             rval = int(arg)
@@ -159,8 +163,9 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True,
-                          idxs_map=None):
+def miscs_update_idxs_vals(miscs, idxs, vals,
+                           assert_all_vals_used=True,
+                           idxs_map=None):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
@@ -340,19 +345,21 @@ class Trials(object):
             raise
 
     def __getitem__(self, item):
-        raise NotImplementedError('how to make it obvious whether'
-                ' indexing is by _trials position or by tid?')
+        # -- how to make it obvious whether indexing is by _trials position
+        #    or by tid if both are integers?
+        raise NotImplementedError('')
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
         if self._exp_key is None:
-            self._trials = [tt for tt in self._dynamic_trials
+            self._trials = [
+                tt for tt in self._dynamic_trials
                 if tt['state'] != JOB_STATE_ERROR]
         else:
-            self._trials = [tt for tt in self._dynamic_trials
-                if (tt['state'] != JOB_STATE_ERROR
-                    and tt['exp_key'] == self._exp_key
-                    )]
+            self._trials = [tt
+                            for tt in self._dynamic_trials
+                            if (tt['state'] != JOB_STATE_ERROR
+                                and tt['exp_key'] == self._exp_key)]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -393,13 +400,15 @@ class Trials(object):
             if key not in trial['misc']:
                 raise InvalidTrial('trial["misc"] missing key', key)
         if trial['tid'] != trial['misc']['tid']:
-            raise InvalidTrial('tid mismatch between root and misc',
-                    (trial['tid'], trial['misc']['tid']))
+            raise InvalidTrial(
+                'tid mismatch between root and misc',
+                trial)
         # -- check for SON-encodable
         try:
             bson.BSON.encode(trial)
         except:
-            # TODO: save the trial object somewhere to inspect, fix, re-insert, etc.
+            # TODO: save the trial object somewhere to inspect, fix, re-insert
+            #       so that precious data is not simply deallocated and lost.
             print '-' * 80
             print "CANT ENCODE"
             print '-' * 80
@@ -446,11 +455,11 @@ class Trials(object):
         rval = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
             doc = dict(
-                    state=JOB_STATE_NEW,
-                    tid=tid,
-                    spec=spec,
-                    result=result,
-                    misc=misc)
+                state=JOB_STATE_NEW,
+                tid=tid,
+                spec=spec,
+                result=result,
+                misc=misc)
             doc['exp_key'] = self._exp_key
             doc['owner'] = None
             doc['version'] = 0
@@ -460,21 +469,22 @@ class Trials(object):
         return rval
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
-        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
+        assert _all_same(map(len, [tids, specs, results, miscs, sources]))
         rval = []
-        for tid, spec, result, misc, source in zip(tids, specs, results, miscs, sources):
+        for tid, spec, result, misc, source in zip(tids, specs, results, miscs,
+                                                   sources):
             doc = dict(
-                    version=0,
-                    tid=tid,
-                    spec=spec,
-                    result=result,
-                    misc=misc,
-                    state=source['state'],
-                    exp_key=source['exp_key'],
-                    owner=source['owner'],
-                    book_time=source['book_time'],
-                    refresh_time=source['refresh_time'],
-                    )
+                version=0,
+                tid=tid,
+                spec=spec,
+                result=result,
+                misc=misc,
+                state=source['state'],
+                exp_key=source['exp_key'],
+                owner=source['owner'],
+                book_time=source['book_time'],
+                refresh_time=source['refresh_time'],
+                )
             # -- ensure that misc has the following fields,
             #    some of which may already by set correctly.
             assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
@@ -511,8 +521,9 @@ class Trials(object):
         called refresh() first.
         """
         if self._exp_key is not None:
-            exp_trials = [tt for tt in self._dynamic_trials
-                if tt['exp_key'] == self._exp_key]
+            exp_trials = [tt
+                          for tt in self._dynamic_trials
+                          if tt['exp_key'] == self._exp_key]
         else:
             exp_trials = self._dynamic_trials
         return self.count_by_state_synced(arg, trials=exp_trials)
@@ -539,21 +550,20 @@ class Trials(object):
         returns the true_loss corresponding to the result with the lowest loss.
         """
 
-
         if bandit is None:
             results = self.results
             loss = [r['loss']
                     for r in results if r['status'] == STATUS_OK]
             loss_v = [r.get('loss_variance', 0)
-                    for r in results if r['status'] == STATUS_OK]
+                      for r in results if r['status'] == STATUS_OK]
             true_loss = [r.get('true_loss', r['loss'])
-                    for r in results if r['status'] == STATUS_OK]
-
+                         for r in results if r['status'] == STATUS_OK]
         else:
             def fmap(f):
-                rval = np.asarray([f(r, s)
-                        for (r, s) in zip(self.results, self.specs)
-                        if bandit.status(r) == STATUS_OK]).astype('float')
+                rval = np.asarray([
+                    f(r, s)
+                    for (r, s) in zip(self.results, self.specs)
+                    if bandit.status(r) == STATUS_OK]).astype('float')
                 if not np.all(np.isfinite(rval)):
                     raise ValueError()
                 return rval
@@ -601,12 +611,12 @@ class Trials(object):
         return rval
 
     def fmin(self, fn, space, algo, max_evals,
-        rseed=0,
-        verbose=0,
-        pass_expr_memo_ctrl=None,
-        catch_eval_exceptions=False,
-        return_argmin=True,
-        ):
+             rseed=0,
+             verbose=0,
+             pass_expr_memo_ctrl=None,
+             catch_eval_exceptions=False,
+             return_argmin=True,
+             ):
         """Minimize a function over a hyperparameter space.
 
         For most parameters, see `hyperopt.fmin.fmin`.
@@ -627,11 +637,12 @@ class Trials(object):
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
         import fmin as fmin_module
-        return fmin_module.fmin(fn, space, algo, max_evals,
+        return fmin_module.fmin(
+            fn, space, algo, max_evals,
             trials=self,
             rseed=rseed,
             verbose=verbose,
-            allow_trials_fmin=False, # -- prevent recursion
+            allow_trials_fmin=False,  # -- prevent recursion
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
             catch_eval_exceptions=catch_eval_exceptions,
             return_argmin=return_argmin)
@@ -687,7 +698,8 @@ class Ctrl(object):
 
         Returns ??? XXX
 
-        new_tids can be None, in which case new tids will be generated automatically
+        new_tids can be None, in which case new tids will be generated
+        automatically
 
         """
         trial = self.current_trial
@@ -723,13 +735,12 @@ class Bandit(object):
     exceptions = []
 
     def __init__(self, expr,
-            name=None,
-            rseed=None,
-            loss_target=None,
-            exceptions=None,
-            do_checks=True,
-            ):
-
+                 name=None,
+                 rseed=None,
+                 loss_target=None,
+                 exceptions=None,
+                 do_checks=True,
+                 ):
         if do_checks:
             if isinstance(expr, pyll.Apply):
                 self.expr = expr
@@ -746,7 +757,7 @@ class Bandit(object):
         else:
             self.expr = pyll.as_apply(expr)
 
-        self.params =  {}
+        self.params = {}
         for node in pyll.dfs(self.expr):
             if node.name == 'hyperopt_param':
                 label = node.arg['label'].obj
@@ -792,7 +803,7 @@ class Bandit(object):
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
             self.expr = recursive_set_rng_kwarg(self.expr,
-                pyll.as_apply(self.rng))
+                                                pyll.as_apply(self.rng))
             self.installed_rng = True
         try:
             r_dct = pyll.rec_eval(self.expr, memo=memo)
@@ -853,17 +864,18 @@ class Domain(Bandit):
     Picklable representation of search space and evaluation function.
     """
     # TODO: Merge with Bandit -- two classes are not necessary
-    rec_eval_print_node_on_error=False
+    rec_eval_print_node_on_error = False
 
     def __init__(self, fn, expr,
-            workdir=None,
-            pass_expr_memo_ctrl=None,
-            **bandit_kwargs):
+                 workdir=None,
+                 pass_expr_memo_ctrl=None,
+                 **bandit_kwargs):
         self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
         if pass_expr_memo_ctrl is None:
             self.pass_expr_memo_ctrl = getattr(fn,
-                    'fmin_pass_expr_memo_ctrl', False)
+                                               'fmin_pass_expr_memo_ctrl',
+                                               False)
         else:
             self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
         Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
@@ -890,20 +902,20 @@ class Domain(Bandit):
         # -- make the graph runnable and SON-encodable
         # N.B. operates inplace
         self.s_idxs_vals = recursive_set_rng_kwarg(
-                pyll.scope.pos_args(idxs_by_label, vals_by_label),
-                pyll.as_apply(self.rng))
+            pyll.scope.pos_args(idxs_by_label, vals_by_label),
+            pyll.as_apply(self.rng))
 
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
 
     def install_rng_in_s_idxs_vals(self, rng):
         self.s_idxs_vals = recursive_set_rng_kwarg(self.s_idxs_vals,
-            pyll.as_apply(rng))
+                                                   pyll.as_apply(rng))
 
     def install_rng_in_expr(self, rng):
         assert rng is not None
         self.expr = recursive_set_rng_kwarg(self.expr,
-            pyll.as_apply(rng))
+                                            pyll.as_apply(rng))
         self.installed_rng = (rng is self.rng)
 
     def evaluate(self, config, ctrl, attach_attachments=True):
@@ -914,28 +926,34 @@ class Domain(Bandit):
             #    XXX this feels wrong
             self.install_rng_in_expr(self.rng)
         if self.pass_expr_memo_ctrl:
-            rval = self.fn(
-                    expr=self.expr,
-                    memo=memo,
-                    ctrl=ctrl)
+            rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
         else:
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
             #    or the normal Python part (self.fn)
-            pyll_rval = pyll.rec_eval(self.expr, memo=memo,
-                    print_node_on_error=self.rec_eval_print_node_on_error)
+            pyll_rval = pyll.rec_eval(
+                self.expr,
+                memo=memo,
+                print_node_on_error=self.rec_eval_print_node_on_error)
             rval = self.fn(pyll_rval)
 
+        # XXX: THIS LOGIC IS KIND OF WRONG
+        #      If the returned thing is a dictionary
+        #      then it *must* have a status key, and then
+        #      depending on what that is, it might need a loss, an error
+        #      etc.
         if isinstance(rval, (float, int, np.number)):
             dict_rval = {'loss': rval}
         elif isinstance(rval, (dict,)):
             dict_rval = rval
             if 'loss' not in dict_rval:
-                raise ValueError('dictionary must have "loss" key',
-                        dict_rval.keys())
+                raise ValueError(
+                    'dictionary must have "loss" key',
+                    dict_rval.keys())
         else:
-            raise TypeError('invalid return type (neither number nor dict)',
-                            rval)
+            raise TypeError(
+                'invalid return type (neither number nor dict)',
+                rval)
 
         if dict_rval['loss'] is not None:
             # -- fail if cannot be cast to float
@@ -992,4 +1010,4 @@ def coin_flip():
     """
     return {'loss': hp_choice('flip', [0.0, 1.0])}
 
-
+# -- flake8 doesn't like blank last line
