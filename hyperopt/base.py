@@ -834,11 +834,7 @@ class Bandit(object):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
-        # N.B. don't use get() here, it evaluates self.loss un-necessarily
-        try:
-            return result['true_loss_variance']
-        except KeyError:
-            return self.loss_variance(result, config=config)
+        raise NotImplementedError()
 
     def status(self, result, config=None):
         """Extract the job status from a result document
