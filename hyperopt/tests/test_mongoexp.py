@@ -11,7 +11,6 @@ if 0:
     copy_reg._reduce_ex = my_reduce_ex
 
 import cPickle
-import functools
 import os
 import signal
 import subprocess
@@ -25,7 +24,6 @@ import nose.plugins.skip
 
 from hyperopt.bandits import gauss_wave2
 from hyperopt.base import JOB_STATE_DONE
-from hyperopt.mongoexp import BanditSwapError
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import ReserveTimeout
