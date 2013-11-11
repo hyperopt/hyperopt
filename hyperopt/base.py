@@ -235,9 +235,7 @@ def spec_from_misc(misc):
 
 
 class Trials(object):
-    """
-    Trials is the database interface that supports data-driven model-based
-    optimization.
+    """Database interface supporting data-driven model-based optimization.
 
     The model-based optimization algorithms used by hyperopt's fmin function
     work by analyzing samples of a response surface--a history of what points
@@ -245,36 +243,39 @@ class Trials(object):
     A Trials instance stores that history and makes it available to fmin and
     to the various optimization algorithms.
 
-    `base.Trials` is a pure-Python implementation of the database in terms of
-    lists of dictionaries.
-
-    `mongoexp.MongoTrials` implements the same API in terms of a mongodb
-    database running in another process.
+    This class (`base.Trials`) is a pure-Python implementation of the database
+    in terms of lists of dictionaries.  Subclass `mongoexp.MongoTrials`
+    implements the same API in terms of a mongodb database running in another
+    process. Other subclasses may be implemented in future.
 
     The elements of `self.trials` represent all of the completed, in-progress,
     and scheduled evaluation points from an e.g. `fmin` call.
 
     Each element of `self.trials` is a dictionary with *at least* the following
     keys:
-    * tid: a unique trial identification object within this Trials instance
-        usually it is an integer, but it isn't obvious that other sortable,
-        hashable objects couldn't be used at some point.
-    * result: a sub-dictionary representing what was returned by the fmin
-        evaluation function. This sub-dictionary has a key 'status' with
-        a value from `STATUS_STRINGS` and if the status is 'ok', then there
-        should be a 'loss' key as well with a floating-point value.
-        Other special keys in this sub-dictionary may be used by optimization
-        algorithms  (see them for details). Other keys in this sub-dictionary
-        can be used by the evaluation function to store miscelaneous
-        diagnostics and debugging information.
-    * misc: despite generic name, this is currently where the trial's
-         hyperparameter assigments are stored. This sub-dictionary has
-         two elements: `'idxs'` and `'vals'`. The `vals` dictionary is
-         a sub-sub-dictionary mapping each hyperparameter to either `[]`
-         (if the hyperparameter is inactive in this trial), or `[<val>]`
-         (if the hyperparameter is active). The `idxs` dictionary is
-         technically redundant -- it is the same as `vals` but it maps
-         hyperparameter names to either `[]` or `[<tid>]`.
+
+    * **tid**: a unique trial identification object within this Trials instance
+      usually it is an integer, but it isn't obvious that other sortable,
+      hashable objects couldn't be used at some point.
+
+    * **result**: a sub-dictionary representing what was returned by the fmin
+      evaluation function. This sub-dictionary has a key 'status' with a value
+      from `STATUS_STRINGS` and if the status is 'ok', then there should be
+      a 'loss' key as well with a floating-point value.  Other special keys in
+      this sub-dictionary may be used by optimization algorithms  (see them
+      for details). Other keys in this sub-dictionary can be used by the
+      evaluation function to store miscelaneous diagnostics and debugging
+      information.
+
+    * **misc**: despite generic name, this is currently where the trial's
+      hyperparameter assigments are stored. This sub-dictionary has two
+      elements: `'idxs'` and `'vals'`. The `vals` dictionary is
+      a sub-sub-dictionary mapping each hyperparameter to either `[]` (if the
+      hyperparameter is inactive in this trial), or `[<val>]` (if the
+      hyperparameter is active). The `idxs` dictionary is technically
+      redundant -- it is the same as `vals` but it maps hyperparameter names
+      to either `[]` or `[<tid>]`.
+
     """
 
     async = False
@@ -599,22 +600,41 @@ class Trials(object):
                 rval[k] = v[0]
         return rval
 
-    def fmin(self, fn, space, algo, max_evals, rseed=0,
+    def fmin(self, fn, space, algo, max_evals,
+        rseed=0,
         verbose=0,
-        wait=True,
         pass_expr_memo_ctrl=None,
-        **kwargs):
+        catch_eval_exceptions=False,
+        return_argmin=True,
+        ):
+        """Minimize a function over a hyperparameter space.
+
+        For most parameters, see `hyperopt.fmin.fmin`.
+
+        Parameters
+        ----------
+
+        catch_eval_exceptions : bool, default False
+            If set to True, exceptions raised by either the evaluation of the
+            configuration space from hyperparameters or the execution of `fn`
+            , will be caught by fmin, and recorded in self._dynamic_trials as
+            error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
+            will not be caught, and so they will propagate to calling code.
+
+
+        """
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        if wait == False:
-            raise NotImplementedError()
         import fmin as fmin_module
         return fmin_module.fmin(fn, space, algo, max_evals,
             trials=self,
             rseed=rseed,
-            allow_trials_fmin=False,
-            pass_expr_memo_ctrl=pass_expr_memo_ctrl, **kwargs)
+            verbose=verbose,
+            allow_trials_fmin=False, # -- prevent recursion
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl,
+            catch_eval_exceptions=catch_eval_exceptions,
+            return_argmin=return_argmin)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
