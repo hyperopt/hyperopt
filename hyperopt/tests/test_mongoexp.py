@@ -7,6 +7,7 @@ import threading
 import time
 import unittest
 
+import numpy as np
 import nose
 import nose.plugins.skip
 
@@ -269,7 +270,7 @@ class TestExperimentWithThreads(unittest.TestCase):
             space=space,
             algo=rand.suggest,
             trials=trials,
-            rseed=seed,
+            rstate=np.random.RandomState(seed),
             max_evals=max_evals,
             return_argmin=False)
 

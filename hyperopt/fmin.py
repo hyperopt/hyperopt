@@ -6,11 +6,11 @@ except ImportError:
 import functools
 import logging
 import sys
-
 import time
 
-import pyll
+import numpy as np
 
+import pyll
 from .utils import coarse_utcnow
 import base
 from base import Domain
@@ -49,11 +49,10 @@ class FMinIter(object):
     catch_eval_exceptions = False
     cPickle_protocol = -1
 
-    def __init__(self, algo, domain, trials, async=None,
+    def __init__(self, algo, domain, trials, rstate, async=None,
             max_queue_len=1,
             poll_interval_secs=1.0,
             max_evals=sys.maxint,
-            rseed=123,
             verbose=0,
             ):
         self.algo = algo
@@ -66,7 +65,7 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
-        self.rseed = rseed
+        self.rstate = rstate
 
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
@@ -155,8 +154,8 @@ class FMinIter(object):
                     for d in self.trials.trials:
                         print 'trial %i %s %s' % (d['tid'], d['state'],
                             d['result'].get('status'))
-                new_trials = algo(new_ids, self.domain, trials, self.rseed)
-                self.rseed += len(new_trials)
+                new_trials = algo(new_ids, self.domain, trials,
+                                  self.rstate.randint(2 * 31 - 1))
                 if new_trials is base.StopExperiment:
                     stopped = True
                     break
@@ -206,7 +205,7 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
+def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          allow_trials_fmin=True, pass_expr_memo_ctrl=None,
          catch_eval_exceptions=False,
          verbose=0,
@@ -256,8 +255,9 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         a trials object, then that trials object will be affected by
         side-effect of this call.
 
-    rseed : int
-        XXX THIS SHOULD IMMEDIATLY BE REPLACED WITH A RANDOMSTATE OBJECT
+    rstate : numpy.RandomState, default numpy.random
+        Each call to `algo` requires a seed value, which should be different
+        on each call. This object is used to draw these seeds via `randint`.
 
     verbose : int
         Print out some information to stdout during search.
@@ -288,12 +288,15 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
 
 
     """
+    if rstate is None:
+        rstate = np.random
+
     if allow_trials_fmin and hasattr(trials, 'fmin'):
         return trials.fmin(
             fn, space,
             algo=algo,
             max_evals=max_evals,
-            rseed=rseed,
+            rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
             verbose=verbose,
             catch_eval_exceptions=catch_eval_exceptions,
@@ -304,13 +307,12 @@ def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
         trials = base.Trials()
 
     domain = Domain(fn, space,
-        rseed=rseed,
+        rseed=rstate.randint(2 ** 31 - 1),
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
-            rseed=rseed + 1, # -- just to be safer against accidental correlations,
-                             #    give fmin a different seed than Domain.
-            verbose=verbose)
+                    rstate=rstate,
+                    verbose=verbose)
     rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
     if return_argmin:

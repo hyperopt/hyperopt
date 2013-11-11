@@ -611,7 +611,7 @@ class Trials(object):
         return rval
 
     def fmin(self, fn, space, algo, max_evals,
-             rseed=0,
+             rstate=None,
              verbose=0,
              pass_expr_memo_ctrl=None,
              catch_eval_exceptions=False,
@@ -640,7 +640,7 @@ class Trials(object):
         return fmin_module.fmin(
             fn, space, algo, max_evals,
             trials=self,
-            rseed=rseed,
+            rstate=rstate,
             verbose=verbose,
             allow_trials_fmin=False,  # -- prevent recursion
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,

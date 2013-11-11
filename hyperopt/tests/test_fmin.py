@@ -1,5 +1,5 @@
 import unittest
-
+import numpy as np
 import nose.tools
 
 from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval
@@ -38,7 +38,7 @@ def test_quadratic1_anneal():
     trials = Trials()
     import hyperopt.anneal
 
-    N = 20
+    N = 30
     def fn(x):
         return (x - 3) ** 2
 
@@ -83,7 +83,7 @@ def test_space_eval():
     assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
     assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
 
-def test_set_fmin_rseed():
+def test_set_fmin_rstate():
     lossfn = lambda x: (x - 3) ** 2
     trials_seed0 = Trials()
     argmin_seed0 = fmin(
@@ -92,7 +92,7 @@ def test_set_fmin_rseed():
             algo=rand.suggest,
             max_evals=1,
             trials=trials_seed0,
-            rseed=0)
+            rstate=np.random.RandomState(0))
     assert len(trials_seed0) == 1
     trials_seed1 = Trials()
     argmin_seed1 = fmin(
@@ -101,7 +101,7 @@ def test_set_fmin_rseed():
             algo=rand.suggest,
             max_evals=1,
             trials=trials_seed1,
-            rseed=1)
+            rstate=np.random.RandomState(1))
     assert len(trials_seed1) == 1
     assert argmin_seed0 != argmin_seed1
 
