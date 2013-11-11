@@ -1,15 +1,3 @@
-if 0:
-    # This code prints out the offending object when pickling fails
-    import copy_reg
-    orig_reduce_ex = copy_reg._reduce_ex
-    def my_reduce_ex(self, proto):
-        try:
-            return orig_reduce_ex(self, proto)
-        except:
-            print 'PICKLING FAILED', self
-            raise
-    copy_reg._reduce_ex = my_reduce_ex
-
 import cPickle
 import os
 import signal
