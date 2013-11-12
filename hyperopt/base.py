@@ -40,7 +40,6 @@ from pyll.stochastic import recursive_set_rng_kwarg
 
 from .exceptions import (
     DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
-from .pyll_utils import hp_choice
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper

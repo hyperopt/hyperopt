@@ -1,20 +1,11 @@
-"""
-Sample problems on which to test algorithms.
+import unittest
 
-XXX: get some standard optimization problems from literature
-
-"""
 import numpy as np
 
+from hyperopt import Trials, Domain, fmin, hp, base
+from hyperopt.rand import suggest
 from hyperopt.pyll import as_apply
 from hyperopt.pyll import scope
-from hyperopt import base, Domain
-
-from hyperopt.pyll_utils import (
-    hp_choice, hp_randint, hp_pchoice,
-    hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform,
-    hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
-    )
 
 
 # -- define this bandit here too for completeness' sake
@@ -27,7 +18,7 @@ def domain_constructor(**b_kwargs):
 
     @domain_constructor(loss_target=0)
     def f(low, high):
-        return {'loss': hp_uniform('x', low, high) ** 2 }
+        return {'loss': hp.uniform('x', low, high) ** 2 }
 
     """
     def deco(f):
@@ -48,7 +39,7 @@ def domain_constructor(**b_kwargs):
 def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': base.STATUS_OK}
+    return {'loss': hp.choice('flip', [0.0, 1.0]), 'status': base.STATUS_OK}
 
 
 
@@ -58,14 +49,14 @@ def quadratic1():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2, 'status': base.STATUS_OK}
+    return {'loss': (hp.uniform('x', -5, 5) - 3) ** 2, 'status': base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
 def q1_choice():
-    o_x = hp_choice('o_x', [
-        (-3, hp_uniform('x_neg', -5, 5)),
-        ( 3, hp_uniform('x_pos', -5, 5)),
+    o_x = hp.choice('o_x', [
+        (-3, hp.uniform('x_neg', -5, 5)),
+        ( 3, hp.uniform('x_pos', -5, 5)),
         ])
     return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': base.STATUS_OK}
 
@@ -76,7 +67,7 @@ def q1_lognormal():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': scope.max(-(hp_lognormal('x', 0, 2) - 3) ** 2, -100),
+    return {'loss': scope.max(-(hp.lognormal('x', 0, 2) - 3) ** 2, -100),
             'status': base.STATUS_OK }
 
 
@@ -89,7 +80,7 @@ def n_arms(N=2):
 
     """
     rng = np.random.RandomState(123)
-    x = hp_choice('x', [0, 1])
+    x = hp.choice('x', [0, 1])
     reward_mus = as_apply([-1] + [0] * (N - 1))
     reward_sigmas = as_apply([1] * N)
     return {'loss': scope.normal(reward_mus[x], reward_sigmas[x], rng=rng),
@@ -108,7 +99,7 @@ def distractor():
     The prior mean is 0.
     """
 
-    x = hp_uniform('x', -15, 15)
+    x = hp.uniform('x', -15, 15)
     f1 = 1.0 / (1.0 + scope.exp(-x))    # climbs rightward from 0.0 to 1.0
     f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
     return {'loss': -f1 - f2, 'status': base.STATUS_OK}
@@ -127,8 +118,8 @@ def gauss_wave():
 
     """
 
-    x = hp_uniform('x', -20, 20)
-    t = hp_choice('curve', [x, x + np.pi])
+    x = hp.uniform('x', -20, 20)
+    t = hp.choice('curve', [x, x + np.pi])
     f1 = scope.sin(t)
     f2 = 2 * scope.exp(-(t / 5.0) ** 2)
     return {'loss': - (f1 + f2), 'status': base.STATUS_OK}
@@ -148,28 +139,94 @@ def gauss_wave2():
 
     rng = np.random.RandomState(123)
     var = .1
-    x = hp_uniform('x', -20, 20)
-    amp = hp_uniform('amp', 0, 1)
+    x = hp.uniform('x', -20, 20)
+    amp = hp.uniform('amp', 0, 1)
     t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(x / 5.0) ** 2))
-    return {'loss': - hp_choice('hf', [t, t + scope.sin(x) * amp]),
+    return {'loss': - hp.choice('hf', [t, t + scope.sin(x) * amp]),
             'loss_variance': var, 'status': base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
 def many_dists():
-    a=hp_choice('a', [0, 1, 2])
-    b=hp_randint('b', 10)
-    c=hp_uniform('c', 4, 7)
-    d=hp_loguniform('d', -2, 0)
-    e=hp_quniform('e', 0, 10, 3)
-    f=hp_qloguniform('f', 0, 3, 2)
-    g=hp_normal('g', 4, 7)
-    h=hp_lognormal('h', -2, 2)
-    i=hp_qnormal('i', 0, 10, 2)
-    j=hp_qlognormal('j', 0, 2, 1)
-    k=hp_pchoice('k', [(.1, 0), (.9, 1)])
+    a=hp.choice('a', [0, 1, 2])
+    b=hp.randint('b', 10)
+    c=hp.uniform('c', 4, 7)
+    d=hp.loguniform('d', -2, 0)
+    e=hp.quniform('e', 0, 10, 3)
+    f=hp.qloguniform('f', 0, 3, 2)
+    g=hp.normal('g', 4, 7)
+    h=hp.lognormal('h', -2, 2)
+    i=hp.qnormal('i', 0, 10, 2)
+    j=hp.qlognormal('j', 0, 2, 1)
+    k=hp.pchoice('k', [(.1, 0), (.9, 1)])
     z = a + b + c + d + e + f + g + h + i + j + k
     return {'loss': scope.float(scope.log(1e-12 + z ** 2)),
             'status': base.STATUS_OK}
 
 
+
+class DomainExperimentMixin(object):
+    def test_basic(self):
+        domain = self._domain_cls()
+        #print 'domain params', domain.params, domain
+        #print 'algo params', algo.vh.params
+        trials = Trials()
+        fmin(lambda x: x, domain.expr,
+             trials=trials,
+             algo=suggest,
+             max_evals=self._n_steps)
+        assert trials.average_best_error(domain) - domain.loss_target  < .2
+
+    @classmethod
+    def make(cls, domain_cls, n_steps=500):
+        class Tester(unittest.TestCase, cls):
+            def setUp(self):
+                self._n_steps = n_steps
+                self._domain_cls = domain_cls
+        Tester.__name__ = domain_cls.__name__ + 'Tester'
+        return Tester
+
+
+quadratic1Tester = DomainExperimentMixin.make(quadratic1)
+q1_lognormalTester = DomainExperimentMixin.make(q1_lognormal)
+q1_choiceTester = DomainExperimentMixin.make(q1_choice)
+n_armsTester = DomainExperimentMixin.make(n_arms)
+distractorTester = DomainExperimentMixin.make(distractor)
+gauss_waveTester = DomainExperimentMixin.make(gauss_wave)
+gauss_wave2Tester = DomainExperimentMixin.make(gauss_wave2,
+        n_steps=5000)
+
+
+class CasePerDomain(object):
+    # -- this is a mixin
+    # -- Override self.work to execute a test for each kind of self.bandit
+
+    def test_quadratic1(self):
+        self.bandit = quadratic1()
+        self.work()
+
+    def test_q1lognormal(self):
+        self.bandit = q1_lognormal()
+        self.work()
+
+    def test_twoarms(self):
+        self.bandit = n_arms()
+        self.work()
+
+    def test_distractor(self):
+        self.bandit = distractor()
+        self.work()
+
+    def test_gausswave(self):
+        self.bandit = gauss_wave()
+        self.work()
+
+    def test_gausswave2(self):
+        self.bandit = gauss_wave2()
+        self.work()
+
+    def test_many_dists(self):
+        self.bandit = many_dists()
+        self.work()
+
+# -- non-blank last line for flake8

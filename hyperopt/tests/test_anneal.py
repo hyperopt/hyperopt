@@ -5,7 +5,7 @@ from hyperopt import anneal
 from hyperopt import rand
 from hyperopt import Trials, fmin
 
-from test_bandits import CasePerDomain
+from test_domains import CasePerDomain
 
 def passthrough(x):
     return x

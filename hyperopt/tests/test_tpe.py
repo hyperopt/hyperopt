@@ -17,12 +17,7 @@ from hyperopt import Trials
 
 from hyperopt.base import miscs_to_idxs_vals, STATUS_OK
 
-from hyperopt.pyll_utils import hp_choice
-from hyperopt.pyll_utils import hp_randint
-from hyperopt.pyll_utils import hp_uniform, hp_loguniform
-from hyperopt.pyll_utils import hp_quniform, hp_qloguniform
-from hyperopt.pyll_utils import hp_normal, hp_lognormal
-from hyperopt.pyll_utils import hp_qnormal, hp_qlognormal
+from hyperopt import hp
 
 from hyperopt.tpe import adaptive_parzen_normal_orig
 from hyperopt.tpe import GMM1
@@ -34,17 +29,9 @@ import hyperopt.rand as rand
 import hyperopt.tpe as tpe
 from hyperopt import fmin
 
-from bandits import (
+from test_domains import (
     domain_constructor,
-    quadratic1,
-    q1_lognormal,
-    n_arms,
-    distractor,
-    gauss_wave,
-    gauss_wave2,
-    many_dists,
-    )
-from test_bandits import CasePerDomain
+    CasePerDomain)
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
@@ -655,7 +642,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
 @domain_constructor(loss_target=0)
 def opt_q_uniform(target):
     rng = np.random.RandomState(123)
-    x = hp_quniform('x', 1.01, 10, 1)
+    x = hp.quniform('x', 1.01, 10, 1)
     return {'loss': (x - target) ** 2 + scope.normal(0, 1, rng=rng),
             'status': STATUS_OK}
 

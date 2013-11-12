@@ -18,7 +18,7 @@ except ImportError:
 from hyperopt import Trials
 import hyperopt.plotting
 from hyperopt import rand, fmin
-from bandits import many_dists
+from test_domains import many_dists
 
 def get_do_show():
     rval = int(os.getenv('HYPEROPT_SHOW', '0'))
