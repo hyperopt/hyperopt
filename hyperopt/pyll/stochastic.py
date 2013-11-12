@@ -164,7 +164,12 @@ def recursive_set_rng_kwarg(expr, rng=None):
     lrng = as_apply(rng)
     for node in dfs(expr):
         if node.name in implicit_stochastic_symbols:
-            node.named_args.append(('rng', lrng))
+            for ii, (name, arg) in enumerate(list(node.named_args)):
+                if name == 'rng':
+                    node.named_args[ii] = ('rng', lrng)
+                    break
+            else:
+                node.named_args.append(('rng', lrng))
     return expr
 
 

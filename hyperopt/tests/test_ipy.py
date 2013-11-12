@@ -13,6 +13,8 @@ import hyperopt
 
 
 def simple_objective(args):
+    # -- why are these imports here !?
+    # -- is it because they need to be imported on the client?
     import time
     import random
     return args ** 2
@@ -21,7 +23,10 @@ space = hyperopt.hp.uniform('x', 0, 1)
 
 
 def test0():
-    client = Client()
+    try:
+        client = Client()
+    except IOError:
+        raise SkipTest()
     trials = IPythonTrials(client)
 
     minval = trials.fmin(simple_objective, space, hyperopt.tpe.suggest, 25)
@@ -30,7 +35,10 @@ def test0():
 
 
 def test_fmin_fn():
-    client = Client()
+    try:
+        client = Client()
+    except IOError:
+        raise SkipTest()
     trials = IPythonTrials(client)
     assert not trials._testing_fmin_was_called
     minval = hyperopt.fmin(simple_objective, space,

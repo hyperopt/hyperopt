@@ -26,27 +26,25 @@ The design is that there are three components fitting together in this project:
 
 """
 
-__authors__   = "James Bergstra"
-__license__   = "3-clause BSD License"
-__contact__   = "github.com/jaberg/hyperopt"
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
 
-import hashlib
 import logging
-import time
 import datetime
 import sys
 
 import numpy as np
 
-import bson # -- comes with pymongo
+import bson  # -- comes with pymongo
 from bson.objectid import ObjectId
 
 import pyll
-from pyll import scope
+#from pyll import scope  # looks unused but
 from pyll.stochastic import recursive_set_rng_kwarg
 
-from .exceptions import DuplicateLabel
-from .exceptions import InvalidTrial
+from .exceptions import (
+    DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
 from .pyll_utils import hp_choice
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
@@ -85,29 +83,33 @@ JOB_STATE_NEW = 0
 JOB_STATE_RUNNING = 1
 JOB_STATE_DONE = 2
 JOB_STATE_ERROR = 3
-JOB_STATES= [JOB_STATE_NEW,
-              JOB_STATE_RUNNING,
-              JOB_STATE_DONE,
-              JOB_STATE_ERROR]
+JOB_STATES = [
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR]
 
 
 TRIAL_KEYS = [
-        'tid',
-        'spec',
-        'result',
-        'misc',
-        'state',
-        'owner',
-        'book_time',
-        'refresh_time',
-        'exp_key']
+    'tid',
+    'spec',
+    'result',
+    'misc',
+    'state',
+    'owner',
+    'book_time',
+    'refresh_time',
+    'exp_key']
 
 TRIAL_MISC_KEYS = [
-        'tid',
-        'cmd',
-        'idxs',
-        'vals',
-        ]
+    'tid',
+    'cmd',
+    'idxs',
+    'vals']
+
+
+def _all_same(*args):
+    return 1 == len(set(args))
 
 
 def StopExperiment(*args, **kwargs):
@@ -138,15 +140,15 @@ def SONify(arg, memo=None):
         elif isinstance(arg, (list, tuple)):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
-            rval = dict([(SONify(k, memo), SONify(v, memo))
-                for k, v in arg.items()])
+            rval = dict(
+                [(SONify(k, memo), SONify(v, memo)) for k, v in arg.items()])
         elif isinstance(arg, (basestring, float, int, long, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:
                 rval = SONify(arg.sum())
             else:
-                rval = map(SONify, arg) # N.B. memo None
+                rval = map(SONify, arg)  # N.B. memo None
         # -- put this after ndarray because ndarray not hashable
         elif arg in (True, False):
             rval = int(arg)
@@ -161,8 +163,9 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True,
-                          idxs_map=None):
+def miscs_update_idxs_vals(miscs, idxs, vals,
+                           assert_all_vals_used=True,
+                           idxs_map=None):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
@@ -237,15 +240,47 @@ def spec_from_misc(misc):
 
 
 class Trials(object):
-    """
-    Trials are documents (dict-like) with *at least* the following keys:
-        - spec: an instantiation of a Bandit template
-        - tid: a unique trial identification integer within `self.trials`
-        - result: sub-document returned by Bandit.evaluate
-        - idxs:  sub-document mapping stochastic node names
-                    to either [] or [tid]
-        - vals:  sub-document mapping stochastic node names
-                    to either [] or [<val>]
+    """Database interface supporting data-driven model-based optimization.
+
+    The model-based optimization algorithms used by hyperopt's fmin function
+    work by analyzing samples of a response surface--a history of what points
+    in the search space were tested, and what was discovered by those tests.
+    A Trials instance stores that history and makes it available to fmin and
+    to the various optimization algorithms.
+
+    This class (`base.Trials`) is a pure-Python implementation of the database
+    in terms of lists of dictionaries.  Subclass `mongoexp.MongoTrials`
+    implements the same API in terms of a mongodb database running in another
+    process. Other subclasses may be implemented in future.
+
+    The elements of `self.trials` represent all of the completed, in-progress,
+    and scheduled evaluation points from an e.g. `fmin` call.
+
+    Each element of `self.trials` is a dictionary with *at least* the following
+    keys:
+
+    * **tid**: a unique trial identification object within this Trials instance
+      usually it is an integer, but it isn't obvious that other sortable,
+      hashable objects couldn't be used at some point.
+
+    * **result**: a sub-dictionary representing what was returned by the fmin
+      evaluation function. This sub-dictionary has a key 'status' with a value
+      from `STATUS_STRINGS` and if the status is 'ok', then there should be
+      a 'loss' key as well with a floating-point value.  Other special keys in
+      this sub-dictionary may be used by optimization algorithms  (see them
+      for details). Other keys in this sub-dictionary can be used by the
+      evaluation function to store miscelaneous diagnostics and debugging
+      information.
+
+    * **misc**: despite generic name, this is currently where the trial's
+      hyperparameter assigments are stored. This sub-dictionary has two
+      elements: `'idxs'` and `'vals'`. The `vals` dictionary is
+      a sub-sub-dictionary mapping each hyperparameter to either `[]` (if the
+      hyperparameter is inactive in this trial), or `[<val>]` (if the
+      hyperparameter is active). The `idxs` dictionary is technically
+      redundant -- it is the same as `vals` but it maps hyperparameter names
+      to either `[]` or `[<tid>]`.
+
     """
 
     async = False
@@ -310,19 +345,21 @@ class Trials(object):
             raise
 
     def __getitem__(self, item):
-        raise NotImplementedError('how to make it obvious whether'
-                ' indexing is by _trials position or by tid?')
+        # -- how to make it obvious whether indexing is by _trials position
+        #    or by tid if both are integers?
+        raise NotImplementedError('')
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
         if self._exp_key is None:
-            self._trials = [tt for tt in self._dynamic_trials
+            self._trials = [
+                tt for tt in self._dynamic_trials
                 if tt['state'] != JOB_STATE_ERROR]
         else:
-            self._trials = [tt for tt in self._dynamic_trials
-                if (tt['state'] != JOB_STATE_ERROR
-                    and tt['exp_key'] == self._exp_key
-                    )]
+            self._trials = [tt
+                            for tt in self._dynamic_trials
+                            if (tt['state'] != JOB_STATE_ERROR
+                                and tt['exp_key'] == self._exp_key)]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -363,13 +400,15 @@ class Trials(object):
             if key not in trial['misc']:
                 raise InvalidTrial('trial["misc"] missing key', key)
         if trial['tid'] != trial['misc']['tid']:
-            raise InvalidTrial('tid mismatch between root and misc',
-                    (trial['tid'], trial['misc']['tid']))
+            raise InvalidTrial(
+                'tid mismatch between root and misc',
+                trial)
         # -- check for SON-encodable
         try:
             bson.BSON.encode(trial)
         except:
-            # TODO: save the trial object somewhere to inspect, fix, re-insert, etc.
+            # TODO: save the trial object somewhere to inspect, fix, re-insert
+            #       so that precious data is not simply deallocated and lost.
             print '-' * 80
             print "CANT ENCODE"
             print '-' * 80
@@ -416,11 +455,11 @@ class Trials(object):
         rval = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
             doc = dict(
-                    state=JOB_STATE_NEW,
-                    tid=tid,
-                    spec=spec,
-                    result=result,
-                    misc=misc)
+                state=JOB_STATE_NEW,
+                tid=tid,
+                spec=spec,
+                result=result,
+                misc=misc)
             doc['exp_key'] = self._exp_key
             doc['owner'] = None
             doc['version'] = 0
@@ -430,21 +469,22 @@ class Trials(object):
         return rval
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
-        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
+        assert _all_same(map(len, [tids, specs, results, miscs, sources]))
         rval = []
-        for tid, spec, result, misc, source in zip(tids, specs, results, miscs, sources):
+        for tid, spec, result, misc, source in zip(tids, specs, results, miscs,
+                                                   sources):
             doc = dict(
-                    version=0,
-                    tid=tid,
-                    spec=spec,
-                    result=result,
-                    misc=misc,
-                    state=source['state'],
-                    exp_key=source['exp_key'],
-                    owner=source['owner'],
-                    book_time=source['book_time'],
-                    refresh_time=source['refresh_time'],
-                    )
+                version=0,
+                tid=tid,
+                spec=spec,
+                result=result,
+                misc=misc,
+                state=source['state'],
+                exp_key=source['exp_key'],
+                owner=source['owner'],
+                book_time=source['book_time'],
+                refresh_time=source['refresh_time'],
+                )
             # -- ensure that misc has the following fields,
             #    some of which may already by set correctly.
             assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
@@ -481,8 +521,9 @@ class Trials(object):
         called refresh() first.
         """
         if self._exp_key is not None:
-            exp_trials = [tt for tt in self._dynamic_trials
-                if tt['exp_key'] == self._exp_key]
+            exp_trials = [tt
+                          for tt in self._dynamic_trials
+                          if tt['exp_key'] == self._exp_key]
         else:
             exp_trials = self._dynamic_trials
         return self.count_by_state_synced(arg, trials=exp_trials)
@@ -509,21 +550,20 @@ class Trials(object):
         returns the true_loss corresponding to the result with the lowest loss.
         """
 
-
         if bandit is None:
             results = self.results
             loss = [r['loss']
                     for r in results if r['status'] == STATUS_OK]
             loss_v = [r.get('loss_variance', 0)
-                    for r in results if r['status'] == STATUS_OK]
+                      for r in results if r['status'] == STATUS_OK]
             true_loss = [r.get('true_loss', r['loss'])
-                    for r in results if r['status'] == STATUS_OK]
-
+                         for r in results if r['status'] == STATUS_OK]
         else:
             def fmap(f):
-                rval = np.asarray([f(r, s)
-                        for (r, s) in zip(self.results, self.specs)
-                        if bandit.status(r) == STATUS_OK]).astype('float')
+                rval = np.asarray([
+                    f(r, s)
+                    for (r, s) in zip(self.results, self.specs)
+                    if bandit.status(r) == STATUS_OK]).astype('float')
                 if not np.all(np.isfinite(rval)):
                     raise ValueError()
                 return rval
@@ -570,22 +610,42 @@ class Trials(object):
                 rval[k] = v[0]
         return rval
 
-    def fmin(self, fn, space, algo, max_evals, rseed=0,
-        verbose=0,
-        wait=True,
-        pass_expr_memo_ctrl=None,
-        ):
+    def fmin(self, fn, space, algo, max_evals,
+             rstate=None,
+             verbose=0,
+             pass_expr_memo_ctrl=None,
+             catch_eval_exceptions=False,
+             return_argmin=True,
+             ):
+        """Minimize a function over a hyperparameter space.
+
+        For most parameters, see `hyperopt.fmin.fmin`.
+
+        Parameters
+        ----------
+
+        catch_eval_exceptions : bool, default False
+            If set to True, exceptions raised by either the evaluation of the
+            configuration space from hyperparameters or the execution of `fn`
+            , will be caught by fmin, and recorded in self._dynamic_trials as
+            error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
+            will not be caught, and so they will propagate to calling code.
+
+
+        """
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        if wait == False:
-            raise NotImplementedError()
         import fmin as fmin_module
-        return fmin_module.fmin(fn, space, algo, max_evals,
+        return fmin_module.fmin(
+            fn, space, algo, max_evals,
             trials=self,
-            rseed=rseed,
-            allow_trials_fmin=False,
-            pass_expr_memo_ctrl=pass_expr_memo_ctrl)
+            rstate=rstate,
+            verbose=verbose,
+            allow_trials_fmin=False,  # -- prevent recursion
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl,
+            catch_eval_exceptions=catch_eval_exceptions,
+            return_argmin=return_argmin)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
@@ -638,7 +698,8 @@ class Ctrl(object):
 
         Returns ??? XXX
 
-        new_tids can be None, in which case new tids will be generated automatically
+        new_tids can be None, in which case new tids will be generated
+        automatically
 
         """
         trial = self.current_trial
@@ -674,13 +735,11 @@ class Bandit(object):
     exceptions = []
 
     def __init__(self, expr,
-            name=None,
-            rseed=None,
-            loss_target=None,
-            exceptions=None,
-            do_checks=True,
-            ):
-
+                 name=None,
+                 loss_target=None,
+                 exceptions=None,
+                 do_checks=True,
+                 ):
         if do_checks:
             if isinstance(expr, pyll.Apply):
                 self.expr = expr
@@ -697,7 +756,7 @@ class Bandit(object):
         else:
             self.expr = pyll.as_apply(expr)
 
-        self.params =  {}
+        self.params = {}
         for node in pyll.dfs(self.expr):
             if node.name == 'hyperopt_param':
                 label = node.arg['label'].obj
@@ -708,12 +767,6 @@ class Bandit(object):
         if exceptions is not None:
             self.exceptions = exceptions
         self.loss_target = loss_target
-        self.installed_rng = False
-        if rseed is None:
-            self.rng = None
-        else:
-            self.rng = np.random.RandomState(rseed)
-
         self.name = name
 
     def memo_from_config(self, config):
@@ -743,7 +796,7 @@ class Bandit(object):
             # -- N.B. this modifies the expr graph in-place
             #    XXX this feels wrong
             self.expr = recursive_set_rng_kwarg(self.expr,
-                pyll.as_apply(self.rng))
+                                                pyll.as_apply(self.rng))
             self.installed_rng = True
         try:
             r_dct = pyll.rec_eval(self.expr, memo=memo)
@@ -785,11 +838,7 @@ class Bandit(object):
         """Return the variance in  true loss,
         in the case that the `loss` is a surrogate.
         """
-        # N.B. don't use get() here, it evaluates self.loss un-necessarily
-        try:
-            return result['true_loss_variance']
-        except KeyError:
-            return self.loss_variance(result, config=config)
+        raise NotImplementedError()
 
     def status(self, result, config=None):
         """Extract the job status from a result document
@@ -801,6 +850,100 @@ class Bandit(object):
         to serve as the 'result' for new jobs.
         """
         return {'status': STATUS_NEW}
+
+
+class Domain(Bandit):
+    """
+    Picklable representation of search space and evaluation function.
+    """
+    # TODO: Merge with Bandit -- two classes are not necessary
+    rec_eval_print_node_on_error = False
+
+    def __init__(self, fn, expr,
+                 workdir=None,
+                 pass_expr_memo_ctrl=None,
+                 **bandit_kwargs):
+        self.cmd = ('domain_attachment', 'FMinIter_Domain')
+        self.fn = fn
+        if pass_expr_memo_ctrl is None:
+            self.pass_expr_memo_ctrl = getattr(fn,
+                                               'fmin_pass_expr_memo_ctrl',
+                                               False)
+        else:
+            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
+        Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
+
+        # -- This code was stolen from base.BanditAlgo, a class which may soon
+        #    be gone
+        self.workdir = workdir
+        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
+        before = pyll.dfs(self.expr)
+        # -- raises exception if expr contains cycles
+        pyll.toposort(self.expr)
+        vh = self.vh = VectorizeHelper(self.expr, self.s_new_ids)
+        # -- raises exception if v_expr contains cycles
+        pyll.toposort(vh.v_expr)
+
+        idxs_by_label = vh.idxs_by_label()
+        vals_by_label = vh.vals_by_label()
+        after = pyll.dfs(self.expr)
+        # -- try to detect if VectorizeHelper screwed up anything inplace
+        assert before == after
+        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
+        assert set(idxs_by_label.keys()) == set(self.params.keys())
+
+        self.s_rng = pyll.Literal('rng-placeholder')
+        # -- N.B. operates inplace:
+        self.s_idxs_vals = recursive_set_rng_kwarg(
+            pyll.scope.pos_args(idxs_by_label, vals_by_label),
+            self.s_rng)
+
+        # -- raises an exception if no topological ordering exists
+        pyll.toposort(self.s_idxs_vals)
+
+    def evaluate(self, config, ctrl, attach_attachments=True):
+        memo = self.memo_from_config(config)
+        self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
+        if self.pass_expr_memo_ctrl:
+            rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
+        else:
+            # -- the "work" of evaluating `config` can be written
+            #    either into the pyll part (self.expr)
+            #    or the normal Python part (self.fn)
+            pyll_rval = pyll.rec_eval(
+                self.expr,
+                memo=memo,
+                print_node_on_error=self.rec_eval_print_node_on_error)
+            rval = self.fn(pyll_rval)
+
+        if isinstance(rval, (float, int, np.number)):
+            dict_rval = {'loss': float(rval), 'status': STATUS_OK}
+        else:
+            dict_rval = dict(rval)
+            status = dict_rval['status']
+            if status not in STATUS_STRINGS:
+                raise InvalidResultStatus(dict_rval)
+
+            if status == STATUS_OK:
+                # -- make sure that the loss is present and valid
+                try:
+                    dict_rval['loss'] = float(dict_rval['loss'])
+                except (TypeError, KeyError):
+                    raise InvalidLoss(dict_rval)
+
+        if attach_attachments:
+            attachments = dict_rval.pop('attachments', {})
+            for key, val in attachments.items():
+                ctrl.attachments[key] = val
+
+        # -- don't do this here because SON-compatibility is only a requirement
+        #    for trials destined for a mongodb. In-memory rvals can contain
+        #    anything.
+        #return base.SONify(dict_rval)
+        return dict_rval
+
+    def short_str(self):
+        return 'Domain{%s}' % str(self.fn)
 
 
 def as_bandit(**b_kwargs):
@@ -822,8 +965,8 @@ def as_bandit(**b_kwargs):
             else:
                 _b_kwargs = dict(b_kwargs, name=f.__name__)
             f_rval = f(*args, **kwargs)
-            bandit = Bandit(f_rval, **_b_kwargs)
-            return bandit
+            domain = Domain(lambda x: x, f_rval, **_b_kwargs)
+            return domain
         wrapper.__name__ = f.__name__
         return wrapper
     return deco
@@ -833,250 +976,6 @@ def as_bandit(**b_kwargs):
 def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-    return {'loss': hp_choice('flip', [0.0, 1.0])}
+    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': 'ok'}
 
-
-class BanditAlgo(object):
-    """
-    Algorithm for optimizing Bandits.
-
-    :type bandit: Bandit
-    :param bandit: the bandit problem this algorithm should solve
-
-    :param cmd: a pair used by MongoWorker to know how to evaluate suggestions
-    :param workdir: optional hint to MongoWorker where to store temp files.
-
-    """
-    seed = 123
-
-    def __init__(self, bandit, seed=seed, cmd=None, workdir=None):
-        self.bandit = bandit
-        self.seed = seed
-        self.rng = np.random.RandomState(self.seed)
-        self.cmd = cmd
-        self.workdir = workdir
-        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
-        before = pyll.dfs(self.bandit.expr)
-        # -- raises exception if expr contains cycles
-        pyll.toposort(self.bandit.expr)
-        vh = self.vh = VectorizeHelper(self.bandit.expr, self.s_new_ids)
-        # -- raises exception if v_expr contains cycles
-        pyll.toposort(vh.v_expr)
-
-        idxs_by_label = vh.idxs_by_label()
-        vals_by_label = vh.vals_by_label()
-        after = pyll.dfs(self.bandit.expr)
-        # -- try to detect if VectorizeHelper screwed up anything inplace
-        assert before == after
-        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
-        assert set(idxs_by_label.keys()) == set(self.bandit.params.keys())
-
-        # -- make the graph runnable and SON-encodable
-        # N.B. operates inplace
-        self.s_idxs_vals = recursive_set_rng_kwarg(
-                scope.pos_args(idxs_by_label, vals_by_label),
-                pyll.as_apply(self.rng))
-
-        # -- raises an exception if no topological ordering exists
-        pyll.toposort(self.s_idxs_vals)
-
-    def short_str(self):
-        return self.__class__.__name__
-
-    def suggest(self, new_ids, trials):
-        """
-        new_ids - a list of unique identifiers (not necessarily ints!)
-                  for the suggestions that this function should return.
-
-        All lists have the same length.
-        """
-        # XXX: this used to be the implementation for the Random class and the
-        # base class.  But then I was doing an experiment with Random() a
-        # different seed every time and I was surprised to see it generating
-        # the same thing all the time!  In response, I gave the Random
-        # subclass its own simpler and more random implementation of suggest
-        # that does not re-seed self.rng based on the new_ids. That leaves
-        # this strange implementation here in the base class, and I'm not sure
-        # whether to delete it. -JB June 19 2012
-        #
-        # -- install new_ids as program arguments
-        rval = []
-        for new_id in new_ids:
-            # the results are not computed all at once so that we can
-            # seed the generator based on each new_id
-            sh1 = hashlib.sha1()
-            sh1.update(str(new_id))
-            self.rng.seed(int(int(sh1.hexdigest(), base=16) % (2 ** 31)))
-
-            # -- sample new specs, idxs, vals
-            idxs, vals = pyll.rec_eval(self.s_idxs_vals,
-                    memo={self.s_new_ids: [new_id]})
-            #print 'BandigAlgo.suggest IDXS', idxs
-            #print 'BandigAlgo.suggest VALS', vals
-            new_result = self.bandit.new_result()
-            new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
-            miscs_update_idxs_vals([new_misc], idxs, vals)
-            rval.extend(trials.new_trial_docs([new_id],
-                    [None], [new_result], [new_misc]))
-        return rval
-
-
-class Random(BanditAlgo):
-    """Random search algorithm
-
-    The base implementation of BanditAlgo actually does random sampling,
-    This class is defined so that hyperopt.Random can be used to mean random
-    sampling.
-    """
-
-    def suggest(self, new_ids, trials):
-        """
-        new_ids - a list of unique identifiers (not necessarily ints!)
-                  for the suggestions that this function should return.
-
-        All lists have the same length.
-        """
-        rval = []
-        for new_id in new_ids:
-            # -- sample new specs, idxs, vals
-            idxs, vals = pyll.rec_eval(self.s_idxs_vals,
-                    memo={self.s_new_ids: [new_id]})
-            #print 'BandigAlgo.suggest IDXS', idxs
-            #print 'BandigAlgo.suggest VALS', vals
-            new_result = self.bandit.new_result()
-            new_misc = dict(tid=new_id, cmd=self.cmd, workdir=self.workdir)
-            miscs_update_idxs_vals([new_misc], idxs, vals)
-            rval.extend(trials.new_trial_docs([new_id],
-                    [None], [new_result], [new_misc]))
-        return rval
-
-
-
-class RandomStop(Random):
-    """Run random search for up to `ntrials` iterations, and then stop.
-    """
-    def __init__(self, ntrials, *args, **kwargs):
-        Random.__init__(self, *args, **kwargs)
-        self.ntrials = ntrials
-
-    def suggest(self, new_ids, trials):
-        if len(trials) >= self.ntrials:
-            return StopExperiment()
-        else:
-            return Random.suggest(self, new_ids, trials)
-
-
-class Experiment(object):
-    """Object for conducting search experiments.
-    """
-    catch_bandit_exceptions = True
-
-    def __init__(self, trials, bandit_algo, async=None,
-            max_queue_len=1,
-            poll_interval_secs=1.0,
-            ):
-        self.trials = trials
-        self.bandit_algo = bandit_algo
-        self.bandit = bandit_algo.bandit
-        if async is None:
-            self.async = trials.async
-        else:
-            self.async = async
-        self.poll_interval_secs = poll_interval_secs
-        self.max_queue_len = max_queue_len
-
-    def serial_evaluate(self, N=-1):
-        for trial in self.trials._dynamic_trials:
-            if trial['state'] == JOB_STATE_NEW:
-                spec = spec_from_misc(trial['misc'])
-                ctrl = Ctrl(self.trials, current_trial=trial)
-                try:
-                    result = self.bandit.evaluate(spec, ctrl)
-                except Exception, e:
-                    logger.info('job exception: %s' % str(e))
-                    trial['state'] = JOB_STATE_ERROR
-                    trial['misc']['error'] = (str(type(e)), str(e))
-                    if not self.catch_bandit_exceptions:
-                        raise
-                else:
-                    #logger.debug('job returned: %s' % str(result))
-                    trial['state'] = JOB_STATE_DONE
-                    trial['result'] = result
-                N -= 1
-                if N == 0:
-                    break
-        self.trials.refresh()
-
-    def block_until_done(self):
-        if self.async:
-            unfinished_states = [JOB_STATE_NEW, JOB_STATE_RUNNING]
-
-            def get_queue_len():
-                return self.trials.count_by_state_unsynced(unfinished_states)
-
-            qlen = get_queue_len()
-            while qlen > 0:
-                logger.info('Waiting for %d jobs to finish ...' % qlen)
-                time.sleep(self.poll_interval_secs)
-                qlen = get_queue_len()
-            self.trials.refresh()
-        else:
-            self.serial_evaluate()
-
-    def run(self, N, block_until_done=True):
-        """
-        block_until_done  means that the process blocks until ALL jobs in
-        trials are not in running or new state
-
-        bandit_algo can pass instance of StopExperiment to break out of
-        enqueuing loop
-        """
-        trials = self.trials
-        algo = self.bandit_algo
-        n_queued = 0
-
-        def get_queue_len():
-            return self.trials.count_by_state_unsynced(JOB_STATE_NEW)
-
-        stopped = False
-        while n_queued < N:
-            qlen = get_queue_len()
-            while qlen < self.max_queue_len and n_queued < N:
-                n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
-                new_ids = trials.new_trial_ids(n_to_enqueue)
-                self.trials.refresh()
-                new_trials = algo.suggest(new_ids, trials)
-                if new_trials is StopExperiment:
-                    stopped = True
-                    break
-                else:
-                    assert len(new_ids) >= len(new_trials)
-                    if len(new_trials):
-                        self.trials.insert_trial_docs(new_trials)
-                        self.trials.refresh()
-                        n_queued += len(new_trials)
-                        qlen = get_queue_len()
-                    else:
-                        break
-
-            if self.async:
-                # -- wait for workers to fill in the trials
-                time.sleep(self.poll_interval_secs)
-            else:
-                # -- loop over trials and do the jobs directly
-                self.serial_evaluate()
-
-            if stopped:
-                break
-
-        if block_until_done:
-            self.block_until_done()
-            self.trials.refresh()
-            logger.info('Queue empty, exiting run.')
-        else:
-            qlen = get_queue_len()
-            if qlen:
-                msg = 'Exiting run, not waiting for %d jobs.' % qlen
-                logger.info(msg)
-
-
+# -- flake8 doesn't like blank last line

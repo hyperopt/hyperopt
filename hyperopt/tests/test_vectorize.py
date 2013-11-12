@@ -3,7 +3,7 @@ import numpy as np
 from hyperopt.pyll import as_apply, scope, rec_eval, clone, dfs
 from hyperopt.pyll.stochastic import recursive_set_rng_kwarg
 
-from hyperopt import base
+from hyperopt import base, fmin, rand
 from hyperopt.vectorize import VectorizeHelper
 from hyperopt.vectorize import replace_repeat_stochastic
 from hyperopt.pyll_utils import hp_choice
@@ -230,12 +230,14 @@ def test_distributions():
                     hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2) +
                     hp_quniform('qu', -4.999, 5, 1) +
                     hp_uniform('u', 0, 10)})
-    algo = base.Random(bandit)
     trials = base.Trials()
-    exp = base.Experiment(trials, algo)
-    exp.catch_bandit_exceptions = False
     N = 1000
-    exp.run(N)
+    fmin(lambda x: x,
+        space=bandit.expr,
+        algo=rand.suggest,
+        trials=trials,
+        max_evals=N,
+        catch_eval_exceptions=False)
     assert len(trials) == N
     idxs, vals = base.miscs_to_idxs_vals(trials.miscs)
     print idxs.keys()

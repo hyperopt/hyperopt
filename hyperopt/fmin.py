@@ -6,16 +6,13 @@ except ImportError:
 import functools
 import logging
 import sys
-
-import numpy as np
 import time
 
-import pyll
-from pyll.stochastic import recursive_set_rng_kwarg
+import numpy as np
 
-from .vectorize import VectorizeHelper
+import pyll
 from .utils import coarse_utcnow
-import base
+from . import base
 
 logger = logging.getLogger(__name__)
 
@@ -45,116 +42,13 @@ def partial(fn, **kwargs):
     return rval
 
 
-class Domain(base.Bandit):
-    """
-    Picklable representation of search space and evaluation function.
-    """
-    rec_eval_print_node_on_error=False
-
-    def __init__(self, fn, expr,
-            workdir=None,
-            pass_expr_memo_ctrl=None,
-            **bandit_kwargs):
-        self.cmd = ('domain_attachment', 'FMinIter_Domain')
-        self.fn = fn
-        if pass_expr_memo_ctrl is None:
-            self.pass_expr_memo_ctrl = getattr(fn,
-                    'fmin_pass_expr_memo_ctrl', False)
-        else:
-            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
-        base.Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
-
-        # -- This code was stolen from base.BanditAlgo, a class which may soon
-        #    be gone
-        self.workdir = workdir
-        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
-        before = pyll.dfs(self.expr)
-        # -- raises exception if expr contains cycles
-        pyll.toposort(self.expr)
-        vh = self.vh = VectorizeHelper(self.expr, self.s_new_ids)
-        # -- raises exception if v_expr contains cycles
-        pyll.toposort(vh.v_expr)
-
-        idxs_by_label = vh.idxs_by_label()
-        vals_by_label = vh.vals_by_label()
-        after = pyll.dfs(self.expr)
-        # -- try to detect if VectorizeHelper screwed up anything inplace
-        assert before == after
-        assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
-        assert set(idxs_by_label.keys()) == set(self.params.keys())
-
-        # -- make the graph runnable and SON-encodable
-        # N.B. operates inplace
-        self.s_idxs_vals = recursive_set_rng_kwarg(
-                pyll.scope.pos_args(idxs_by_label, vals_by_label),
-                pyll.as_apply(self.rng))
-
-        # -- raises an exception if no topological ordering exists
-        pyll.toposort(self.s_idxs_vals)
-
-    def evaluate(self, config, ctrl, attach_attachments=True):
-        memo = self.memo_from_config(config)
-        self.use_obj_for_literal_in_memo(ctrl, base.Ctrl, memo)
-        if self.rng is not None and not self.installed_rng:
-            # -- N.B. this modifies the expr graph in-place
-            #    XXX this feels wrong
-            self.expr = recursive_set_rng_kwarg(self.expr,
-                pyll.as_apply(self.rng))
-            self.installed_rng = True
-        if self.pass_expr_memo_ctrl:
-            rval = self.fn(
-                    expr=self.expr,
-                    memo=memo,
-                    ctrl=ctrl)
-        else:
-            # -- the "work" of evaluating `config` can be written
-            #    either into the pyll part (self.expr)
-            #    or the normal Python part (self.fn)
-            pyll_rval = pyll.rec_eval(self.expr, memo=memo,
-                    print_node_on_error=self.rec_eval_print_node_on_error)
-            rval = self.fn(pyll_rval)
-
-        if isinstance(rval, (float, int, np.number)):
-            dict_rval = {'loss': rval}
-        elif isinstance(rval, (dict,)):
-            dict_rval = rval
-            if 'loss' not in dict_rval:
-                raise ValueError('dictionary must have "loss" key',
-                        dict_rval.keys())
-        else:
-            raise TypeError('invalid return type (neither number nor dict)', rval)
-
-        if dict_rval['loss'] is not None:
-            # -- fail if cannot be cast to float
-            dict_rval['loss'] = float(dict_rval['loss'])
-
-        dict_rval.setdefault('status', base.STATUS_OK)
-        if dict_rval['status'] not in base.STATUS_STRINGS:
-            raise ValueError('invalid status string', dict_rval['status'])
-
-        if attach_attachments:
-            attachments = dict_rval.pop('attachments', {})
-            for key, val in attachments.items():
-                ctrl.attachments[key] = val
-
-        # -- don't do this here because SON-compatibility is only a requirement
-        #    for trials destined for a mongodb. In-memory rvals can contain
-        #    anything.
-        #return base.SONify(dict_rval)
-        return dict_rval
-
-    def short_str(self):
-        return 'Domain{%s}' % str(self.fn)
-
-
-# TODO: deprecate base.Experiment
 class FMinIter(object):
     """Object for conducting search experiments.
     """
-    catch_bandit_exceptions = False
+    catch_eval_exceptions = False
     cPickle_protocol = -1
 
-    def __init__(self, algo, domain, trials, async=None,
+    def __init__(self, algo, domain, trials, rstate, async=None,
             max_queue_len=1,
             poll_interval_secs=1.0,
             max_evals=sys.maxint,
@@ -170,6 +64,7 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.rstate = rstate
 
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
@@ -196,7 +91,11 @@ class FMinIter(object):
                     trial['state'] = base.JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
                     trial['refresh_time'] = coarse_utcnow()
-                    if not self.catch_bandit_exceptions:
+                    if not self.catch_eval_exceptions:
+                        # -- JOB_STATE_ERROR means this trial
+                        #    will be removed from self.trials.trials
+                        #    by this refresh call.
+                        self.trials.refresh()
                         raise
                 else:
                     logger.debug('job returned status: %s' % result['status'])
@@ -254,7 +153,8 @@ class FMinIter(object):
                     for d in self.trials.trials:
                         print 'trial %i %s %s' % (d['tid'], d['state'],
                             d['result'].get('status'))
-                new_trials = algo(new_ids, self.domain, trials)
+                new_trials = algo(new_ids, self.domain, trials,
+                                  self.rstate.randint(2 ** 31 - 1))
                 if new_trials is base.StopExperiment:
                     stopped = True
                     break
@@ -304,52 +204,117 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, trials=None, rseed=123,
+def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          allow_trials_fmin=True, pass_expr_memo_ctrl=None,
-         verbose=0):
+         catch_eval_exceptions=False,
+         verbose=0,
+         return_argmin=True,
+        ):
+    """Minimize a function over a hyperparameter space.
+
+    More realistically: *explore* a function over a hyperparameter space
+    according to a given algorithm, allowing up to a certain number of
+    function evaluations.  As points are explored, they are accumulated in
+    `trials`
+
+
+    Parameters
+    ----------
+
+    fn : callable (trial point -> loss)
+        This function will be called with a value generated from `space`
+        as the first and possibly only argument.  It can return either
+        a scalar-valued loss, or a dictionary.  A returned dictionary must
+        contain a 'status' key with a value from `STATUS_STRINGS`, must
+        contain a 'loss' key if the status is `STATUS_OK`. Particular
+        optimization algorithms may look for other keys as well.  An
+        optional sub-dictionary associated with an 'attachments' key will
+        be removed by fmin its contents will be available via
+        `trials.trial_attachments`. The rest (usually all) of the returned
+        dictionary will be stored and available later as some 'result'
+        sub-dictionary within `trials.trials`.
+
+    space : pyll.Apply node
+        The set of possible arguments to `fn` is the set of objects
+        that could be created with non-zero probability by drawing randomly
+        from this stochastic program involving involving hp_<xxx> nodes
+        (see `hyperopt.hp` and `hyperopt.pyll_utils`).
+
+    algo : search algorithm
+        This object, such as `hyperopt.rand.suggest` and
+        `hyperopt.tpe.suggest` provides logic for sequential search of the
+        hyperparameter space.
+
+    max_evals : int
+        Allow up to this many function evaluations before returning.
+
+    trials : None or base.Trials (or subclass)
+        Storage for completed, ongoing, and scheduled evaluation points.  If
+        None, then a temporary `base.Trials` instance will be created.  If
+        a trials object, then that trials object will be affected by
+        side-effect of this call.
+
+    rstate : numpy.RandomState, default numpy.random
+        Each call to `algo` requires a seed value, which should be different
+        on each call. This object is used to draw these seeds via `randint`.
+
+    verbose : int
+        Print out some information to stdout during search.
+
+    allow_trials_fmin : bool, default True
+        If the `trials` argument
+
+    pass_expr_memo_ctrl : bool, default False
+        If set to True, `fn` will be called in a different more low-level
+        way: it will receive raw hyperparameters, a partially-populated
+        `memo`, and a Ctrl object for communication with this Trials
+        object.
+
+    return_argmin : bool, default True
+        If set to False, this function returns nothing, which can be useful
+        for example if it is expected that `len(trials)` may be zero after
+        fmin, and therefore `trials.argmin` would be undefined.
+
+
+    Returns
+    -------
+
+    argmin : None or dictionary
+        If `return_argmin` is False, this function returns nothing.
+        Otherwise, it returns `trials.argmin`.  This argmin can be converted
+        to a point in the configuration space by calling
+        `hyperopt.space_eval(space, best_vals)`.
+
+
     """
-    Minimize `f` over the given `space` using random search.
+    if rstate is None:
+        rstate = np.random
 
-    Parameters:
-    -----------
-    f - a callable taking a dictionary as an argument. It can return either a
-        scalar loss value, or a result dictionary. The argument dictionary has
-        keys for the hp_XXX nodes in the `space` and a `ctrl` key.
-        If returning a dictionary, `f`
-        must return a 'loss' key, and may optionally return a 'status' key and
-        certain other reserved keys to communicate with the Experiment and
-        optimization algorithm [1, 2]. The entire dictionary will be stored to
-        the trials object associated with the experiment.
-
-    space - a pyll graph involving hp_<xxx> nodes (see `pyll_utils`)
-
-    algo - a minimization algorithm presented as an oracle
-        `algo(new_ids, domain, trials)` returns a list of new trials to
-        evaluate, one for each element of `new_ids`
-
-    [1] See keys used in `base.Experiment` and `base.Bandit`
-    [2] Optimization algorithms may in some cases use or require auxiliary
-        feedback.
-    """
     if allow_trials_fmin and hasattr(trials, 'fmin'):
-        return trials.fmin(fn, space,
-                algo=algo,
-                max_evals=max_evals,
-                rseed=rseed,
-                pass_expr_memo_ctrl=pass_expr_memo_ctrl,
-                verbose=verbose)
+        return trials.fmin(
+            fn, space,
+            algo=algo,
+            max_evals=max_evals,
+            rstate=rstate,
+            pass_expr_memo_ctrl=pass_expr_memo_ctrl,
+            verbose=verbose,
+            catch_eval_exceptions=catch_eval_exceptions,
+            return_argmin=return_argmin,
+            )
 
     if trials is None:
         trials = base.Trials()
 
-    domain = Domain(fn, space,
-        rseed=rseed,
+    domain = base.Domain(fn, space,
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
-            verbose=verbose)
+                    rstate=rstate,
+                    verbose=verbose)
+    rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
-    return trials.argmin
+    if return_argmin:
+        return trials.argmin
 
 
 def space_eval(space, hp_assignment):
@@ -372,4 +337,4 @@ def space_eval(space, hp_assignment):
     rval = pyll.rec_eval(space, memo=memo)
     return rval
 
-
+# -- flake8 doesn't like blank last line

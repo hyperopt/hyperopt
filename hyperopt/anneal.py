@@ -243,7 +243,10 @@ class SuggestAlgo(ExprEvaluator):
     def __call__(self, new_id):
         self.rng.seed(self._seed + new_id)
         memo = self.eval_nodes(
-            memo={self.domain.s_new_ids: [new_id]})
+            memo={
+                self.domain.s_new_ids: [new_id],
+                self.domain.s_rng: self.rng,
+            })
         idxs, vals = memo[self.expr]
         new_result = self.domain.new_result()
         new_misc = dict(
@@ -321,10 +324,10 @@ class AnnealingAlgo(SuggestAlgo):
 
     """
 
-    def __init__(self, domain, trials,
+    def __init__(self, domain, trials, seed,
             avg_best_idx=2.0,
             shrink_coef=0.1, # -- this
-            seed=123):
+            ):
         SuggestAlgo.__init__(self, domain, trials, seed=seed)
         self.avg_best_idx = avg_best_idx
         self.shrink_coef = shrink_coef
@@ -571,7 +574,7 @@ class AnnealingAlgo(SuggestAlgo):
 
 
 @make_suggest_many_from_suggest_one
-def suggest(new_ids, domain, trials, *args, **kwargs):
+def suggest(new_ids, domain, trials, seed, *args, **kwargs):
     new_id, = new_ids
-    return AnnealingAlgo(domain, trials, *args, **kwargs)(new_id)
+    return AnnealingAlgo(domain, trials, seed, *args, **kwargs)(new_id)
 
