@@ -689,10 +689,12 @@ def notest_opt_qn_normal(f=hp_normal):
         plt.show()
 
 
-@as_bandit(loss_target=0, rseed=123)
+@as_bandit(loss_target=0)
 def opt_q_uniform(target):
+    rng = np.random.RandomState(123)
     x = hp_quniform('x', 1.01, 10, 1)
-    return {'loss': (x - target) ** 2 + scope.normal(0, 1), 'status': 'ok'}
+    return {'loss': (x - target) ** 2 + scope.normal(0, 1, rng=rng),
+            'status': 'ok'}
 
 
 class TestOptQUniform():

@@ -20,7 +20,7 @@ class TestRand(unittest.TestCase):
 
         # Passes Nov 8 / 2013 
         self.assertEqual(list(idxs['flip']), range(10))
-        self.assertEqual(list(vals['flip']), [0, 0, 1, 0, 1, 0, 1, 1, 1, 1])
+        self.assertEqual(list(vals['flip']), [0, 1, 0, 0, 0, 0, 0, 1, 1, 0])
 
     # -- TODO: put in a test that guarantees that
     #          stochastic nodes are sampled in a paricular order.

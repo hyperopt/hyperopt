@@ -884,7 +884,10 @@ def suggest(new_ids, domain, trials, seed,
 
     # -- this dictionary will map pyll nodes to the values
     #    they should take during the evaluation of the pyll program
-    memo = {domain.s_new_ids: fake_ids}
+    memo = {
+        domain.s_new_ids: fake_ids,
+        domain.s_rng: np.random.RandomState(seed),
+           }
 
     o_idxs_d, o_vals_d = miscs_to_idxs_vals(
         [d['misc'] for d in docs], keys=domain.params.keys())
