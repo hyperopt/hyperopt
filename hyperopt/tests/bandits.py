@@ -6,20 +6,53 @@ XXX: get some standard optimization problems from literature
 """
 import numpy as np
 
-import base
-from pyll import as_apply
-from pyll import scope
+from hyperopt.pyll import as_apply
+from hyperopt.pyll import scope
+from hyperopt import base, Domain
 
-from pyll_utils import hp_choice, hp_randint, hp_pchoice
-from pyll_utils import hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform
-from pyll_utils import hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
+from hyperopt.pyll_utils import (
+    hp_choice, hp_randint, hp_pchoice,
+    hp_uniform, hp_loguniform, hp_quniform, hp_qloguniform,
+    hp_normal, hp_lognormal, hp_qnormal, hp_qlognormal
+    )
 
 
 # -- define this bandit here too for completeness' sake
-from base import coin_flip
+def domain_constructor(**b_kwargs):
+    """
+    Decorate a function that returns a pyll expressions so that
+    it becomes a Domain instance instead of a function
+
+    Example:
+
+    @domain_constructor(loss_target=0)
+    def f(low, high):
+        return {'loss': hp_uniform('x', low, high) ** 2 }
+
+    """
+    def deco(f):
+        def wrapper(*args, **kwargs):
+            if 'name' in b_kwargs:
+                _b_kwargs = b_kwargs
+            else:
+                _b_kwargs = dict(b_kwargs, name=f.__name__)
+            f_rval = f(*args, **kwargs)
+            domain = Domain(lambda x: x, f_rval, **_b_kwargs)
+            return domain
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return deco
 
 
-@base.as_bandit(loss_target=0)
+@domain_constructor()
+def coin_flip():
+    """ Possibly the simplest possible Bandit implementation
+    """
+    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': base.STATUS_OK}
+
+
+
+@domain_constructor(loss_target=0)
 def quadratic1():
     """
     About the simplest problem you could ask for:
@@ -28,7 +61,7 @@ def quadratic1():
     return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2, 'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=0)
+@domain_constructor(loss_target=0)
 def q1_choice():
     o_x = hp_choice('o_x', [
         (-3, hp_uniform('x_neg', -5, 5)),
@@ -37,7 +70,7 @@ def q1_choice():
     return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=0)
+@domain_constructor(loss_target=0)
 def q1_lognormal():
     """
     About the simplest problem you could ask for:
@@ -47,7 +80,7 @@ def q1_lognormal():
             'status': base.STATUS_OK }
 
 
-@base.as_bandit(loss_target=-2)
+@domain_constructor(loss_target=-2)
 def n_arms(N=2):
     """
     Each arm yields a reward from a different Gaussian.
@@ -64,7 +97,7 @@ def n_arms(N=2):
             'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=-2)
+@domain_constructor(loss_target=-2)
 def distractor():
     """
     This is a nasty function: it has a max in a spike near -10, and a long
@@ -81,7 +114,7 @@ def distractor():
     return {'loss': -f1 - f2, 'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=-1)
+@domain_constructor(loss_target=-1)
 def gauss_wave():
     """
     Essentially, this is a high-frequency sinusoidal function plus a broad quadratic.
@@ -101,7 +134,7 @@ def gauss_wave():
     return {'loss': - (f1 + f2), 'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=-2.5)
+@domain_constructor(loss_target=-2.5)
 def gauss_wave2():
     """
     Variant of the GaussWave problem in which noise is added to the score
@@ -122,7 +155,7 @@ def gauss_wave2():
             'loss_variance': var, 'status': base.STATUS_OK}
 
 
-@base.as_bandit(loss_target=0)
+@domain_constructor(loss_target=0)
 def many_dists():
     a=hp_choice('a', [0, 1, 2])
     b=hp_randint('b', 10)

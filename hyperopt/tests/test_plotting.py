@@ -16,9 +16,9 @@ except ImportError:
     raise nose.SkipTest()
 
 from hyperopt import Trials
-import hyperopt.bandits
 import hyperopt.plotting
 from hyperopt import rand, fmin
+from bandits import many_dists
 
 def get_do_show():
     rval = int(os.getenv('HYPEROPT_SHOW', '0'))
@@ -27,10 +27,10 @@ def get_do_show():
 
 class TestPlotting(unittest.TestCase):
     def setUp(self):
-        bandit = self.bandit = hyperopt.bandits.many_dists()
+        domain = self.domain = many_dists()
         trials = self.trials = Trials()
         fmin(lambda x: x,
-            space=bandit.expr,
+            space=domain.expr,
             trials=trials,
             algo=rand.suggest,
             max_evals=200)
@@ -48,6 +48,6 @@ class TestPlotting(unittest.TestCase):
     def test_plot_vars(self):
         hyperopt.plotting.main_plot_vars(
                 self.trials,
-                self.bandit,
+                self.domain,
                 do_show=get_do_show())
 

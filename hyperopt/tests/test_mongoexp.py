@@ -11,26 +11,24 @@ import numpy as np
 import nose
 import nose.plugins.skip
 
-from hyperopt.bandits import gauss_wave2
 from hyperopt.base import JOB_STATE_DONE
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import ReserveTimeout
 from hyperopt.mongoexp import as_mongo_str
 from hyperopt.mongoexp import main_worker_helper
-
 from hyperopt.mongoexp import MongoJobs
-
 from hyperopt.fmin import fmin
 from hyperopt import rand
-
 import hyperopt.tests.test_base
+from bandits import gauss_wave2
 
 def skiptest(f):
     def wrapper(*args, **kwargs):
         raise nose.plugins.skip.SkipTest()
     wrapper.__name__ = f.__name__
     return wrapper
+
 
 class TempMongo(object):
     """
@@ -288,10 +286,10 @@ class TestExperimentWithThreads(unittest.TestCase):
         # -- divided by 3 experiments: 4 jobs per fmin
         max_evals = (n_workers * jobs_per_thread) // len(exp_keys)
 
-        # -- should not matter which bandit is used here
-        bandit = gauss_wave2()
+        # -- should not matter which domain is used here
+        domain = gauss_wave2()
 
-        cPickle.dumps(bandit.expr)
+        cPickle.dumps(domain.expr)
         cPickle.dumps(passthrough)
 
 
@@ -310,7 +308,7 @@ class TestExperimentWithThreads(unittest.TestCase):
             fmin_threads = [
                 threading.Thread(
                     target=TestExperimentWithThreads.fmin_thread_fn,
-                    args=(bandit.expr, trials, max_evals, seed))
+                    args=(domain.expr, trials, max_evals, seed))
                 for seed, trials in zip(seeds, trials_list)]
 
             try:
