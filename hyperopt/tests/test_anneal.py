@@ -5,12 +5,12 @@ from hyperopt import anneal
 from hyperopt import rand
 from hyperopt import Trials, fmin
 
-from test_bandits import CasePerBandit
+from test_bandits import CasePerDomain
 
 def passthrough(x):
     return x
 
-class TestItJustRuns(unittest.TestCase, CasePerBandit):
+class TestItJustRuns(unittest.TestCase, CasePerDomain):
     def work(self):
         trials = Trials()
         space = self.bandit.expr
@@ -22,7 +22,7 @@ class TestItJustRuns(unittest.TestCase, CasePerBandit):
             max_evals=10)
 
 
-class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerBandit):
+class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
     thresholds = dict(
             quadratic1=1e-5,
             q1_lognormal=0.01,

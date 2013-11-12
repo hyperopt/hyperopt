@@ -132,8 +132,6 @@ class FMinIter(object):
         block_until_done  means that the process blocks until ALL jobs in
         trials are not in running or new state
 
-        suggest() can pass instance of StopExperiment to break out of
-        enqueuing loop
         """
         trials = self.trials
         algo = self.algo
@@ -155,18 +153,14 @@ class FMinIter(object):
                             d['result'].get('status'))
                 new_trials = algo(new_ids, self.domain, trials,
                                   self.rstate.randint(2 ** 31 - 1))
-                if new_trials is base.StopExperiment:
-                    stopped = True
-                    break
+                assert len(new_ids) >= len(new_trials)
+                if len(new_trials):
+                    self.trials.insert_trial_docs(new_trials)
+                    self.trials.refresh()
+                    n_queued += len(new_trials)
+                    qlen = get_queue_len()
                 else:
-                    assert len(new_ids) >= len(new_trials)
-                    if len(new_trials):
-                        self.trials.insert_trial_docs(new_trials)
-                        self.trials.refresh()
-                        n_queued += len(new_trials)
-                        qlen = get_queue_len()
-                    else:
-                        break
+                    break
 
             if self.async:
                 # -- wait for workers to fill in the trials

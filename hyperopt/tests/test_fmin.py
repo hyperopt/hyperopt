@@ -107,12 +107,12 @@ def test_set_fmin_rstate():
 
 
 class TestFmin(unittest.TestCase):
-    class BanditE(Exception):
-        #XXX also test Bandit.exceptions mechanism that actually catches this
+    class SomeError(Exception):
+        #XXX also test domain.exceptions mechanism that actually catches this
         pass
 
     def eval_fn(self, space):
-        raise TestFmin.BanditE()
+        raise TestFmin.SomeError()
 
     def setUp(self):
         self.trials = Trials()
@@ -137,7 +137,7 @@ class TestFmin(unittest.TestCase):
         assert trials._dynamic_trials[1]['misc']['error'] != None
 
     def test_catch_eval_exceptions_False(self):
-        with self.assertRaises(TestFmin.BanditE):
+        with self.assertRaises(TestFmin.SomeError):
             fmin(self.eval_fn,
                  space=hp.uniform('x', 0, 1),
                  algo=rand.suggest,

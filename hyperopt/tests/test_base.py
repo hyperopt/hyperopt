@@ -1,29 +1,21 @@
 import copy
 import unittest
 import numpy as np
-import nose
 import bson
 
-from hyperopt.pyll import as_apply, scope
+from hyperopt.pyll import scope
 uniform = scope.uniform
 normal = scope.normal
 one_of = scope.one_of
 
 from hyperopt.base import JOB_STATE_NEW
-from hyperopt.base import JOB_STATE_ERROR
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
-from hyperopt.base import Bandit
-from hyperopt.base import coin_flip
 from hyperopt.base import InvalidTrial
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.base import SONify
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
-
-from hyperopt.pyll_utils import hp_uniform
-from hyperopt.pyll_utils import hp_normal
-from hyperopt.pyll_utils import hp_choice
 
 
 def ok_trial(tid, *args, **kwargs):

@@ -225,15 +225,17 @@ def test_distributions():
     # test that the distributions come out right
 
     # XXX: test more distributions
-    bandit = base.Bandit({
-                'loss': hp_loguniform('lu', -2, 2) +
-                    hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2) +
-                    hp_quniform('qu', -4.999, 5, 1) +
-                    hp_uniform('u', 0, 10)})
+    space = {
+        'loss': (
+            hp_loguniform('lu', -2, 2) +
+            hp_qloguniform('qlu', np.log(1 + 0.01), np.log(20), 2) +
+            hp_quniform('qu', -4.999, 5, 1) +
+            hp_uniform('u', 0, 10)),
+        'status': 'ok'}
     trials = base.Trials()
     N = 1000
     fmin(lambda x: x,
-        space=bandit.expr,
+        space=space,
         algo=rand.suggest,
         trials=trials,
         max_evals=N,

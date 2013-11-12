@@ -13,7 +13,6 @@ except ImportError:
 from hyperopt import pyll
 from hyperopt.pyll import scope
 
-from hyperopt import Bandit
 from hyperopt import Trials
 
 from hyperopt.base import miscs_to_idxs_vals, as_bandit, STATUS_OK
@@ -43,7 +42,7 @@ import hyperopt.rand as rand
 import hyperopt.tpe as tpe
 from hyperopt import fmin
 
-from test_bandits import CasePerBandit
+from test_bandits import CasePerDomain
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
@@ -526,7 +525,7 @@ class TestQLGMM1Math(unittest.TestCase):
         self.work(q=2, low=1, high=4.1)
 
 
-class TestSuggest(unittest.TestCase, CasePerBandit):
+class TestSuggest(unittest.TestCase, CasePerDomain):
     def work(self):
         # -- smoke test that things simply run,
         #    for each type of several search spaces.
@@ -538,7 +537,7 @@ class TestSuggest(unittest.TestCase, CasePerBandit):
             max_evals=10)
 
 
-class TestOpt(unittest.TestCase, CasePerBandit):
+class TestOpt(unittest.TestCase, CasePerDomain):
     thresholds = dict(
             quadratic1=1e-5,
             q1_lognormal=0.01,
@@ -590,7 +589,6 @@ class TestOpt(unittest.TestCase, CasePerBandit):
 
         bandit = self.bandit
         assert bandit.name is not None
-        print 'Bandit', bandit.name
         algo = partial(tpe.suggest,
                 gamma=self.gammas.get(bandit.name,
                     tpe._default_gamma),
