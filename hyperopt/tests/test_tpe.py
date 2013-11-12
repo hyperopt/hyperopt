@@ -692,7 +692,7 @@ def notest_opt_qn_normal(f=hp_normal):
 @as_bandit(loss_target=0, rseed=123)
 def opt_q_uniform(target):
     x = hp_quniform('x', 1.01, 10, 1)
-    return {'loss': (x - target) ** 2 + scope.normal(0, 1)}
+    return {'loss': (x - target) ** 2 + scope.normal(0, 1), 'status': 'ok'}
 
 
 class TestOptQUniform():

@@ -43,8 +43,8 @@ import pyll
 #from pyll import scope  # looks unused but
 from pyll.stochastic import recursive_set_rng_kwarg
 
-from .exceptions import DuplicateLabel
-from .exceptions import InvalidTrial
+from .exceptions import (
+    DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
 from .pyll_utils import hp_choice
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
@@ -736,7 +736,6 @@ class Bandit(object):
 
     def __init__(self, expr,
                  name=None,
-                 rseed=None,
                  loss_target=None,
                  exceptions=None,
                  do_checks=True,
@@ -768,12 +767,6 @@ class Bandit(object):
         if exceptions is not None:
             self.exceptions = exceptions
         self.loss_target = loss_target
-        self.installed_rng = False
-        if rseed is None:
-            self.rng = None
-        else:
-            self.rng = np.random.RandomState(rseed)
-
         self.name = name
 
     def memo_from_config(self, config):
@@ -899,32 +892,18 @@ class Domain(Bandit):
         assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
         assert set(idxs_by_label.keys()) == set(self.params.keys())
 
-        # -- make the graph runnable and SON-encodable
-        # N.B. operates inplace
+        self.s_rng = pyll.Literal('rng-placeholder')
+        # -- N.B. operates inplace:
         self.s_idxs_vals = recursive_set_rng_kwarg(
             pyll.scope.pos_args(idxs_by_label, vals_by_label),
-            pyll.as_apply(self.rng))
+            self.s_rng)
 
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
 
-    def install_rng_in_s_idxs_vals(self, rng):
-        self.s_idxs_vals = recursive_set_rng_kwarg(self.s_idxs_vals,
-                                                   pyll.as_apply(rng))
-
-    def install_rng_in_expr(self, rng):
-        assert rng is not None
-        self.expr = recursive_set_rng_kwarg(self.expr,
-                                            pyll.as_apply(rng))
-        self.installed_rng = (rng is self.rng)
-
     def evaluate(self, config, ctrl, attach_attachments=True):
         memo = self.memo_from_config(config)
         self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
-        if self.rng is not None and not self.installed_rng:
-            # -- N.B. this modifies the expr graph in-place
-            #    XXX this feels wrong
-            self.install_rng_in_expr(self.rng)
         if self.pass_expr_memo_ctrl:
             rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
         else:
@@ -937,31 +916,20 @@ class Domain(Bandit):
                 print_node_on_error=self.rec_eval_print_node_on_error)
             rval = self.fn(pyll_rval)
 
-        # XXX: THIS LOGIC IS KIND OF WRONG
-        #      If the returned thing is a dictionary
-        #      then it *must* have a status key, and then
-        #      depending on what that is, it might need a loss, an error
-        #      etc.
         if isinstance(rval, (float, int, np.number)):
-            dict_rval = {'loss': rval}
-        elif isinstance(rval, (dict,)):
-            dict_rval = rval
-            if 'loss' not in dict_rval:
-                raise ValueError(
-                    'dictionary must have "loss" key',
-                    dict_rval.keys())
+            dict_rval = {'loss': float(rval), 'status': STATUS_OK}
         else:
-            raise TypeError(
-                'invalid return type (neither number nor dict)',
-                rval)
+            dict_rval = dict(rval)
+            status = dict_rval['status']
+            if status not in STATUS_STRINGS:
+                raise InvalidResultStatus(dict_rval)
 
-        if dict_rval['loss'] is not None:
-            # -- fail if cannot be cast to float
-            dict_rval['loss'] = float(dict_rval['loss'])
-
-        dict_rval.setdefault('status', STATUS_OK)
-        if dict_rval['status'] not in STATUS_STRINGS:
-            raise ValueError('invalid status string', dict_rval['status'])
+            if status == STATUS_OK:
+                # -- make sure that the loss is present and valid
+                try:
+                    dict_rval['loss'] = float(dict_rval['loss'])
+                except (TypeError, KeyError):
+                    raise InvalidLoss(dict_rval)
 
         if attach_attachments:
             attachments = dict_rval.pop('attachments', {})
@@ -1008,6 +976,6 @@ def as_bandit(**b_kwargs):
 def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-    return {'loss': hp_choice('flip', [0.0, 1.0])}
+    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': 'ok'}
 
 # -- flake8 doesn't like blank last line

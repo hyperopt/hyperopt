@@ -154,7 +154,7 @@ class FMinIter(object):
                         print 'trial %i %s %s' % (d['tid'], d['state'],
                             d['result'].get('status'))
                 new_trials = algo(new_ids, self.domain, trials,
-                                  self.rstate.randint(2 * 31 - 1))
+                                  self.rstate.randint(2 ** 31 - 1))
                 if new_trials is base.StopExperiment:
                     stopped = True
                     break
@@ -306,7 +306,6 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         trials = base.Trials()
 
     domain = base.Domain(fn, space,
-        rseed=rstate.randint(2 ** 31 - 1),
         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
@@ -338,4 +337,4 @@ def space_eval(space, hp_assignment):
     rval = pyll.rec_eval(space, memo=memo)
     return rval
 
-
+# -- flake8 doesn't like blank last line

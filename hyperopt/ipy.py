@@ -11,7 +11,7 @@ from IPython.parallel import interactive
 #from IPython.display import clear_output
 
 from .base import Trials
-from .fmin import Domain
+from .base import Domain
 from .base import JOB_STATE_NEW
 from .base import JOB_STATE_RUNNING
 from .base import JOB_STATE_DONE
