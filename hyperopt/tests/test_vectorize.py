@@ -239,6 +239,7 @@ def test_distributions():
         algo=rand.suggest,
         trials=trials,
         max_evals=N,
+        rstate=np.random.RandomState(124),
         catch_eval_exceptions=False)
     assert len(trials) == N
     idxs, vals = base.miscs_to_idxs_vals(trials.miscs)

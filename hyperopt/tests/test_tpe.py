@@ -607,6 +607,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
             algo=algo,
             trials=trials,
             max_evals=LEN,
+            rstate=np.random.RandomState(123),
             catch_eval_exceptions=False)
         assert len(trials) == LEN
 
