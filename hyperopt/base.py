@@ -702,14 +702,12 @@ class Ctrl(object):
         return self.trials.insert_trial_docs(new_trials)
 
 
-class _Bandit(object):
-    """Specification of bandit problem.
-
-    template - pyll specification of search domain
-
-    evaluate - interruptible/checkpt calling convention for evaluation routine
+class Domain(object):
+    """Picklable representation of search space and evaluation function.
 
     """
+    rec_eval_print_node_on_error = False
+
     # -- the Ctrl object is not used directly, but rather
     #    a live Ctrl instance is inserted for the pyll_ctrl
     #    in self.evaluate so that it can be accessed from within
@@ -718,27 +716,23 @@ class _Bandit(object):
 
     exceptions = []
 
-    def __init__(self, expr,
+    def __init__(self, fn, expr,
+                 workdir=None,
+                 pass_expr_memo_ctrl=None,
                  name=None,
                  loss_target=None,
                  exceptions=None,
-                 do_checks=True,
                  ):
-        if do_checks:
-            if isinstance(expr, pyll.Apply):
-                self.expr = expr
-                # XXX: verify that expr is a dictionary with the right keys,
-                #      then refactor the code below
-            elif isinstance(expr, dict):
-                if 'loss' not in expr:
-                    raise ValueError('expr must define a loss')
-                if 'status' not in expr:
-                    expr['status'] = STATUS_OK
-                self.expr = pyll.as_apply(expr)
-            else:
-                raise TypeError('expr must be a dictionary')
+        self.cmd = ('domain_attachment', 'FMinIter_Domain')
+        self.fn = fn
+        if pass_expr_memo_ctrl is None:
+            self.pass_expr_memo_ctrl = getattr(fn,
+                                               'fmin_pass_expr_memo_ctrl',
+                                               False)
         else:
-            self.expr = pyll.as_apply(expr)
+            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
+
+        self.expr = pyll.as_apply(expr)
 
         self.params = {}
         for node in pyll.dfs(self.expr):
@@ -752,110 +746,6 @@ class _Bandit(object):
             self.exceptions = exceptions
         self.loss_target = loss_target
         self.name = name
-
-    def memo_from_config(self, config):
-        memo = {}
-        for node in pyll.dfs(self.expr):
-            if node.name == 'hyperopt_param':
-                label = node.arg['label'].obj
-                # -- hack because it's not really garbagecollected
-                #    this does have the desired effect of crashing the
-                #    function if rec_eval actually needs a value that
-                #    the the optimization algorithm thought to be unnecessary
-                memo[node] = config.get(label, pyll.base.GarbageCollected)
-        return memo
-
-    def short_str(self):
-        return self.__class__.__name__
-
-    def use_obj_for_literal_in_memo(self, obj, lit, memo):
-        return use_obj_for_literal_in_memo(self.expr, obj, lit, memo)
-
-    def evaluate(self, config, ctrl):
-        """Return a result document
-        """
-        memo = self.memo_from_config(config)
-        self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
-        if self.rng is not None and not self.installed_rng:
-            # -- N.B. this modifies the expr graph in-place
-            #    XXX this feels wrong
-            self.expr = recursive_set_rng_kwarg(self.expr,
-                                                pyll.as_apply(self.rng))
-            self.installed_rng = True
-        try:
-            r_dct = pyll.rec_eval(self.expr, memo=memo)
-        except Exception, e:
-            n_match = 0
-            for match, match_pair in self.exceptions:
-                if match(e):
-                    r_dct = match_pair(e)
-                    n_match += 1
-                    break
-            if n_match == 0:
-                raise
-        assert 'loss' in r_dct
-        if r_dct['loss'] is not None:
-            # -- assert that it can at least be cast to float
-            float(r_dct['loss'])
-        if r_dct['status'] not in STATUS_STRINGS:
-            raise ValueError('invalid status string', r_dct['status'])
-        return r_dct
-
-    def loss(self, result, config=None):
-        """Extract the scalar-valued loss from a result document
-        """
-        return result.get('loss', None)
-
-    def loss_variance(self, result, config=None):
-        """Return the variance in the estimate of the loss"""
-        return result.get('loss_variance', 0.0)
-
-    def true_loss(self, result, config=None):
-        """Return a true loss, in the case that the `loss` is a surrogate"""
-        # N.B. don't use get() here, it evaluates self.loss un-necessarily
-        try:
-            return result['true_loss']
-        except KeyError:
-            return self.loss(result, config=config)
-
-    def true_loss_variance(self, config=None):
-        """Return the variance in  true loss,
-        in the case that the `loss` is a surrogate.
-        """
-        raise NotImplementedError()
-
-    def status(self, result, config=None):
-        """Extract the job status from a result document
-        """
-        return result['status']
-
-    def new_result(self):
-        """Return a JSON-encodable object
-        to serve as the 'result' for new jobs.
-        """
-        return {'status': STATUS_NEW}
-
-
-class Domain(_Bandit):
-    """
-    Picklable representation of search space and evaluation function.
-    """
-    # TODO: Merge with Bandit -- two classes are not necessary
-    rec_eval_print_node_on_error = False
-
-    def __init__(self, fn, expr,
-                 workdir=None,
-                 pass_expr_memo_ctrl=None,
-                 **bandit_kwargs):
-        self.cmd = ('domain_attachment', 'FMinIter_Domain')
-        self.fn = fn
-        if pass_expr_memo_ctrl is None:
-            self.pass_expr_memo_ctrl = getattr(fn,
-                                               'fmin_pass_expr_memo_ctrl',
-                                               False)
-        else:
-            self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
-        _Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
 
         self.workdir = workdir
         self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
@@ -883,9 +773,21 @@ class Domain(_Bandit):
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
 
+    def memo_from_config(self, config):
+        memo = {}
+        for node in pyll.dfs(self.expr):
+            if node.name == 'hyperopt_param':
+                label = node.arg['label'].obj
+                # -- hack because it's not really garbagecollected
+                #    this does have the desired effect of crashing the
+                #    function if rec_eval actually needs a value that
+                #    the the optimization algorithm thought to be unnecessary
+                memo[node] = config.get(label, pyll.base.GarbageCollected)
+        return memo
+
     def evaluate(self, config, ctrl, attach_attachments=True):
         memo = self.memo_from_config(config)
-        self.use_obj_for_literal_in_memo(ctrl, Ctrl, memo)
+        use_obj_for_literal_in_memo(self.expr, ctrl, Ctrl, memo)
         if self.pass_expr_memo_ctrl:
             rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
         else:
@@ -926,6 +828,40 @@ class Domain(_Bandit):
 
     def short_str(self):
         return 'Domain{%s}' % str(self.fn)
+
+    def loss(self, result, config=None):
+        """Extract the scalar-valued loss from a result document
+        """
+        return result.get('loss', None)
+
+    def loss_variance(self, result, config=None):
+        """Return the variance in the estimate of the loss"""
+        return result.get('loss_variance', 0.0)
+
+    def true_loss(self, result, config=None):
+        """Return a true loss, in the case that the `loss` is a surrogate"""
+        # N.B. don't use get() here, it evaluates self.loss un-necessarily
+        try:
+            return result['true_loss']
+        except KeyError:
+            return self.loss(result, config=config)
+
+    def true_loss_variance(self, config=None):
+        """Return the variance in  true loss,
+        in the case that the `loss` is a surrogate.
+        """
+        raise NotImplementedError()
+
+    def status(self, result, config=None):
+        """Extract the job status from a result document
+        """
+        return result['status']
+
+    def new_result(self):
+        """Return a JSON-encodable object
+        to serve as the 'result' for new jobs.
+        """
+        return {'status': STATUS_NEW}
 
 
 def as_bandit(**b_kwargs):
