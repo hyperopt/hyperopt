@@ -38,7 +38,6 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
     # self is an Experiment
     if status_colors is None:
         status_colors = default_status_colors
-    Xs = trials.specs
 
     # XXX: show the un-finished or error trials
     Ys, colors = zip(*[(y, status_colors[s])

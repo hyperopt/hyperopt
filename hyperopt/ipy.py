@@ -16,7 +16,6 @@ from .base import JOB_STATE_NEW
 from .base import JOB_STATE_RUNNING
 from .base import JOB_STATE_DONE
 from .base import JOB_STATE_ERROR
-from .base import StopExperiment
 from .base import spec_from_misc
 from .utils import coarse_utcnow
 
@@ -132,10 +131,7 @@ class IPythonTrials(Trials):
             if idles:
                 new_ids = self.new_trial_ids(len(idles))
                 new_trials = algo(new_ids, domain, self)
-                if new_trials is StopExperiment:
-                    stopped = True # -- XXX: this should be returned somehow
-                    break
-                elif len(new_trials) == 0:
+                if len(new_trials) == 0:
                     break
                 else:
                     assert len(idles) == len(new_trials)

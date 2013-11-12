@@ -9,7 +9,7 @@ import hyperopt.bandits
 from hyperopt.fmin import fmin
 from hyperopt.rand import suggest
 
-class BanditExperimentMixin(object):
+class DomainExperimentMixin(object):
     def test_basic(self):
         bandit = self._bandit_cls()
         #print 'bandit params', bandit.params, bandit
@@ -31,17 +31,17 @@ class BanditExperimentMixin(object):
         return Tester
 
 
-quadratic1Tester = BanditExperimentMixin.make(hyperopt.bandits.quadratic1)
-q1_lognormalTester = BanditExperimentMixin.make(hyperopt.bandits.q1_lognormal)
-q1_choiceTester = BanditExperimentMixin.make(hyperopt.bandits.q1_choice)
-n_armsTester = BanditExperimentMixin.make(hyperopt.bandits.n_arms)
-distractorTester = BanditExperimentMixin.make(hyperopt.bandits.distractor)
-gauss_waveTester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave)
-gauss_wave2Tester = BanditExperimentMixin.make(hyperopt.bandits.gauss_wave2,
+quadratic1Tester = DomainExperimentMixin.make(hyperopt.bandits.quadratic1)
+q1_lognormalTester = DomainExperimentMixin.make(hyperopt.bandits.q1_lognormal)
+q1_choiceTester = DomainExperimentMixin.make(hyperopt.bandits.q1_choice)
+n_armsTester = DomainExperimentMixin.make(hyperopt.bandits.n_arms)
+distractorTester = DomainExperimentMixin.make(hyperopt.bandits.distractor)
+gauss_waveTester = DomainExperimentMixin.make(hyperopt.bandits.gauss_wave)
+gauss_wave2Tester = DomainExperimentMixin.make(hyperopt.bandits.gauss_wave2,
         n_steps=5000)
 
 
-class CasePerBandit(object):
+class CasePerDomain(object):
     # -- this is a mixin
     # -- Override self.work to execute a test for each kind of self.bandit
 

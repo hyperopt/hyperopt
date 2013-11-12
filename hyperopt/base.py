@@ -4,22 +4,17 @@ The design is that there are three components fitting together in this project:
 
 - Trials - a list of documents including at least sub-documents:
     ['spec'] - the specification of hyper-parameters for a job
-    ['result'] - the result of Bandit.evaluate(). Typically includes:
+    ['result'] - the result of Domain.evaluate(). Typically includes:
         ['status'] - one of the STATUS_STRINGS
         ['loss'] - real-valued scalar that hyperopt is trying to minimize
     ['idxs'] - compressed representation of spec
     ['vals'] - compressed representation of spec
     ['tid'] - trial id (unique in Trials list)
 
-- Bandit - specifies a search problem
-
-- BanditAlgo - an algorithm for solving a Bandit search problem
-
-- Experiment - uses a Bandit and a BanditAlgo to carry out a search by
-         interacting with a Trials object.
+- Domain - specifies a search problem
 
 - Ctrl - a channel for two-way communication
-         between an Experiment and Bandit.evaluate.
+         between an Experiment and Domain.evaluate.
          Experiment subclasses may subclass Ctrl to match. For example, if an
          experiment is going to dispatch jobs in other threads, then an
          appropriate thread-aware Ctrl subclass should go with it.
@@ -54,11 +49,10 @@ logger = logging.getLogger(__name__)
 
 
 # -- STATUS values
-# These are used to store job status in a backend-agnostic way, for the
-# purpose of communicating between Bandit, BanditAlgo, and any
-# visualization/monitoring code.
+#    An eval_fn returning a dictionary must have a status key with
+#    one of these values. They are used by optimization routines
+#    and plotting functions.
 
-# -- named constants for status possibilities
 STATUS_NEW = 'new'
 STATUS_RUNNING = 'running'
 STATUS_SUSPENDED = 'suspended'
@@ -74,9 +68,9 @@ STATUS_STRINGS = (
 
 
 # -- JOBSTATE values
-# These are used to store job states for the purpose of scheduling and running
-# Bandit.evaluate.  These values are used to communicate between an Experiment
-# and a worker process.
+# These are used internally by the scheduler.
+# These values are used to communicate between an Experiment
+# and a worker process. Consider moving them to mongoexp.
 
 # -- named constants for job execution pipeline
 JOB_STATE_NEW = 0
@@ -110,16 +104,6 @@ TRIAL_MISC_KEYS = [
 
 def _all_same(*args):
     return 1 == len(set(args))
-
-
-def StopExperiment(*args, **kwargs):
-    """ Return StopExperiment
-
-    StopExperiment is a symbol used as a special return value from
-    BanditAlgo.suggest. With this implementation both `return StopExperiment`
-    and `return StopExperiment()` have the same effect.
-    """
-    return StopExperiment
 
 
 def SONify(arg, memo=None):
@@ -718,7 +702,7 @@ class Ctrl(object):
         return self.trials.insert_trial_docs(new_trials)
 
 
-class Bandit(object):
+class _Bandit(object):
     """Specification of bandit problem.
 
     template - pyll specification of search domain
@@ -852,7 +836,7 @@ class Bandit(object):
         return {'status': STATUS_NEW}
 
 
-class Domain(Bandit):
+class Domain(_Bandit):
     """
     Picklable representation of search space and evaluation function.
     """
@@ -871,10 +855,8 @@ class Domain(Bandit):
                                                False)
         else:
             self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
-        Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
+        _Bandit.__init__(self, expr, do_checks=False, **bandit_kwargs)
 
-        # -- This code was stolen from base.BanditAlgo, a class which may soon
-        #    be gone
         self.workdir = workdir
         self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
         before = pyll.dfs(self.expr)
@@ -949,7 +931,7 @@ class Domain(Bandit):
 def as_bandit(**b_kwargs):
     """
     Decorate a function that returns a pyll expressions so that
-    it becomes a Bandit instance instead of a function
+    it becomes a Domain instance instead of a function
 
     Example:
 
