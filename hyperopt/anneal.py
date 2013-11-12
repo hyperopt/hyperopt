@@ -243,7 +243,10 @@ class SuggestAlgo(ExprEvaluator):
     def __call__(self, new_id):
         self.rng.seed(self._seed + new_id)
         memo = self.eval_nodes(
-            memo={self.domain.s_new_ids: [new_id]})
+            memo={
+                self.domain.s_new_ids: [new_id],
+                self.domain.s_rng: self.rng,
+            })
         idxs, vals = memo[self.expr]
         new_result = self.domain.new_result()
         new_misc = dict(
