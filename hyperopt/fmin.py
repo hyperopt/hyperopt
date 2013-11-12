@@ -5,6 +5,7 @@ except ImportError:
 
 import functools
 import logging
+import os
 import sys
 import time
 
@@ -248,9 +249,13 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         a trials object, then that trials object will be affected by
         side-effect of this call.
 
-    rstate : numpy.RandomState, default numpy.random
+    rstate : numpy.RandomState, default numpy.random or `$HYPEROPT_FMIN_SEED`
         Each call to `algo` requires a seed value, which should be different
         on each call. This object is used to draw these seeds via `randint`.
+        The default rstate is
+        `numpy.random.RandomState(int(env['HYPEROPT_FMIN_SEED']))`
+        if the `HYPEROPT_FMIN_SEED` environment variable is set to a non-empty
+        string, otherwise np.random is used in whatever state it is in.
 
     verbose : int
         Print out some information to stdout during search.
@@ -282,7 +287,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     """
     if rstate is None:
-        rstate = np.random.RandomState()
+        env_rseed = os.environ.get('HYPEROPT_FMIN_SEED', '')
+        if env_rseed:
+            rstate = np.random.RandomState(int(env_rseed))
+        else:
+            rstate = np.random.RandomState()
 
     if allow_trials_fmin and hasattr(trials, 'fmin'):
         return trials.fmin(
