@@ -255,6 +255,11 @@ def connection_with_tunnel(host='localhost',
                     raise NotImplementedError()
             ssh_tunnel=None
 
+        # -- Ensure that changes are written to at least once server.
+        connection.write_concern['w'] = 1
+        # -- Ensure that changes are written to the journal if there is one.
+        connection.write_concern['j'] = True
+
         return connection, ssh_tunnel
 
 
@@ -292,6 +297,7 @@ class MongoJobs(object):
     def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
         self.db = db
         self.jobs = jobs
+        assert jobs.write_concern['w'] >= 1
         self.gfs = gfs
         self.conn=conn
         self.tunnel=tunnel
@@ -366,26 +372,26 @@ class MongoJobs(object):
         c = self.jobs.find(spec=dict(state=JOB_STATE_NEW))
         return c if cursor else list(c)
 
-    def insert(self, job, safe=True):
+    def insert(self, job):
         """Return a job dictionary by inserting the job dict into the database"""
         try:
             cpy = copy.deepcopy(job)
             # this call adds an _id field to cpy
-            _id = self.jobs.insert(cpy, safe=safe, check_keys=True)
+            _id = self.jobs.insert(cpy, check_keys=True)
             # so now we return the dict with the _id field
             assert _id == cpy['_id']
             return cpy
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
 
-    def delete(self, job, safe=True):
+    def delete(self, job):
         """Delete job[s]"""
         try:
-            self.jobs.remove(job, safe=safe)
+            self.jobs.remove(job)
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
 
-    def delete_all(self, cond={}, safe=True):
+    def delete_all(self, cond={}):
         """Delete all jobs and attachments"""
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
@@ -396,12 +402,12 @@ class MongoJobs(object):
                     except gridfs.errors.NoFile:
                         logger.error('failed to remove attachment %s:%s' % (
                             name, file_id))
-                self.jobs.remove(d, safe=safe)
+                self.jobs.remove(d)
         except pymongo.errors.OperationFailure, e:
             raise OperationFailure(e)
 
-    def delete_all_error_jobs(self, safe=True):
-        return self.delete_all(cond={'state': JOB_STATE_ERROR}, safe=safe)
+    def delete_all_error_jobs(self):
+        return self.delete_all(cond={'state': JOB_STATE_ERROR})
 
     def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
@@ -432,24 +438,21 @@ class MongoJobs(object):
                      }
                  },
                 new=True,
-                safe=True,
                 upsert=False)
         except pymongo.errors.OperationFailure, e:
             logger.error('Error during reserve_job: %s'%str(e))
             rval = None
         return rval
 
-    def refresh(self, doc, safe=False):
-        self.update(doc, dict(refresh_time=coarse_utcnow()), safe=False)
+    def refresh(self, doc):
+        self.update(doc, dict(refresh_time=coarse_utcnow()))
 
-    def update(self, doc, dct, safe=True, collection=None):
+    def update(self, doc, dct, collection=None):
         """Return union of doc and dct, after making sure that dct has been
         added to doc in `collection`.
 
         This function does not modify either `doc` or `dct`.
 
-        safe=True means error-checking is done. safe=False means this function will succeed
-        regardless of what happens with the db.
         """
         if collection is None:
             collection = self.coll
@@ -479,7 +482,6 @@ class MongoJobs(object):
             collection.update(
                     doc_query,
                     {'$set': dct},
-                    safe=True,
                     upsert=False,
                     multi=False,)
         except pymongo.errors.OperationFailure, e:
@@ -489,7 +491,7 @@ class MongoJobs(object):
         # update doc in-place to match what happened on the server side
         doc.update(dct)
 
-        if safe:
+        if True:
             server_doc = collection.find_one(
                     dict(_id=doc['_id'], version=doc['version']))
             if server_doc is None:
@@ -762,7 +764,7 @@ class MongoTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = []
         for doc in docs:
-            rval.append(self.handle.jobs.insert(doc, safe=True))
+            rval.append(self.handle.jobs.insert(doc))
         return rval
 
     def count_by_state_unsynced(self, arg):
@@ -822,8 +824,7 @@ class MongoTrials(Trials):
             doc = db.job_ids.find_and_modify(
                     query,
                     {'$inc' : {'last_id': N}},
-                    upsert=True,
-                    safe=True)
+                    upsert=True)
             if doc is None:
                 logger.warning('no last_id found, re-trying')
                 time.sleep(1.0)
@@ -1062,8 +1063,7 @@ class MongoWorker(object):
                 ctrl.checkpoint()
                 mj.update(job,
                         {'state': JOB_STATE_ERROR,
-                        'error': (str(type(e)), str(e))},
-                        safe=True)
+                        'error': (str(type(e)), str(e))})
                 raise
         finally:
             if self.logfilename:
@@ -1078,7 +1078,7 @@ class MongoWorker(object):
                     aname, len(aval)))
             ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
-        mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
+        mj.update(job, {'state': JOB_STATE_DONE})
 
         if sentinal:
             if erase_created_workdir:
