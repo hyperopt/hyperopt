@@ -12,7 +12,6 @@ from .base import JOB_STATE_RUNNING
 from .base import JOB_STATE_DONE
 from .base import JOB_STATE_ERROR
 
-from .base import as_bandit
 from .base import Ctrl
 from .base import Trials
 from .base import trials_from_docs

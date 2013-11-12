@@ -530,7 +530,7 @@ class Trials(object):
         Average best error is defined as the average of bandit.true_loss,
         weighted by the probability that the corresponding bandit.loss is best.
 
-        For bandits with loss measurement variance of 0, this function simply
+        For domains with loss measurement variance of 0, this function simply
         returns the true_loss corresponding to the result with the lowest loss.
         """
 
@@ -863,37 +863,5 @@ class Domain(object):
         """
         return {'status': STATUS_NEW}
 
-
-def as_bandit(**b_kwargs):
-    """
-    Decorate a function that returns a pyll expressions so that
-    it becomes a Domain instance instead of a function
-
-    Example:
-
-    @as_bandit(loss_target=0)
-    def f(low, high):
-        return {'loss': hp_uniform('x', low, high) ** 2 }
-
-    """
-    def deco(f):
-        def wrapper(*args, **kwargs):
-            if 'name' in b_kwargs:
-                _b_kwargs = b_kwargs
-            else:
-                _b_kwargs = dict(b_kwargs, name=f.__name__)
-            f_rval = f(*args, **kwargs)
-            domain = Domain(lambda x: x, f_rval, **_b_kwargs)
-            return domain
-        wrapper.__name__ = f.__name__
-        return wrapper
-    return deco
-
-
-@as_bandit()
-def coin_flip():
-    """ Possibly the simplest possible Bandit implementation
-    """
-    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': STATUS_OK}
 
 # -- flake8 doesn't like blank last line
