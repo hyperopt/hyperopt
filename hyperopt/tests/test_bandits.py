@@ -19,11 +19,7 @@ class BanditExperimentMixin(object):
              trials=trials,
              algo=suggest,
              max_evals=self._n_steps)
-        #print self._bandit_cls
-        #print bandit.loss_target
-        #print trials.average_best_error(bandit)
         assert trials.average_best_error(bandit) - bandit.loss_target  < .2
-        #print
 
     @classmethod
     def make(cls, bandit_cls, n_steps=500):
