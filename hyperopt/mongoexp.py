@@ -447,7 +447,7 @@ class MongoJobs(object):
     def refresh(self, doc):
         self.update(doc, dict(refresh_time=coarse_utcnow()))
 
-    def update(self, doc, dct, collection=None):
+    def update(self, doc, dct, collection=None, do_sanity_checks=True):
         """Return union of doc and dct, after making sure that dct has been
         added to doc in `collection`.
 
@@ -491,7 +491,7 @@ class MongoJobs(object):
         # update doc in-place to match what happened on the server side
         doc.update(dct)
 
-        if True:
+        if do_sanity_checks:
             server_doc = collection.find_one(
                     dict(_id=doc['_id'], version=doc['version']))
             if server_doc is None:
