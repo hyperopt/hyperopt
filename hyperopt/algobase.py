@@ -1,3 +1,10 @@
+""" Support code for new-style search algorithms.
+"""
+
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
+
 import copy
 from collections import deque
 
@@ -198,6 +205,12 @@ class ExprEvaluator(object):
 
 
 class SuggestAlgo(ExprEvaluator):
+    """Add constructor and call signature to match suggest()
+
+    Also, detect when on_node is handling a hyperparameter, and
+    delegate that to an `on_node_hyperparameter` method. This method
+    must be implemented by a derived class.
+    """
     def __init__(self, domain, trials, seed):
         ExprEvaluator.__init__(self, domain.s_idxs_vals)
         self.domain = domain
