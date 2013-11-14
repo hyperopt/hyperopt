@@ -101,6 +101,17 @@ class AnnealingAlgo(SuggestAlgo):
     def __init__(self, domain, trials, seed,
                  avg_best_idx=2.0,
                  shrink_coef=0.1):
+        """
+        Parameters
+        ----------
+        avg_best_idx: float
+            Mean of geometric distribution over which trial to explore around,
+            selecting from trials sorted by score (0 is best)
+
+        shrink_coef: float
+            Rate of reduction in the size of sampling neighborhood as more
+            points have been explored.
+        """
         SuggestAlgo.__init__(self, domain, trials, seed=seed)
         self.avg_best_idx = avg_best_idx
         self.shrink_coef = shrink_coef
@@ -119,12 +130,21 @@ class AnnealingAlgo(SuggestAlgo):
         self.tids = np.asarray([t for (t, (d, l)) in self.tid_docs_losses])
         self.losses = np.asarray([l for (t, (d, l)) in self.tid_docs_losses])
         self.tid_losses_dct = dict(zip(self.tids, self.losses))
+        # node_tids: dict from hp label -> trial ids (tids) using that hyperparam
+        # node_vals: dict from hp label -> values taken by that hyperparam
         self.node_tids, self.node_vals = miscs_to_idxs_vals(
             [d['misc'] for (tid, (d, l)) in self.tid_docs_losses],
             keys=domain.params.keys())
         self.best_tids = []
 
     def shrinking(self, label):
+        """Return fraction of original search width
+
+        Parameters
+        ----------
+        label: string
+            the name of a hyperparameter
+        """
         T = len(self.node_vals[label])
         return 1.0 / (1.0 + T * self.shrink_coef)
 
@@ -186,16 +206,18 @@ class AnnealingAlgo(SuggestAlgo):
         I've used a few times so I show it here.
 
         """
-        vals = self.node_vals[label]
-        if len(vals) == 0:
-            return ExprEvaluator.on_node(self, memo, node)
-        else:
+        n_observations = len(self.node_vals[label])
+        if n_observations > 0:
+            # -- Pick a previous trial on which to base the new sample
             loss, tid, val = self.choose_ltv(label)
             try:
                 handler = getattr(self, 'hp_%s' % node.name)
             except AttributeError:
                 raise NotImplementedError('Annealing', node.name)
             return handler(memo, node, label, tid, val)
+        else:
+            # -- Draw the new sample from the prior
+            return ExprEvaluator.on_node(self, memo, node)
 
     def hp_uniform(self, memo, node, label, tid, val,
                    log_scale=False,
@@ -232,7 +254,7 @@ class AnnealingAlgo(SuggestAlgo):
         else:
             new_low = max(low, val - width / 2)
             if new_low == low:
-                new_high = new_low + width
+                new_high = min(high, new_low + width)
         assert low <= new_low <= new_high <= high
         if pass_q:
             return uniform_like(
