@@ -98,8 +98,8 @@ class FMinIter(object):
                         self.trials.refresh()
                         raise
                 else:
-                    logger.debug('job returned status: %s' % result['status'])
-                    logger.debug('job returned loss: %s' % result.get('loss'))
+                    #logger.debug('job returned status: %s' % result['status'])
+                    #logger.debug('job returned loss: %s' % result.get('loss'))
                     trial['state'] = base.JOB_STATE_DONE
                     trial['result'] = result
                     trial['refresh_time'] = coarse_utcnow()
