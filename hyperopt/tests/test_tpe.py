@@ -16,7 +16,7 @@ from hyperopt.pyll import scope
 from hyperopt import Bandit
 from hyperopt import Trials
 
-from hyperopt.base import miscs_to_idxs_vals, as_bandit
+from hyperopt.base import miscs_to_idxs_vals, as_bandit, STATUS_OK
 
 from hyperopt.bandits import quadratic1
 from hyperopt.bandits import q1_lognormal
@@ -694,7 +694,7 @@ def opt_q_uniform(target):
     rng = np.random.RandomState(123)
     x = hp_quniform('x', 1.01, 10, 1)
     return {'loss': (x - target) ** 2 + scope.normal(0, 1, rng=rng),
-            'status': 'ok'}
+            'status': STATUS_OK}
 
 
 class TestOptQUniform():

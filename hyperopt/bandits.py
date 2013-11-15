@@ -25,7 +25,7 @@ def quadratic1():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2, 'status': 'ok'}
+    return {'loss': (hp_uniform('x', -5, 5) - 3) ** 2, 'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=0)
@@ -34,7 +34,7 @@ def q1_choice():
         (-3, hp_uniform('x_neg', -5, 5)),
         ( 3, hp_uniform('x_pos', -5, 5)),
         ])
-    return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': 'ok'}
+    return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=0)
@@ -44,7 +44,7 @@ def q1_lognormal():
     optimize a one-variable quadratic function.
     """
     return {'loss': scope.max(-(hp_lognormal('x', 0, 2) - 3) ** 2, -100),
-            'status': 'ok' }
+            'status': base.STATUS_OK }
 
 
 @base.as_bandit(loss_target=-2)
@@ -61,7 +61,7 @@ def n_arms(N=2):
     reward_sigmas = as_apply([1] * N)
     return {'loss': scope.normal(reward_mus[x], reward_sigmas[x], rng=rng),
             'loss_variance': 1.0,
-            'status': 'ok'}
+            'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=-2)
@@ -78,7 +78,7 @@ def distractor():
     x = hp_uniform('x', -15, 15)
     f1 = 1.0 / (1.0 + scope.exp(-x))    # climbs rightward from 0.0 to 1.0
     f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
-    return {'loss': -f1 - f2, 'status': 'ok'}
+    return {'loss': -f1 - f2, 'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=-1)
@@ -98,7 +98,7 @@ def gauss_wave():
     t = hp_choice('curve', [x, x + np.pi])
     f1 = scope.sin(t)
     f2 = 2 * scope.exp(-(t / 5.0) ** 2)
-    return {'loss': - (f1 + f2), 'status': 'ok'}
+    return {'loss': - (f1 + f2), 'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=-2.5)
@@ -119,7 +119,7 @@ def gauss_wave2():
     amp = hp_uniform('amp', 0, 1)
     t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(x / 5.0) ** 2))
     return {'loss': - hp_choice('hf', [t, t + scope.sin(x) * amp]),
-            'loss_variance': var, 'status': 'ok'}
+            'loss_variance': var, 'status': base.STATUS_OK}
 
 
 @base.as_bandit(loss_target=0)
@@ -136,6 +136,7 @@ def many_dists():
     j=hp_qlognormal('j', 0, 2, 1)
     k=hp_pchoice('k', [(.1, 0), (.9, 1)])
     z = a + b + c + d + e + f + g + h + i + j + k
-    return {'loss': scope.float(scope.log(1e-12 + z ** 2)), 'status': 'ok'}
+    return {'loss': scope.float(scope.log(1e-12 + z ** 2)),
+            'status': base.STATUS_OK}
 
 

@@ -7,18 +7,22 @@ __authors__   = "James Bergstra"
 __license__   = "3-clause BSD License"
 __contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
 
-import cPickle
 import math
 import sys
 
 # -- don't import this here because it locks in the backend
 #    and we want the unittests to be able to set the backend
 ##import matplotlib.pyplot as plt
-import pyll
 
 import numpy as np
-from .base import Bandit
+from . import base
 from .base import miscs_to_idxs_vals
+
+default_status_colors = {
+    base.STATUS_NEW: 'k',
+    base.STATUS_RUNNING: 'g',
+    base.STATUS_OK:'b',
+    base.STATUS_FAIL:'r'}
 
 def algo_as_str(algo):
     if isinstance(algo, basestring):
@@ -33,7 +37,7 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
 
     # self is an Experiment
     if status_colors is None:
-        status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
+        status_colors = default_status_colors
     Xs = trials.specs
 
     # XXX: show the un-finished or error trials
@@ -69,7 +73,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
-    status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
+    status_colors = default_status_colors
     Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
         for (x, y, s) in zip(trials.specs, trials.losses(bandit),
             trials.statuses(bandit))

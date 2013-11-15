@@ -265,7 +265,7 @@ class Trials(object):
 
     * **result**: a sub-dictionary representing what was returned by the fmin
       evaluation function. This sub-dictionary has a key 'status' with a value
-      from `STATUS_STRINGS` and if the status is 'ok', then there should be
+      from `STATUS_STRINGS` and the status is `STATUS_OK`, then there should be
       a 'loss' key as well with a floating-point value.  Other special keys in
       this sub-dictionary may be used by optimization algorithms  (see them
       for details). Other keys in this sub-dictionary can be used by the
@@ -976,6 +976,6 @@ def as_bandit(**b_kwargs):
 def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': 'ok'}
+    return {'loss': hp_choice('flip', [0.0, 1.0]), 'status': STATUS_OK}
 
 # -- flake8 doesn't like blank last line
