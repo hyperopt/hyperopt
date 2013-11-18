@@ -35,7 +35,6 @@ from .base import miscs_to_idxs_vals
 from .algobase import (
     SuggestAlgo,
     ExprEvaluator,
-    make_suggest_many_from_suggest_one,
     )
 
 logger = logging.getLogger(__name__)
@@ -349,7 +348,6 @@ class AnnealingAlgo(SuggestAlgo):
             size=memo[node.arg['size']])
 
 
-@make_suggest_many_from_suggest_one
 def suggest(new_ids, domain, trials, seed, *args, **kwargs):
     new_id, = new_ids
     return AnnealingAlgo(domain, trials, seed, *args, **kwargs)(new_id)
