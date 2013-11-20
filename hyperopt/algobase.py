@@ -22,12 +22,10 @@ class ExprEvaluator(object):
                  max_program_len=None,
                  memo_gc=True):
         """
-        Parameters:
-        -----------
+        Parameters
+        ----------
 
         expr - pyll Apply instance to be evaluated
-
-        memo - optional dictionary of values to use for particular nodes
 
         deepcopy_inputs - deepcopy inputs to every node prior to calling that
             node's function on those inputs. If this leads to a different
@@ -37,6 +35,16 @@ class ExprEvaluator(object):
             because if the offender happens on account of the toposort order
             to be the last user of said input, then it will not be detected as
             a potential problem.
+
+        max_program_len : int (default pyll.base.DEFAULT_MAX_PROGRAM_LEN)
+            If more than this many nodes are evaluated in the course of
+            evaluating `expr`, then evaluation is aborted under the assumption
+            that an infinite recursion is underway.
+
+        memo_gc : bool
+            If True, values computed for apply nodes within `expr` may be
+            cleared during computation. The bookkeeping required to do this
+            takes a bit of extra time, but usually no big deal.
 
         """
         self.expr = pyll.as_apply(expr)
