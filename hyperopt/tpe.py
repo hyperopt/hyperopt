@@ -809,26 +809,7 @@ def suggest(new_ids, domain, trials, seed,
         linear_forgetting=_default_linear_forgetting,
         ):
 
-    if len(new_ids) > 1:
-        # -- greedy loop rolling forward
-        trials_copy = Trials()
-        trials_copy._dynamic_trials = trials.trials
-        trials_copy.refresh()
-        rval = []
-        for new_id in new_ids:
-            new_trials1 = suggest([new_id], domain, trials_copy,
-                seed=seed,
-                prior_weight=prior_weight,
-                n_startup_jobs=n_startup_jobs,
-                n_EI_candidates=n_EI_candidates,
-                gamma=gamma,
-                linear_forgetting=linear_forgetting)
-            trials_copy.insert_trial_docs(new_trials1)
-            trials_copy.refresh()
-            rval.extend(new_trials1)
-        return rval
-    else:
-        new_id, = new_ids
+    new_id, = new_ids
 
     t0 = time.time()
     (s_prior_weight, observed, observed_loss, specs, opt_idxs, opt_vals) \
