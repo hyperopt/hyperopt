@@ -51,6 +51,8 @@ class ExprEvaluator(object):
         if deepcopy_inputs not in (0, 1, False, True):
             # -- I've been calling rec_eval(expr, memo) by accident a few times
             #    this error would have been appreciated.
+            #
+            # TODO: Good candidate for Py3K keyword-only argument
             raise ValueError('deepcopy_inputs should be bool', deepcopy_inputs)
         self.deepcopy_inputs = deepcopy_inputs
         if max_program_len is None:
