@@ -722,7 +722,6 @@ class Domain(object):
                  loss_target=None,
                  exceptions=None,
                  ):
-        self.cmd = ('domain_attachment', 'FMinIter_Domain')
         self.fn = fn
         if pass_expr_memo_ctrl is None:
             self.pass_expr_memo_ctrl = getattr(fn,
@@ -771,6 +770,13 @@ class Domain(object):
 
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
+
+        # -- Protocol for serialization.
+        #    self.cmd indicates to e.g. MongoWorker how this domain
+        #    should be [un]serialized.
+        #    XXX This mechanism deserves review as support for ipython
+        #        workers improves.
+        self.cmd = ('domain_attachment', 'FMinIter_Domain')
 
     def memo_from_config(self, config):
         memo = {}
