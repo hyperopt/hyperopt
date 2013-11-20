@@ -191,17 +191,26 @@ class ExprEvaluator(object):
             return [switch_i_var]
 
     def on_node(self, memo, node):
-        # -- not waiting on anything;
-        #    this instruction can be evaluated.
+        # -- Retrieve computed arguments of apply node
         args = _args = [memo[v] for v in node.pos_args]
         kwargs = _kwargs = dict([(k, memo[v])
                                  for (k, v) in node.named_args])
 
         if self.memo_gc:
+            # -- Ensure no computed argument has been (accidentally) freed for
+            #    garbage-collection.
             for aa in args + kwargs.values():
                 assert aa is not pyll.base.GarbageCollected
 
         if self.deepcopy_inputs:
+            # -- I think this is supposed to be skipped if node.pure == True
+            #    because that attribute is supposed to mark the node as having
+            #    no side-effects that affect expression-evaluation.
+            #
+            #    HOWEVER That has not been tested in a while, and it's hard to
+            #    verify (with e.g. unit tests) that a node marked "pure" isn't
+            #    lying. So we hereby ignore the `pure` attribute and copy
+            #    everything to be on the safe side.
             args = copy.deepcopy(_args)
             kwargs = copy.deepcopy(_kwargs)
 
