@@ -97,7 +97,7 @@ class ExprEvaluator(object):
                     continue
             elif isinstance(node, pyll.Literal):
                 # -- constants go straight into the memo
-                self.set_memo(memo, node, node.obj)
+                self.set_in_memo(memo, node, node.obj)
                 continue
             else:
                 # -- normal instruction-type nodes have inputs
@@ -126,12 +126,20 @@ class ExprEvaluator(object):
                                                self.max_program_len,
                                                self.memo_gc)
                     foo = evaluator(memo)
-                    self.set_memo(memo, node, foo)
+                    self.set_in_memo(memo, node, foo)
                 else:
-                    self.set_memo(memo, node, rval)
+                    self.set_in_memo(memo, node, rval)
         return memo
 
-    def set_memo(self, memo, k, v):
+    def set_in_memo(self, memo, k, v):
+        """Assign memo[k] = v
+
+        This is implementation optionally drops references to the arguments
+        "clients" required to compute apply-node `k`, which allows those
+        objects to be garbage-collected. This feature is enabled by
+        `self.memo_gc`.
+
+        """
         if self.memo_gc:
             assert v is not pyll.base.GarbageCollected
             memo[k] = v
@@ -159,7 +167,7 @@ class ExprEvaluator(object):
                                  switch_i)
             rval_var = node.pos_args[switch_i + 1]
             if rval_var in memo:
-                self.set_memo(memo, node, memo[rval_var])
+                self.set_in_memo(memo, node, memo[rval_var])
                 return
             else:
                 return [rval_var]
