@@ -229,7 +229,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         dictionary will be stored and available later as some 'result'
         sub-dictionary within `trials.trials`.
 
-    space : pyll.Apply node
+    space : hyperopt.pyll.Apply node
         The set of possible arguments to `fn` is the set of objects
         that could be created with non-zero probability by drawing randomly
         from this stochastic program involving involving hp_<xxx> nodes
