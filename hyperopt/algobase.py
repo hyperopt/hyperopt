@@ -12,7 +12,6 @@ import numpy as np
 
 from . import pyll
 from .base import (
-    Trials,
     miscs_update_idxs_vals,
     )
 
