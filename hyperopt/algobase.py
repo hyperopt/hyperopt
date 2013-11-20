@@ -154,7 +154,23 @@ class ExprEvaluator(object):
             memo[k] = v
 
     def on_switch(self, memo, node):
-        # -- switch is the conditional evaluation node
+        # -- pyll.base.switch is a control-flow expression.
+        #
+        #    It's signature is
+        #       int, option0, option1, option2, ..., optionN
+        #
+        #    The semantics of a switch node are to only evaluate the option
+        #    corresponding to the value of the leading integer. (Think of
+        #    a switch block in the C language.)
+        #
+        #    This is a helper-function to self.eval_nodes.  It returns None,
+        #    or a list of apply-nodes required to evaluate the given switch
+        #    node.
+        #
+        #    When it returns None, the memo has been updated so that
+        #    memo[`node`] has been assigned the computed value for the given
+        #    switch node.
+        #
         switch_i_var = node.pos_args[0]
         if switch_i_var in memo:
             switch_i = memo[switch_i_var]
