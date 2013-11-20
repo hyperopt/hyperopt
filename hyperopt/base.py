@@ -713,15 +713,47 @@ class Domain(object):
     #    the pyll graph describing the search space.
     pyll_ctrl = pyll.as_apply(Ctrl)
 
-    exceptions = []
-
     def __init__(self, fn, expr,
                  workdir=None,
                  pass_expr_memo_ctrl=None,
                  name=None,
                  loss_target=None,
-                 exceptions=None,
                  ):
+        """
+        Paramaters
+        ----------
+
+        fn : callable
+            This stores the `fn` argument to `fmin`. (See `hyperopt.fmin.fmin`)
+
+        expr : hyperopt.pyll.Apply
+            This is the `space` argument to `fmin`. (See `hyperopt.fmin.fmin`)
+
+        workdir : string (or None)
+            If non-None, the current working directory will be `workdir`while
+            `expr` and `fn` are evaluated. (XXX Currently only respected by
+            jobs run via MongoWorker)
+
+        pass_expr_memo_ctrl : bool
+            If True, `fn` will be called like this:
+            `fn(self.expr, memo, ctrl)`,
+            where `memo` is a dictionary mapping `Apply` nodes to their
+            computed values, and `ctrl` is a `Ctrl` instance for communicating
+            with a Trials database.  This lower-level calling convention is
+            useful if you want to call e.g. `hyperopt.pyll.rec_eval` yourself
+            in some customized way.
+
+        name : string (or None)
+            Label, used for pretty-printing.
+
+        loss_target : float (or None)
+            The actual or estimated minimum of `fn`.
+            Some optimization algorithms may behave differently if their first
+            objective is to find an input that achieves a certain value,
+            rather than the more open-ended objective of pure minimization.
+            XXX: Move this from Domain to be an fmin arg.
+
+        """
         self.fn = fn
         if pass_expr_memo_ctrl is None:
             self.pass_expr_memo_ctrl = getattr(fn,
@@ -740,8 +772,6 @@ class Domain(object):
                     raise DuplicateLabel(label)
                 self.params[label] = node.arg['obj']
 
-        if exceptions is not None:
-            self.exceptions = exceptions
         self.loss_target = loss_target
         self.name = name
 
