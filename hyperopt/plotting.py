@@ -189,7 +189,7 @@ if 0:
 
         # save the sign of x
         sign = 1
-        if x < 0: 
+        if x < 0:
             sign = -1
         x = abs(x)
 
@@ -210,7 +210,7 @@ if 0:
         scores = list(scores) # shallow copy
         scores.sort()         # sort the copy
         scores.reverse()      # reverse the order
-        
+
         #this is valid for classification
         # where the scores are the means of Bernoulli variables.
         best_mean = scores[0][0]
@@ -239,7 +239,7 @@ if 0:
         scores = list(scores) # shallow copy
         scores.sort()         # sort the copy
         scores.reverse()      # reverse the order
-        
+
         # this is valid for classification
         # where the scores are the means of Bernoulli variables.
         best_mean = scores[0][0]
@@ -284,7 +284,7 @@ if 0:
         """
         Uses the current pyplot figure to show efficiency of random experiment.
 
-        :type scores: a list of (validation accuracy, test accuracy)  pairs 
+        :type scores: a list of (validation accuracy, test accuracy)  pairs
         :param scores: results from the trials of a random experiment
 
         :type n_valid: integer
