@@ -23,7 +23,7 @@ The design is that there are three components fitting together in this project:
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
-__contact__ = "github.com/jaberg/hyperopt"
+__contact__ = "github.com/hyperopt/hyperopt"
 
 import logging
 import datetime

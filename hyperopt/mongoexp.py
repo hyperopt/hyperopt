@@ -92,7 +92,7 @@ finalize the job in the database.
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
-__contact__ = "github.com/jaberg/hyperopt"
+__contact__ = "github.com/hyperopt/hyperopt"
 
 import copy
 try:

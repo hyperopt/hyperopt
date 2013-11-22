@@ -125,7 +125,7 @@ setuptools.setup(
     version = '0.0.3.dev',
     packages = packages,
     scripts = scripts,
-    url = 'http://jaberg.github.com/hyperopt/',
+    url = 'http://hyperopt.github.com/hyperopt/',
     author = 'James Bergstra',
     author_email = 'james.bergstra@gmail.com',
     description = 'Distributed Asynchronous Hyperparameter Optimization',

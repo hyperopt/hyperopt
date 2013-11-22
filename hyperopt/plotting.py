@@ -5,7 +5,7 @@ Functions to visualize an Experiment.
 
 __authors__   = "James Bergstra"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "github.com/hyperopt/hyperopt"
 
 import math
 import sys

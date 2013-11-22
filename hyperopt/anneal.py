@@ -11,7 +11,7 @@ a good starting point for implementing new search algorithms.
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
-__contact__ = "github.com/jaberg/hyperopt"
+__contact__ = "github.com/hyperopt/hyperopt"
 
 import logging
 
