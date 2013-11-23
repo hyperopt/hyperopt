@@ -79,9 +79,9 @@ def _param_assignment(pp):
                          int(extra_kwargs_ok))
     assert len(code.co_varnames) >= expected_num_args
     param_names = code.co_varnames[:expected_num_args]
-    args_param = (param_names[code.co_argcount + 1]
+    args_param = (param_names[code.co_argcount]
                   if extra_args_ok else None)
-    kwargs_param = (param_names[code.co_argcount + 1 + int(extra_args_ok)]
+    kwargs_param = (param_names[code.co_argcount + int(extra_args_ok)]
                     if extra_kwargs_ok else None)
     pos_params = param_names[:code.co_argcount]
     if extra_args_ok:
