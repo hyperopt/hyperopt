@@ -61,20 +61,38 @@ class MissingArgument(object):
         assert 0, "Singleton class not meant to be instantiated"
 
 
-def _param_assignment(pp):
-    """Calculate parameter assignment of partial
+def _extract_param_names(fn):
     """
-    binding = {}
+    Grab the names of positional arguments, as well as the varargs
+    and kwargs parameter, if they exist.
 
-    fn = pp.func
-    pos_args = pp.args
-    named_args = {} if pp.keywords is None else pp.keywords
+    Parameters
+    ----------
+    fn : function object
+        The function to be inspected.
+
+    Returns
+    -------
+    param_names : list
+        A list of all the function's argument names.
+
+    pos_args : list
+        A list of names of the non-special arguments to `fn`.
+
+    args_param : str or None
+        The name of the variable-length positional args parameter,
+        or `None` if `fn` does not accept a variable number of
+        positional arguments.
+
+    kwargs_param : str or None
+        The name of the variable-length keyword args parameter,
+        or `None` if `fn` does not accept a variable number of
+        keyword arguments.
+    """
     code = fn.__code__
-    # right-aligned default values for params
-    defaults = fn.__defaults__ if fn.__defaults__ else ()
+
     extra_args_ok = bool(code.co_flags & compiler.consts.CO_VARARGS)
     extra_kwargs_ok = bool(code.co_flags & compiler.consts.CO_VARKEYWORDS)
-
     expected_num_args = (code.co_argcount + int(extra_args_ok) +
                          int(extra_kwargs_ok))
     assert len(code.co_varnames) >= expected_num_args
@@ -84,47 +102,93 @@ def _param_assignment(pp):
     kwargs_param = (param_names[code.co_argcount + int(extra_args_ok)]
                     if extra_kwargs_ok else None)
     pos_params = param_names[:code.co_argcount]
-    if extra_args_ok:
-        binding[args_param] = []
+    return pos_params, args_param, kwargs_param
 
-    if extra_kwargs_ok:
+
+def _bind_keywords(params, named_args, kwargs_param, binding=None):
+    """
+    Resolve bindings for keyword arguments from a list
+    of parameter names.
+
+    Parameters
+    ----------
+    params : list
+        A list of names of positional parameters.
+
+    named_args : dict
+        A dictionary mapping names of keyword parameters to
+        values to bind to them.
+
+    kwargs_param : str or None
+        The name of the extended/optional keywords parameter
+        to use for keys in `named_args` that do not appear in
+        `params`. If this is None, excess keyword arguments
+        not listed in `params` will raise an error.
+
+    binding : dict, optional
+        A dictionary of existing name to value bindings, i.e.
+        from processing positional arguments.
+
+    Returns
+    -------
+    binding : dict
+        A dictionary of argument names to bound values, including
+        any passed in via the `binding` argument.
+    """
+    binding = {} if binding is None else dict(binding)
+    if kwargs_param:
         binding[kwargs_param] = {}
+    params_set = set(params)
+    for aname, aval in named_args.iteritems():
+        if aname in params_set and not aname in binding:
+            binding[aname] = aval
+        elif aname in binding and aname != kwargs_param:
+            raise TypeError('Duplicate argument for parameter: %s' % aname)
+        elif kwargs_param:
+            binding[kwargs_param][aname] = aval
+        else:
+            raise TypeError('Unrecognized keyword argument: %s' % aname)
+    return binding
 
-    if len(pos_args) > code.co_argcount and not extra_args_ok:
+
+def _param_assignment(pp):
+    """
+    Calculate parameter assignment of partial
+    """
+    binding = {}
+
+    fn = pp.func
+    code = fn.__code__
+    pos_args = pp.args
+    named_args = {} if pp.keywords is None else pp.keywords
+    params, args_param, kwargs_param = _extract_param_names(fn)
+
+    if len(pos_args) > code.co_argcount and not args_param:
         raise TypeError('Argument count exceeds number of positional params')
+    elif args_param:
+        binding[args_param] = pos_args[code.co_argcount:]
 
     # -- bind positional arguments
-    for param_i, arg_i in izip(pos_params, pos_args):
+    for param_i, arg_i in izip(params, pos_args):
         binding[param_i] = arg_i
 
-    if extra_args_ok:
-        binding[args_param].extend(pos_args[code.co_argcount:])
-
     # -- bind keyword arguments
-    for aname, aval in named_args.iteritems():
-        try:
-            pos = pos_params.index(aname)
-        except ValueError:
-            if extra_kwargs_ok:
-                binding[kwargs_param][aname] = aval
-                continue
-            else:
-                raise TypeError('Unrecognized keyword argument', aname)
-        param = param_names[pos]
-        if param in binding:
-            raise TypeError('Duplicate argument for parameter', param)
-        binding[param] = aval
+    binding.update(_bind_keywords(params, named_args, kwargs_param, binding))
+    expected_length = (len(params) + int(kwargs_param is not None) +
+                       int(args_param is not None))
+    assert len(binding) <= expected_length
 
-    assert len(binding) <= len(param_names)
+    # Right-aligned default values for params. Default to empty tuple
+    # so that iteration below simply terminates in this case.
+    defaults = fn.__defaults__ if fn.__defaults__ else ()
 
     # -- fill in default parameter values
-    for param_i, default_i in izip(pos_params[-len(defaults):], defaults):
+    for param_i, default_i in izip(params[-len(defaults):], defaults):
         binding.setdefault(param_i, default_i)
 
     # -- mark any outstanding parameters as missing
-    if len(binding) < len(param_names):
-        missing_names = set(param_names) - set(binding)
-        binding.update(izip(missing_names, repeat(MissingArgument)))
+    missing_names = set(params) - set(binding)
+    binding.update(izip(missing_names, repeat(MissingArgument)))
     return binding
 
 
@@ -281,23 +345,20 @@ def evaluate(p, cache=None):
     # `list(...)[item]`
     # only evaluate the element(s) of the list that we need.
     if p.func == _getitem:
-        obj, item = p.args
+        obj, index = p.args
         if (isinstance(obj, functools.partial)
                 and obj.func in (list, tuple)):
-            item_val = evaluate(item, cache)
-            elem_val = evaluate(obj.args[item_val], cache)
+            index_val = evaluate(index, cache)
+            elem_val = evaluate(obj.args[index_val], cache)
             try:
-                int(item_val)
+                int(index_val)
                 cache[p] = elem_val
             except TypeError:
                 cache[p] = obj.func(elem_val)
             return cache[p]
 
     args = [evaluate(arg, cache) for arg in p.args]
-    if p.keywords:
-        kw = [evaluate(kw, cache) for kw in p.keywords]
-    else:
-        kw = {}
+    kw = [evaluate(kw, cache) for kw in p.keywords] if p.keywords else {}
     # Cache the evaluated value (for subsequent calls that
     # will look at this cache dictionary) and return.
     cache[p] = p.func(*args, **kw)

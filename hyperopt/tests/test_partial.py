@@ -66,8 +66,8 @@ def test_star_args():
         return -1
 
     assert PartialPlus(f, 0, 1).arg['a'] == 0
-    assert PartialPlus(f, 0, 1).arg['b'] == [1]
-    assert PartialPlus(f, 0, 1, 2, 3).arg['b'] == [1, 2, 3]
+    assert PartialPlus(f, 0, 1).arg['b'] == (1,)
+    assert PartialPlus(f, 0, 1, 2, 3).arg['b'] == (1, 2, 3)
 
 
 def test_kwargs():
@@ -93,8 +93,7 @@ def test_star_kwargs():
     assert PartialPlus(f, 0, b=1).arg['b'] == {'b': 1}
 
     assert PartialPlus(f, 0, 'q', 'uas', foo=1, bar=2).arg['a'] == 0
-    assert PartialPlus(f, 0, 'q', 'uas', foo=1, bar=2).arg['u'] == [
-        'q', 'uas']
+    assert PartialPlus(f, 0, 'q', 'uas', foo=1, bar=2).arg['u'] == ('q', 'uas')
     assert PartialPlus(f, 0, 'q', 'uas', foo=1, bar=2).arg['b'] == {
         'foo': 1,
         'bar': 2,
