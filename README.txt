@@ -16,5 +16,8 @@ https://groups.google.com/forum/#!forum/hyperopt-announce
 
 Thanks
 ------
-This work was supported in part by the National Science Foundation (IIS-0963668),
-and by the Banting Postdoctoral Fellowship program.
+This project has received support from
+* National Science Foundation (IIS-0963668),
+* Banting Postdoctoral Fellowship program, 
+* National Science and Engineering Research Council of Canada (NSERC),
+* D-Wave Systems, Inc.
