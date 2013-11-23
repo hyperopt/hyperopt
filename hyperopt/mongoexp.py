@@ -295,12 +295,38 @@ class MongoJobs(object):
     #
     """
     def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
+        """
+        Parameters
+        ----------
+
+        db - Mongo Database (e.g. `Connection()[dbname]`)
+            database in which all job-related info is stored
+
+        jobs - Mongo Collection handle
+            collection within `db` to use for job arguments, return vals,
+            and various bookkeeping stuff and meta-data. Typically this is
+            `db['jobs']`
+
+        gfs - Mongo GridFS handle
+            GridFS is used to store attachments - binary blobs that don't fit
+            or are awkward to store in the `jobs` collection directly.
+
+        conn - Mongo Connection
+            Why we need to keep this, I'm not sure.
+
+        tunnel - something for ssh tunneling if you're doing that
+            See `connection_with_tunnel` for more info.
+
+        config_name - string
+            XXX: No idea what this is for, seems unimportant.
+
+        """
         self.db = db
         self.jobs = jobs
         assert jobs.write_concern['w'] >= 1
         self.gfs = gfs
-        self.conn=conn
-        self.tunnel=tunnel
+        self.conn = conn
+        self.tunnel = tunnel
         self.config_name = config_name
 
     # TODO: rename jobs -> coll throughout
