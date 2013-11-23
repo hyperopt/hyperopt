@@ -423,8 +423,10 @@ class MongoJobs(object):
             #    see insert() code for rationale.
             raise OperationFailure(e)
 
-    def delete_all(self, cond={}):
+    def delete_all(self, cond=None):
         """Delete all jobs and attachments"""
+        if cond is None:
+            cond = {}
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
                 logger.info('deleting job %s' % d['_id'])
