@@ -6,6 +6,7 @@ __authors__ = "David Warde-Farley"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
+import compiler
 import functools
 
 
@@ -68,10 +69,8 @@ def _param_assignment(pp):
     pos_args = pp.args
     named_args = {} if pp.keywords is None else pp.keywords
     code = fn.__code__
-    defaults = fn.__defaults__  # right-aligned default values for params
-
-    extra_args_ok = bool(code.co_flags & 0x04)
-    extra_kwargs_ok = bool(code.co_flags & 0x08)
+    extra_args_ok = bool(code.co_flags & compiler.consts.CO_VARARGS)
+    extra_kwargs_ok = bool(code.co_flags & compiler.consts.CO_VARKEYWORDS)
 
     if extra_args_ok and extra_kwargs_ok:
         assert len(code.co_varnames) >= code.co_argcount + 2
