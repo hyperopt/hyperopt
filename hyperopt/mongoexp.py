@@ -402,12 +402,16 @@ class MongoJobs(object):
         """Return a job dictionary by inserting the job dict into the database"""
         try:
             cpy = copy.deepcopy(job)
-            # this call adds an _id field to cpy
+            # -- this call adds an _id field to cpy
             _id = self.jobs.insert(cpy, check_keys=True)
-            # so now we return the dict with the _id field
+            # -- so now we return the dict with the _id field
             assert _id == cpy['_id']
             return cpy
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    This was meant to make it easier to catch insertion errors
+            #    in a generic way even if different databases were used.
+            #    ... but there's just MongoDB so far, so kinda goofy.
             raise OperationFailure(e)
 
     def delete(self, job):
@@ -415,6 +419,8 @@ class MongoJobs(object):
         try:
             self.jobs.remove(job)
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
     def delete_all(self, cond={}):
@@ -430,6 +436,8 @@ class MongoJobs(object):
                             name, file_id))
                 self.jobs.remove(d)
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
     def delete_all_error_jobs(self):
@@ -511,7 +519,8 @@ class MongoJobs(object):
                     upsert=False,
                     multi=False,)
         except pymongo.errors.OperationFailure, e:
-            # translate pymongo failure into generic failure
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
         # update doc in-place to match what happened on the server side
