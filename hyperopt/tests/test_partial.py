@@ -26,6 +26,19 @@ def test_switch():
     assert -1 == evaluate(plist[0])
 
 
+def test_switch_range():
+    """Test that "switch" works on index ranges"""
+    def dont_eval():
+        # -- This function body should never be evaluated
+        #    because we only need the 0'th element of `plist`
+        assert 0, 'Evaluate does not need this, should not eval'
+    plist = PartialPlus(list, -1, 0, 1, PartialPlus(dont_eval))
+    assert [-1, 0, 1] == evaluate(plist[:3])
+
+    plist = PartialPlus(tuple, -1, 0, 1, PartialPlus(dont_eval))
+    assert (-1, 0, 1) == evaluate(plist[:3])
+
+
 def test_arg():
     """Test basic PartialPlus.arg lookups"""
     def f(a, b=None):

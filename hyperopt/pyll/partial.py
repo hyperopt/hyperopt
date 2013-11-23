@@ -289,6 +289,23 @@ def evaluate(p, cache=None):
     # the pre-computed value.
     if p in cache:
         return cache[p]
+
+    # When evaluating an expression of the form
+    # `list(...)[item]`
+    # only evaluate the element(s) of the list that we need.
+    if p.func == _getitem:
+        obj, item = p.args
+        if (isinstance(obj, functools.partial)
+                and obj.func in (list, tuple)):
+            item_val = evaluate(item, cache)
+            elem_val = evaluate(obj.args[item_val], cache)
+            try:
+                int(item_val)
+                cache[p] = elem_val
+            except TypeError:
+                cache[p] = obj.func(elem_val)
+            return cache[p]
+
     args = [evaluate(arg, cache) for arg in p.args]
     if p.keywords:
         kw = [evaluate(kw, cache) for kw in p.keywords]
