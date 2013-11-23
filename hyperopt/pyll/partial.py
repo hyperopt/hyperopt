@@ -8,6 +8,7 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 import compiler
 import functools
+from itertools import izip, repeat
 
 
 class NoExpand(object):
@@ -69,30 +70,20 @@ def _param_assignment(pp):
     pos_args = pp.args
     named_args = {} if pp.keywords is None else pp.keywords
     code = fn.__code__
+    # right-aligned default values for params
+    defaults = fn.__defaults__ if fn.__defaults__ else ()
     extra_args_ok = bool(code.co_flags & compiler.consts.CO_VARARGS)
     extra_kwargs_ok = bool(code.co_flags & compiler.consts.CO_VARKEYWORDS)
 
-    if extra_args_ok and extra_kwargs_ok:
-        assert len(code.co_varnames) >= code.co_argcount + 2
-        param_names = code.co_varnames[:code.co_argcount + 2]
-        args_param = param_names[code.co_argcount]
-        kwargs_param = param_names[code.co_argcount + 1]
-        pos_params = param_names[:code.co_argcount]
-    elif extra_kwargs_ok:
-        assert len(code.co_varnames) >= code.co_argcount + 1
-        param_names = code.co_varnames[:code.co_argcount + 1]
-        kwargs_param = param_names[code.co_argcount]
-        pos_params = param_names[:code.co_argcount]
-    elif extra_args_ok:
-        assert len(code.co_varnames) >= code.co_argcount + 1
-        param_names = code.co_varnames[:code.co_argcount + 1]
-        args_param = param_names[code.co_argcount]
-        pos_params = param_names[:code.co_argcount]
-    else:
-        assert len(code.co_varnames) >= code.co_argcount
-        param_names = code.co_varnames[:code.co_argcount]
-        pos_params = param_names[:code.co_argcount]
-
+    expected_num_args = (code.co_argcount + int(extra_args_ok) +
+                         int(extra_kwargs_ok))
+    assert len(code.co_varnames) >= expected_num_args
+    param_names = code.co_varnames[:expected_num_args]
+    args_param = (param_names[code.co_argcount + 1]
+                  if extra_args_ok else None)
+    kwargs_param = (param_names[code.co_argcount + 1 + int(extra_args_ok)]
+                    if extra_kwargs_ok else None)
+    pos_params = param_names[:code.co_argcount]
     if extra_args_ok:
         binding[args_param] = []
 
@@ -103,14 +94,14 @@ def _param_assignment(pp):
         raise TypeError('Argument count exceeds number of positional params')
 
     # -- bind positional arguments
-    for param_i, arg_i in zip(pos_params, pos_args):
+    for param_i, arg_i in izip(pos_params, pos_args):
         binding[param_i] = arg_i
 
     if extra_args_ok:
         binding[args_param].extend(pos_args[code.co_argcount:])
 
     # -- bind keyword arguments
-    for aname, aval in named_args.items():
+    for aname, aval in named_args.iteritems():
         try:
             pos = pos_params.index(aname)
         except ValueError:
@@ -127,16 +118,13 @@ def _param_assignment(pp):
     assert len(binding) <= len(param_names)
 
     # -- fill in default parameter values
-    if defaults:
-        for param_i, default_i in zip(pos_params[-len(defaults)], defaults):
-            binding.setdefault(param_i, default_i)
+    for param_i, default_i in izip(pos_params[-len(defaults):], defaults):
+        binding.setdefault(param_i, default_i)
 
     # -- mark any outstanding parameters as missing
     if len(binding) < len(param_names):
-        for p in param_names:
-            if p not in binding:
-                binding[p] = MissingArgument
-
+        missing_names = set(param_names) - set(binding)
+        binding.update(izip(missing_names, repeat(MissingArgument)))
     return binding
 
 
