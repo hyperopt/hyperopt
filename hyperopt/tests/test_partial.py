@@ -48,10 +48,10 @@ def test_arg():
     assert PartialPlus(f, 0, 1).arg['b'] == 1
 
     assert PartialPlus(f, 0).arg['a'] == 0
-    assert PartialPlus(f, 0).arg['b'] == None
+    assert PartialPlus(f, 0).arg['b'] is None
 
     assert PartialPlus(f, a=3).arg['a'] == 3
-    assert PartialPlus(f, a=3).arg['b'] == None
+    assert PartialPlus(f, a=3).arg['b'] is None
 
     assert PartialPlus(f, 2, b=5).arg['a'] == 2
     assert PartialPlus(f, 2, b=5).arg['b'] == 5
@@ -82,6 +82,7 @@ def test_kwargs():
         'bar': 2,
         'baz': 3,
     }
+
 
 def test_star_kwargs():
     """Test PartialPlus.arg lookups on *args and **kwargs"""
