@@ -48,6 +48,99 @@ def _unary_arithmetic(x, op):
     return _UNARY_OPS[op](x)
 
 
+def _getitem(obj, item):
+    return obj[item]
+
+
+class MissingArgument(object):
+    """Object to represent a missing argument to a function application
+    """
+    def __init__(self):
+        assert 0, "Singleton class not meant to be instantiated"
+
+
+def _param_assignment(pp):
+    """Calculate parameter assignment of partial
+    """
+    binding = {}
+
+    fn = pp.func
+    pos_args = pp.args
+    named_args = {} if pp.keywords is None else pp.keywords
+    code = fn.__code__
+    defaults = fn.__defaults__  # right-aligned default values for params
+
+    extra_args_ok = bool(code.co_flags & 0x04)
+    extra_kwargs_ok = bool(code.co_flags & 0x08)
+
+    if extra_args_ok and extra_kwargs_ok:
+        assert len(code.co_varnames) >= code.co_argcount + 2
+        param_names = code.co_varnames[:code.co_argcount + 2]
+        args_param = param_names[code.co_argcount]
+        kwargs_param = param_names[code.co_argcount + 1]
+        pos_params = param_names[:code.co_argcount]
+    elif extra_kwargs_ok:
+        assert len(code.co_varnames) >= code.co_argcount + 1
+        param_names = code.co_varnames[:code.co_argcount + 1]
+        kwargs_param = param_names[code.co_argcount]
+        pos_params = param_names[:code.co_argcount]
+    elif extra_args_ok:
+        assert len(code.co_varnames) >= code.co_argcount + 1
+        param_names = code.co_varnames[:code.co_argcount + 1]
+        args_param = param_names[code.co_argcount]
+        pos_params = param_names[:code.co_argcount]
+    else:
+        assert len(code.co_varnames) >= code.co_argcount
+        param_names = code.co_varnames[:code.co_argcount]
+        pos_params = param_names[:code.co_argcount]
+
+    if extra_args_ok:
+        binding[args_param] = []
+
+    if extra_kwargs_ok:
+        binding[kwargs_param] = {}
+
+    if len(pos_args) > code.co_argcount and not extra_args_ok:
+        raise TypeError('Argument count exceeds number of positional params')
+
+    # -- bind positional arguments
+    for param_i, arg_i in zip(pos_params, pos_args):
+        binding[param_i] = arg_i
+
+    if extra_args_ok:
+        binding[args_param].extend(pos_args[code.co_argcount:])
+
+    # -- bind keyword arguments
+    for aname, aval in named_args.items():
+        try:
+            pos = pos_params.index(aname)
+        except ValueError:
+            if extra_kwargs_ok:
+                binding[kwargs_param][aname] = aval
+                continue
+            else:
+                raise TypeError('Unrecognized keyword argument', aname)
+        param = param_names[pos]
+        if param in binding:
+            raise TypeError('Duplicate argument for parameter', param)
+        binding[param] = aval
+
+    assert len(binding) <= len(param_names)
+
+    # -- fill in default parameter values
+    if defaults:
+        for param_i, default_i in zip(pos_params[-len(defaults)], defaults):
+            binding.setdefault(param_i, default_i)
+
+    # -- mark any outstanding parameters as missing
+    if len(binding) < len(param_names):
+        for p in param_names:
+            if p not in binding:
+                binding[p] = MissingArgument
+
+    return binding
+
+
 class PartialPlus(functools.partial):
     """
     A subclass of `functools.partial` that allows for
@@ -154,6 +247,13 @@ class PartialPlus(functools.partial):
 
     def __hex__(self):
         return self.__class__(hex, self)
+
+    def __getitem__(self, item):
+        return self.__class__(_getitem, self, item)
+
+    @property
+    def arg(self):
+        return _param_assignment(self)
 
 
 def evaluate(p, cache=None):
