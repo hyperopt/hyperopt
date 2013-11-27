@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, STATUS_FAIL, STATUS_OK
 from hyperopt.base import JOB_STATE_ERROR
 
 
@@ -148,4 +148,19 @@ class TestFmin(unittest.TestCase):
         assert len(self.trials) == 0
         assert len(self.trials._dynamic_trials) == 1
 
+def test_status_fail_tpe():
+    trials = Trials()
+
+    argmin = fmin(
+            fn=lambda x: ( {'loss': (x - 3) ** 2, 'status': STATUS_OK} if (x < 0) else
+                           {'status': STATUS_FAIL}),
+            space=hp.uniform('x', -5, 5),
+            algo=tpe.suggest,
+            max_evals=50,
+            trials=trials)
+
+    assert len(trials) == 50, len(trials)
+    assert argmin['x'] < 0, argmin
+    assert trials.best_trial['result'].has_key('loss'), trials.best_trial['result'].has_key('loss')
+    assert trials.best_trial['result']['loss'] >= 9, trials.best_trial['result']['loss']
 
