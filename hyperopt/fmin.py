@@ -42,7 +42,6 @@ def partial(fn, **kwargs):
         rval.fmin_pass_expr_memo_ctrl = fn.fmin_pass_expr_memo_ctrl
     return rval
 
-
 class FMinIter(object):
     """Object for conducting search experiments.
     """

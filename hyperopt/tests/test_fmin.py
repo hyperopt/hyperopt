@@ -5,7 +5,6 @@ import nose.tools
 from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, STATUS_FAIL, STATUS_OK
 from hyperopt.base import JOB_STATE_ERROR
 
-
 def test_quadratic1_rand():
     trials = Trials()
 
