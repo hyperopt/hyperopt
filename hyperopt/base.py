@@ -555,7 +555,7 @@ class Trials(object):
     @property
     def best_trial(self):
         results = self.results
-        best = np.argmin([r.get('loss', float('inf')) for r in results])
+        best = np.argmin([(r.get('loss', float('inf')) if r.get('loss',None) != None else float('inf')) for r in results])
         return self.trials[best]
 
     @property

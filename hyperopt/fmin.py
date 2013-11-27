@@ -118,13 +118,10 @@ class Domain(base.Bandit):
             dict_rval = {'loss': rval}
         elif isinstance(rval, (dict,)):
             dict_rval = rval
-            if 'loss' not in dict_rval:
-                raise ValueError('dictionary must have "loss" key',
-                        dict_rval.keys())
         else:
             raise TypeError('invalid return type (neither number nor dict)', rval)
 
-        if dict_rval['loss'] is not None:
+        if dict_rval.get('loss',None) is not None:
             # -- fail if cannot be cast to float
             dict_rval['loss'] = float(dict_rval['loss'])
 

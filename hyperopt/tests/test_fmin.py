@@ -1,6 +1,6 @@
 import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, STATUS_FAIL, STATUS_OK
 
 
 def test_quadratic1_rand():
@@ -80,3 +80,19 @@ def test_space_eval():
     assert space_eval(space, {'a': 0, 'c1': 1.0}) == ('case 1', 2.0)
     assert space_eval(space, {'a': 1, 'c2': 3.5}) == ('case 2', 3.5)
 
+
+def test_status_fail_tpe():
+    trials = Trials()
+
+    argmin = fmin(
+            fn=lambda x: ( {'loss': (x - 3) ** 2, 'status': STATUS_OK} if (x < 0) else
+                           {'status': STATUS_FAIL}),
+            space=hp.uniform('x', -5, 5),
+            algo=tpe.suggest,
+            max_evals=50,
+            trials=trials)
+
+    assert len(trials) == 50, len(trials)
+    assert argmin['x'] < 0, argmin
+    assert trials.best_trial['result'].has_key('loss'), trials.best_trial['result'].has_key('loss')
+    assert trials.best_trial['result']['loss'] >= 9, trials.best_trial['result']['loss']
