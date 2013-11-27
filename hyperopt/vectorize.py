@@ -214,10 +214,10 @@ class VectorizeHelper(object):
     expression representing multiple trials.
 
     The resulting multi-trial expression is not meant to be evaluated
-    directly. It is meant to serve as the input to a BanditAlgo.
+    directly. It is meant to serve as the input to a suggest algo.
 
     idxs_memo - node in expr graph -> all elements we might need for it
-    take_memo - node in expr graph -> all expressions retrieving computed elements
+    take_memo - node in expr graph -> all exprs retrieving computed elements
 
     """
 

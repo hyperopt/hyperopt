@@ -1,6 +1,6 @@
 """
-Mongo-based Experiment driver and worker client
-===============================================
+Mongodb-based Trials Object
+===========================
 
 Components involved:
 
@@ -50,48 +50,8 @@ The experiment uses the following collections for IPC:
         * bandit_args_kwargs: [optional] pickled (clsname, args, kwargs) to
              reconstruct bandit in worker processes
 
-The MongoJobs, MongoExperiment, and CtrlObj classes as well as the main_worker
+The MongoJobs, and CtrlObj classes as well as the main_worker
 method form the abstraction barrier around this database layout.
-
-
-Driver
-======
-
-A driver directs an experiment, by calling a bandit_algo to suggest trial
-points, and queuing them in mongo so that a worker can evaluate that trial
-point.
-
-The hyperopt-mongo-search script creates a single MongoExperiment instance, and
-calls its run() method.
-
-
-Saving and Resuming
--------------------
-
-The command
-"hyperopt-mongo-search bandit algo"
-creates a new experiment or resumes an existing experiment.
-
-The command
-"hyperopt-mongo-search --exp-key=<EXPKEY>"
-can only resume an existing experiment.
-
-The command
-"hyperopt-mongo-search --clear-existing bandit algo"
-can only create a new experiment, and potentially deletes an existing one.
-
-The command
-"hyperopt-mongo-search --clear-existing --exp-key=EXPKEY bandit algo"
-can only create a new experiment, and potentially deletes an existing one.
-
-
-By default, MongoExperiment.run will try to save itself before returning. It
-does so by pickling itself to a file called 'exp_key' in the fs collection.
-Resuming means unpickling that file and calling run again.
-
-The MongoExperiment instance itself is minimal (a key, a bandit, a bandit algo,
-a workdir, a poll interval).  The only stateful element is the bandit algo.  The
-difference between resume and start is in the handling of the bandit algo.
 
 
 Worker
@@ -132,7 +92,7 @@ finalize the job in the database.
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
-__contact__ = "github.com/jaberg/hyperopt"
+__contact__ = "github.com/hyperopt/hyperopt"
 
 import copy
 try:
@@ -163,7 +123,6 @@ logger = logging.getLogger(__name__)
 from .base import JOB_STATES
 from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
         JOB_STATE_ERROR)
-from .base import Experiment
 from .base import Trials
 from .base import trials_from_docs
 from .base import InvalidTrial
@@ -199,7 +158,7 @@ class InvalidMongoTrial(InvalidTrial):
     pass
 
 
-class BanditSwapError(Exception):
+class DomainSwapError(Exception):
     """Raised when the search program tries to change the bandit attached to
     an experiment.
     """
@@ -296,6 +255,11 @@ def connection_with_tunnel(host='localhost',
                     raise NotImplementedError()
             ssh_tunnel=None
 
+        # -- Ensure that changes are written to at least once server.
+        connection.write_concern['w'] = 1
+        # -- Ensure that changes are written to the journal if there is one.
+        connection.write_concern['j'] = True
+
         return connection, ssh_tunnel
 
 
@@ -331,11 +295,38 @@ class MongoJobs(object):
     #
     """
     def __init__(self, db, jobs, gfs, conn, tunnel, config_name):
+        """
+        Parameters
+        ----------
+
+        db - Mongo Database (e.g. `Connection()[dbname]`)
+            database in which all job-related info is stored
+
+        jobs - Mongo Collection handle
+            collection within `db` to use for job arguments, return vals,
+            and various bookkeeping stuff and meta-data. Typically this is
+            `db['jobs']`
+
+        gfs - Mongo GridFS handle
+            GridFS is used to store attachments - binary blobs that don't fit
+            or are awkward to store in the `jobs` collection directly.
+
+        conn - Mongo Connection
+            Why we need to keep this, I'm not sure.
+
+        tunnel - something for ssh tunneling if you're doing that
+            See `connection_with_tunnel` for more info.
+
+        config_name - string
+            XXX: No idea what this is for, seems unimportant.
+
+        """
         self.db = db
         self.jobs = jobs
+        assert jobs.write_concern['w'] >= 1
         self.gfs = gfs
-        self.conn=conn
-        self.tunnel=tunnel
+        self.conn = conn
+        self.tunnel = tunnel
         self.config_name = config_name
 
     # TODO: rename jobs -> coll throughout
@@ -407,27 +398,35 @@ class MongoJobs(object):
         c = self.jobs.find(spec=dict(state=JOB_STATE_NEW))
         return c if cursor else list(c)
 
-    def insert(self, job, safe=True):
+    def insert(self, job):
         """Return a job dictionary by inserting the job dict into the database"""
         try:
             cpy = copy.deepcopy(job)
-            # this call adds an _id field to cpy
-            _id = self.jobs.insert(cpy, safe=safe, check_keys=True)
-            # so now we return the dict with the _id field
+            # -- this call adds an _id field to cpy
+            _id = self.jobs.insert(cpy, check_keys=True)
+            # -- so now we return the dict with the _id field
             assert _id == cpy['_id']
             return cpy
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    This was meant to make it easier to catch insertion errors
+            #    in a generic way even if different databases were used.
+            #    ... but there's just MongoDB so far, so kinda goofy.
             raise OperationFailure(e)
 
-    def delete(self, job, safe=True):
+    def delete(self, job):
         """Delete job[s]"""
         try:
-            self.jobs.remove(job, safe=safe)
+            self.jobs.remove(job)
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
-    def delete_all(self, cond={}, safe=True):
+    def delete_all(self, cond=None):
         """Delete all jobs and attachments"""
+        if cond is None:
+            cond = {}
         try:
             for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
                 logger.info('deleting job %s' % d['_id'])
@@ -437,12 +436,14 @@ class MongoJobs(object):
                     except gridfs.errors.NoFile:
                         logger.error('failed to remove attachment %s:%s' % (
                             name, file_id))
-                self.jobs.remove(d, safe=safe)
+                self.jobs.remove(d)
         except pymongo.errors.OperationFailure, e:
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
-    def delete_all_error_jobs(self, safe=True):
-        return self.delete_all(cond={'state': JOB_STATE_ERROR}, safe=safe)
+    def delete_all_error_jobs(self):
+        return self.delete_all(cond={'state': JOB_STATE_ERROR})
 
     def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
@@ -455,7 +456,7 @@ class MongoJobs(object):
             cond['exp_key'] = exp_key
 
         #having an owner of None implies state==JOB_STATE_NEW, so this effectively
-        #acts as a filter to make sure that only new jobs get reserved. 
+        #acts as a filter to make sure that only new jobs get reserved.
         if cond.get('owner') is not None:
             raise ValueError('refusing to reserve owned job')
         else:
@@ -473,24 +474,21 @@ class MongoJobs(object):
                      }
                  },
                 new=True,
-                safe=True,
                 upsert=False)
         except pymongo.errors.OperationFailure, e:
             logger.error('Error during reserve_job: %s'%str(e))
             rval = None
         return rval
 
-    def refresh(self, doc, safe=False):
-        self.update(doc, dict(refresh_time=coarse_utcnow()), safe=False)
+    def refresh(self, doc):
+        self.update(doc, dict(refresh_time=coarse_utcnow()))
 
-    def update(self, doc, dct, safe=True, collection=None):
+    def update(self, doc, dct, collection=None, do_sanity_checks=True):
         """Return union of doc and dct, after making sure that dct has been
         added to doc in `collection`.
 
         This function does not modify either `doc` or `dct`.
 
-        safe=True means error-checking is done. safe=False means this function will succeed
-        regardless of what happens with the db.
         """
         if collection is None:
             collection = self.coll
@@ -520,17 +518,17 @@ class MongoJobs(object):
             collection.update(
                     doc_query,
                     {'$set': dct},
-                    safe=True,
                     upsert=False,
                     multi=False,)
         except pymongo.errors.OperationFailure, e:
-            # translate pymongo failure into generic failure
+            # -- translate pymongo error class into hyperopt error class
+            #    see insert() code for rationale.
             raise OperationFailure(e)
 
         # update doc in-place to match what happened on the server side
         doc.update(dct)
 
-        if safe:
+        if do_sanity_checks:
             server_doc = collection.find_one(
                     dict(_id=doc['_id'], version=doc['version']))
             if server_doc is None:
@@ -713,16 +711,16 @@ class MongoTrials(Trials):
             if db_data:
                 #make numpy data arrays
                 db_data = numpy.rec.array([(x['_id'], int(x['version']))
-                                        for x in db_data], 
+                                        for x in db_data],
                                         names=['_id', 'version'])
                 db_data.sort(order=['_id', 'version'])
                 db_data = db_data[get_most_recent_inds(db_data)]
-                
+
                 existing_data = numpy.rec.array([(x['_id'],
                                               int(x['version'])) for x in _trials],
                                               names=['_id', 'version'])
                 existing_data.sort(order=['_id', 'version'])
-                
+
                 #which records are in db but not in existing, and vice versa
                 db_in_existing = fast_isin(db_data['_id'], existing_data['_id'])
                 existing_in_db = fast_isin(existing_data['_id'], db_data['_id'])
@@ -733,8 +731,8 @@ class MongoTrials(Trials):
                 #new data is what's in db that's not in existing
                 new_data = db_data[numpy.invert(db_in_existing)]
 
-                #having removed the new and out of data data, 
-                #concentrating on data in db and existing for state changes 
+                #having removed the new and out of data data,
+                #concentrating on data in db and existing for state changes
                 db_data = db_data[db_in_existing]
                 existing_data = existing_data[existing_in_db]
                 try:
@@ -747,12 +745,12 @@ class MongoTrials(Trials):
                                       str(numpy.random.randint(1e8)) + '.pkl')
                     logger.error('HYPEROPT REFRESH ERROR: writing error file to %s' % reportpath)
                     _file = open(reportpath, 'w')
-                    cPickle.dump({'db_data': db_data, 
+                    cPickle.dump({'db_data': db_data,
                                   'existing_data': existing_data},
                                 _file)
                     _file.close()
                     raise
-                    
+
                 same_version = existing_data['version'] == db_data['version']
                 _trials = [_trials[_ind] for _ind in same_version.nonzero()[0]]
                 version_changes = existing_data[numpy.invert(same_version)]
@@ -769,12 +767,12 @@ class MongoTrials(Trials):
                 _trials = []
         else:
             #this case is for performance, though should be able to be removed
-            #without breaking correctness. 
+            #without breaking correctness.
             _trials = list(self.handle.jobs.find(query))
             if _trials:
                 _trials = [_trials[_i] for _i in get_most_recent_inds(_trials)]
             num_new = len(_trials)
-            
+
         logger.debug('Refresh data download took %f seconds for %d ids' %
                          (time.time() - t0, num_new))
 
@@ -803,7 +801,7 @@ class MongoTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = []
         for doc in docs:
-            rval.append(self.handle.jobs.insert(doc, safe=True))
+            rval.append(self.handle.jobs.insert(doc))
         return rval
 
     def count_by_state_unsynced(self, arg):
@@ -846,9 +844,9 @@ class MongoTrials(Trials):
         db = self.handle.db
         # N.B. that the exp key is *not* used here. It was once, but it caused
         # a nasty bug: tids were generated by a global experiment
-        # with exp_key=None, running a BanditAlgo that introduced sub-experiments
+        # with exp_key=None, running a suggest() that introduced sub-experiments
         # with exp_keys, which ran jobs that did result injection.  The tids of
-        # injected jobs were sometimes unique within an experiment, and 
+        # injected jobs were sometimes unique within an experiment, and
         # sometimes not. Hilarious!
         #
         # Solution: tids are generated to be unique across the db, not just
@@ -863,8 +861,7 @@ class MongoTrials(Trials):
             doc = db.job_ids.find_and_modify(
                     query,
                     {'$inc' : {'last_id': N}},
-                    upsert=True,
-                    safe=True)
+                    upsert=True)
             if doc is None:
                 logger.warning('no last_id found, re-trying')
                 time.sleep(1.0)
@@ -1103,8 +1100,7 @@ class MongoWorker(object):
                 ctrl.checkpoint()
                 mj.update(job,
                         {'state': JOB_STATE_ERROR,
-                        'error': (str(type(e)), str(e))},
-                        safe=True)
+                        'error': (str(type(e)), str(e))})
                 raise
         finally:
             if self.logfilename:
@@ -1119,7 +1115,7 @@ class MongoWorker(object):
                     aname, len(aval)))
             ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
-        mj.update(job, {'state': JOB_STATE_DONE}, safe=True)
+        mj.update(job, {'state': JOB_STATE_DONE})
 
         if sentinal:
             if erase_created_workdir:
@@ -1338,312 +1334,4 @@ def main_worker():
         return -1
 
     return main_worker_helper(options, args)
-
-
-def bandit_from_options(options):
-    #
-    # Construct bandit
-    #
-    bandit_name = options.bandit
-    if options.bandit_argfile:
-        bandit_argfile_text = open(options.bandit_argfile).read()
-        bandit_argv, bandit_kwargs = cPickle.loads(bandit_argfile_text)
-    else:
-        bandit_argfile_text = ''
-        bandit_argv, bandit_kwargs = (), {}
-    bandit = json_call(bandit_name, bandit_argv, bandit_kwargs)
-    return (bandit,
-            (bandit_name, bandit_argv, bandit_kwargs),
-            bandit_argfile_text)
-
-
-def algo_from_options(options, bandit):
-    #
-    # Construct algo
-    #
-    algo_name = options.bandit_algo
-    if options.bandit_algo_argfile:
-        # in theory this is easy just as above.
-        # need tests though, and it's just not done yet.
-        raise NotImplementedError('Option: --bandit-algo-argfile')
-    else:
-        algo_argfile_text = ''
-        algo_argv, algo_kwargs = (), {}
-    algo = json_call(algo_name, (bandit,) + algo_argv, algo_kwargs)
-    return (algo,
-            (algo_name, (bandit,) + algo_argv, algo_kwargs),
-            algo_argfile_text)
-
-
-def expkey_from_options(options, bandit_stuff, algo_stuff):
-    #
-    # Determine exp_key
-    #
-    if None is options.exp_key:
-        # -- argfile texts
-        bandit_name = bandit_stuff[1][0]
-        algo_name = algo_stuff[1][0]
-        bandit_argfile_text = bandit_stuff[2]
-        algo_argfile_text = algo_stuff[2]
-        if bandit_argfile_text or algo_argfile_text:
-            m = hashlib.md5()
-            m.update(bandit_argfile_text)
-            m.update(algo_argfile_text)
-            exp_key = '%s/%s[arghash:%s]' % (
-                    bandit_name, algo_name, m.hexdigest())
-            del m
-        else:
-            exp_key = '%s/%s' % (bandit_name, algo_name)
-    else:
-        exp_key = options.exp_key
-    return exp_key
-
-
-def main_search_helper(options, args, input=input, cmd_type=None):
-    """
-    input is an argument so that unittest can replace stdin
-
-    cmd_type can be set to "D.A." to force interpretation of bandit as driver
-    attachment. This mechanism is used by unit tests.
-    """
-    assert getattr(options, 'bandit', None) is None
-    assert getattr(options, 'bandit_algo', None) is None
-    assert len(args) == 2
-    options.bandit = args[0]
-    options.bandit_algo = args[1]
-
-    bandit_stuff = bandit_from_options(options)
-    bandit, bandit_NAK, bandit_argfile_text = bandit_stuff
-    bandit_name, bandit_args, bandit_kwargs = bandit_NAK
-
-    algo_stuff = algo_from_options(options, bandit)
-    algo, algo_NAK, algo_argfile_text = algo_stuff
-    algo_name, algo_args, algo_kwargs = algo_NAK
-
-    exp_key = expkey_from_options(options, bandit_stuff, algo_stuff)
-
-    trials = MongoTrials(as_mongo_str(options.mongo) + '/jobs', exp_key)
-
-    if options.clear_existing:
-        print >> sys.stdout, "Are you sure you want to delete",
-        print >> sys.stdout, ("all %i jobs with exp_key: '%s' ?"
-                % (
-                    trials.handle.db.jobs.find({'exp_key':exp_key}).count(),
-                    str(exp_key)))
-        print >> sys.stdout, '(y/n)'
-        y, n = 'y', 'n'
-        if input() != 'y':
-            print >> sys.stdout, "aborting"
-            return 1
-        trials.delete_all()
-
-    #
-    # Construct MongoExperiment
-    #
-    if bandit_argfile_text or algo_argfile_text or cmd_type=='D.A.':
-        aname = 'driver_attachment_%s.pkl' % exp_key
-        if aname in trials.attachments:
-            atup = cPickle.loads(trials.attachments[aname])
-            if bandit_NAK != atup:
-                raise BanditSwapError((bandit_NAK, atup))
-        else:
-            try:
-                blob = cPickle.dumps(bandit_NAK)
-            except BaseException, e:
-                print >> sys.stdout, "Error pickling. Try installing dill via 'pip install dill'."
-                raise e
-            trials.attachments[aname] = blob
-        worker_cmd = ('driver_attachment', aname)
-    else:
-        worker_cmd = ('bandit_json evaluate', bandit_name)
-
-    algo.cmd = worker_cmd
-    algo.workdir=options.workdir
-
-    self = Experiment(trials,
-        bandit_algo=algo,
-        poll_interval_secs=(int(options.poll_interval))
-            if options.poll_interval else 5,
-        max_queue_len=options.max_queue_len)
-
-    self.run(options.steps, block_until_done=options.block)
-
-
-def main_search():
-    parser = optparse.OptionParser(
-            usage="%prog [options] [<bandit> <bandit_algo>]")
-    parser.add_option("--clear-existing",
-            action="store_true",
-            dest="clear_existing",
-            default=False,
-            help="clear all jobs with the given exp_key")
-    parser.add_option("--exp-key",
-            dest='exp_key',
-            default = None,
-            metavar='str',
-            help="identifier for this driver's jobs")
-    parser.add_option('--force-lock',
-            action="store_true",
-            dest="force_lock",
-            default=False,
-            help="ignore concurrent experiments using same exp_key (only do this after a crash)")
-    parser.add_option("--mongo",
-            dest='mongo',
-            default='localhost/hyperopt',
-            help="<host>[:port]/<db> for IPC and job storage")
-    parser.add_option("--poll-interval",
-            dest='poll_interval',
-            metavar='N',
-            default=None,
-            help="check work queue every N seconds (default: 5")
-    parser.add_option("--no-save-on-exit",
-            action="store_false",
-            dest="save_on_exit",
-            default=True,
-            help="save driver state to mongo on exit")
-    parser.add_option("--steps",
-            dest='steps',
-            default=sys.maxint,
-            help="exit after queuing this many jobs (default: inf)")
-    parser.add_option("--workdir",
-            dest="workdir",
-            default=os.path.expanduser('~/.hyperopt.workdir'),
-            help="direct hyperopt-mongo-worker to chdir here",
-            metavar="DIR")
-    parser.add_option("--block",
-            dest="block",
-            action="store_true",
-            default=False,
-            help="block return until all queue is empty")
-    parser.add_option("--bandit-argfile",
-            dest="bandit_argfile",
-            default=None,
-            help="path to file containing arguments bandit constructor\n"
-                 "file format: pickle of dictionary containing two keys,\n"
-                 "  {'args' : tuple of positional arguments,\n"
-                 "   'kwargs' : dictionary of keyword arguments}")
-    parser.add_option("--bandit-algo-argfile",
-            dest="bandit_algo_argfile",
-            default=None,
-            help="path to file containing arguments for bandit_algo "
-                  "constructor.  File format is pickled dictionary containing "
-                  "two keys:\n"
-                  "  'args', a tuple of positional arguments, and \n"
-                  "  'kwargs', a dictionary of keyword arguments. \n"
-                  "NOTE: instantiated bandit is pre-pended as first element"
-                  " of arg tuple.")
-    parser.add_option("--max-queue-len",
-            dest="max_queue_len",
-            default=1,
-            help="maximum number of jobs to allow in queue")
-
-    (options, args) = parser.parse_args()
-
-    if len(args) > 2:
-        parser.print_help()
-        return -1
-
-    return main_search_helper(options, args)
-
-
-def main_show_helper(options, args):
-    if options.trials_pkl:
-        trials = cPickle.load(open(options.trials_pkl))
-    else:
-        bandit_stuff = bandit_from_options(options)
-        bandit, (bandit_name, bandit_args, bandit_kwargs), bandit_algo_argfile\
-                = bandit_stuff
-
-        algo_stuff = algo_from_options(options, bandit)
-        algo, (algo_name, algo_args, algo_kwargs), algo_algo_argfile\
-                = algo_stuff
-
-        exp_key = expkey_from_options(options, bandit_stuff, algo_stuff)
-
-        trials = MongoTrials(as_mongo_str(options.mongo) + '/jobs', exp_key)
-
-    cmd = args[0]
-    if 'history' == cmd:
-        if 0:
-            import matplotlib.pyplot as plt
-            self.refresh_trials_results()
-            yvals, colors = zip(*[(1 - r.get('best_epoch_test', .5), 'g')
-                for y, r in zip(self.losses(), self.results) if y is not None])
-            plt.scatter(range(len(yvals)), yvals, c=colors)
-        return plotting.main_plot_history(trials)
-    elif 'histogram' == cmd:
-        return plotting.main_plot_histogram(trials)
-    elif 'dump' == cmd:
-        raise NotImplementedError('TODO: dump jobs db to stdout as JSON')
-    elif 'dump_pickle' == cmd:
-        cPickle.dump(trials_from_docs(trials.trials),
-                open(args[1], 'w'))
-    elif 'vars' == cmd:
-        return plotting.main_plot_vars(trials, bandit=bandit)
-    else:
-        logger.error("Invalid cmd %s" % cmd)
-        parser.print_help()
-        print """Current supported commands are history, histogram, vars
-        """
-        return -1
-
-
-def main_show():
-    parser = optparse.OptionParser(
-            usage="%prog [options] cmd [...]")
-    parser.add_option("--exp-key",
-            dest='exp_key',
-            default = None,
-            metavar='str',
-            help="identifier for this driver's jobs")
-    parser.add_option("--bandit",
-            dest='bandit',
-            default = None,
-            metavar='json',
-            help="identifier for the bandit solved by the experiment")
-    parser.add_option("--bandit-argfile",
-            dest="bandit_argfile",
-            default=None,
-            help="path to file containing arguments bandit constructor\n"
-                 "file format: pickle of dictionary containing two keys,\n"
-                 "  {'args' : tuple of positional arguments,\n"
-                 "   'kwargs' : dictionary of keyword arguments}")
-    parser.add_option("--bandit-algo",
-            dest='bandit_algo',
-            default = None,
-            metavar='json',
-            help="identifier for the optimization algorithm for experiment")
-    parser.add_option("--bandit-algo-argfile",
-            dest="bandit_algo_argfile",
-            default=None,
-            help="path to file containing arguments for bandit_algo "
-                  "constructor.  File format is pickled dictionary containing "
-                  "two keys:\n"
-                  "  'args', a tuple of positional arguments, and \n"
-                  "  'kwargs', a dictionary of keyword arguments. \n"
-                  "NOTE: instantiated bandit is pre-pended as first element"
-                  " of arg tuple.")
-    parser.add_option("--mongo",
-            dest='mongo',
-            default='localhost/hyperopt',
-            help="<host>[:port]/<db> for IPC and job storage")
-    parser.add_option("--trials",
-            dest="trials_pkl",
-            default="",
-            help="local trials file (e.g. created by dump_pickle command)")
-    parser.add_option("--workdir",
-            dest="workdir",
-            default=os.path.expanduser('~/.hyperopt.workdir'),
-            help="check for worker files here",
-            metavar="DIR")
-
-    (options, args) = parser.parse_args()
-
-    try:
-        cmd = args[0]
-    except:
-        parser.print_help()
-        return -1
-
-    return main_show_helper(options, args)
 

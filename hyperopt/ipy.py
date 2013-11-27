@@ -5,19 +5,17 @@ Licensed: MIT
 """
 from time import sleep, time
 
+import numpy as np
 from IPython.parallel import interactive
-from IPython.parallel import TaskAborted
-from IPython.display import clear_output
+#from IPython.parallel import TaskAborted
+#from IPython.display import clear_output
 
 from .base import Trials
-from .base import Ctrl
-from .fmin import Domain
-from .fmin import FMinIter
+from .base import Domain
 from .base import JOB_STATE_NEW
 from .base import JOB_STATE_RUNNING
 from .base import JOB_STATE_DONE
 from .base import JOB_STATE_ERROR
-from .base import StopExperiment
 from .base import spec_from_misc
 from .utils import coarse_utcnow
 
@@ -92,11 +90,14 @@ class IPythonTrials(Trials):
         Trials.refresh(self)
 
     def fmin(self, fn, space, algo, max_evals,
-        rseed=0,
+        rstate=None,
         verbose=0,
         wait=True,
         pass_expr_memo_ctrl=None,
         ):
+
+        if rstate is None:
+            rstate = np.random
 
         # -- used in test_ipy
         self._testing_fmin_was_called = True
@@ -107,7 +108,7 @@ class IPythonTrials(Trials):
             except AttributeError:
                 pass_expr_memo_ctrl = False
 
-        domain = Domain(fn, space, rseed=int(rseed),
+        domain = Domain(fn, space, rseed=rstate.randint(2 ** 31 - 1),
                 pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
         last_print_time = 0
@@ -130,10 +131,7 @@ class IPythonTrials(Trials):
             if idles:
                 new_ids = self.new_trial_ids(len(idles))
                 new_trials = algo(new_ids, domain, self)
-                if new_trials is StopExperiment:
-                    stopped = True # -- XXX: this should be returned somehow
-                    break
-                elif len(new_trials) == 0:
+                if len(new_trials) == 0:
                     break
                 else:
                     assert len(idles) == len(new_trials)

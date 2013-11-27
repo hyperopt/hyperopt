@@ -5,21 +5,24 @@ Functions to visualize an Experiment.
 
 __authors__   = "James Bergstra"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "github.com/hyperopt/hyperopt"
 
-import cPickle
 import math
 import sys
 
 # -- don't import this here because it locks in the backend
 #    and we want the unittests to be able to set the backend
 ##import matplotlib.pyplot as plt
-import pyll
 
 import numpy as np
-from .base import Bandit
-from .base import BanditAlgo
+from . import base
 from .base import miscs_to_idxs_vals
+
+default_status_colors = {
+    base.STATUS_NEW: 'k',
+    base.STATUS_RUNNING: 'g',
+    base.STATUS_OK:'b',
+    base.STATUS_FAIL:'r'}
 
 def algo_as_str(algo):
     if isinstance(algo, basestring):
@@ -34,8 +37,7 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
 
     # self is an Experiment
     if status_colors is None:
-        status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
-    Xs = trials.specs
+        status_colors = default_status_colors
 
     # XXX: show the un-finished or error trials
     Ys, colors = zip(*[(y, status_colors[s])
@@ -70,7 +72,7 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
-    status_colors = {'new':'k', 'running':'g', 'ok':'b', 'fail':'r'}
+    status_colors = default_status_colors
     Xs, Ys, Ss, Cs= zip(*[(x, y, s, status_colors[s])
         for (x, y, s) in zip(trials.specs, trials.losses(bandit),
             trials.statuses(bandit))
@@ -96,8 +98,6 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         ):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
-
-    BA = BanditAlgo(bandit)
 
     idxs, vals = miscs_to_idxs_vals(trials.miscs)
     losses = trials.losses()
@@ -189,7 +189,7 @@ if 0:
 
         # save the sign of x
         sign = 1
-        if x < 0: 
+        if x < 0:
             sign = -1
         x = abs(x)
 
@@ -210,7 +210,7 @@ if 0:
         scores = list(scores) # shallow copy
         scores.sort()         # sort the copy
         scores.reverse()      # reverse the order
-        
+
         #this is valid for classification
         # where the scores are the means of Bernoulli variables.
         best_mean = scores[0][0]
@@ -239,7 +239,7 @@ if 0:
         scores = list(scores) # shallow copy
         scores.sort()         # sort the copy
         scores.reverse()      # reverse the order
-        
+
         # this is valid for classification
         # where the scores are the means of Bernoulli variables.
         best_mean = scores[0][0]
@@ -284,7 +284,7 @@ if 0:
         """
         Uses the current pyplot figure to show efficiency of random experiment.
 
-        :type scores: a list of (validation accuracy, test accuracy)  pairs 
+        :type scores: a list of (validation accuracy, test accuracy)  pairs
         :param scores: results from the trials of a random experiment
 
         :type n_valid: integer

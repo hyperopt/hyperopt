@@ -34,7 +34,7 @@ def hp_pchoice(label, p_options):
                                   upper=n_options))
     return scope.switch(ch, *options)
 
-        
+
 def hp_choice(label, options):
     if not isinstance(label, basestring):
         raise TypeError('require string label')

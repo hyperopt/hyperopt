@@ -6,7 +6,7 @@ Entry point for bin/* scripts
 
 __authors__   = "James Bergstra"
 __license__   = "3-clause BSD License"
-__contact__   = "James Bergstra <pylearn-dev@googlegroups.com>"
+__contact__   = "github.com/hyperopt/hyperopt"
 
 import cPickle
 import logging
