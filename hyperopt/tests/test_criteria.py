@@ -49,4 +49,11 @@ def test_log_ei_range():
             [crit.logEI(0, 1, thresh)
              for thresh in [-500, 0, 50, 100, 500, 5000]]))
 
+
+def test_ucb():
+    assert np.allclose(crit.UCB(0, 1, 1), 1)
+    assert np.allclose(crit.UCB(0, 1, 2), 2)
+    assert np.allclose(crit.UCB(0, 4, 1), 2)
+    assert np.allclose(crit.UCB(1, 4, 1), 3)
+
 # -- flake8

@@ -38,7 +38,13 @@ def logEI(mean, var, thresh):
 
 
 def UCB(mean, var, zscore):
-    return mean - np.sqrt(var) * zscore
+    """Upper Confidence Bound
+
+    For a model which predicts a Gaussian-distributed outcome, the UCB is
+
+        mean + zscore * sqrt(var)
+    """
+    return mean + np.sqrt(var) * zscore
 
 
 # -- flake8
