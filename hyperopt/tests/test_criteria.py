@@ -7,9 +7,10 @@ def test_ei():
     for mean, var in [(0, 1), (-4, 9)]:
         thresholds = np.arange(-5, 5, .25) * np.sqrt(var) + mean
 
-        v_n = [crit.EI_numeric(rng.randn(10000) * np.sqrt(var) + mean, thresh)
+        v_n = [crit.EI_gaussian_empirical(mean, var, thresh, rng, 10000)
                for thresh in thresholds]
-        v_a = [crit.EI(mean, var, thresh) for thresh in thresholds]
+        v_a = [crit.EI_gaussian(mean, var, thresh)
+               for thresh in thresholds]
 
         #import matplotlib.pyplot as plt
         #plt.plot(thresholds, v_n)
@@ -28,9 +29,11 @@ def test_log_ei():
         thresholds = np.arange(-5, 30, .25) * np.sqrt(var) + mean
 
         ei = np.asarray(
-            [crit.EI(mean, var, thresh) for thresh in thresholds])
+            [crit.EI_gaussian(mean, var, thresh)
+             for thresh in thresholds])
         nlei = np.asarray(
-            [crit.logEI(mean, var, thresh) for thresh in thresholds])
+            [crit.logEI_gaussian(mean, var, thresh)
+             for thresh in thresholds])
         naive = np.log(ei)
         #import matplotlib.pyplot as plt
         #plt.plot(thresholds, ei, label='ei')
@@ -46,7 +49,7 @@ def test_log_ei():
 def test_log_ei_range():
     assert np.all(
         np.isfinite(
-            [crit.logEI(0, 1, thresh)
+            [crit.logEI_gaussian(0, 1, thresh)
              for thresh in [-500, 0, 50, 100, 500, 5000]]))
 
 

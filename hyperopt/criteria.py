@@ -4,14 +4,24 @@ import numpy as np
 import scipy.stats
 
 
-def EI_numeric(samples, thresh):
+def EI_empirical(samples, thresh):
     """Expected improvement over threshold from samples
+
+    (See example usage in empirical_EI_gaussian)
     """
     samples = samples - thresh
     return samples[samples > 0].sum() / float(len(samples))
 
 
-def EI(mean, var, thresh):
+def EI_gaussian_empirical(mean, var, thresh, rng, N):
+    """Expected improvement of Gaussian over threshold
+
+    (estimated empirically)
+    """
+    return EI_empirical(rng.randn(N) * np.sqrt(var) + mean, thresh)
+
+
+def EI_gaussian(mean, var, thresh):
     """Expected improvement of Gaussian over threshold
     """
     sigma = np.sqrt(var)
@@ -20,7 +30,7 @@ def EI(mean, var, thresh):
     return sigma * (score * n.cdf(score) + n.pdf(score))
 
 
-def logEI(mean, var, thresh):
+def logEI_gaussian(mean, var, thresh):
     """Return log(EI(mean, var, thresh))
 
     This formula avoids underflow in cdf for
