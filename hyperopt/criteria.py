@@ -9,8 +9,8 @@ def EI_empirical(samples, thresh):
 
     (See example usage in EI_gaussian_empirical)
     """
-    samples = samples - thresh
-    return samples[samples > 0].sum() / float(len(samples))
+    improvement = np.maximum(samples - thresh, 0)
+    return improvement.mean()
 
 
 def EI_gaussian_empirical(mean, var, thresh, rng, N):
