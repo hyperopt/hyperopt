@@ -108,38 +108,33 @@ class lognorm_gen(rv_continuous):
         if self.mu_ != 0.0:
             raise NotImplementedError()
         s = self.s_
-        return 0.5 * (1 + np.log(2 * pi) + 2 * np.log(s))
+        return 0.5 * (1 + np.log(2 * np.pi) + 2 * np.log(s))
 
 
-class rv_discrete_float(rv_discrete):
-    """Base-class for non-int-valued discrete variables.
-    This is almost surely not-conforming to the full rv_discrete contract,
-    but rvs, pmf, and cdf are tested and should be working.
-    """
-    def rvs(self, *args, **kwargs):
-        # -- skip rv base class to avoid cast to integer
-        return rv_generic.rvs(self, *args, **kwargs)
-
-    def pmf(self, k, *args, **kwds):
-        loc = kwds.get('loc')
-        args, loc = self._fix_loc(args, loc)
-        k,loc = map(np.asarray,(k,loc))
-        args = tuple(map(np.asarray,args))
-        k = np.asarray((k-loc))
-        cond0 = self._argcheck(*args)
-        cond1 = self._in_domain(k,*args)
-        cond = cond0 & cond1
-        output = np.zeros(np.shape(cond),'d')
-        np.place(output,(1-cond0) + np.isnan(k),self.badvalue)
-        if np.any(cond):
-            goodargs = scipy.stats.distributions.argsreduce(cond, *((k,)+args))
-            np.place(output,cond,self._pmf(*goodargs))
-        if output.ndim == 0:
-            return output[()]
-        return output
+def qtable_pmf(x, q, qlow, xs, ps):
+    qx = np.round(x / q) * q
+    if not np.isclose(qx, x):
+        return 0.0
+    ix = int(np.round((qx - qlow) / q))
+    if 0 <= ix < len(ps):
+        assert np.isclose(x, xs[ix])
+        return ps[ix]
+    else:
+        return 0.0
 
 
-class quniform_gen(rv_discrete):
+def qtable_logpmf(x, q, qlow, xs, ps):
+    p = qtable_pmf(x, q, qlow, xs, ps)
+    # -- this if/else avoids np warning about underflow
+    if p == 0:
+        return -np.inf
+    else:
+        return np.log(p)
+
+
+class quniform_gen(object):
+    # -- not inheriting from scipy.stats.rv_discrete
+    #    because I don't understand the design of those rv classes
     """ Stats for Y = q * round(X / q) where X ~ U(low, high).
 
     """
@@ -147,14 +142,9 @@ class quniform_gen(rv_discrete):
         low, high, q = map(float, (low, high, q))
         qlow = np.round(low / q) * q
         qhigh = np.round(high / q) * q
-        self._args = {
-                'low': low,
-                'high': high,
-                'q': q,
-                }
         if qlow == qhigh:
-            rv_discrete.__init__(self, name='quniform',
-                                 values=([qlow], [1.0]))
+            xs = [qlow]
+            ps = [1.0]
         else:
             lowmass = 1 - ((low - qlow + .5 * q) / q)
             assert 0 <= lowmass <= 1.0, (lowmass, low, qlow, q)
@@ -166,155 +156,150 @@ class quniform_gen(rv_discrete):
             ps[0] = lowmass
             ps[-1] = highmass
             ps /= ps.sum()
-            #print 'lowmass', lowmass, low, qlow, q
-            #print 'highmass', highmass, high, qhigh, q
-            rv_discrete.__init__(self, name='quniform',
-                    values=(xs, ps))
-        self._xs = np.asarray(xs)
-        self._ps = ps
 
-    def rvs(self, *args, **kwargs):
-        # -- skip rv base class to avoid cast to integer
-        return rv_generic.rvs(self, *args, **kwargs)
+        self.low = low
+        self.high = high
+        self.q = q
+        self.qlow = qlow
+        self.qhigh = qhigh
+        self.xs = np.asarray(xs)
+        self.ps = np.asarray(ps)
 
-    def _rvs(self, *args):
-        q, low, high = map(self._args.get, ['q', 'low', 'high'])
-        rval = mtrand.uniform(low=low, high=high, size=self._size)
-        rval = np.round(rval / q) * q
-        # -- return nearest-matching elements of self._xs
-        idxs = np.searchsorted(self._xs, rval - 1e-6, 'right')
-        assert np.allclose(rval, self._xs[idxs])
-        return self._xs[idxs]
+    def pmf(self, x):
+        return qtable_pmf(x, self.q, self.qlow, self.xs, self.ps)
+
+    def logpmf(self, x):
+        return qtable_logpmf(x, self.q, self.qlow, self.xs, self.ps)
+
+    def rvs(self, size=()):
+        rval = mtrand.uniform(low=self.low, high=self.high, size=size)
+        rval = np.round(rval / self.q) * self.q
+        return rval
 
 
-class qloguniform_gen(rv_discrete):
+class qloguniform_gen(quniform_gen):
     """ Stats for Y = q * round(e^X / q) where X ~ U(low, high).
 
     """
+    # -- not inheriting from scipy.stats.rv_discrete
+    #    because I don't understand the design of those rv classes
 
     def __init__(self, low, high, q):
         low, high, q = map(float, (low, high, q))
-        self._args = {
-                'low': low,
-                'high': high,
-                'q': q,
-                }
-        qlow = np.round(np.exp(low) / q) * q
-        qhigh = np.round(np.exp(high) / q) * q
+        elow = np.exp(low)
+        ehigh = np.exp(high)
+        qlow = np.round(elow / q) * q
+        qhigh = np.round(ehigh / q) * q
 
         # -- loguniform for using the CDF
         lu = loguniform_gen(low=low, high=high)
 
-        xs = []
-        ps = []
-        cut_low = np.exp(low)
-        cut_high = qlow + .5 * q
-        val = qlow
-        while cut_low < qhigh:
-            xs.append(val)
-            ps.append(lu.cdf(cut_high) - lu.cdf(cut_low))
-            cut_high, cut_low = min(cut_high + q, np.exp(high)), cut_high
-            val += q
+        cut_low = np.exp(low) # -- lowest possible pre-round value
+        cut_high = min(qlow + .5 * q, # -- highest value that would ...
+                       ehigh)         # -- round to qlow
+        xs = [qlow]
+        ps = [lu.cdf(cut_high)]
+        ii = 0
+        cdf_high = ps[0]
+
+        while cut_high < (ehigh - 1e-10):
+            cut_high, cut_low = min(cut_high + q, ehigh), cut_high
+            cdf_high, cdf_low = lu.cdf(cut_high), cdf_high
+            ii += 1
+            xs.append(qlow + ii * q)
+            ps.append(cdf_high - cdf_low)
 
         ps = np.asarray(ps)
         ps /= ps.sum()
-        #print xs
-        #print ps
-        rv_discrete.__init__(self, name='qloguniform',
-                             values=(xs, ps))
-        self._xs = np.asarray(xs)
-        self._ps = ps
 
-    def rvs(self, *args, **kwargs):
-        # -- skip rv base class to avoid cast to integer
-        return rv_generic.rvs(self, *args, **kwargs)
+        self.low = low
+        self.high = high
+        self.q = q
+        self.qlow = qlow
+        self.qhigh = qhigh
+        self.xs = np.asarray(xs)
+        self.ps = ps
+        print xs, ps
 
-    def _rvs(self, *args):
-        q, low, high = map(self._args.get, ['q', 'low', 'high'])
-        x = mtrand.uniform(low=low, high=high, size=self._size)
-        rval = np.round(np.exp(x) / q) * q
-        # -- return nearest-matching elements of self._xs
-        idxs = np.searchsorted(self._xs, rval - 1e-6, 'right')
-        assert np.allclose(rval, self._xs[idxs])
-        return self._xs[idxs]
+    def pmf(self, x):
+        return qtable_pmf(x, self.q, self.qlow, self.xs, self.ps)
 
+    def logpmf(self, x):
+        return qtable_logpmf(x, self.q, self.qlow, self.xs, self.ps)
 
-class qnormal_gen(rv_discrete_float):
-    """Stats for Y = q * round(X / q) where X ~ N(mu, sigma)
-    """
-    def __init__(self, mu, sigma, q):
-        low, high, q = map(float, (mu, sigma, q))
-        self._args = {
-                'mu': mu,
-                'sigma': sigma,
-                'q': q,
-                }
-
-        # -- distfn for using the CDF
-        self._norm_cdf = scipy.stats.norm(loc=mu, scale=sigma).cdf
-        BIG = 1e17
-        rv_discrete.__init__(self,
-                             a=-BIG,
-                             b=BIG,
-                             name='qnormal',
-                             inc=q)
-
-    def _in_domain(self, k):
-        return (k >= self.a) & (k <= self.b) & (
-                k == np.round(k / self._args['q']) * self._args['q'])
-
-    def _pmf(self, x):
-        return self._cdf(x) - self._cdf(x - self.inc)
-
-    def _cdf(self, x):
-        return self._norm_cdf(x + 0.5 * self.inc)
-
-    def _rvs(self, *args):
-        q, mu, sigma = map(self._args.get, ['q', 'mu', 'sigma'])
-        x = mtrand.normal(loc=mu, scale=sigma, size=self._size)
-        rval = np.round(x / q) * q
+    def rvs(self, size=()):
+        x = mtrand.uniform(low=self.low, high=self.high, size=size)
+        rval = np.round(np.exp(x) / self.q) * self.q
         return rval
 
 
-class qlognormal_gen(rv_discrete_float):
+class qnormal_gen(object):
+    """Stats for Y = q * round(X / q) where X ~ N(mu, sigma)
+    """
+    def __init__(self, mu, sigma, q):
+        self.mu, self.sigma, self.q = map(float, (mu, sigma, q))
+        # -- distfn for using the CDF
+        self._norm_logcdf = scipy.stats.norm(loc=mu, scale=sigma).logcdf
+
+    def in_domain(self, x):
+        return np.allclose(x, np.round(x / self.q) * self.q)
+
+    def pmf(self, x):
+        return np.exp(self.logpmf(x))
+
+    def logpmf(self, x):
+        if not self.in_domain(x):
+            return -np.inf
+
+        ubound = x + self.q * 0.5
+        lbound = x - self.q * 0.5
+        # -- reflect intervals right of mu to other side
+        #    for more accurate calculation
+        if lbound > self.mu:
+            lbound, ubound = (self.mu - (ubound - self.mu),
+                              self.mu - (lbound - self.mu))
+        assert ubound > lbound
+        a = self._norm_logcdf(ubound)
+        b = self._norm_logcdf(lbound)
+        return a + np.log1p(- np.exp(b - a))
+
+    def rvs(self, size=()):
+        x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
+        rval = np.round(x / self.q) * self.q
+        return rval
+
+
+class qlognormal_gen(object):
     """Stats for Y = q * round(exp(X) / q) where X ~ N(mu, sigma)
     """
     def __init__(self, mu, sigma, q):
-        low, high, q = map(float, (mu, sigma, q))
-        self._args = {
-                'mu': mu,
-                'sigma': sigma,
-                'q': q,
-                }
-
+        self.mu, self.sigma, self.q = map(float, (mu, sigma, q))
         # -- distfn for using the CDF
         self._norm_cdf = scipy.stats.norm(loc=mu, scale=sigma).cdf
-        BIG = 1e17
-        rv_discrete.__init__(self,
-                             a=0,
-                             b=BIG,
-                             name='qlognormal',
-                             inc=q)
 
-    def _in_domain(self, k):
-        return (k >= self.a) & (k <= self.b) & (
-                k == np.round(k / self._args['q']) * self._args['q'])
+    def in_domain(self, x):
+        return ((x >= 0) & np.allclose(x, np.round(x / self.q) * self.q))
 
-    def _pmf(self, x):
-        if x > 0:
-            return self._cdf(x) - self._cdf(x - self.inc)
+    def pmf(self, x):
+        if self.in_domain(x):
+            a = self._norm_cdf(np.log(x + 0.5 * self.q))
+            if x == 0:
+                return a
+            else:
+                b = self._norm_cdf(np.log(x - 0.5 * self.q))
+                return a - b
         else:
-            return self._cdf(x)
+            return 0.0
 
-    def _cdf(self, x):
-        # -- it's too hard to try to call scipy.stats.lognorm.cdf
-        #    it's easier just to cut-and-paste this from there.
-        return self._norm_cdf(np.log(x + 0.5 * self.inc))
+    def logpmf(self, x):
+        if self.in_domain(x):
+            return np.log(self.pmf(x))
+        else:
+            return -np.inf
 
-    def _rvs(self, *args):
-        q, mu, sigma = map(self._args.get, ['q', 'mu', 'sigma'])
-        x = mtrand.normal(loc=mu, scale=sigma, size=self._size)
-        rval = np.round(np.exp(x) / q) * q
+    def rvs(self, size=()):
+        x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
+        rval = np.round(np.exp(x) / self.q) * self.q
         return rval
 
 

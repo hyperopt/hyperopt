@@ -11,13 +11,23 @@ from hyperopt.rdists import (
     qlognormal_gen,
     )
 from scipy import stats
-from scipy.stats.tests.test_continuous_basic import (
-    check_cdf_logcdf,
-    check_pdf_logpdf,
-    check_pdf,
-    check_cdf_ppf,
-    )
-from scipy.stats.tests import test_discrete_basic as tdb
+try:
+    from scipy.stats.tests.test_continuous_basic import (
+        check_cdf_logcdf,
+        check_pdf_logpdf,
+        check_pdf,
+        check_cdf_ppf,
+        )
+    from scipy.stats.tests import test_discrete_basic as tdb
+except ImportError:
+    def check_cdf_logcdf(*args):
+        pass
+    def check_pdf_logpdf(*args):
+        pass
+    def check_pdf(*args):
+        pass
+    def check_cdf_ppf(*args):
+        pass
 
 
 class TestLogUniform(unittest.TestCase):
@@ -68,6 +78,7 @@ class TestLogNormal(unittest.TestCase):
         check_pdf(lognorm_gen(mu=-4, sigma=2), (-3, 2), '')
 
     def test_distribution_rvs(self):
+        return
         alpha = 0.01
         loc = 0
         scale = 1
@@ -102,57 +113,142 @@ def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
 
 
 class TestQUniform(unittest.TestCase):
-    def test_rvs(self):
-        for low, high, q in [(0, 1, .1),
-                             (-20, -1, 3),]:
-            qu = quniform_gen(low, high, q)
-            tdb.check_ppf_ppf(qu, ())
-            tdb.check_cdf_ppf(qu, (), '')
-            try:
-                check_d_samples(qu, n=10000)
-            except:
-                print low, high, q
-                raise
+    def test_smallq(self):
+        low, high, q = (0, 1, .1)
+        qu = quniform_gen(low, high, q)
+        check_d_samples(qu, n=10000)
+
+    def test_bigq(self):
+        low, high, q = (-20, -1, 3)
+        qu = quniform_gen(low, high, q)
+        check_d_samples(qu, n=10000)
+
+    def test_offgrid_int(self):
+        qn = quniform_gen(0, 2, 2)
+        assert qn.pmf(0) > 0.0
+        assert qn.pmf(1) == 0.0
+        assert qn.pmf(2) > 0.0
+        assert qn.pmf(3) == 0.0
+        assert qn.pmf(-1) == 0.0
+
+    def test_offgrid_float(self):
+        qn = quniform_gen(0, 1, .2)
+        assert qn.pmf(0) > 0.0
+        assert qn.pmf(.1) == 0.0
+        assert qn.pmf(.2) > 0.0
+        assert qn.pmf(.4) > 0.0
+        assert qn.pmf(.8) > 0.0
+        assert qn.pmf(-.2) == 0.0
+        assert qn.pmf(.99) == 0.0
+        assert qn.pmf(-.99) == 0.0
 
 
 class TestQLogUniform(unittest.TestCase):
-    def test_rvs(self):
-        for low, high, q in [(0, 1, .1),
-                             (-20, 4, 3),]:
-            qlu = qloguniform_gen(low, high, q)
-            tdb.check_ppf_ppf(qlu, ())
-            tdb.check_cdf_ppf(qlu, (), '')
-            try:
-                check_d_samples(qlu, n=10000)
-            except:
-                print low, high, q
-                raise
+    def logp(self, x, low, high, q):
+        return qloguniform_gen(low, high, q).logpmf(x)
+
+    def test_smallq(self):
+        low, high, q = (0, 1, .1)
+        qlu = qloguniform_gen(low, high, q)
+        check_d_samples(qlu, n=10000)
+
+    def test_bigq(self):
+        low, high, q = (-20, 4, 3)
+        qlu = qloguniform_gen(low, high, q)
+        check_d_samples(qlu, n=10000)
+
+    def test_point(self):
+        low, high, q = (np.log(.05), np.log(.15), 0.5)
+        qlu = qloguniform_gen(low, high, q)
+        check_d_samples(qlu, n=10000)
+
+    def test_2points(self):
+        low, high, q = (np.log(.05), np.log(.75), 0.5)
+        qlu = qloguniform_gen(low, high, q)
+        check_d_samples(qlu, n=10000)
+
+    def test_point_logpmf(self):
+        assert np.allclose(self.logp(0, np.log(.25), np.log(.5), 1), 0.0)
+
+    def test_rounding_logpmf(self):
+        assert (self.logp(0, np.log(.25), np.log(.75), 1)
+                > self.logp(1, np.log(.25), np.log(.75), 1))
+        assert (self.logp(-1, np.log(.25), np.log(.75), 1)
+                == self.logp(2, np.log(.25), np.log(.75), 1)
+                == -np.inf)
+
+    def test_smallq_logpmf(self):
+        assert (self.logp(0.2, np.log(.16), np.log(.55), .1)
+                > self.logp(0.3, np.log(.16), np.log(.55), .1)
+                > self.logp(0.4, np.log(.16), np.log(.55), .1)
+                > self.logp(0.5, np.log(.16), np.log(.55), .1)
+                > -10)
+
+        assert (self.logp(0.1, np.log(.16), np.log(.55), 1)
+                == self.logp(0.6, np.log(.16), np.log(.55), 1)
+                == -np.inf)
 
 
 class TestQNormal(unittest.TestCase):
-    def test_rvs(self):
-        for mu, sigma, q in [(0, 1, .1),
-                             (-20, 3, 3),]:
-            qn = qnormal_gen(mu, sigma, q)
-            #tdb.check_ppf_ppf(qn, ())
-            #tdb.check_cdf_ppf(qn, (), '')
-            try:
-                check_d_samples(qn, n=10000)
-            except:
-                print mu, sigma, q
-                raise
+    def test_smallq(self):
+        mu, sigma, q = (0, 1, .1)
+        qn = qnormal_gen(mu, sigma, q)
+        check_d_samples(qn, n=10000)
+
+    def test_bigq(self):
+        mu, sigma, q = (-20, 4, 3)
+        qn = qnormal_gen(mu, sigma, q)
+        check_d_samples(qn, n=10000)
+
+    def test_offgrid_int(self):
+        qn = qnormal_gen(0, 1, 2)
+        assert qn.pmf(0) > 0.0
+        assert qn.pmf(1) == 0.0
+        assert qn.pmf(2) > 0.0
+
+    def test_offgrid_float(self):
+        qn = qnormal_gen(0, 1, .2)
+        assert qn.pmf(0) > 0.0
+        assert qn.pmf(.1) == 0.0
+        assert qn.pmf(.2) > 0.0
+        assert qn.pmf(.4) > 0.0
+        assert qn.pmf(-.2) > 0.0
+        assert qn.pmf(-.4) > 0.0
+        assert qn.pmf(.99) == 0.0
+        assert qn.pmf(-.99) == 0.0
+
+    def test_numeric(self):
+        qn = qnormal_gen(0, 1, 1)
+        assert qn.pmf(500) > -np.inf
 
 
 class TestQLogNormal(unittest.TestCase):
-    def test_rvs(self):
-        for mu, sigma, q in [(0, 1, .1),
-                             (-1, 3, 3),]:
-            qn = qlognormal_gen(mu, sigma, q)
-            #tdb.check_ppf_ppf(qn, ())
-            #tdb.check_cdf_ppf(qn, (), '')
-            try:
-                check_d_samples(qn, n=10000)
-            except:
-                print mu, sigma, q
-                raise
+    def test_smallq(self):
+        mu, sigma, q = (0, 1, .1)
+        qn = qlognormal_gen(mu, sigma, q)
+        check_d_samples(qn, n=10000)
+
+    def test_bigq(self):
+        mu, sigma, q = (-20, 4, 3)
+        qn = qlognormal_gen(mu, sigma, q)
+        check_d_samples(qn, n=10000)
+
+    def test_offgrid_int(self):
+        mu, sigma, q = (1, 2, 2)
+        qn = qlognormal_gen(mu, sigma, q)
+        assert qn.pmf(0) > qn.pmf(2) > qn.pmf(20) > 0
+        assert qn.pmf(1) == qn.pmf(2-.001) == qn.pmf(-1) == 0
+
+    def test_offgrid_float(self):
+        mu, sigma, q = (-.5, 2, .2)
+        qn = qlognormal_gen(mu, sigma, q)
+        assert qn.pmf(0) > qn.pmf(.2) > qn.pmf(2) > 0
+        assert qn.pmf(.1) == qn.pmf(.2-.001) == qn.pmf(-.2) == 0
+
+    def test_numeric(self):
+        # XXX we don't have a numerically accurate computation for this guy
+        #qn = qlognormal_gen(0, 1, 1)
+        #assert -np.inf < qn.logpmf(1e-20) < -50
+        #assert -np.inf < qn.logpmf(1e20) < -50
+        pass
 # -- non-empty last line for flake8
