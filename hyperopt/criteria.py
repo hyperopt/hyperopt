@@ -5,16 +5,16 @@ import scipy.stats
 
 
 def EI_empirical(samples, thresh):
-    """Expected improvement over threshold from samples
+    """Expected Improvement over threshold from samples
 
-    (See example usage in empirical_EI_gaussian)
+    (See example usage in EI_gaussian_empirical)
     """
     samples = samples - thresh
     return samples[samples > 0].sum() / float(len(samples))
 
 
 def EI_gaussian_empirical(mean, var, thresh, rng, N):
-    """Expected improvement of Gaussian over threshold
+    """Expected Improvement of Gaussian over threshold
 
     (estimated empirically)
     """
@@ -22,7 +22,9 @@ def EI_gaussian_empirical(mean, var, thresh, rng, N):
 
 
 def EI_gaussian(mean, var, thresh):
-    """Expected improvement of Gaussian over threshold
+    """Expected Improvement of Gaussian over threshold
+
+    (estimated analytically)
     """
     sigma = np.sqrt(var)
     score = (mean - thresh) / sigma
