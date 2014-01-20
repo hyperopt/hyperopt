@@ -20,12 +20,16 @@ try:
         )
     from scipy.stats.tests import test_discrete_basic as tdb
 except ImportError:
+
     def check_cdf_logcdf(*args):
         pass
+
     def check_pdf_logpdf(*args):
         pass
+
     def check_pdf(*args):
         pass
+    
     def check_cdf_ppf(*args):
         pass
 

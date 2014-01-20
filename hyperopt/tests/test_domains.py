@@ -164,6 +164,38 @@ def many_dists():
             'status': base.STATUS_OK}
 
 
+@domain_constructor(loss_target=0.398)
+def branin():
+    """
+    The Branin, or Branin-Hoo, function has three global minima,
+    and is roughly an angular trough across a 2D input space.
+
+        f(x, y) = a (y - b x ** 2 + c x - r ) ** 2 + s (1 - t) cos(x) + s
+    
+    The recommended values of a, b, c, r, s and t are:
+        a = 1
+        b = 5.1 ⁄ (4 pi ** 2)
+        c = 5 ⁄ pi,
+        r = 6,
+        s = 10
+        t = 1 ⁄ (8 pi). 
+
+    Global Minima:
+      [(-pi, 12.275),
+       (pi, 2.275),
+       (9.42478, 2.475)]
+
+    Source: http://www.sfu.ca/~ssurjano/branin.html
+    """
+    x = hp.uniform('x', -5., 10.)
+    y = hp.uniform('y', 0., 15.)
+    pi = float(np.pi)
+    loss = ((y - (5.1 / (4 * pi ** 2)) * x ** 2 + 5 * x / pi - 6) ** 2
+             + 10 * (1 - 1 / (8 * pi)) * scope.cos(x) + 10)
+    return {'loss': loss,
+            'loss_variance': 0,
+            'status': base.STATUS_OK}
+
 
 class DomainExperimentMixin(object):
     def test_basic(self):
@@ -195,6 +227,8 @@ distractorTester = DomainExperimentMixin.make(distractor)
 gauss_waveTester = DomainExperimentMixin.make(gauss_wave)
 gauss_wave2Tester = DomainExperimentMixin.make(gauss_wave2,
         n_steps=5000)
+many_distsTester = DomainExperimentMixin.make(many_dists)
+braninTester = DomainExperimentMixin.make(branin)
 
 
 class CasePerDomain(object):
@@ -227,6 +261,10 @@ class CasePerDomain(object):
 
     def test_many_dists(self):
         self.bandit = many_dists()
+        self.work()
+
+    def test_branin(self):
+        self.bandit = branin()
         self.work()
 
 # -- non-blank last line for flake8
