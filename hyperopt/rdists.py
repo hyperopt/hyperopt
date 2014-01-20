@@ -219,7 +219,6 @@ class qloguniform_gen(quniform_gen):
         self.qhigh = qhigh
         self.xs = np.asarray(xs)
         self.ps = ps
-        print xs, ps
 
     def pmf(self, x):
         return qtable_pmf(x, self.q, self.qlow, self.xs, self.ps)
