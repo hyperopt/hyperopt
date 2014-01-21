@@ -174,11 +174,11 @@ def branin():
     
     The recommended values of a, b, c, r, s and t are:
         a = 1
-        b = 5.1 ⁄ (4 pi ** 2)
-        c = 5 ⁄ pi,
-        r = 6,
+        b = 5.1 / (4 pi ** 2)
+        c = 5 / pi
+        r = 6
         s = 10
-        t = 1 ⁄ (8 pi). 
+        t = 1 / (8 * pi)
 
     Global Minima:
       [(-pi, 12.275),
