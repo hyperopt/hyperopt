@@ -32,6 +32,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
             gauss_wave2=-2.0,
             n_arms=-2.5,
             many_dists=.0005,
+            branin=0.7,
             )
 
     LEN = dict(
@@ -42,6 +43,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
             # -- anneal is pretty bad at this kind of function
             distractor=150,
             #q1_lognormal=100,
+            branin=200,
             )
 
     def setUp(self):

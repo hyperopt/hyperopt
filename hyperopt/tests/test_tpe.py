@@ -535,6 +535,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
             gauss_wave2=-2.0,
             n_arms=-2.5,
             many_dists=.0005,
+            branin=0.7,
             )
 
     LEN = dict(
@@ -547,6 +548,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
             q1_lognormal=250,
             gauss_wave2=75, # -- boosted from 50 on Nov/2013 after new
                             #  sampling order made thresh test fail.
+            branin=200,
             )
 
     gammas = dict(
