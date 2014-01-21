@@ -57,3 +57,13 @@ def test_expr_to_config():
         (True, EQ('a', 0))])
 
 
+def test_remove_allpaths():
+    z = hp.uniform('z', 0, 10)
+    a = hp.choice('a', [ z + 1, z - 1])
+    hps = {}
+    expr_to_config(a, (True,), hps)
+    aconds = hps['a']['conditions']
+    zconds = hps['z']['conditions']
+    assert aconds == set([(True,)]), aconds
+    assert zconds == set([(True,)]), zconds
+

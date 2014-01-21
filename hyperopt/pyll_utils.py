@@ -139,6 +139,35 @@ class Cond(object):
 
 EQ = partial(Cond, op='=')
 
+def _expr_to_config(expr, conditions, hps):
+    if expr.name == 'switch':
+        idx = expr.inputs()[0]
+        options = expr.inputs()[1:]
+        assert idx.name == 'hyperopt_param'
+        assert idx.arg['obj'].name in (
+                'randint',     # -- in case of hp.choice
+                'categorical', # -- in case of hp.pchoice
+                )
+        _expr_to_config(idx, conditions, hps)
+        for ii, opt in enumerate(options):
+            _expr_to_config(opt,
+                           conditions + (EQ(idx.arg['label'].obj, ii),),
+                           hps)
+    elif expr.name == 'hyperopt_param':
+        label = expr.arg['label'].obj
+        if label in hps:
+            if hps[label]['node'] != expr.arg['obj']:
+                raise DuplicateLabel(label)
+            hps[label]['conditions'].add(conditions)
+        else:
+            hps[label] = {'node': expr.arg['obj'],
+                          'conditions': set((conditions,)),
+                          'label': label,
+                          }
+    else:
+        for ii in expr.inputs():
+            _expr_to_config(ii, conditions, hps)
+
 def expr_to_config(expr, conditions, hps):
     """
     Populate dictionary `hps` with the hyperparameters in pyll graph `expr`
@@ -160,31 +189,38 @@ def expr_to_config(expr, conditions, hps):
     if conditions is None:
         conditions = ()
     assert isinstance(expr, Apply)
-    if expr.name == 'switch':
-        idx = expr.inputs()[0]
-        options = expr.inputs()[1:]
-        assert idx.name == 'hyperopt_param'
-        assert idx.arg['obj'].name in (
-                'randint',     # -- in case of hp.choice
-                'categorical', # -- in case of hp.pchoice
-                )
-        expr_to_config(idx, conditions, hps)
-        for ii, opt in enumerate(options):
-            expr_to_config(opt,
-                           conditions + (EQ(idx.arg['label'].obj, ii),),
-                           hps)
-    elif expr.name == 'hyperopt_param':
-        label = expr.arg['label'].obj
-        if label in hps:
-            if hps[label]['node'] != expr.arg['obj']:
-                raise DuplicateLabel(label)
-            hps[label]['conditions'].add(conditions)
-        else:
-            hps[label] = {'node': expr.arg['obj'],
-                          'conditions': set((conditions,)),
-                          'label': label,
-                          }
-    else:
-        for ii in expr.inputs():
-            expr_to_config(ii, conditions, hps)
+    _expr_to_config(expr, conditions, hps)
+    _remove_allpaths(hps, conditions)
 
+    
+def _remove_allpaths(hps, conditions):
+    """Hacky way to recognize some kinds of false dependencies
+    Better would be logic programming.
+    """
+    potential_conds = {}
+    for k, v in hps.items():
+        if v['node'].name in ('randint', 'categorical'):
+            upper = v['node'].arg['upper'].obj
+            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(upper)])
+
+    for k, v in hps.items():
+        if len(v['conditions']) > 1:
+            all_conds = [[c for c in cond if c is not True]
+                         for cond in v['conditions']]
+            all_conds = [cond for cond in all_conds if len(cond) >= 1]
+            if len(all_conds) == 0:
+                v['conditions'] = set([conditions])
+                continue
+
+            depvar = all_conds[0][0].name
+
+            all_one_var = all(len(cond) == 1 and cond[0].name == depvar
+                              for cond in all_conds)
+            if all_one_var:
+                conds = [cond[0] for cond in all_conds]
+                if frozenset(conds) == potential_conds[depvar]:
+                    v['conditions'] = set([conditions])
+                    continue
+
+
+# -- eof
