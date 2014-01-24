@@ -161,6 +161,7 @@ class FMinIter(object):
                     n_queued += len(new_trials)
                     qlen = get_queue_len()
                 else:
+                    stopped = True
                     break
 
             if self.async:
