@@ -263,8 +263,13 @@ class Apply(object):
             return rval
 
     def inputs(self):
-        rval = self.pos_args + [v for (k, v) in self.named_args]
-        assert all(isinstance(arg, Apply) for arg in rval)
+        # -- this function gets called a lot and it's not 100% safe to cache
+        #    so the if/else is a small optimization
+        if self.named_args:
+            rval = self.pos_args + [v for (k, v) in self.named_args]
+        else:
+            rval = self.pos_args
+        #assert all(isinstance(arg, Apply) for arg in rval)
         return rval
 
     @property
@@ -646,14 +651,17 @@ def dfs(aa, seq=None, seqset=None):
     if seq is None:
         assert seqset is None
         seq = []
-        seqset = set()
+        seqset = {}
     # -- seqset is the set of all nodes we have seen (which may be still on
     #    the stack)
+    #    N.B. it used to be a stack, but now it's a dict mapping to inputs
+    #    because that's an optimization saving us from having to call inputs
+    #    so often.
     if aa in seqset:
         return
     assert isinstance(aa, Apply)
-    seqset.add(aa)
-    for ii in aa.inputs():
+    seqset[aa] = aa.inputs()
+    for ii in seqset[aa]:
         dfs(ii, seq, seqset)
     seq.append(aa)
     return seq
@@ -768,6 +776,13 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
     else:
         memo = dict(memo)
 
+    # -- hack for speed
+    #    since the inputs are constant during rec_eval
+    #    but not constant in general
+    node_inputs = {}
+    node_list = []
+    dfs(node, node_list, seqset=node_inputs)
+
     # TODO: optimize dfs to not recurse past the items in memo
     #       this is especially important for evaluating Lambdas
     #       which cause rec_eval to recurse
@@ -776,14 +791,14 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
     #      so that this iteration may be an incomplete
     if memo_gc:
         clients = {}
-        for aa in dfs(node):
+        for aa in node_list:
             clients.setdefault(aa, set())
-            for ii in aa.inputs():
+            for ii in node_inputs[aa]:
                 clients.setdefault(ii, set()).add(aa)
         def set_memo(k, v):
             assert v is not GarbageCollected
             memo[k] = v
-            for ii in k.inputs():
+            for ii in node_inputs[k]:
                 # -- if all clients of ii are already in the memo
                 #    then we can free memo[ii] by replacing it
                 #    with a dummy symbol
@@ -833,7 +848,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
             continue
         else:
             # -- normal instruction-type nodes have inputs
-            waiting_on = [v for v in node.inputs() if v not in memo]
+            waiting_on = [v for v in node_inputs[node] if v not in memo]
 
         if waiting_on:
             # -- Necessary inputs have yet to be evaluated.
