@@ -32,7 +32,7 @@ def EI_gaussian(mean, var, thresh):
     return sigma * (score * n.cdf(score) + n.pdf(score))
 
 
-def logEI_gaussian(mean, var, thresh, eps=1e-16):
+def logEI_gaussian(mean, var, thresh):
     """Return log(EI(mean, var, thresh))
 
     This formula avoids underflow in cdf for
@@ -45,7 +45,9 @@ def logEI_gaussian(mean, var, thresh, eps=1e-16):
     if score < 0:
         pdf = n.logpdf(score)
         r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
-        return np.log(sigma) + pdf + np.log1p(-r + eps)
+        if r == 1.0:
+            return -np.inf
+        return np.log(sigma) + pdf + np.log1p(-r)
     else:
         return np.log(sigma) + np.log(score * n.cdf(score) + n.pdf(score))
 
