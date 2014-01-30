@@ -45,9 +45,11 @@ def logEI_gaussian(mean, var, thresh):
     if score < 0:
         pdf = n.logpdf(score)
         r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
-        if r == 1.0:
+        rval = np.log(sigma) + pdf + np.log1p(-r)
+        if not np.isfinite(rval):
             return -np.inf
-        return np.log(sigma) + pdf + np.log1p(-r)
+        else:
+            return rval
     else:
         return np.log(sigma) + np.log(score * n.cdf(score) + n.pdf(score))
 
