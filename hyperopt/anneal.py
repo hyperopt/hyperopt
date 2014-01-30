@@ -246,7 +246,10 @@ class AnnealingAlgo(SuggestAlgo):
             val = np.log(val)
         high = memo[node.arg['high']]
         low = memo[node.arg['low']]
-        assert low <= val <= high
+        if pass_q:
+            assert low <= val <= high, (low, val, high)
+        else:
+            val = min(high, max(val, low))
         width = (high - low) * self.shrinking(label)
         new_high = min(high, val + width / 2)
         if new_high == high:
