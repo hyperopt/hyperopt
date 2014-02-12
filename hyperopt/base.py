@@ -27,6 +27,7 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 import logging
 import datetime
+import os
 import sys
 
 import numpy as np
