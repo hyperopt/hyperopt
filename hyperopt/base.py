@@ -159,36 +159,21 @@ def miscs_update_idxs_vals(miscs, idxs, vals,
     if idxs_map is None:
         idxs_map = {}
 
-    def imap(i):
-        return idxs_map.get(i, i)
-
     assert set(idxs.keys()) == set(vals.keys())
 
     misc_by_id = dict([(m['tid'], m) for m in miscs])
+    for m in miscs:
+        m['idxs'] = dict([(key, []) for key in idxs])
+        m['vals'] = dict([(key, []) for key in idxs])
 
-    if idxs and assert_all_vals_used:
-        # -- Assert that every val will be used to update some doc.
-        all_ids = set()
-        for idxlist in idxs.values():
-            all_ids.update(map(imap, idxlist))
-        assert all_ids == set(misc_by_id.keys())
+    for key in idxs:
+        assert len(idxs[key]) == len(vals[key])
+        for tid, val in zip(idxs[key], vals[key]):
+            tid = idxs_map.get(tid, tid)
+            if assert_all_vals_used or tid in misc_by_id:
+                misc_by_id[tid]['idxs'][key] = [tid]
+                misc_by_id[tid]['vals'][key] = [val]
 
-    for tid, misc_tid in misc_by_id.items():
-        misc_tid['idxs'] = {}
-        misc_tid['vals'] = {}
-        for node_id in idxs:
-            node_idxs = map(imap, idxs[node_id])
-            node_vals = vals[node_id]
-            if tid in node_idxs:
-                pos = node_idxs.index(tid)
-                misc_tid['idxs'][node_id] = [tid]
-                misc_tid['vals'][node_id] = [node_vals[pos]]
-
-                # -- assert that tid occurs only once
-                assert tid not in node_idxs[pos+1:]
-            else:
-                misc_tid['idxs'][node_id] = []
-                misc_tid['vals'][node_id] = []
     return miscs
 
 
