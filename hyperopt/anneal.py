@@ -148,31 +148,40 @@ class AnnealingAlgo(SuggestAlgo):
         T = len(self.node_vals[label])
         return 1.0 / (1.0 + T * self.shrink_coef)
 
-    def choose_ltv(self, label):
+    def choose_ltv(self, label, size):
         """Returns (loss, tid, val) of best/runner-up trial
         """
         tids = self.node_tids[label]
         vals = self.node_vals[label]
         losses = [self.tid_losses_dct[tid] for tid in tids]
 
-        # -- try to return the value corresponding to one of the
-        #    trials that was previously chosen
-        tid_set = set(tids)
-        for tid in self.best_tids:
-            if tid in tid_set:
-                idx = tids.index(tid)
-                rval = losses[idx], tid, vals[idx]
-                break
-        else:
-            # -- choose a new best idx
-            ltvs = sorted(zip(losses, tids, vals))
-            best_idx = int(self.rng.geometric(1.0 / self.avg_best_idx)) - 1
-            best_idx = min(best_idx, len(ltvs) - 1)
-            assert best_idx >= 0
-            best_loss, best_tid, best_val = ltvs[best_idx]
-            self.best_tids.append(best_tid)
-            rval = best_loss, best_tid, best_val
-        return rval
+        if size == 1:
+            # -- try to return the value corresponding to one of the
+            #    trials that was previously chosen (non-independence
+            #    of hyperparameter values)
+            # This doesn't really make sense if we're sampling a lot of
+            # points at a time.
+            tid_set = set(tids)
+            for tid in self.best_tids:
+                if tid in tid_set:
+                    idx = tids.index(tid)
+                    rval = losses[idx], tid, vals[idx]
+                    return rval
+
+        # -- choose a new good seed point
+        good_idx = self.rng.geometric(1.0 / self.avg_best_idx, size=size) - 1
+        good_idx = np.clip(good_idx, 0, len(tids) - 1).astype('int32')
+
+        picks = np.argsort(losses)[good_idx]
+        picks_loss = np.asarray(losses)[picks]
+        picks_tids = np.asarray(tids)[picks]
+        picks_vals = np.asarray(vals)[picks]
+
+        #ltvs = np.asarray(sorted(zip(losses, tids, vals)))
+        #best_loss, best_tid, best_val = ltvs[best_idx]
+        if size == 1:
+            self.best_tids.append(int(picks_tids))
+        return picks_loss, picks_tids, picks_vals
 
     def on_node_hyperparameter(self, memo, node, label):
         """
@@ -209,7 +218,8 @@ class AnnealingAlgo(SuggestAlgo):
         n_observations = len(self.node_vals[label])
         if n_observations > 0:
             # -- Pick a previous trial on which to base the new sample
-            loss, tid, val = self.choose_ltv(label)
+            size = memo[node.arg['size']]
+            loss, tid, val = self.choose_ltv(label, size=size)
             try:
                 handler = getattr(self, 'hp_%s' % node.name)
             except AttributeError:
@@ -243,33 +253,40 @@ class AnnealingAlgo(SuggestAlgo):
         hyperparameter
         """
         if log_scale:
-            val = np.log(val)
+            midpt = np.log(val)
+        else:
+            midpt = val
         high = memo[node.arg['high']]
         low = memo[node.arg['low']]
-        if pass_q:
-            assert low <= val <= high, (low, val, high)
-        else:
-            val = min(high, max(val, low))
         width = (high - low) * self.shrinking(label)
-        new_high = min(high, val + width / 2)
-        if new_high == high:
-            new_low = new_high - width
-        else:
-            new_low = max(low, val - width / 2)
-            if new_low == low:
-                new_high = min(high, new_low + width)
-        assert low <= new_low <= new_high <= high
+        half = .5 * width
+        min_midpt = low + half
+        max_midpt = high - half
+        clipped_midpt = np.clip(midpt, min_midpt, max_midpt)
+
+        #if pass_q:
+        #    assert low <= val <= high, (low, val, high)
+        #else:
+        #    val = min(high, max(val, low))
+        #new_high = min(high, val + width / 2)
+        #if new_high == high:
+        #    new_low = new_high - width
+        #else:
+        #    new_low = max(low, val - width / 2)
+        #    if new_low == low:
+        #        new_high = min(high, new_low + width)
+        #assert low <= new_low <= new_high <= high
         if pass_q:
             return uniform_like(
-                low=new_low,
-                high=new_high,
+                low=clipped_midpt - half,
+                high=clipped_midpt + half,
                 rng=self.rng,
                 q=memo[node.arg['q']],
                 size=memo[node.arg['size']])
         else:
             return uniform_like(
-                low=new_low,
-                high=new_high,
+                low=clipped_midpt - half,
+                high=clipped_midpt + half,
                 rng=self.rng,
                 size=memo[node.arg['size']])
 
@@ -301,8 +318,7 @@ class AnnealingAlgo(SuggestAlgo):
         Parameters: See `hp_uniform`
         """
         upper = memo[node.arg['upper']]
-        counts = np.zeros(upper)
-        counts[val] += 1
+        counts = np.bincount(np.atleast_1d(val), minlength=upper)
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
@@ -317,8 +333,8 @@ class AnnealingAlgo(SuggestAlgo):
         if p.ndim == 2:
             assert len(p) == 1
             p = p[0]
-        counts = np.zeros_like(p)
-        counts[val] += 1
+        upper = memo[node.arg['upper']]
+        counts = np.bincount(np.atleast_1d(val), minlength=upper)
         prior = self.shrinking(label)
         new_p = (1 - prior) * counts + prior * p
         if p_orig.ndim == 2:
@@ -376,5 +392,9 @@ class AnnealingAlgo(SuggestAlgo):
 def suggest(new_ids, domain, trials, seed, *args, **kwargs):
     new_id, = new_ids
     return AnnealingAlgo(domain, trials, seed, *args, **kwargs)(new_id)
+
+
+def suggest_batch(new_ids, domain, trials, seed, *args, **kwargs):
+    return AnnealingAlgo(domain, trials, seed, *args, **kwargs).batch(new_ids)
 
 # -- flake-8 abhors blank line EOF

@@ -258,4 +258,15 @@ class SuggestAlgo(ExprEvaluator):
         else:
             return ExprEvaluator.on_node(self, memo, node)
 
+    def batch(self, new_ids):
+        new_ids = list(new_ids)
+        self.rng.seed([self._seed] + new_ids)
+        memo = self.eval_nodes(
+            memo={
+                self.domain.s_new_ids: new_ids,
+                self.domain.s_rng: self.rng,
+            })
+        idxs, vals = memo[self.expr]
+        return idxs, vals
+
 # -- flake-8 abhors blank line EOF
