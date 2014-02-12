@@ -42,16 +42,40 @@ def logEI_gaussian(mean, var, thresh):
     sigma = np.sqrt(var)
     score = (mean - thresh) / sigma
     n = scipy.stats.norm
-    if score < 0:
-        pdf = n.logpdf(score)
-        r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
-        rval = np.log(sigma) + pdf + np.log1p(-r)
-        if not np.isfinite(rval):
-            return -np.inf
+    try:
+        float(mean)
+        is_scalar = True
+    except TypeError:
+        is_scalar = False
+
+    if is_scalar:
+        if score < 0:
+            pdf = n.logpdf(score)
+            r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
+            rval = np.log(sigma) + pdf + np.log1p(-r)
+            if not np.isfinite(rval):
+                return -np.inf
+            else:
+                return rval
         else:
-            return rval
+            return np.log(sigma) + np.log(score * n.cdf(score) + n.pdf(score))
     else:
-        return np.log(sigma) + np.log(score * n.cdf(score) + n.pdf(score))
+        score = np.asarray(score)
+        rval = np.zeros_like(score)
+
+        negs = score < 0
+        nonnegs = np.logical_not(negs)
+        negs_score = score[negs]
+        negs_pdf = n.logpdf(negs_score)
+        r = np.exp(np.log(-negs_score)
+                   + n.logcdf(negs_score)
+                   - negs_pdf)
+        rval[negs] = np.log(sigma[negs]) + negs_pdf + np.log1p(-r)
+        nonnegs_score = score[nonnegs]
+        rval[nonnegs] = np.log(sigma[nonnegs]) + np.log(
+            nonnegs_score * n.cdf(nonnegs_score) + n.pdf(nonnegs_score))
+        rval[np.logical_not(np.isfinite(rval))] = -np.inf
+        return rval
 
 
 def UCB(mean, var, zscore):
