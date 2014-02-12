@@ -12,7 +12,7 @@ class DuplicateLabel(BadSearchSpace):
 class InvalidTrial(ValueError):
     """Non trial-like object used as Trial"""
     def __init__(self, msg, obj):
-        ValueError.__init__(self, msg)
+        ValueError.__init__(self, msg + ' ' + str(obj))
         self.obj = obj
 
 

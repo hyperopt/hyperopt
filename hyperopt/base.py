@@ -363,7 +363,7 @@ class Trials(object):
             raise InvalidTrial('trial should be dict-like', trial)
         for key in TRIAL_KEYS:
             if key not in trial:
-                raise InvalidTrial('trial missing key', key)
+                raise InvalidTrial('trial missing key %s', key)
         for key in TRIAL_MISC_KEYS:
             if key not in trial['misc']:
                 raise InvalidTrial('trial["misc"] missing key', key)
