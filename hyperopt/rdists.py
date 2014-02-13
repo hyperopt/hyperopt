@@ -112,24 +112,29 @@ class lognorm_gen(rv_continuous):
 
 
 def qtable_pmf(x, q, qlow, xs, ps):
-    qx = np.round(x / q) * q
-    if not np.isclose(qx, x):
-        return 0.0
-    ix = int(np.round((qx - qlow) / q))
-    if 0 <= ix < len(ps):
-        assert np.isclose(x, xs[ix])
-        return ps[ix]
+    qx = np.round(np.atleast_1d(x).astype(np.float) / q) * q
+    is_multiple = np.isclose(qx, x)
+    ix = np.round((qx - qlow) / q).astype(np.int)
+    is_inbounds = np.logical_and(ix >= 0, ix < len(ps))
+    oks = np.logical_and(is_multiple, is_inbounds)
+    rval = np.zeros_like(qx)
+    rval[oks] = np.asarray(ps)[ix[oks]]
+    if isinstance(x, np.ndarray):
+        return rval.reshape(x.shape)
     else:
-        return 0.0
+        return float(rval)
 
 
 def qtable_logpmf(x, q, qlow, xs, ps):
-    p = qtable_pmf(x, q, qlow, xs, ps)
+    p = qtable_pmf(np.atleast_1d(x), q, qlow, xs, ps)
     # -- this if/else avoids np warning about underflow
-    if p == 0:
-        return -np.inf
+    rval = np.zeros_like(p)
+    rval[p == 0] = -np.inf
+    rval[p != 0] = np.log(p[p != 0])
+    if isinstance(x, np.ndarray):
+        return rval
     else:
-        return np.log(p)
+        return float(rval)
 
 
 class quniform_gen(object):
@@ -241,26 +246,37 @@ class qnormal_gen(object):
         self._norm_logcdf = scipy.stats.norm(loc=mu, scale=sigma).logcdf
 
     def in_domain(self, x):
-        return np.allclose(x, np.round(x / self.q) * self.q)
+        return np.isclose(x, np.round(x / self.q) * self.q)
 
     def pmf(self, x):
         return np.exp(self.logpmf(x))
 
     def logpmf(self, x):
-        if not self.in_domain(x):
-            return -np.inf
+        x1 = np.atleast_1d(x)
+        in_domain = self.in_domain(x1)
+        rval = np.zeros_like(x1, dtype=np.float) - np.inf
+        x_in_domain = x1[in_domain]
 
-        ubound = x + self.q * 0.5
-        lbound = x - self.q * 0.5
+        ubound = x_in_domain + self.q * 0.5
+        lbound = x_in_domain - self.q * 0.5
         # -- reflect intervals right of mu to other side
         #    for more accurate calculation
-        if lbound > self.mu:
-            lbound, ubound = (self.mu - (ubound - self.mu),
-                              self.mu - (lbound - self.mu))
-        assert ubound > lbound
+        flip = (lbound > self.mu)
+        tmp = lbound[flip].copy()
+        lbound[flip] = self.mu - (ubound[flip] - self.mu)
+        ubound[flip] = self.mu - (tmp - self.mu)
+
+        #if lbound > self.mu:
+            #lbound, ubound = (self.mu - (ubound - self.mu),
+                              #self.mu - (lbound - self.mu))
+        assert np.all(ubound > lbound)
         a = self._norm_logcdf(ubound)
         b = self._norm_logcdf(lbound)
-        return a + np.log1p(- np.exp(b - a))
+        rval[in_domain] = a + np.log1p(- np.exp(b - a))
+        if isinstance(x, np.ndarray):
+            return rval
+        else:
+            return float(rval)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
@@ -277,24 +293,33 @@ class qlognormal_gen(object):
         self._norm_cdf = scipy.stats.norm(loc=mu, scale=sigma).cdf
 
     def in_domain(self, x):
-        return ((x >= 0) & np.allclose(x, np.round(x / self.q) * self.q))
+        return np.logical_and((x >= 0),
+                              np.isclose(x, np.round(x / self.q) * self.q))
 
     def pmf(self, x):
-        if self.in_domain(x):
-            a = self._norm_cdf(np.log(x + 0.5 * self.q))
-            if x == 0:
-                return a
-            else:
-                b = self._norm_cdf(np.log(x - 0.5 * self.q))
-                return a - b
+        x1 = np.atleast_1d(x)
+        in_domain = self.in_domain(x1)
+        x1_in_domain = x1[in_domain]
+        rval = np.zeros_like(x1, dtype=np.float)
+        rval_in_domain = self._norm_cdf(np.log(x1_in_domain + 0.5 * self.q))
+        rval_in_domain[x1_in_domain != 0] -= self._norm_cdf(
+            np.log(x1_in_domain[x1_in_domain != 0] - 0.5 * self.q))
+        rval[in_domain] = rval_in_domain
+        if isinstance(x, np.ndarray):
+            return rval
         else:
-            return 0.0
+            return float(rval)
+
 
     def logpmf(self, x):
-        if self.in_domain(x):
-            return np.log(self.pmf(x))
+        pmf = self.pmf(np.atleast_1d(x))
+        assert np.all(pmf >= 0)
+        pmf[pmf == 0] = -np.inf
+        pmf[pmf > 0] = np.log(pmf[pmf > 0])
+        if isinstance(x, np.ndarray):
+            return pmf
         else:
-            return -np.inf
+            return float(pmf)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)

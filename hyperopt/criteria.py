@@ -39,6 +39,7 @@ def logEI_gaussian(mean, var, thresh):
         thresh >= mean + 37 * sqrt(var)
 
     """
+    assert np.asarray(var).min() >= 0
     sigma = np.sqrt(var)
     score = (mean - thresh) / sigma
     n = scipy.stats.norm
