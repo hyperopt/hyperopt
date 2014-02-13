@@ -67,7 +67,8 @@ def q1_lognormal():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': scope.max(-(hp.lognormal('x', 0, 2) - 3) ** 2, -100),
+    return {'loss': scope.min(0.1 * (hp.lognormal('x', 0, 2) - 10) ** 2,
+                              10),
             'status': base.STATUS_OK }
 
 
