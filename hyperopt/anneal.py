@@ -318,7 +318,8 @@ class AnnealingAlgo(SuggestAlgo):
         Parameters: See `hp_uniform`
         """
         upper = memo[node.arg['upper']]
-        counts = np.bincount(np.atleast_1d(val), minlength=upper)
+        val1 = np.atleast_1d(val)
+        counts = np.bincount(val1, minlength=upper) / float(val1.size)
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
@@ -329,21 +330,29 @@ class AnnealingAlgo(SuggestAlgo):
         """
         Parameters: See `hp_uniform`
         """
+        size = memo[node.arg['size']]
+        val1 = np.atleast_1d(val)
         p = p_orig = np.asarray(memo[node.arg['p']])
         if p.ndim == 2:
-            assert len(p) == 1
-            p = p[0]
+            if len(p) not in (1, len(val1)):
+                print node
+                print p
+                print np.asarray(p).shape
+            assert len(p) in (1, len(val1))
+        else:
+            assert p.ndim == 1
+            p = p[np.newaxis, :]
         upper = memo[node.arg['upper']]
-        counts = np.bincount(np.atleast_1d(val), minlength=upper)
+        counts = np.bincount(val1, minlength=upper) / float(val1.size)
         prior = self.shrinking(label)
         new_p = (1 - prior) * counts + prior * p
-        if p_orig.ndim == 2:
-            rval = categorical(p=[new_p], rng=self.rng,
-                               size=memo[node.arg['size']])
+        assert new_p.ndim == 2
+        rval = categorical(p=new_p, rng=self.rng, size=size)
+        if p_orig.ndim == 1:
+            assert len(rval) == 1
+            return rval[0]
         else:
-            rval = categorical(p=new_p, rng=self.rng,
-                               size=memo[node.arg['size']])
-        return rval
+            return rval
 
     def hp_normal(self, memo, node, label, tid, val):
         """
