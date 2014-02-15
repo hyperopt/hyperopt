@@ -319,7 +319,11 @@ class AnnealingAlgo(SuggestAlgo):
         """
         upper = memo[node.arg['upper']]
         val1 = np.atleast_1d(val)
-        counts = np.bincount(val1, minlength=upper) / float(val1.size)
+        if val1.size:
+            counts = np.bincount(val1, minlength=upper) / float(val1.size)
+        else:
+            counts = np.zeros(upper)
+            prior = 1.0
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
@@ -343,8 +347,12 @@ class AnnealingAlgo(SuggestAlgo):
             assert p.ndim == 1
             p = p[np.newaxis, :]
         upper = memo[node.arg['upper']]
-        counts = np.bincount(val1, minlength=upper) / float(val1.size)
-        prior = self.shrinking(label)
+        if val1.size:
+            counts = np.bincount(val1, minlength=upper) / float(val1.size)
+            prior = self.shrinking(label)
+        else:
+            counts = np.zeros(upper)
+            prior = 1.0
         new_p = (1 - prior) * counts + prior * p
         assert new_p.ndim == 2
         rval = categorical(p=new_p, rng=self.rng, size=size)
