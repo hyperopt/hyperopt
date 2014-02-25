@@ -8,7 +8,6 @@ from pyll import dfs
 from pyll import toposort
 from pyll import scope
 from pyll import stochastic
-from pyll import clone_merge
 
 stoch = stochastic.implicit_stochastic_symbols
 
