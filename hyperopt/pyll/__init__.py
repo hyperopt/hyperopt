@@ -11,3 +11,8 @@ from base import toposort
 # -- adds symbols to scope
 import stochastic
 
+from delayed_eval import Delayed
+from partial import PartialPlus
+
+
+delayed = Delayed(proxy=PartialPlus)
