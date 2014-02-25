@@ -75,9 +75,10 @@ def vchoice_merge(idxs, choices, *vals):
     """
     rval = []
     assert len(idxs) == len(choices)
-    for idx, ch in izip(idxs, choices):
-        vi, vv = vals[ch]
-        rval.append(vv[list(vi).index(idx)])
+    for idx, choice_idx in izip(idxs, choices):
+        v_ids, v_values = vals[choice_idx]
+        # TODO: This implementation is rather inefficient.
+        rval.append(v_values[list(v_ids).index(idx)])
     return rval
 
 
