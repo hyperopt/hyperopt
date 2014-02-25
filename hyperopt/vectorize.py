@@ -1,3 +1,5 @@
+from itertools import izip
+
 import sys
 
 import numpy as np
@@ -44,7 +46,7 @@ def vchoice_split(idxs, choices, n_options):
     if len(idxs) != len(choices):
         raise ValueError('idxs and choices different len',
                 (len(idxs), len(choices)))
-    for ii, cc in zip(idxs, choices):
+    for ii, cc in izip(idxs, choices):
         rval[cc].append(ii)
     return rval
 
@@ -73,7 +75,7 @@ def vchoice_merge(idxs, choices, *vals):
     """
     rval = []
     assert len(idxs) == len(choices)
-    for idx, ch in zip(idxs, choices):
+    for idx, ch in izip(idxs, choices):
         vi, vv = vals[ch]
         rval.append(vv[list(vi).index(idx)])
     return rval
@@ -116,20 +118,20 @@ def idxs_map(idxs, cmd, *args, **kwargs):
     if 0: # these should all be true, but evaluating them is slow
         for ii, (idxs_ii, vals_ii) in enumerate(args):
             for jj in idxs: assert jj in idxs_ii
-        for kw, (idxs_kw, vals_kw) in kwargs.items():
+        for kw, (idxs_kw, vals_kw) in kwargs.iteritems():
             for jj in idxs: assert jj in idxs_kw
 
     args_imap = []
     for idxs_j, vals_j in args:
         if len(idxs_j):
-            args_imap.append(dict(zip(idxs_j, vals_j)))
+            args_imap.append(dict(izip(idxs_j, vals_j)))
         else:
             args_imap.append({})
 
     kwargs_imap = {}
-    for kw, (idxs_j, vals_j) in kwargs.items():
+    for kw, (idxs_j, vals_j) in kwargs.iteritems():
         if len(idxs_j):
-            kwargs_imap[kw] = dict(zip(idxs_j, vals_j))
+            kwargs_imap[kw] = dict(izip(idxs_j, vals_j))
         else:
             kwargs_imap[kw] = {}
 
@@ -148,8 +150,8 @@ def idxs_map(idxs, cmd, *args, **kwargs):
             ERR('args_imap %s' % str(args_imap))
             raise
         try:
-            kwargs_nn = dict([(kw, arg_imap[ii])
-                for kw, arg_imap in kwargs_imap.items()])
+            kwargs_nn = dict((kw, arg_imap[ii])
+                              for kw, arg_imap in kwargs_imap.iteritems())
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
@@ -430,7 +432,7 @@ class VectorizeHelper(object):
                 args_idxs = scope.vchoice_split(all_idxs, all_choices,
                         len(options))
                 all_vals = scope.vchoice_merge(all_idxs, all_choices)
-                for opt_ii, idxs_ii in zip(options, args_idxs):
+                for opt_ii, idxs_ii in izip(options, args_idxs):
                     all_vals.pos_args.append(
                             as_apply([
                                 idxs_ii,
@@ -521,11 +523,11 @@ class VectorizeHelper(object):
         return wanted_vals
 
     def idxs_by_label(self):
-        return dict([(name, self.idxs_memo[node])
-                for name, node in self.params.items()])
+        return dict((name, self.idxs_memo[node])
+                    for name, node in self.params.iteritems())
 
     def vals_by_label(self):
-        return dict([(name, self.take_memo[node][0].pos_args[1])
-                for name, node in self.params.items()])
+        return dict((name, self.take_memo[node][0].pos_args[1])
+                    for name, node in self.params.iteritems())
 
 
