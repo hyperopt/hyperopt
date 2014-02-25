@@ -19,7 +19,29 @@ def ERR(msg):
 
 @scope.define_pure
 def vchoice_split(idxs, choices, n_options):
-    rval = [[] for ii in range(n_options)]
+    """
+    WRITEME
+
+    Parameters
+    -----------
+    idxs : list
+        List of the IDs available at the time of split.
+    choices : list
+        List of integers (same length as idxs) that indicates which
+        choice was made for the corresponding element of `idxs`.
+    n_options : int
+        The number of possible choices at this choice node.
+        `max(choices) < n_options`.
+
+    Returns
+    -------
+    rval : list of lists
+        List of `n_options`  different lists that maps choices to
+        which IDs made those choices.
+    """
+    # Empty list
+    rval = [[] for ii in xrange(n_options)]
+    assert len(idxs) == len(choices)
     if len(idxs) != len(choices):
         raise ValueError('idxs and choices different len',
                 (len(idxs), len(choices)))
@@ -30,6 +52,26 @@ def vchoice_split(idxs, choices, n_options):
 
 @scope.define_pure
 def vchoice_merge(idxs, choices, *vals):
+    """
+    WRITEME
+
+    Parameters
+    ----------
+    idxs : list
+        List of the IDs available at the time of split.
+    choices : list
+        List of integers (same length as idxs) that indicates which
+        choice was made for the corresponding element of `idxs`.
+    vals : tuple
+        List of a pairs, where the first element of every pair is a list of
+        indices, and the second element is a list of arbitrary values
+        associated with the corresponding IDs.
+
+    Returns
+    -------
+    rval : list
+        Returns a list of values from vals in the order specified by idxs.
+    """
     rval = []
     assert len(idxs) == len(choices)
     for idx, ch in zip(idxs, choices):
@@ -46,6 +88,28 @@ def idxs_map(idxs, cmd, *args, **kwargs):
 
     N.B. args and kwargs may generally include information for more idx values
     than are requested by idxs.
+
+    Parameters
+    ----------
+    idxs : list
+        List of the IDs available at the time of split.
+    args : list of tuples
+        List of pairs, where each pair is `(list_of_ids, list_of_vals)`.
+    kwargs : dict
+        Dictionary mapping argument names to pairs, where each pair is
+        `(list_of_ids, list_of_vals)`.
+
+    Returns
+    -------
+    mapped_cmd : list
+        List of results corresponding to applying `cmd` to each ID in
+        `idxs` by selecting the appropriate arguments in `*args` and
+        `**kwargs`.
+
+    Notes
+    -----
+    Could be special cased if every `list_of_ids` is the same object
+    as `idxs`.
     """
     # XXX: consider insisting on sorted idxs
     # XXX: use np.searchsorted instead of dct
@@ -70,6 +134,9 @@ def idxs_map(idxs, cmd, *args, **kwargs):
         else:
             kwargs_imap[kw] = {}
 
+    # getattr(delayed, cmd)
+    # Figure out what created "cmd" in the first place
+    # if isinstance(cmd, basestring) do something, otherwise just use it?
     f = scope._impls[cmd]
     rval = []
     for ii in idxs:
@@ -107,12 +174,17 @@ def idxs_take(idxs, vals, which):
     # TODO: consider insisting on sorted idxs
     # TODO: use np.searchsorted instead of dct
     assert len(idxs) == len(vals)
-    table = dict(zip(idxs, vals))
+    table = dict(izip(idxs, vals))
     return np.asarray([table[w] for w in which])
 
 
 @scope.define_pure
 def uniq(lst):
+    """
+    Return unique elements of `lst`, preserving order.
+
+    TODO: make this simpler.
+    """
     s = set()
     rval = []
     for l in lst:
@@ -123,6 +195,16 @@ def uniq(lst):
 
 
 def vectorize_stochastic(orig):
+    """
+    orig : pyll graph
+        Equivalent to an `idx_map` over a stochastic node (in
+        implicit_stochastic_symbols)
+
+    Returns
+    -------
+    alternate_graph : pyll graph
+        pyll graph that has had stochastic nodes swapped out for vectorized versions.
+    """
     if orig.name == 'idxs_map' and orig.pos_args[1]._obj in stoch:
         # -- this is an idxs_map of a random draw of distribution `dist`
         idxs = orig.pos_args[0]
@@ -218,6 +300,17 @@ class VectorizeHelper(object):
 
     idxs_memo - node in expr graph -> all elements we might need for it
     take_memo - node in expr graph -> all exprs retrieving computed elements
+
+    idxs memo - maps every node in the original expression graph to a symbolic
+    list of ids that are needed for it
+
+    take_memo - node in expression -> instantiations for different ids
+
+    expr : original pyll graph
+    expr_idxs : symbolic list of ids that we might ask for
+    v_expr : vectorized version of expr, basically a map of evaluate, never actually run
+    params : dictionary that maps name of each hyperparameter to corresponding
+    node in original pyll graph
 
     """
 
