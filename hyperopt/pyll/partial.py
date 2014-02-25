@@ -8,7 +8,27 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 import compiler
 import functools
+import warnings
 from itertools import izip, repeat
+
+
+def switch(index, *args):
+    """
+    A switch statement treated specially by `evaluate`.
+
+    Parameters
+    ----------
+    index : int
+        Which argument branch to evaluate.
+    *args : object, must have at least 1
+        The arguments from which to select.
+
+    Returns
+    -------
+    branch : object
+        Object corresponding to `args[index]`.
+    """
+    return args[index]
 
 
 class NoExpand(object):
@@ -303,11 +323,16 @@ class PartialPlus(functools.partial):
         return self.__class__(_getitem, self, item)
 
     @property
+    def pos_args(self):
+        warnings.warn("Use .args, not .pos_args")
+        return self.args
+
+    @property
     def arg(self):
         return _param_assignment(self)
 
 
-def evaluate(p, cache=None):
+def evaluate(p, instantiate_call=None, cache=None):
     """
     Evaluate a nested tree of functools.partial objects,
     used for deferred evaluation.
@@ -316,7 +341,13 @@ def evaluate(p, cache=None):
     ----------
     p : object
         If `p` is a partial, or a subclass of partial, it is
-        expanded recursively. Otherwise th
+        expanded recursively. Otherwise, return.
+    instantiate_call : callable, optional
+        Rather than call `p.func` directly, instead call
+        `instantiate_call(p.func, ...)`
+    cache : dict, optional
+        A result cache for resolving the exact same partial
+        object more than once.
 
     Returns
     -------
@@ -330,6 +361,8 @@ def evaluate(p, cache=None):
     recursion limit and be kind of slow. TODO: write an
     iterative version.
     """
+    instantiate_call = ((lambda f, *args, **kwargs: f(*args, **kwargs))
+                        if instantiate_call is None else instantiate_call)
     cache = {} if cache is None else cache
     if isinstance(p, NoExpand):
         return p.node
@@ -348,18 +381,29 @@ def evaluate(p, cache=None):
         obj, index = p.args
         if (isinstance(obj, functools.partial)
                 and obj.func in (list, tuple)):
-            index_val = evaluate(index, cache)
-            elem_val = evaluate(obj.args[index_val], cache)
+            index_val = evaluate(index, instantiate_call, cache)
+            elem_val = evaluate(obj.args[index_val], instantiate_call, cache)
             try:
                 int(index_val)
                 cache[p] = elem_val
             except TypeError:
+                # TODO: is this even conceivably used?
                 cache[p] = obj.func(elem_val)
             return cache[p]
 
-    args = [evaluate(arg, cache) for arg in p.args]
-    kw = [evaluate(kw, cache) for kw in p.keywords] if p.keywords else {}
+    # If we encounter switch(index, foo, bar, ...), don't
+    # bother evaluating the branches we don't need.
+    elif p.func == switch:
+        assert p.keywords is None
+        index, args = p.args[0], p.args[1:]
+        index_val = evaluate(index, instantiate_call, cache)
+        cache[p] = evaluate(p.args[index_val], instantiate_call, cache)
+        return cache[p]
+
+    args = [evaluate(arg, instantiate_call, cache) for arg in p.args]
+    kw = [evaluate(kw, instantiate_call, cache)
+          for kw in p.keywords] if p.keywords else {}
     # Cache the evaluated value (for subsequent calls that
     # will look at this cache dictionary) and return.
-    cache[p] = p.func(*args, **kw)
+    cache[p] = instantiate_call(p, *args, **kw)
     return cache[p]
