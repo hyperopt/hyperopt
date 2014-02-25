@@ -125,10 +125,10 @@ def _extract_param_names(fn):
     return pos_params, args_param, kwargs_param
 
 
-def _bind_keywords(params, named_args, kwargs_param, binding=None):
+def _bind_parameters(params, named_args, kwargs_param, binding=None):
     """
-    Resolve bindings for keyword arguments from a list
-    of parameter names.
+    Resolve bindings for arguments from a list of parameter
+    names.
 
     Parameters
     ----------
@@ -193,7 +193,7 @@ def _param_assignment(pp):
         binding[param_i] = arg_i
 
     # -- bind keyword arguments
-    binding.update(_bind_keywords(params, named_args, kwargs_param, binding))
+    binding.update(_bind_parameters(params, named_args, kwargs_param, binding))
     expected_length = (len(params) + int(kwargs_param is not None) +
                        int(args_param is not None))
     assert len(binding) <= expected_length
