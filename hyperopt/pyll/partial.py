@@ -405,5 +405,5 @@ def evaluate(p, instantiate_call=None, cache=None):
           for kw in p.keywords] if p.keywords else {}
     # Cache the evaluated value (for subsequent calls that
     # will look at this cache dictionary) and return.
-    cache[p] = instantiate_call(p, *args, **kw)
+    cache[p] = instantiate_call(p.func, *args, **kw)
     return cache[p]
