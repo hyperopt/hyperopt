@@ -11,6 +11,51 @@ import functools
 import warnings
 from itertools import izip, repeat
 
+# TODO: support o_len functionality from old Apply nodes
+
+
+def as_partialplus(p):
+    if isinstance(p, PartialPlus):
+        return p
+    else:
+        return PartialPlus(p.func, *p.args, **p.keywords)
+
+
+def depth_first_traversal(root):
+    """
+    Perform a depth-first traversal of a graph of partial objects.
+
+    Parameters
+    ----------
+    root : object
+        A `functools.partial` instance (returns `None` if `node` is
+        any other type).
+
+    Returns
+    -------
+    sequence : list
+        A list of `functools.partial` nodes from the graph,
+        in a depth-first order.
+    """
+    def _traverse(node, sequence=None, visited=None):
+        # TODO: make this iterative.
+        if not isinstance(node, functools.partial):
+            return
+        if sequence is None:
+            assert visited is None
+            sequence = []
+            visited = {}
+        if node in visited:
+            return
+        children = node.args + (node.keywords.values()
+                                if node.keywords is not None else ())
+        visited[node] = children
+        for other_node in visited[node]:
+            _traverse(other_node, sequence, visited)
+        sequence.append(node)
+        return sequence
+    return _traverse(root)
+
 
 def switch(index, *args):
     """
@@ -328,8 +373,37 @@ class PartialPlus(functools.partial):
         return self.args
 
     @property
+    def name(self):
+        # TODO: should we rewrite the name matching stuff in terms of function
+        # identity?
+        return self.func.func_name
+
+    @property
+    def inputs(self):
+        return self.args + (tuple(self.keywords.itervalues())
+                            if self.keywords is not None else ())
+
+    @property
     def arg(self):
+        # TODO: cache
         return _param_assignment(self)
+
+    def with_substitution(self, old_node, new_node):
+        keywords = self.keywords
+        new_args = tuple(new_node if obj is old_node else obj
+                         for obj in self.args)
+        if keywords is not None:
+            new_keywords = [(key, new_node) if val is old_node else (key, val)
+                            for key, val in keywords]
+            return self.__class__(self.func, *new_args, **new_keywords)
+        else:
+            return self.__class__(self.func, *new_args)
+
+    def clone(self):
+        if self.keywords:
+            return self.__class__(self.func, *self.args, **self.keywords)
+        else:
+            return self.__class__(self.func, *self.args)
 
 
 def evaluate(p, instantiate_call=None, cache=None):
