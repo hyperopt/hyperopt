@@ -7,12 +7,10 @@ from base import clone
 from base import clone_merge
 from base import dfs
 from base import toposort
+from delayed_eval import Delayed
+from .partial import partial
+
+delayed = Delayed(proxy=partial)
 
 # -- adds symbols to scope
 import stochastic
-
-from delayed_eval import Delayed
-from partial import PartialPlus
-
-
-delayed = Delayed(proxy=PartialPlus)
