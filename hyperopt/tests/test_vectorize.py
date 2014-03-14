@@ -1,7 +1,10 @@
 import numpy as np
 
-from hyperopt.pyll import as_apply, scope, rec_eval, clone, dfs
-from hyperopt.pyll.stochastic import recursive_set_rng_kwarg
+from hyperopt.pyll import rec_eval, delayed
+from hyperopt.pyll.partial import depth_first_traversal, evaluate
+from hyperopt.pyll.partial import as_partialplus
+from hyperopt.pyll.stochastic import recursive_set_rng_kwarg, rng_from_seed
+from hyperopt.pyll.stochastic import uniform, one_of
 
 from hyperopt import base, fmin, rand
 from hyperopt.vectorize import VectorizeHelper
@@ -14,62 +17,62 @@ from hyperopt.pyll_utils import hp_qloguniform
 
 
 def config0():
-    p0 = scope.uniform(0, 1)
-    p1 = scope.uniform(2, 3)
-    p2 = scope.one_of(-1, p0)
-    p3 = scope.one_of(-2, p1)
+    p0 = delayed.uniform(0, 1)
+    p1 = delayed.uniform(2, 3)
+    p2 = delayed.one_of(-1, p0)
+    p3 = delayed.one_of(-2, p1)
     p4 = 1
     p5 = [3, 4, p0]
-    p6 = scope.one_of(-3, p1)
+    p6 = delayed.one_of(-3, p1)
     d = locals()
-    d['p1'] = None # -- don't sample p1 all the time, only if p3 says so
-    s = as_apply(d)
+    d['p1'] = None  # -- don't sample p1 all the time, only if p3 says so
+    s = as_partialplus(d)
     return s
 
 
 def test_clone():
     config = config0()
-    config2 = clone(config)
+    config2 = config.clone()
 
-    nodeset = set(dfs(config))
-    assert not any(n in nodeset for n in dfs(config2))
+    nodeset = set(depth_first_traversal(config))
+    assert not any(n in nodeset for n in depth_first_traversal(config2))
 
     foo = recursive_set_rng_kwarg(
                 config,
-                scope.rng_from_seed(5))
-    r = rec_eval(foo)
+                delayed.rng_from_seed(5))
+    r = evaluate(foo)
     print r
-    r2 = rec_eval(
+    r2 = evaluate(
             recursive_set_rng_kwarg(
                 config2,
-                scope.rng_from_seed(5)))
+                delayed.rng_from_seed(5)))
 
     print r2
     assert r == r2
 
 
 def test_vectorize_trivial():
-    N = as_apply(15)
+    N = 15
 
     p0 = hp_uniform('p0', 0, 1)
     loss = p0
     print loss
-    expr_idxs = scope.range(N)
+    expr_idxs = delayed.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
     vloss = vh.v_expr
 
-    full_output = as_apply([vloss,
+    full_output = as_partialplus([vloss,
         vh.idxs_by_label(),
         vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
     new_vc = recursive_set_rng_kwarg(
             fo2,
-            as_apply(np.random.RandomState(1)),
+            as_partialplus(np.random.RandomState(1)),
             )
 
     #print new_vc
-    losses, idxs, vals = rec_eval(new_vc)
+    losses, idxs, vals = evaluate(new_vc)
     print 'losses', losses
     print 'idxs p0', idxs['p0']
     print 'vals p0', vals['p0']
@@ -79,23 +82,23 @@ def test_vectorize_trivial():
 
 
 def test_vectorize_simple():
-    N = as_apply(15)
+    N = as_partialplus(15)
 
     p0 = hp_uniform('p0', 0, 1)
     loss = p0 ** 2
     print loss
-    expr_idxs = scope.range(N)
+    expr_idxs = delayed.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
     vloss = vh.v_expr
 
-    full_output = as_apply([vloss,
+    full_output = as_partialplus([vloss,
         vh.idxs_by_label(),
         vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
     new_vc = recursive_set_rng_kwarg(
             fo2,
-            as_apply(np.random.RandomState(1)),
+            as_partialplus(np.random.RandomState(1)),
             )
 
     #print new_vc
@@ -109,23 +112,23 @@ def test_vectorize_simple():
 
 
 def test_vectorize_multipath():
-    N = as_apply(15)
+    N = as_partialplus(15)
 
     p0 = hp_uniform('p0', 0, 1)
     loss = hp_choice('p1', [1, p0, -p0]) ** 2
-    expr_idxs = scope.range(N)
+    expr_idxs = delayed.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
 
     vloss = vh.v_expr
     print vloss
 
-    full_output = as_apply([vloss,
+    full_output = as_partialplus([vloss,
         vh.idxs_by_label(),
         vh.vals_by_label()])
 
     new_vc = recursive_set_rng_kwarg(
             full_output,
-            as_apply(np.random.RandomState(1)),
+            as_partialplus(np.random.RandomState(1)),
             )
 
     losses, idxs, vals = rec_eval(new_vc)
@@ -153,16 +156,16 @@ def test_vectorize_config0():
     p5 = [3, 4, p0]
     p6 = hp_choice('p6', [-3, p1])
     d = locals()
-    d['p1'] = None # -- don't sample p1 all the time, only if p3 says so
-    config = as_apply(d)
+    d['p1'] = None  # -- don't sample p1 all the time, only if p3 says so
+    config = as_partialplus(d)
 
-    N = as_apply('N:TBA')
+    N = as_partialplus('N:TBA')
     expr = config
-    expr_idxs = scope.range(N)
+    expr_idxs = delayed.range(N)
     vh = VectorizeHelper(expr, expr_idxs, build=True)
     vconfig = vh.v_expr
 
-    full_output = as_apply([vconfig, vh.idxs_by_label(), vh.vals_by_label()])
+    full_output = as_partialplus([vconfig, vh.idxs_by_label(), vh.vals_by_label()])
 
     if 1:
         print '=' * 80
@@ -179,7 +182,7 @@ def test_vectorize_config0():
 
     new_vc = recursive_set_rng_kwarg(
             fo2,
-            as_apply(np.random.RandomState(1))
+            as_partialplus(np.random.RandomState(1))
             )
     if 0:
         print '=' * 80
@@ -187,7 +190,7 @@ def test_vectorize_config0():
         print new_vc
 
     Nval = 10
-    foo, idxs, vals = rec_eval(new_vc, memo={N: Nval})
+    foo, idxs, vals = evaluate(new_vc, bindings={N: Nval})
 
     print 'foo[0]', foo[0]
     print 'foo[1]', foo[1]
@@ -235,12 +238,12 @@ def test_distributions():
     trials = base.Trials()
     N = 1000
     fmin(lambda x: x,
-        space=space,
-        algo=rand.suggest,
-        trials=trials,
-        max_evals=N,
-        rstate=np.random.RandomState(124),
-        catch_eval_exceptions=False)
+         space=space,
+         algo=rand.suggest,
+         trials=trials,
+         max_evals=N,
+         rstate=np.random.RandomState(124),
+         catch_eval_exceptions=False)
     assert len(trials) == N
     idxs, vals = base.miscs_to_idxs_vals(trials.miscs)
     print idxs.keys()
@@ -289,6 +292,3 @@ def test_distributions():
     #import matplotlib.pyplot as plt
     #plt.hist(np.log(vals['node_2']))
     #plt.show()
-
-
-

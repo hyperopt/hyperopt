@@ -1,14 +1,18 @@
 from functools import partial
 from base import DuplicateLabel
 from pyll.base import Apply
-from pyll import scope
+from pyll import delayed
+from pyll.partial import as_partialplus
 from pyll import as_apply
+from pyll.stochastic import choice, randint, uniform, quniform
+from pyll.stochastic import loguniform, qloguniform, normal, qnormal
+from pyll.stochastic import lognormal, qlognormal
+
 
 #
 # Hyperparameter Types
 #
 
-@scope.define
 def hyperopt_param(label, obj):
     """ A graph node primarily for annotating - VectorizeHelper looks out
     for these guys, and optimizes subgraphs of the form:
@@ -28,90 +32,88 @@ def hp_pchoice(label, p_options):
         raise TypeError('require string label')
     p, options = zip(*p_options)
     n_options = len(options)
-    ch = scope.hyperopt_param(label,
-                              scope.categorical(
-                                  p,
-                                  upper=n_options))
-    return scope.switch(ch, *options)
+    ch = delayed.hyperopt_param(label,
+                                delayed.categorical(p, upper=n_options))
+    return as_partialplus(options)[ch]
 
 
 def hp_choice(label, options):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    ch = scope.hyperopt_param(label,
-        scope.randint(len(options)))
-    return scope.switch(ch, *options)
+    ch = delayed.hyperopt_param(label,
+                                delayed.randint(len(options)))
+    return as_partialplus(options)[ch]
 
 
 def hp_randint(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.hyperopt_param(label,
-        scope.randint(*args, **kwargs))
+    return delayed.hyperopt_param(label,
+        delayed.randint(*args, **kwargs))
 
 
 def hp_uniform(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.uniform(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.uniform(*args, **kwargs)))
 
 
 def hp_quniform(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.quniform(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.quniform(*args, **kwargs)))
 
 
 def hp_loguniform(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.loguniform(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.loguniform(*args, **kwargs)))
 
 
 def hp_qloguniform(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.qloguniform(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.qloguniform(*args, **kwargs)))
 
 
 def hp_normal(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.normal(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.normal(*args, **kwargs)))
 
 
 def hp_qnormal(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.qnormal(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.qnormal(*args, **kwargs)))
 
 
 def hp_lognormal(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.lognormal(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.lognormal(*args, **kwargs)))
 
 
 def hp_qlognormal(label, *args, **kwargs):
     if not isinstance(label, basestring):
         raise TypeError('require string label')
-    return scope.float(
-            scope.hyperopt_param(label,
-                scope.qlognormal(*args, **kwargs)))
+    return delayed.float(
+            delayed.hyperopt_param(label,
+                delayed.qlognormal(*args, **kwargs)))
 
 
 #
@@ -192,7 +194,7 @@ def expr_to_config(expr, conditions, hps):
     _expr_to_config(expr, conditions, hps)
     _remove_allpaths(hps, conditions)
 
-    
+
 def _remove_allpaths(hps, conditions):
     """Hacky way to recognize some kinds of false dependencies
     Better would be logic programming.

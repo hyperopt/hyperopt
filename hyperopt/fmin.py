@@ -11,7 +11,7 @@ import time
 
 import numpy as np
 
-import pyll
+from pyll.partial import topological_sort, as_partialplus, evaluate
 from .utils import coarse_utcnow
 from . import base
 
@@ -330,15 +330,15 @@ def space_eval(space, hp_assignment):
 
     hp_assignment - a dictionary mapping hp node labels to values.
     """
-    space = pyll.as_apply(space)
-    nodes = pyll.toposort(space)
+    space = as_partialplus(space)
+    nodes = topological_sort(space)
     memo = {}
     for node in nodes:
         if node.name == 'hyperopt_param':
             label = node.arg['label'].eval()
             if label in hp_assignment:
                 memo[node] = hp_assignment[label]
-    rval = pyll.rec_eval(space, memo=memo)
+    rval = evaluate(space, bindings=memo)
     return rval
 
 # -- flake8 doesn't like blank last line

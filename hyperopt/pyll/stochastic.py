@@ -4,7 +4,9 @@ Constructs for annotating base graphs.
 import sys
 import numpy as np
 
-from .base import scope, as_apply, dfs, Apply, rec_eval, clone
+from .base import as_apply, rec_eval, clone
+from . import delayed
+from .partial import as_partialplus, depth_first_traversal, Literal
 
 ################################################################################
 ################################################################################
@@ -16,11 +18,11 @@ implicit_stochastic_symbols = set()
 
 
 def implicit_stochastic(f):
-    implicit_stochastic_symbols.add(f.__name__)
+    #implicit_stochastic_symbols.add(f.__name__)
+    implicit_stochastic_symbols.add(f)
     return f
 
 
-@scope.define
 def rng_from_seed(seed):
     return np.random.RandomState(seed)
 
@@ -28,27 +30,23 @@ def rng_from_seed(seed):
 # -- UNIFORM
 
 @implicit_stochastic
-@scope.define
 def uniform(low, high, rng=None, size=()):
     return rng.uniform(low, high, size=size)
 
 
 @implicit_stochastic
-@scope.define
 def loguniform(low, high, rng=None, size=()):
     draw = rng.uniform(low, high, size=size)
     return np.exp(draw)
 
 
 @implicit_stochastic
-@scope.define
 def quniform(low, high, q, rng=None, size=()):
     draw = rng.uniform(low, high, size=size)
     return np.round(draw/q) * q
 
 
 @implicit_stochastic
-@scope.define
 def qloguniform(low, high, q, rng=None, size=()):
     draw = np.exp(rng.uniform(low, high, size=size))
     return np.round(draw/q) * q
@@ -57,27 +55,23 @@ def qloguniform(low, high, q, rng=None, size=()):
 # -- NORMAL
 
 @implicit_stochastic
-@scope.define
 def normal(mu, sigma, rng=None, size=()):
     return rng.normal(mu, sigma, size=size)
 
 
 @implicit_stochastic
-@scope.define
 def qnormal(mu, sigma, q, rng=None, size=()):
     draw = rng.normal(mu, sigma, size=size)
     return np.round(draw/q) * q
 
 
 @implicit_stochastic
-@scope.define
 def lognormal(mu, sigma, rng=None, size=()):
     draw = rng.normal(mu, sigma, size=size)
     return np.exp(draw)
 
 
 @implicit_stochastic
-@scope.define
 def qlognormal(mu, sigma, q, rng=None, size=()):
     draw = np.exp(rng.normal(mu, sigma, size=size))
     return np.round(draw/q) * q
@@ -87,7 +81,6 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 
 
 @implicit_stochastic
-@scope.define
 def randint(upper, rng=None, size=()):
     # this is tricky because numpy doesn't support
     # upper being a list of len size[0]
@@ -102,7 +95,6 @@ def randint(upper, rng=None, size=()):
 
 
 @implicit_stochastic
-@scope.define
 def categorical(p, upper=None, rng=None, size=()):
     """Draws i with probability p[i]"""
     if len(p) == 1 and isinstance(p[0], np.ndarray):
@@ -143,14 +135,12 @@ def categorical(p, upper=None, rng=None, size=()):
 
 
 def choice(args):
-    return scope.one_of(*args)
-scope.choice = choice
+    return delayed.one_of(*args)
 
 
 def one_of(*args):
-    ii = scope.randint(len(args))
-    return scope.switch(ii, *args)
-scope.one_of = one_of
+    ii = delayed.randint(len(args))
+    return as_partialplus(args)[ii]
 
 
 def recursive_set_rng_kwarg(expr, rng=None):
@@ -158,18 +148,15 @@ def recursive_set_rng_kwarg(expr, rng=None):
     Make all of the stochastic nodes in expr use the rng
 
     uniform(0, 1) -> uniform(0, 1, rng=rng)
+
     """
+    # TODO: this isn't recursive, change name
     if rng is None:
         rng = np.random.RandomState()
-    lrng = as_apply(rng)
-    for node in dfs(expr):
-        if node.name in implicit_stochastic_symbols:
-            for ii, (name, arg) in enumerate(list(node.named_args)):
-                if name == 'rng':
-                    node.named_args[ii] = ('rng', lrng)
-                    break
-            else:
-                node.named_args.append(('rng', lrng))
+    lrng = as_partialplus(rng)
+    for i, node in enumerate(depth_first_traversal(expr)):
+        if node.func in implicit_stochastic_symbols:
+            node.keywords['rng'] = lrng
     return expr
 
 
@@ -180,12 +167,12 @@ def sample(expr, rng=None, **kwargs):
 
     rng - a np.random.RandomState instance
           default: `np.random.RandomState()`
-          
+
     **kwargs - optional arguments passed along to
                `hyperopt.pyll.rec_eval`
 
     """
     if rng is None:
         rng = np.random.RandomState()
-    foo = recursive_set_rng_kwarg(clone(as_apply(expr)), as_apply(rng))
-    return rec_eval(foo, **kwargs)
+    foo = recursive_set_rng_kwarg(expr.clone(), as_partialplus(rng))
+    return evaluate(foo, **kwargs)

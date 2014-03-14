@@ -27,7 +27,6 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 import logging
 import datetime
-import os
 import sys
 
 import numpy as np
@@ -36,8 +35,9 @@ import bson  # -- comes with pymongo
 from bson.objectid import ObjectId
 
 import pyll
-#from pyll import scope  # looks unused but
 from pyll.stochastic import recursive_set_rng_kwarg
+from pyll.partial import as_partialplus, evaluate, depth_first_traversal
+from pyll.partial import topological_sort
 
 from .exceptions import (
     DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
@@ -702,7 +702,7 @@ class Domain(object):
     #    a live Ctrl instance is inserted for the pyll_ctrl
     #    in self.evaluate so that it can be accessed from within
     #    the pyll graph describing the search space.
-    pyll_ctrl = pyll.as_apply(Ctrl)
+    pyll_ctrl = as_partialplus(Ctrl)
 
     def __init__(self, fn, expr,
                  workdir=None,
@@ -753,12 +753,12 @@ class Domain(object):
         else:
             self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
 
-        self.expr = pyll.as_apply(expr)
+        self.expr = as_partialplus(expr)
 
         self.params = {}
-        for node in pyll.dfs(self.expr):
+        for node in depth_first_traversal(self.expr):
             if node.name == 'hyperopt_param':
-                label = node.arg['label'].obj
+                label = node.arg['label'].value
                 if label in self.params:
                     raise DuplicateLabel(label)
                 self.params[label] = node.arg['obj']
@@ -768,16 +768,16 @@ class Domain(object):
 
         self.workdir = workdir
         self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
-        before = pyll.dfs(self.expr)
+        before = list(depth_first_traversal(self.expr))
         # -- raises exception if expr contains cycles
-        pyll.toposort(self.expr)
+        topological_sort(self.expr)
         vh = self.vh = VectorizeHelper(self.expr, self.s_new_ids)
         # -- raises exception if v_expr contains cycles
-        pyll.toposort(vh.v_expr)
+        topological_sort(vh.v_expr)
 
         idxs_by_label = vh.idxs_by_label()
         vals_by_label = vh.vals_by_label()
-        after = pyll.dfs(self.expr)
+        after = list(depth_first_traversal(self.expr))
         # -- try to detect if VectorizeHelper screwed up anything inplace
         assert before == after
         assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
@@ -786,11 +786,12 @@ class Domain(object):
         self.s_rng = pyll.Literal('rng-placeholder')
         # -- N.B. operates inplace:
         self.s_idxs_vals = recursive_set_rng_kwarg(
-            pyll.scope.pos_args(idxs_by_label, vals_by_label),
-            self.s_rng)
+            as_partialplus([idxs_by_label, vals_by_label]),
+            self.s_rng
+        )
 
         # -- raises an exception if no topological ordering exists
-        pyll.toposort(self.s_idxs_vals)
+        topological_sort(self.s_idxs_vals)
 
         # -- Protocol for serialization.
         #    self.cmd indicates to e.g. MongoWorker how this domain
@@ -801,9 +802,9 @@ class Domain(object):
 
     def memo_from_config(self, config):
         memo = {}
-        for node in pyll.dfs(self.expr):
+        for node in depth_first_traversal(self.expr):
             if node.name == 'hyperopt_param':
-                label = node.arg['label'].obj
+                label = node.arg['label'].value
                 # -- hack because it's not really garbagecollected
                 #    this does have the desired effect of crashing the
                 #    function if rec_eval actually needs a value that
@@ -820,10 +821,9 @@ class Domain(object):
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
             #    or the normal Python part (self.fn)
-            pyll_rval = pyll.rec_eval(
-                self.expr,
-                memo=memo,
-                print_node_on_error=self.rec_eval_print_node_on_error)
+            pyll_rval = evaluate(self.expr,
+                                 bindings=memo)
+                #print_node_on_error=self.rec_eval_print_node_on_error)
             rval = self.fn(pyll_rval)
 
         if isinstance(rval, (float, int, np.number)):
