@@ -33,7 +33,7 @@ def is_nested(frame=None):
     caller = frame.f_back
     code = frame.f_code
     name = code.co_name
-    return (name in caller.f_locals and
+    return (caller is not None and name in caller.f_locals and
             getattr(caller.f_locals[name], 'func_code', None) == code)
 
 
@@ -108,9 +108,10 @@ class Delayed(object):
             if not resolved and name in caller.f_globals:
                 resolved = True
                 obj = caller.f_globals[name]
-            if not resolved and hasattr(__builtins__, name):
+            import __builtin__
+            if not resolved and hasattr(__builtin__, name):
                 resolved = True
-                obj = getattr(__builtins__, name)
+                obj = getattr(__builtin__, name)
         if not resolved:
             raise NameError("name '%s' is not defined" % name)
         proxy = self._proxy_
@@ -154,7 +155,7 @@ class DelayedObject(object):
         # or something evil. Also, is the else clause actually the right thing?
         elif name in self._obj_.__dict__:
             if hasattr(self._obj_, name):
-                return DelayedObject(getattr(self._obj_, name))
+                return DelayedObject(getattr(self._obj_, name), self._proxy_)
             else:
                 raise AttributeError(name)
         else:
