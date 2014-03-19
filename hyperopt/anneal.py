@@ -335,6 +335,8 @@ class AnnealingAlgo(SuggestAlgo):
         Parameters: See `hp_uniform`
         """
         size = memo[node.arg['size']]
+        if size == 0:
+            return []
         val1 = np.atleast_1d(val)
         p = p_orig = np.asarray(memo[node.arg['p']])
         if p.ndim == 2:
