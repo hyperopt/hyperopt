@@ -1,7 +1,6 @@
 from functools import partial
 import numpy as np
 import unittest
-from sklearn import datasets
 from hyperopt import hp, Trials, fmin, tpe, anneal, rand
 import hyperopt.pyll.stochastic
 
