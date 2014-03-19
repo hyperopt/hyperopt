@@ -101,7 +101,7 @@ class TestSimpleFMin(unittest.TestCase):
         # test that that a space with a pchoice in it is
         # (a) accepted by tpe.suggest and
         # (b) handled correctly.
-        N = 50
+        N = 150
         fmin(self.objective,
             space=self.space,
             trials=self.trials,
