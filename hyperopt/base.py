@@ -352,12 +352,16 @@ class Trials(object):
         return [tt['misc'] for tt in self._trials]
 
     @property
+    def idxs_vals(self):
+        return miscs_to_idxs_vals(self.miscs)
+
+    @property
     def idxs(self):
-        return miscs_to_idxs_vals(self.miscs)[0]
+        return self.idxs_vals[0]
 
     @property
     def vals(self):
-        return miscs_to_idxs_vals(self.miscs)[1]
+        return self.idxs_vals[1]
 
     def assert_valid_trial(self, trial):
         if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
