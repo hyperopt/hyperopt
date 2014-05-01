@@ -14,6 +14,10 @@ http://hyperopt.github.io/hyperopt
 Announcements mailing list:
 https://groups.google.com/forum/#!forum/hyperopt-announce
 
+Discussion mailing list:
+https://groups.google.com/forum/#!forum/hyperopt-discuss
+
+
 Thanks
 ------
 This project has received support from
