@@ -134,10 +134,13 @@ class SymbolTable(object):
             raise ValueError('Cannot override existing symbol', name)
         return self._define(f, o_len, pure)
 
-        entry = SymbolTableEntry(self, name, o_len, pure)
-        setattr(self, name, entry)
-        self._impls[name] = f
-        return f
+    def define_if_new(self, f, o_len=None, pure=False):
+        """Pass silently if f matches the current implementation
+        for f.__name__"""
+        name = f.__name__
+        if hasattr(self, name) and self._impls[name] is not f:
+            raise ValueError('Cannot redefine existing symbol', name)
+        return self._define(f, o_len, pure)
 
     def define_pure(self, f):
         return self.define(f, o_len=None, pure=True)
