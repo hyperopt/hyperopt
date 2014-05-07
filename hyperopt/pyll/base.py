@@ -238,7 +238,8 @@ class Apply(object):
 
     def __init__(self, name, pos_args, named_args,
             o_len=None,
-            pure=False):
+            pure=False,
+            define_params=None):
         self.name = name
         # -- tuples or arrays -> lists
         self.pos_args = list(pos_args)
@@ -247,9 +248,18 @@ class Apply(object):
         #    list coersion.
         self.o_len = o_len
         self.pure = pure
+        # -- define_params lets us cope with stuff that may be in the
+        #    SymbolTable on the master but not on the worker.
+        self.define_params = define_params
         assert all(isinstance(v, Apply) for v in pos_args)
         assert all(isinstance(v, Apply) for k, v in named_args)
         assert all(isinstance(k, basestring) for k, v in named_args)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # -- On deserialization, update scope if need be.
+        if self.define_params:
+            scope.define_if_new(**self.define_params)
 
     def eval(self, memo=None):
         """
