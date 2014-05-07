@@ -142,6 +142,14 @@ class SymbolTable(object):
             raise ValueError('Cannot redefine existing symbol', name)
         return self._define(f, o_len, pure)
 
+    def undefine(self, f):
+        if isinstance(f, basestring):
+            name = f
+        else:
+            name = f.__name__
+        del self._impls[name]
+        delattr(self, name)
+
     def define_pure(self, f):
         return self.define(f, o_len=None, pure=True)
 
