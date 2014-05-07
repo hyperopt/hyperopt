@@ -118,17 +118,37 @@ class SymbolTable(object):
 
     # ----
 
+
+    def _define(self, f, o_len, pure):
+        name = f.__name__
+        entry = SymbolTableEntry(self, name, o_len, pure)
+        setattr(self, name, entry)
+        self._impls[name] = f
+        return f
+
     def define(self, f, o_len=None, pure=False):
         """Decorator for adding python functions to self
         """
         name = f.__name__
         if hasattr(self, name):
             raise ValueError('Cannot override existing symbol', name)
+        return self._define(f, o_len, pure)
 
-        entry = SymbolTableEntry(self, name, o_len, pure)
-        setattr(self, name, entry)
-        self._impls[name] = f
-        return f
+    def define_if_new(self, f, o_len=None, pure=False):
+        """Pass silently if f matches the current implementation
+        for f.__name__"""
+        name = f.__name__
+        if hasattr(self, name) and self._impls[name] is not f:
+            raise ValueError('Cannot redefine existing symbol', name)
+        return self._define(f, o_len, pure)
+
+    def undefine(self, f):
+        if isinstance(f, basestring):
+            name = f
+        else:
+            name = f.__name__
+        del self._impls[name]
+        delattr(self, name)
 
     def define_pure(self, f):
         return self.define(f, o_len=None, pure=True)
