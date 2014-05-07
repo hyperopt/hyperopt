@@ -18,6 +18,22 @@ np_versions = map(int, np.__version__.split('.')[:2])
 
 
 DEFAULT_MAX_PROGRAM_LEN = 100000
+BINARY_OPERATORS = {}
+UNARY_OPERATORS = {}
+
+
+def unary_operator(op):
+    def decorate(func):
+        UNARY_OPERATORS[op] = func
+        return func
+    return decorate
+
+
+def binary_operator(op):
+    def decorate(func):
+        BINARY_OPERATORS[op] = func
+        return func
+    return decorate
 
 
 class PyllImportError(ImportError):
@@ -947,56 +963,67 @@ def identity(obj):
     return obj
 
 
+@binary_operator('+')
 @scope.define_pure
 def add(a, b):
     return a + b
 
 
+@binary_operator('-')
 @scope.define_pure
 def sub(a, b):
     return a - b
 
 
+@unary_operator('-')
 @scope.define_pure
 def neg(a):
     return -a
 
 
+@binary_operator('*')
 @scope.define_pure
 def mul(a, b):
     return a * b
 
 
+@binary_operator('/')
 @scope.define_pure
 def div(a, b):
     return a / b
 
 
+@binary_operator('//')
 @scope.define_pure
 def floordiv(a, b):
     return a // b
 
 
+@binary_operator('==')
 @scope.define_pure
 def eq(a, b):
     return a == b
 
 
+@binary_operator('>')
 @scope.define_pure
 def gt(a, b):
     return a > b
 
 
+@binary_operator('>=')
 @scope.define_pure
 def ge(a, b):
     return a >= b
 
 
+@binary_operator('<')
 @scope.define_pure
 def lt(a, b):
     return a < b
 
 
+@binary_operator('<=')
 @scope.define_pure
 def le(a, b):
     return a <= b
