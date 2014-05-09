@@ -5,6 +5,7 @@
 
 import copy
 import logging; logger = logging.getLogger(__name__)
+import operator
 import time
 
 from StringIO import StringIO
@@ -937,69 +938,24 @@ def pos_args(*args):
     return args
 
 
-@scope.define_pure
-def getitem(obj, idx):
-    return obj[idx]
-
 
 @scope.define_pure
 def identity(obj):
     return obj
 
 
-@scope.define_pure
-def add(a, b):
-    return a + b
-
-
-@scope.define_pure
-def sub(a, b):
-    return a - b
-
-
-@scope.define_pure
-def neg(a):
-    return -a
-
-
-@scope.define_pure
-def mul(a, b):
-    return a * b
-
-
-@scope.define_pure
-def div(a, b):
-    return a / b
-
-
-@scope.define_pure
-def floordiv(a, b):
-    return a // b
-
-
-@scope.define_pure
-def eq(a, b):
-    return a == b
-
-
-@scope.define_pure
-def gt(a, b):
-    return a > b
-
-
-@scope.define_pure
-def ge(a, b):
-    return a >= b
-
-
-@scope.define_pure
-def lt(a, b):
-    return a < b
-
-
-@scope.define_pure
-def le(a, b):
-    return a <= b
+scope.define_pure(operator.getitem)
+scope.define_pure(operator.add)
+scope.define_pure(operator.sub)
+scope.define_pure(operator.mul)
+scope.define_pure(operator.div)
+scope.define_pure(operator.floordiv)
+scope.define_pure(operator.neg)
+scope.define_pure(operator.eq)
+scope.define_pure(operator.lt)
+scope.define_pure(operator.le)
+scope.define_pure(operator.gt)
+scope.define_pure(operator.ge)
 
 
 @scope.define_pure
