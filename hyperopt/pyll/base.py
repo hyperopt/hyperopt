@@ -944,6 +944,10 @@ def identity(obj):
     return obj
 
 
+# -- We used to define these as Python functions in this file, but the operator
+#    module already provides them, is slightly more efficient about it. Since
+#    searchspaces uses the same convention, we can more easily map graphs back
+#    and forth and reduce the amount of code in both codebases.
 scope.define_pure(operator.getitem)
 scope.define_pure(operator.add)
 scope.define_pure(operator.sub)
