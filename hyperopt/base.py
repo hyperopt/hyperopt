@@ -32,8 +32,12 @@ import sys
 
 import numpy as np
 
-import bson  # -- comes with pymongo
-from bson.objectid import ObjectId
+try:
+    import bson  # -- comes with pymongo
+    from bson.objectid import ObjectId
+    have_bson = True
+except ImportError:
+    have_bson = False
 
 import pyll
 #from pyll import scope  # looks unused but
@@ -107,6 +111,8 @@ def _all_same(*args):
 
 
 def SONify(arg, memo=None):
+    if not have_bson:
+        return arg
     add_arg_to_raise = True
     try:
         if memo is None:
@@ -377,15 +383,16 @@ class Trials(object):
                 'tid mismatch between root and misc',
                 trial)
         # -- check for SON-encodable
-        try:
-            bson.BSON.encode(trial)
-        except:
-            # TODO: save the trial object somewhere to inspect, fix, re-insert
-            #       so that precious data is not simply deallocated and lost.
-            print '-' * 80
-            print "CANT ENCODE"
-            print '-' * 80
-            raise
+        if have_bson:
+            try:
+                bson.BSON.encode(trial)
+            except:
+                # TODO: save the trial object somewhere to inspect, fix, re-insert
+                #       so that precious data is not simply deallocated and lost.
+                print '-' * 80
+                print "CANT ENCODE"
+                print '-' * 80
+                raise
         if trial['exp_key'] != self._exp_key:
             raise InvalidTrial('wrong exp_key',
                                (trial['exp_key'], self._exp_key))
