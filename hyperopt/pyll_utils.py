@@ -1,8 +1,21 @@
-from functools import partial
+from functools import partial, wraps
 from base import DuplicateLabel
-from pyll.base import Apply
+from pyll.base import Apply, Literal
 from pyll import scope
 from pyll import as_apply
+
+
+def validate_label(f):
+    @wraps(f)
+    def wrapper(label, *args, **kwargs):
+        is_real_string = isinstance(label, basestring)
+        is_literal_string = (isinstance(label, Literal) and
+                             isinstance(label.obj, basestring))
+        if not is_real_string and not is_literal_string:
+            raise TypeError('require string label')
+        return f(label, *args, **kwargs)
+    return wrapper
+
 
 #
 # Hyperparameter Types
@@ -19,13 +32,12 @@ def hyperopt_param(label, obj):
     return obj
 
 
+@validate_label
 def hp_pchoice(label, p_options):
     """
     label: string
     p_options: list of (probability, option) pairs
     """
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     p, options = zip(*p_options)
     n_options = len(options)
     ch = scope.hyperopt_param(label,
@@ -35,80 +47,70 @@ def hp_pchoice(label, p_options):
     return scope.switch(ch, *options)
 
 
+@validate_label
 def hp_choice(label, options):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     ch = scope.hyperopt_param(label,
         scope.randint(len(options)))
     return scope.switch(ch, *options)
 
 
+@validate_label
 def hp_randint(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.hyperopt_param(label,
         scope.randint(*args, **kwargs))
 
 
+@validate_label
 def hp_uniform(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.uniform(*args, **kwargs)))
 
 
+@validate_label
 def hp_quniform(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.quniform(*args, **kwargs)))
 
 
+@validate_label
 def hp_loguniform(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.loguniform(*args, **kwargs)))
 
 
+@validate_label
 def hp_qloguniform(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.qloguniform(*args, **kwargs)))
 
 
+@validate_label
 def hp_normal(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.normal(*args, **kwargs)))
 
 
+@validate_label
 def hp_qnormal(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.qnormal(*args, **kwargs)))
 
 
+@validate_label
 def hp_lognormal(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.lognormal(*args, **kwargs)))
 
 
+@validate_label
 def hp_qlognormal(label, *args, **kwargs):
-    if not isinstance(label, basestring):
-        raise TypeError('require string label')
     return scope.float(
             scope.hyperopt_param(label,
                 scope.qlognormal(*args, **kwargs)))
@@ -192,7 +194,7 @@ def expr_to_config(expr, conditions, hps):
     _expr_to_config(expr, conditions, hps)
     _remove_allpaths(hps, conditions)
 
-    
+
 def _remove_allpaths(hps, conditions):
     """Hacky way to recognize some kinds of false dependencies
     Better would be logic programming.
