@@ -2,6 +2,7 @@ import datetime
 import numpy as np
 import logging
 import cPickle
+import os
 logger = logging.getLogger(__name__)
 
 import numpy
@@ -169,3 +170,22 @@ def coarse_utcnow():
                              now.minute, now.second, microsec)
 
 
+from contextlib import contextmanager
+@contextmanager
+def working_dir(dir):
+    cwd = os.getcwd()
+    os.chdir(dir)
+    yield
+    os.chdir(cwd)
+
+@contextmanager
+def temp_dir(dir, erase_after=False):
+    if not os.path.exists(dir):
+        if os.pardir in dir:
+            raise RuntimeError("workdir contains os.pardir ('..')")
+        os.makedirs(dir)
+    else:
+        assert os.path.isdir(dir)
+    yield
+    if erase_after:
+        os.removedirs(dir)

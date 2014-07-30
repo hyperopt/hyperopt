@@ -1,6 +1,8 @@
 import numpy as np
+import os
 from hyperopt.utils import fast_isin
 from hyperopt.utils import get_most_recent_inds
+from hyperopt.utils import temp_dir, working_dir
 
 
 def test_fast_isin():
@@ -66,3 +68,32 @@ def test_get_most_recent_inds():
                  {'_id':0, 'version':2}, {'_id':0, 'version':2}]
     
     assert get_most_recent_inds(test_data).tolist() == [0, 3]
+
+def test_temp_dir():
+    fn = "test_temp_dir"
+    try:
+        assert not os.path.exists(fn)
+        with temp_dir(fn):
+            assert os.path.exists(fn)
+        assert os.path.exists(fn)
+        os.rmdir(fn)
+
+        assert not os.path.exists(fn)
+        with temp_dir(fn, erase_after=True):
+            assert os.path.exists(fn)
+        assert not os.path.exists(fn)
+    finally:
+        if os.path.isdir(fn):
+            os.rmdir(fn)
+
+def test_workdir():
+    fn = "test_work_dir"
+    os.makedirs(fn)
+    try:
+        assert fn not in os.getcwd()
+        with working_dir(fn):
+            assert fn in os.getcwd()
+        assert fn not in os.getcwd()
+    finally:
+        if os.path.isdir(fn):
+            os.rmdir(fn)

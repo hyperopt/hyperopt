@@ -133,6 +133,7 @@ from .utils import coarse_utcnow
 from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
+from .utils import working_dir, temp_dir
 import plotting
 
 
@@ -1032,8 +1033,6 @@ class MongoWorker(object):
         else:
             workdir = self.workdir
         workdir = os.path.abspath(os.path.expanduser(workdir))
-        cwd = os.getcwd()
-        sentinal = None
         if not os.path.isdir(workdir):
             # -- figure out the closest point to the workdir in the filesystem
             closest_dir = ''
@@ -1043,15 +1042,6 @@ class MongoWorker(object):
                 else:
                     break
             assert closest_dir != workdir
-
-            # -- touch a sentinal file so that recursive directory
-            #    removal stops at the right place
-            sentinal = os.path.join(closest_dir, wdi + '.inuse')
-            logger.debug("touching sentinal file: %s" % sentinal)
-            open(sentinal, 'w').close()
-            # -- now just make the rest of the folders
-            logger.debug("making workdir: %s" % workdir)
-            os.makedirs(workdir)
         try:
             root_logger = logging.getLogger()
             if self.logfilename:
@@ -1091,8 +1081,9 @@ class MongoWorker(object):
                 else:
                     raise ValueError('Unrecognized cmd protocol', cmd_protocol)
 
-                result = worker_fn(spec, ctrl)
-                result = SONify(result)
+                with temp_dir(workdir, erase_created_workdir), working_dir(workdir):
+                    result = worker_fn(spec, ctrl)
+                    result = SONify(result)
             except BaseException, e:
                 #XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly
@@ -1105,7 +1096,6 @@ class MongoWorker(object):
         finally:
             if self.logfilename:
                 root_logger.removeHandler(self.log_handler)
-            os.chdir(cwd)
 
         logger.info('job finished: %s' % str(job['_id']))
         attachments = result.pop('attachments', {})
@@ -1116,21 +1106,6 @@ class MongoWorker(object):
             ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
         mj.update(job, {'state': JOB_STATE_DONE})
-
-        if sentinal:
-            if erase_created_workdir:
-                logger.debug('MongoWorker.run_one: rmtree %s' % workdir)
-                shutil.rmtree(workdir)
-                # -- put it back so that recursive removedirs works
-                os.mkdir(workdir)
-                # -- recursive backtrack to sentinal
-                logger.debug('MongoWorker.run_one: removedirs %s'
-                             % workdir)
-                os.removedirs(workdir)
-            # -- remove sentinal
-            logger.debug('MongoWorker.run_one: rm %s' % sentinal)
-            os.remove(sentinal)
-
 
 class MongoCtrl(Ctrl):
     """

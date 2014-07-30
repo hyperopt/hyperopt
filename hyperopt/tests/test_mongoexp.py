@@ -148,7 +148,9 @@ def with_mongo_trials(f, exp_key=None):
 def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foo', logfilename=None):
     mw = MongoWorker(
         mj=TempMongo.mongo_jobs(dbname),
-        logfilename=logfilename)
+        logfilename=logfilename,
+        workdir="mongoexp_test_dir",
+    )
     try:
         while n_jobs:
             mw.run_one(host_id, timeout, erase_created_workdir=True)
@@ -246,6 +248,7 @@ def test_handles_are_independent():
 
 
 def passthrough(x):
+    assert os.path.split(os.getcwd()).count("mongoexp_test_dir") == 1, "cwd is %s" % os.getcwd()
     return x
 
 
@@ -255,7 +258,8 @@ class TestExperimentWithThreads(unittest.TestCase):
     def worker_thread_fn(host_id, n_jobs, timeout):
         mw = MongoWorker(
             mj=TempMongo.mongo_jobs('foodb'),
-            logfilename=None)
+            logfilename=None,
+            workdir="mongoexp_test_dir")
         while n_jobs:
             mw.run_one(host_id, timeout, erase_created_workdir=True)
             print('worker: %s ran job' % str(host_id))
