@@ -180,12 +180,14 @@ def working_dir(dir):
 
 @contextmanager
 def temp_dir(dir, erase_after=False):
+    created_by_me = False
     if not os.path.exists(dir):
         if os.pardir in dir:
             raise RuntimeError("workdir contains os.pardir ('..')")
         os.makedirs(dir)
+        created_by_me = True
     else:
         assert os.path.isdir(dir)
     yield
-    if erase_after:
+    if erase_after and created_by_me:
         os.removedirs(dir)
