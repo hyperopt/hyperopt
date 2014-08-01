@@ -1,4 +1,5 @@
 import numpy as np
+from nose.tools import raises
 import os
 from hyperopt.utils import fast_isin
 from hyperopt.utils import get_most_recent_inds
@@ -69,8 +70,16 @@ def test_get_most_recent_inds():
     
     assert get_most_recent_inds(test_data).tolist() == [0, 3]
 
+@raises(RuntimeError)
+def test_temp_dir_pardir():
+    with temp_dir("../test_temp_dir"):
+        pass
+
 def test_temp_dir():
     fn = "test_temp_dir"
+    if os.path.exists(fn):
+        print "Path %s exists, not running test_temp_dir()"
+        return
     try:
         assert not os.path.exists(fn)
         with temp_dir(fn):
