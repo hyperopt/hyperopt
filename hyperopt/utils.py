@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import cPickle
 import os
+import shutil
 logger = logging.getLogger(__name__)
 
 import numpy
@@ -178,16 +179,57 @@ def working_dir(dir):
     yield
     os.chdir(cwd)
 
+def path_split_all(path):
+    """split a path at all path separaters, return list of parts"""
+    parts = []
+    while True:
+        path, fn = os.path.split(path)
+        if len(fn) == 0:
+            break
+        parts.append(fn)
+    return reversed(parts)
+
+def get_closest_dir(workdir):
+    """
+    returns the topmost already-existing directory in the given path
+    erasing work-dirs should never progress above this file.
+    Also returns the name of first non-existing dir for use as filename.
+    """
+    closest_dir = ''
+    for wdi in path_split_all(workdir):
+        print "get_closest_dir: wdi is ", wdi, " closest_dir is ", closest_dir
+        if os.path.isdir(os.path.join(closest_dir, wdi)):
+            closest_dir = os.path.join(closest_dir, wdi)
+        else:
+            break
+    assert closest_dir != workdir
+    return closest_dir, wdi
+
 @contextmanager
-def temp_dir(dir, erase_after=False):
+def temp_dir(dir, erase_after=False, with_sentinel=True):
     created_by_me = False
     if not os.path.exists(dir):
         if os.pardir in dir:
             raise RuntimeError("workdir contains os.pardir ('..')")
+        if erase_after and with_sentinel:
+            closest_dir, fn = get_closest_dir(dir)
+            sentinel = os.path.join(closest_dir, fn + ".inuse")
+            open(sentinel, 'w').close()
         os.makedirs(dir)
         created_by_me = True
     else:
         assert os.path.isdir(dir)
     yield
     if erase_after and created_by_me:
-        os.removedirs(dir)
+        # erase all files in workdir
+        shutil.rmtree(dir)
+        if with_sentinel:
+            # put dir back as starting point for recursive remove
+            os.mkdir(dir)
+
+            # also try to erase any other empty directories up to
+            # sentinel file
+            os.removedirs(dir)
+
+            # remove sentinel file
+            os.remove(sentinel)

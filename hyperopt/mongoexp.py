@@ -1033,15 +1033,6 @@ class MongoWorker(object):
         else:
             workdir = self.workdir
         workdir = os.path.abspath(os.path.expanduser(workdir))
-        if not os.path.isdir(workdir):
-            # -- figure out the closest point to the workdir in the filesystem
-            closest_dir = ''
-            for wdi in os.path.split(workdir):
-                if os.path.isdir(os.path.join(closest_dir, wdi)):
-                    closest_dir = os.path.join(closest_dir, wdi)
-                else:
-                    break
-            assert closest_dir != workdir
         try:
             root_logger = logging.getLogger()
             if self.logfilename:
