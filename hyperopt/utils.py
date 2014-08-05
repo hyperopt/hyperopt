@@ -197,7 +197,6 @@ def get_closest_dir(workdir):
     """
     closest_dir = ''
     for wdi in path_split_all(workdir):
-        print "get_closest_dir: wdi is ", wdi, " closest_dir is ", closest_dir
         if os.path.isdir(os.path.join(closest_dir, wdi)):
             closest_dir = os.path.join(closest_dir, wdi)
         else:
