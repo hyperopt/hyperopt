@@ -10,7 +10,6 @@ from IPython.parallel import interactive
 #from IPython.parallel import TaskAborted
 #from IPython.display import clear_output
 
-
 from .base import Trials
 from .base import Domain
 from .base import JOB_STATE_NEW
@@ -37,9 +36,6 @@ class IPythonTrials(Trials):
             save_ipy_metadata=True):
         self._client = client
         self._clientlbv = client.load_balanced_view()
-        self._viewl = [self._client[i] for i in self._client.ids]
-        for v in self._viewl:
-            v.track=True
         self.job_map = {}
         self.job_error_reaction = job_error_reaction
         self.save_ipy_metadata = save_ipy_metadata
@@ -53,7 +49,7 @@ class IPythonTrials(Trials):
         return rval
 
     def refresh(self):
-        job_map = {}#self.job_map
+        job_map = {}
 
         # -- carry over state for active engines
         for eid in self._client.ids:
@@ -61,7 +57,6 @@ class IPythonTrials(Trials):
 
         # -- deal with lost engines, abandoned promises
         for eid, (p, tt) in self.job_map.items():
-            print "We have a lost engine!!!", eid, p
             if self.job_error_reaction == 'raise':
                 raise LostEngineError(p)
             elif self.job_error_reaction == 'log':
@@ -73,17 +68,12 @@ class IPythonTrials(Trials):
         # -- remove completed jobs from job_map
         for eid, (p, tt) in job_map.items():
             #print "eid p tt", eid, p, tt
-            if p is None: ##will be populated elsewhere
-                #print "continued"
+            if p is None: 
                 continue
-            
-                #print p
+            #print p
             #assert eid == p.engine_id
             if p.ready():
-                #print "p ready!!!", 'eid ', p.eid, 'tid ', p.tid
-                #print "p meta", p.metadata
                 try:
-                    #print "assigning a job state to done!", str(tt), eid, p
                     tt['result'] = p.get()
                     tt['state'] = JOB_STATE_DONE
                     job_map[eid] = (None, None)
@@ -98,14 +88,12 @@ class IPythonTrials(Trials):
                 if self.save_ipy_metadata:
                     tt['ipy_metadata'] = p.metadata
                 tt['refresh_time'] = coarse_utcnow()
-                
                 del job_map[eid]
 
         self.job_map = job_map
         Trials.refresh(self)
 
-    def fmin(self, fn, space, **kw):
-        
+    def fmin(self, fn, space, **kw):        
         algo = kw.get('algo')
         max_evals = kw.get('max_evals')
         rstate = kw.get('rstate',None)
@@ -116,7 +104,6 @@ class IPythonTrials(Trials):
         _return_argmin=True,
         wait=True,
         pass_expr_memo_ctrl=None,
-        #):
 
         if rstate is None:
             rstate = np.random
@@ -163,19 +150,17 @@ class IPythonTrials(Trials):
                         now = coarse_utcnow()
                         new_trial['book_time'] = now
                         new_trial['refresh_time'] = now
-                        #self._viewl[eid] = self._client[eid] #build a new view element
-                        #self._viewl[eid].clear()
                         tid, = self.insert_trial_docs([new_trial])
                         promise = call_domain(
                             domain,
-                            spec_from_misc(new_trial['misc']),#spec = 
-                            Ctrl(self, current_trial=new_trial),#ctrl = 
-                            new_trial,#trial =
+                            spec_from_misc(new_trial['misc']),
+                            Ctrl(self, current_trial=new_trial),
+                            new_trial,
                             self._clientlbv,
                             eid,
                             tid,
                         )
-                        #promise.wait_on_send()
+
                         # -- XXX bypassing checks because 'ar'
                         # is not ok for SONify... but should check
                         # for all else being SONify
@@ -184,7 +169,6 @@ class IPythonTrials(Trials):
                         assert tt['tid'] == tid
                         self.job_map[eid] = (promise, tt)
                         tt['state'] = JOB_STATE_RUNNING
-                        #print "waking up, promise is:", eid, promise
 
         if wait:
             if verbose:
@@ -218,7 +202,6 @@ class IPythonTrials(Trials):
     def __getstate__(self):
         rval = dict(self.__dict__)
         del rval['_client']
-        del rval['_viewl']
         del rval['_trials']
         del rval['job_map']
         #print rval.keys()

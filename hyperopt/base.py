@@ -822,7 +822,7 @@ class Domain(object):
                 memo[node] = config.get(label, pyll.base.GarbageCollected)
         return memo
 
-    def evaluate(self, config, ctrl, attach_attachments=True, **kw):
+    def evaluate(self, config, ctrl, attach_attachments=True):
         memo = self.memo_from_config(config)
         use_obj_for_literal_in_memo(self.expr, ctrl, Ctrl, memo)
         if self.pass_expr_memo_ctrl:
