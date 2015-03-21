@@ -809,7 +809,7 @@ def suggest(new_ids, domain, trials, seed,
         linear_forgetting=_default_linear_forgetting,
         ):
 
-    new_id, = new_ids
+    new_id = new_ids[0]
 
     t0 = time.time()
     (s_prior_weight, observed, observed_loss, specs, opt_idxs, opt_vals) \
