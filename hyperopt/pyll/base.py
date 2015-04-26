@@ -952,7 +952,10 @@ scope.define_pure(operator.getitem)
 scope.define_pure(operator.add)
 scope.define_pure(operator.sub)
 scope.define_pure(operator.mul)
-scope.define_pure(operator.div)
+try:
+    scope.define_pure(operator.div)
+except AttributeError:
+    scope.define_pure(operator.truediv)
 scope.define_pure(operator.floordiv)
 scope.define_pure(operator.neg)
 scope.define_pure(operator.eq)

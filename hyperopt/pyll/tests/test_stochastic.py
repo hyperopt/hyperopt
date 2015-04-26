@@ -7,7 +7,7 @@ def test_recursive_set_rng_kwarg():
     a = as_apply([uniform(0, 1), uniform(2, 3)])
     rng = np.random.RandomState(234)
     recursive_set_rng_kwarg(a, rng)
-    print a
+    print(a)
     val_a = rec_eval(a)
     assert 0 < val_a[0] < 1
     assert 2 < val_a[1] < 3
@@ -29,8 +29,8 @@ def test_lnorm():
                  low=.1 / np.sqrt(10.),
                  high=10 * np.sqrt(10))
              }})
-    print lnorm
-    print 'len', len(str(lnorm))
+    print(lnorm)
+    print('len', len(str(lnorm)))
     # not sure what to assert
     # ... this is too fagile
     # assert len(str(lnorm)) == 980
@@ -38,7 +38,7 @@ def test_lnorm():
 
 def test_sample_deterministic():
     aa = as_apply([0, 1])
-    print aa
+    print(aa)
     dd = sample(aa, np.random.RandomState(3))
     assert dd == (0, 1)
 
@@ -62,7 +62,7 @@ def test_sample():
                 u = u,
                 n = scope.normal(5, 0.1),
                 l = [0, 1, scope.one_of(2, 3), u]))
-    print aa
+    print(aa)
     dd = sample(aa, np.random.RandomState(3))
     assert 0 < dd['u'] < 1
     assert 4 < dd['n'] < 6
