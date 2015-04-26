@@ -483,6 +483,12 @@ class Apply(object):
     def __rdiv__(self, other):
         return scope.div(other, self)
 
+    def __truediv__(self, other):
+        return scope.truediv(self, other)
+
+    def __rtruediv__(self, other):
+        return scope.truediv(other, self)
+
     def __floordiv__(self, other):
         return scope.floordiv(self, other)
 
@@ -955,7 +961,8 @@ scope.define_pure(operator.mul)
 try:
     scope.define_pure(operator.div)
 except AttributeError:
-    scope.define_pure(operator.truediv)
+    pass  # No more operator.div in Python3, but truediv also exists since Python2.2
+scope.define_pure(operator.truediv)
 scope.define_pure(operator.floordiv)
 scope.define_pure(operator.neg)
 scope.define_pure(operator.eq)
