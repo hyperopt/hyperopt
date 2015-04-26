@@ -6,6 +6,7 @@
 import logging
 import os
 import re
+import sys
 
 # ----- overrides -----
 
@@ -70,7 +71,7 @@ def find_subdirectories(package):
     This will include resources (non-submodules) and submodules
     """
     try:
-        subdirectories = os.walk(package_to_path(package)).next()[1]
+        subdirectories = next(os.walk(package_to_path(package)))[1]
     except StopIteration:
         subdirectories = []
     return subdirectories
@@ -120,6 +121,10 @@ if package_data is None: package_data = find_package_data(packages)
 
 if scripts is None: scripts = find_scripts()
 
+extra = {}
+if sys.version_info >= (3,):
+    extra['use_2to3'] = True
+
 setuptools.setup(
     name = package_name,
     version = '0.0.3.dev',
@@ -142,6 +147,8 @@ setuptools.setup(
         'Operating System :: POSIX',
         'Operating System :: Unix',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development',
     ],
@@ -156,4 +163,5 @@ setuptools.setup(
         'nose',
         'pymongo',
         'networkx']),
+    **extra
 )
