@@ -738,7 +738,10 @@ def clone_merge(expr, memo=None, merge_literals=False):
     # -- args are somewhat slow to construct, so cache them out front
     #    XXX node.arg does not always work (builtins, weird co_flags)
     node_args = [(node.pos_args, node.named_args) for node in nodes]
-    del node
+    try:
+        del node
+    except:
+        pass
     for ii, node_ii in enumerate(nodes):
         if node_ii in memo:
             continue

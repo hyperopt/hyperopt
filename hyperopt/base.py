@@ -145,7 +145,7 @@ def SONify(arg, memo=None):
         else:
             add_arg_to_raise = False
             raise TypeError('SONify', arg)
-    except Exception, e:
+    except Exception as e:
         if add_arg_to_raise:
             e.args = e.args + (arg,)
         raise
@@ -621,8 +621,8 @@ class Trials(object):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        import fmin as fmin_module
-        return fmin_module.fmin(
+        from .fmin import fmin
+        return fmin(
             fn, space, algo, max_evals,
             trials=self,
             rstate=rstate,

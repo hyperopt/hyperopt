@@ -6,7 +6,6 @@ import numpy as np
 import numpy.random as mtrand
 import scipy.stats
 from scipy.stats import rv_continuous, rv_discrete
-from scipy.stats.distributions import rv_generic
 
 
 class uniform_gen(scipy.stats.distributions.uniform_gen):
