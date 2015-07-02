@@ -621,8 +621,8 @@ class Trials(object):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        import fmin as fmin_module
-        return fmin_module.fmin(
+        from .fmin import fmin
+        return fmin(
             fn, space, algo, max_evals,
             trials=self,
             rstate=rstate,
