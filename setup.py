@@ -32,23 +32,6 @@ debug = True
 # -------------------------
 
 if debug: logging.basicConfig(level=logging.DEBUG)
-# distribute import and testing
-try:
-    import distribute_setup
-    distribute_setup.use_setuptools()
-    logging.debug("distribute_setup.py imported and used")
-except ImportError:
-    # fallback to setuptools?
-    # distribute_setup.py was not in this directory
-    if not (setup_tools_fallback):
-        import setuptools
-        if not (hasattr(setuptools,'_distribute') and \
-                setuptools._distribute):
-            raise ImportError("distribute was not found and fallback to setuptools was not allowed")
-        else:
-            logging.debug("distribute_setup.py not found, defaulted to system distribute")
-    else:
-        logging.debug("distribute_setup.py not found, defaulting to system setuptools")
 
 import setuptools
 
