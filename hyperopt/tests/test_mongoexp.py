@@ -48,7 +48,6 @@ class TempMongo(object):
             subprocess.call(["mkdir", "-p", '%s/db' % self.workdir])
             proc_args = [ "mongod",
                         "--dbpath=%s/db" % self.workdir,
-                        "--nojournal",
                          "--noprealloc",
                         "--port=22334"]
             #print "starting mongod", proc_args
