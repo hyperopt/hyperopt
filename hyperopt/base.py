@@ -145,7 +145,7 @@ def SONify(arg, memo=None):
         else:
             add_arg_to_raise = False
             raise TypeError('SONify', arg)
-    except Exception, e:
+    except Exception as e:
         if add_arg_to_raise:
             e.args = e.args + (arg,)
         raise
@@ -580,13 +580,18 @@ class Trials(object):
                       if t['result']['status'] == STATUS_OK]
         losses = [float(t['result']['loss']) for t in candidates]
         assert not np.any(np.isnan(losses))
-        best = np.argmin(losses)
-        return candidates[best]
+        if losses:
+            best = np.argmin(losses)
+            return candidates[best]
+        else:
+            return None
 
     @property
     def argmin(self):
         best_trial = self.best_trial
-        vals = best_trial['misc']['vals']
+        vals={}
+        if best_trial is not None:
+            vals = best_trial['misc']['vals']
         # unpack the one-element lists to values
         # and skip over the 0-element lists
         rval = {}
@@ -621,8 +626,8 @@ class Trials(object):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        import fmin as fmin_module
-        return fmin_module.fmin(
+        from .fmin import fmin
+        return fmin(
             fn, space, algo, max_evals,
             trials=self,
             rstate=rstate,
