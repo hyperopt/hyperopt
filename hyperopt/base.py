@@ -145,7 +145,7 @@ def SONify(arg, memo=None):
         else:
             add_arg_to_raise = False
             raise TypeError('SONify', arg)
-    except Exception, e:
+    except Exception as e:
         if add_arg_to_raise:
             e.args = e.args + (arg,)
         raise
@@ -309,14 +309,14 @@ class Trials(object):
         try:
             return iter(self._trials)
         except AttributeError:
-            print >> sys.stderr, "You have to refresh before you iterate"
+            print(sys.stderr, "You have to refresh before you iterate")
             raise
 
     def __len__(self):
         try:
             return len(self._trials)
         except AttributeError:
-            print >> sys.stderr, "You have to refresh before you compute len"
+            print(sys.stderr, "You have to refresh before you compute len")
             raise
 
     def __getitem__(self, item):
@@ -389,9 +389,9 @@ class Trials(object):
             except:
                 # TODO: save the trial object somewhere to inspect, fix, re-insert
                 #       so that precious data is not simply deallocated and lost.
-                print '-' * 80
-                print "CANT ENCODE"
-                print '-' * 80
+                print('-' * 80)
+                print("CANT ENCODE")
+                print('-' * 80)
                 raise
         if trial['exp_key'] != self._exp_key:
             raise InvalidTrial('wrong exp_key',
