@@ -622,7 +622,7 @@ class Trials(object):
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
         import fmin as fmin_module
-        return fmin_module.fmin(
+        return fmin_module(
             fn, space, algo, max_evals,
             trials=self,
             rstate=rstate,
