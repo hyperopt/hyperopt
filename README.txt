@@ -25,3 +25,6 @@ This project has received support from
 * Banting Postdoctoral Fellowship program, 
 * National Science and Engineering Research Council of Canada (NSERC),
 * D-Wave Systems, Inc.
+
+
+
