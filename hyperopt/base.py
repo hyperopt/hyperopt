@@ -863,6 +863,57 @@ class Domain(object):
         #return base.SONify(dict_rval)
         return dict_rval
 
+    def evaluate_async(self, config, ctrl, attach_attachments=True,):
+        '''
+        this is the first part of async evaluation for ipython parallel engines (see ipy.py)
+
+        This breaks evaluate into two parts to allow for the apply_async call
+        to only pass the objective function and arguments.
+        '''
+        memo = self.memo_from_config(config)
+        use_obj_for_literal_in_memo(self.expr, ctrl, Ctrl, memo)
+        if self.pass_expr_memo_ctrl:
+            rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
+        else:
+            # -- the "work" of evaluating `config` can be written
+            #    either into the pyll part (self.expr)
+            #    or the normal Python part (self.fn)
+            pyll_rval = pyll.rec_eval(
+                self.expr,
+                memo=memo,
+                print_node_on_error=self.rec_eval_print_node_on_error)
+            return (self.fn,pyll_rval)
+    def evaluate_async2(self,rval,ctrl,attach_attachments=True):
+        '''
+        this is the second part of async evaluation for ipython parallel engines (see ipy.py)
+        '''
+        if isinstance(rval, (float, int, np.number)):
+            dict_rval = {'loss': float(rval), 'status': STATUS_OK}
+        else:
+            dict_rval = dict(rval)
+            status = dict_rval['status']
+            if status not in STATUS_STRINGS:
+                raise InvalidResultStatus(dict_rval)
+
+            if status == STATUS_OK:
+                # -- make sure that the loss is present and valid
+                try:
+                    dict_rval['loss'] = float(dict_rval['loss'])
+                except (TypeError, KeyError):
+                    raise InvalidLoss(dict_rval)
+
+        if attach_attachments:
+            attachments = dict_rval.pop('attachments', {})
+            for key, val in attachments.items():
+                ctrl.attachments[key] = val
+
+        # -- don't do this here because SON-compatibility is only a requirement
+        #    for trials destined for a mongodb. In-memory rvals can contain
+        #    anything.
+        #return base.SONify(dict_rval)
+        return dict_rval
+
+
     def short_str(self):
         return 'Domain{%s}' % str(self.fn)
 

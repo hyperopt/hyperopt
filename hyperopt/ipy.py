@@ -17,6 +17,7 @@ from .base import JOB_STATE_RUNNING
 from .base import JOB_STATE_DONE
 from .base import JOB_STATE_ERROR
 from .base import spec_from_misc
+from .base import Ctrl
 from .utils import coarse_utcnow
 
 import sys
@@ -34,6 +35,7 @@ class IPythonTrials(Trials):
             job_error_reaction='raise',
             save_ipy_metadata=True):
         self._client = client
+        self._clientlbv = client.load_balanced_view()
         self.job_map = {}
         self.job_error_reaction = job_error_reaction
         self.save_ipy_metadata = save_ipy_metadata
@@ -43,6 +45,7 @@ class IPythonTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = [doc['tid'] for doc in docs]
         self._dynamic_trials.extend(docs)
+        #print "size of dynamic trials", len(self._dynamic_trials)
         return rval
 
     def refresh(self):
@@ -64,7 +67,8 @@ class IPythonTrials(Trials):
 
         # -- remove completed jobs from job_map
         for eid, (p, tt) in job_map.items():
-            if p is None:
+            #print "eid p tt", eid, p, tt
+            if p is None: 
                 continue
             #print p
             #assert eid == p.engine_id
@@ -72,7 +76,8 @@ class IPythonTrials(Trials):
                 try:
                     tt['result'] = p.get()
                     tt['state'] = JOB_STATE_DONE
-                except Exception, e:
+                    job_map[eid] = (None, None)
+                except Exception as e:
                     if self.job_error_reaction == 'raise':
                         raise
                     elif self.job_error_reaction == 'log':
@@ -83,18 +88,22 @@ class IPythonTrials(Trials):
                 if self.save_ipy_metadata:
                     tt['ipy_metadata'] = p.metadata
                 tt['refresh_time'] = coarse_utcnow()
-                job_map[eid] = (None, None)
+                del job_map[eid]
 
         self.job_map = job_map
-
         Trials.refresh(self)
 
-    def fmin(self, fn, space, algo, max_evals,
-        rstate=None,
-        verbose=0,
+    def fmin(self, fn, space, **kw):        
+        algo = kw.get('algo')
+        max_evals = kw.get('max_evals')
+        rstate = kw.get('rstate',None)
+        _allow_trials_fmin=True,
+        _pass_expr_memo_ctrl=None,
+        _catch_eval_exceptions=False,
+        verbose=kw.get('verbose',0)
+        _return_argmin=True,
         wait=True,
         pass_expr_memo_ctrl=None,
-        ):
 
         if rstate is None:
             rstate = np.random
@@ -108,8 +117,8 @@ class IPythonTrials(Trials):
             except AttributeError:
                 pass_expr_memo_ctrl = False
 
-        domain = Domain(fn, space, rseed=rstate.randint(2 ** 31 - 1),
-                pass_expr_memo_ctrl=pass_expr_memo_ctrl)
+        domain = Domain(fn, space, None,
+                        pass_expr_memo_ctrl=False)
 
         last_print_time = 0
 
@@ -127,28 +136,35 @@ class IPythonTrials(Trials):
                 last_print_time = time()
 
             idles = [eid for (eid, (p, tt)) in self.job_map.items() if p is None]
+            
 
             if idles:
+                #print "how many idles?", idles, len(idles)
                 new_ids = self.new_trial_ids(len(idles))
-                new_trials = algo(new_ids, domain, self)
+                new_trials = algo(new_ids, domain, self, rstate.randint(2 ** 31 - 1))
                 if len(new_trials) == 0:
                     break
                 else:
-                    assert len(idles) == len(new_trials)
+                    assert len(idles) >= len(new_trials)
                     for eid, new_trial in zip(idles, new_trials):
                         now = coarse_utcnow()
                         new_trial['book_time'] = now
                         new_trial['refresh_time'] = now
-                        promise = self._client[eid].apply_async(
-                            call_domain,
+                        tid, = self.insert_trial_docs([new_trial])
+                        promise = call_domain(
                             domain,
-                            config=spec_from_misc(new_trial['misc']),
-                            )
+                            spec_from_misc(new_trial['misc']),
+                            Ctrl(self, current_trial=new_trial),
+                            new_trial,
+                            self._clientlbv,
+                            eid,
+                            tid,
+                        )
 
                         # -- XXX bypassing checks because 'ar'
                         # is not ok for SONify... but should check
                         # for all else being SONify
-                        tid, = self.insert_trial_docs([new_trial])
+                        
                         tt = self._dynamic_trials[-1]
                         assert tt['tid'] == tid
                         self.job_map[eid] = (promise, tt)
@@ -197,11 +213,34 @@ class IPythonTrials(Trials):
         Trials.refresh(self)
 
 
-@interactive
-def call_domain(domain, config):
-    ctrl = None # -- not implemented yet
-    return domain.evaluate(
-            config=config,
-            ctrl=ctrl,
-            attach_attachments=False, # -- Not implemented yet
-            )
+##Monkey patching to allow the apply_async call and response to
+## be handled on behalf of the domain.
+class IPYAsync:
+    def __init__(self,async,domain,rv,eid,tid, ctrl):
+        self.async = async
+        self.domain = domain
+        self.rv = rv
+        self.metadata = self.async.metadata
+        self.eid = eid
+        self.tid = tid
+        self.ctrl = ctrl
+    def ready(self):
+        return self.async.ready()
+    def get(self):
+        if self.async.successful():
+            val = self.async.get()
+            return self.domain.evaluate_async2(val,self.ctrl)
+        else:
+            return self.rv
+    pass
+
+#@interactive
+def call_domain(domain, spec, ctrl, trial, view, eid, tid):
+    rv = {'loss': None, 'status': 'fail'}
+    rt = coarse_utcnow()    
+    #print "in call domain for spec", str(spec)
+    promise = None
+    fn, pyll_rval = domain.evaluate_async(spec,ctrl)
+    promise = IPYAsync(view.apply_async(fn,pyll_rval),domain,rv, eid, tid, ctrl)
+    
+    return promise
