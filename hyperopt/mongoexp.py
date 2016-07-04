@@ -245,10 +245,10 @@ def connection_with_tunnel(host='localhost',
                     )
             # -- give the subprocess time to set up
             time.sleep(.5)
-            connection = pymongo.Connection('127.0.0.1', local_port,
-                    document_class=SON)
+            connection = pymongo.MongoClient('127.0.0.1', local_port,
+                                             document_class=SON, w=1, j=True)
         else:
-            connection = pymongo.Connection(host, port, document_class=SON)
+            connection = pymongo.MongoClient(host, port, document_class=SON, w=1, j=True)
             if user:
                 if user == 'hyperopt':
                     authenticate_for_db(connection[auth_dbname])
@@ -256,10 +256,9 @@ def connection_with_tunnel(host='localhost',
                     raise NotImplementedError()
             ssh_tunnel=None
 
-        # -- Ensure that changes are written to at least once server.
-        connection.write_concern['w'] = 1
+        # Note that the w=1 and j=True args to MongoClient above should:
+        # -- Ensure that changes are written to at least one server.
         # -- Ensure that changes are written to the journal if there is one.
-        connection.write_concern['j'] = True
 
         return connection, ssh_tunnel
 
@@ -324,7 +323,6 @@ class MongoJobs(object):
         """
         self.db = db
         self.jobs = jobs
-        assert jobs.write_concern['w'] >= 1
         self.gfs = gfs
         self.conn = conn
         self.tunnel = tunnel
@@ -372,17 +370,17 @@ class MongoJobs(object):
         self.create_drivers_indexes()
 
     def jobs_complete(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=JOB_STATE_DONE))
+        c = self.jobs.find(filter=dict(state=JOB_STATE_DONE))
         return c if cursor else list(c)
 
     def jobs_error(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=JOB_STATE_ERROR))
+        c = self.jobs.find(filter=dict(state=JOB_STATE_ERROR))
         return c if cursor else list(c)
 
     def jobs_running(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=JOB_STATE_RUNNING)))
+        rval = list(self.jobs.find(filter=dict(state=JOB_STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if not r.get('MIA', False)]
         return rval
@@ -390,13 +388,13 @@ class MongoJobs(object):
     def jobs_dead(self, cursor=False):
         if cursor:
             raise NotImplementedError()
-        rval = list(self.jobs.find(spec=dict(state=JOB_STATE_RUNNING)))
+        rval = list(self.jobs.find(filter=dict(state=JOB_STATE_RUNNING)))
         #TODO: mark some as MIA
         rval = [r for r in rval if r.get('MIA', False)]
         return rval
 
     def jobs_queued(self, cursor=False):
-        c = self.jobs.find(spec=dict(state=JOB_STATE_NEW))
+        c = self.jobs.find(filter=dict(state=JOB_STATE_NEW))
         return c if cursor else list(c)
 
     def insert(self, job):
@@ -429,7 +427,7 @@ class MongoJobs(object):
         if cond is None:
             cond = {}
         try:
-            for d in self.jobs.find(spec=cond, fields=['_id', '_attachments']):
+            for d in self.jobs.find(filter=cond, projection=['_id', '_attachments']):
                 logger.info('deleting job %s' % d['_id'])
                 for name, file_id in d.get('_attachments', []):
                     try:
@@ -707,7 +705,7 @@ class MongoTrials(Trials):
         _trials = orig_trials[:] #copy to make sure it doesn't get screwed up
         if _trials:
             db_data = list(self.handle.jobs.find(query,
-                                            fields=['_id', 'version']))
+                                            projection=['_id', 'version']))
             # -- pull down a fresh list of ids from mongo
             if db_data:
                 #make numpy data arrays
