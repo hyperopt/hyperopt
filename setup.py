@@ -140,11 +140,11 @@ setuptools.setup(
     keywords = 'Bayesian optimization hyperparameter model selection',
     package_data = package_data,
     include_package_data = True,
-    install_requires = reversed([
+    install_requires = list(reversed([
         'numpy',
         'scipy',
         'nose',
         'pymongo',
-        'networkx']),
+        'networkx'])),
     **extra
 )
