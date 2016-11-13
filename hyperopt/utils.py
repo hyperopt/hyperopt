@@ -1,31 +1,41 @@
+from __future__ import absolute_import
+from __future__ import division
+from future import standard_library
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from past.utils import old_div
 import datetime
 import numpy as np
 import logging
-import cPickle
+import six.moves.cPickle as pickle
 import os
 import shutil
+import numpy
+from . import pyll
+from contextlib import contextmanager
+
+standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
-import numpy
-
-import pyll
 
 def import_tokens(tokens):
     # XXX Document me
     # import as many as we can
     rval = None
     for i in range(len(tokens)):
-        modname = '.'.join(tokens[:i+1])
+        modname = '.'.join(tokens[:i + 1])
         # XXX: try using getattr, and then merge with load_tokens
         try:
             logger.info('importing %s' % modname)
-            exec "import %s" % modname
-            exec "rval = %s" % modname
-        except ImportError, e:
+            exec("import {}".format(modname))
+            exec("rval = {}".format(modname))
+        except ImportError as e:
             logger.info('failed to import %s' % modname)
             logger.info('reason: %s' % str(e))
             break
     return rval, tokens[i:]
+
 
 def load_tokens(tokens):
     # XXX: merge with import_tokens
@@ -75,11 +85,11 @@ def get_obj(f, argfile=None, argstr=None, args=(), kwargs=None):
     if argfile is not None:
         argstr = open(argfile).read()
     if argstr is not None:
-        argd = cPickle.loads(argstr)
+        argd = pickle.loads(argstr)
     else:
         argd = {}
-    args = args + argd.get('args',())
-    kwargs.update(argd.get('kwargs',{}))
+    args = args + argd.get('args', ())
+    kwargs.update(argd.get('kwargs', {}))
     return json_call(f, args=args, kwargs=kwargs)
 
 
@@ -100,14 +110,14 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape
-    return wincounts.astype('float64') / wincounts.sum()
+    return old_div(wincounts.astype('float64'), wincounts.sum())
 
 
-def fast_isin(X,Y):
+def fast_isin(X, Y):
     """
     Indices of elements in a numpy array that appear in another.
 
-    Fast routine for determining indices of elements in numpy array `X` that 
+    Fast routine for determining indices of elements in numpy array `X` that
     appear in numpy array `Y`, returning a boolean array `Z` such that::
 
             Z[i] = X[i] in Y
@@ -117,24 +127,24 @@ def fast_isin(X,Y):
         T = Y.copy()
         T.sort()
         D = T.searchsorted(X)
-        T = np.append(T,np.array([0]))
+        T = np.append(T, np.array([0]))
         W = (T[D] == X)
-        if isinstance(W,bool):
-            return np.zeros((len(X),),bool)
+        if isinstance(W, bool):
+            return np.zeros((len(X),), bool)
         else:
             return (T[D] == X)
     else:
-        return np.zeros((len(X),),bool)
+        return np.zeros((len(X),), bool)
 
 
 def get_most_recent_inds(obj):
     data = numpy.rec.array([(x['_id'], int(x['version']))
-                            for x in obj], 
-                            names=['_id', 'version'])
+                            for x in obj],
+                           names=['_id', 'version'])
     s = data.argsort(order=['_id', 'version'])
     data = data[s]
     recent = (data['_id'][1:] != data['_id'][:-1]).nonzero()[0]
-    recent = numpy.append(recent, [len(data)-1])
+    recent = numpy.append(recent, [len(data) - 1])
     return s[recent]
 
 
@@ -171,13 +181,13 @@ def coarse_utcnow():
                              now.minute, now.second, microsec)
 
 
-from contextlib import contextmanager
 @contextmanager
 def working_dir(dir):
     cwd = os.getcwd()
     os.chdir(dir)
     yield
     os.chdir(cwd)
+
 
 def path_split_all(path):
     """split a path at all path separaters, return list of parts"""
@@ -188,6 +198,7 @@ def path_split_all(path):
             break
         parts.append(fn)
     return reversed(parts)
+
 
 def get_closest_dir(workdir):
     """
@@ -203,6 +214,7 @@ def get_closest_dir(workdir):
             break
     assert closest_dir != workdir
     return closest_dir, wdi
+
 
 @contextmanager
 def temp_dir(dir, erase_after=False, with_sentinel=True):
