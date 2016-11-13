@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import zip
+from past.utils import old_div
 import numpy as np
 import hyperopt.criteria as crit
 
@@ -12,16 +16,16 @@ def test_ei():
         v_a = [crit.EI_gaussian(mean, var, thresh)
                for thresh in thresholds]
 
-        #import matplotlib.pyplot as plt
-        #plt.plot(thresholds, v_n)
-        #plt.plot(thresholds, v_a)
-        #plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.plot(thresholds, v_n)
+        # plt.plot(thresholds, v_a)
+        # plt.show()
 
         if not np.allclose(v_n, v_a, atol=0.03, rtol=0.03):
             for t, n, a in zip(thresholds, v_n, v_a):
-                print t, n, a, abs(n - a), abs(n - a) / (abs(n) + abs(a))
+                print((t, n, a, abs(n - a), old_div(abs(n - a), (abs(n) + abs(a)))))
             assert 0
-            #mean, var, thresh, v_n, v_a)
+            # mean, var, thresh, v_n, v_a)
 
 
 def test_log_ei():
@@ -35,12 +39,12 @@ def test_log_ei():
             [crit.logEI_gaussian(mean, var, thresh)
              for thresh in thresholds])
         naive = np.log(ei)
-        #import matplotlib.pyplot as plt
-        #plt.plot(thresholds, ei, label='ei')
-        #plt.plot(thresholds, nlei, label='nlei')
-        #plt.plot(thresholds, naive, label='naive')
-        #plt.legend()
-        #plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.plot(thresholds, ei, label='ei')
+        # plt.plot(thresholds, nlei, label='nlei')
+        # plt.plot(thresholds, naive, label='naive')
+        # plt.legend()
+        # plt.show()
 
         # -- assert that they match when the threshold isn't too high
         assert np.allclose(nlei, naive)
