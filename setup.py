@@ -5,8 +5,6 @@
 
 import logging
 import os
-import re
-import sys
 import setuptools
 
 # ----- overrides -----
@@ -114,10 +112,6 @@ if package_data is None:
 if scripts is None:
     scripts = find_scripts()
 
-extra = {}
-if sys.version_info >= (3,):
-    extra['use_2to3'] = True
-
 setuptools.setup(
     name=package_name,
     version='0.0.3.dev',
@@ -150,12 +144,6 @@ setuptools.setup(
     keywords='Bayesian optimization hyperparameter model selection',
     package_data=package_data,
     include_package_data=True,
-    install_requires=list(reversed([
-        'numpy',
-        'scipy',
-        'nose',
-        'pymongo',
-        'six',
-        'networkx'])),
-    **extra
+    install_requires=['numpy', 'scipy', 'nose', 'pymongo', 'six', 'networkx'],
+    zip_safe=False
 )
