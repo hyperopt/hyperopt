@@ -1,5 +1,7 @@
 """
 """
+from builtins import str
+
 
 class BadSearchSpace(Exception):
     """Something is wrong in the description of the search space"""
