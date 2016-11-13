@@ -155,7 +155,7 @@ setuptools.setup(
         'scipy',
         'nose',
         'pymongo',
-        'six'
+        'six',
         'networkx'])),
     **extra
 )
