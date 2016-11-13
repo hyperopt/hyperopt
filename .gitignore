@@ -5,3 +5,4 @@ distribute*
 *egg-info*
 build/
 dist/
+.cache
