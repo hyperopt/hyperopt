@@ -1,10 +1,18 @@
-from hyperopt.pyll.base import *
+from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from hyperopt.pyll.base import (
+    Literal, as_apply, Apply, dfs, scope, rec_eval, p0, Lambda, clone_merge
+)
 
 from nose import SkipTest
 from nose.tools import assert_raises
 import numpy as np
 
 from hyperopt.pyll import base
+
 
 def test_literal_pprint():
     l = Literal(5)
@@ -95,7 +103,7 @@ def test_as_apply_dict_of_applies():
 
 
 def test_as_apply_nested_dict():
-    d = {'a': 9, 'b': {'c':11, 'd':12}}
+    d = {'a': 9, 'b': {'c': 11, 'd': 12}}
     ad = as_apply(d)
     assert isinstance(ad, Apply)
     assert ad.name == 'dict'
@@ -111,7 +119,7 @@ def test_as_apply_nested_dict():
 
 
 def test_dfs():
-    dd = as_apply({'c':11, 'd':12})
+    dd = as_apply({'c': 11, 'd': 12})
 
     d = {'a': 9, 'b': dd, 'y': dd, 'z': dd + 1}
     ad = as_apply(d)
@@ -130,6 +138,7 @@ def test_dfs():
 @scope.define_info(o_len=2)
 def _test_foo():
     return 1, 2
+
 
 def test_o_len():
     obj = scope._test_foo()
@@ -152,11 +161,11 @@ def test_eval_arithmetic():
     assert (a - b).eval() == -1
     assert (a - b * c).eval() == -10
 
-    assert (a / b).eval() == 0   # int div
-    assert (b / a).eval() == 1   # int div
-    assert (c / a ).eval() == 2
-    assert (4 / a).eval() == 2
-    assert (a / 4.0).eval() == 0.5
+    assert (old_div(a, b)).eval() == 0   # int div
+    assert (old_div(b, a)).eval() == 1   # int div
+    assert (old_div(c, a)).eval() == 2
+    assert (old_div(4, a)).eval() == 2
+    assert (old_div(a, 4.0)).eval() == 0.5
 
 
 def test_bincount():
@@ -175,14 +184,14 @@ def test_bincount():
         assert np.all(counts[:3] == 0)
 
         r = np.arange(10) + 3
-        counts = f(r, minlength=5) # -- ignore minlength
+        counts = f(r, minlength=5)  # -- ignore minlength
         assert isinstance(counts, np.ndarray)
         assert len(counts) == 13
         assert np.all(counts[3:] == 1)
         assert np.all(counts[:3] == 0)
 
         r = np.arange(10) + 3
-        counts = f(r, minlength=15) # -- pad to minlength
+        counts = f(r, minlength=15)  # -- pad to minlength
         assert isinstance(counts, np.ndarray)
         assert len(counts) == 15
         assert np.all(counts[:3] == 0)
@@ -190,7 +199,7 @@ def test_bincount():
         assert np.all(counts[13:] == 0)
 
         r = np.arange(10) % 3 + 3
-        counts = f(r, minlength=7) # -- pad to minlength
+        counts = f(r, minlength=7)  # -- pad to minlength
         assert list(counts) == [0, 0, 0, 4, 3, 3, 0]
 
     try:
@@ -201,12 +210,13 @@ def test_bincount():
             raise SkipTest()
         raise
 
+
 def test_switch_and_Raise():
     i = Literal()
     ab = scope.switch(i, 'a', 'b', scope.Raise(Exception))
     assert rec_eval(ab, memo={i: 0}) == 'a'
     assert rec_eval(ab, memo={i: 1}) == 'b'
-    assert_raises(Exception, rec_eval, ab, memo={i:2})
+    assert_raises(Exception, rec_eval, ab, memo={i: 2})
 
 
 def test_kwswitch():
@@ -219,12 +229,12 @@ def test_kwswitch():
 
 def test_recursion():
     scope.define(Lambda('Fact', [('x', p0)],
-            expr=scope.switch(
-                p0 > 1,
-                1,
-                p0 * apply('Fact', p0 - 1))))
+                        expr=scope.switch(
+        p0 > 1,
+        1,
+        p0 * ('Fact')(*p0 - 1))))
     print(scope.Fact(3))
-    #print( rec_eval(scope.Fact(3)))
+    # print( rec_eval(scope.Fact(3)))
     assert rec_eval(scope.Fact(3)) == 6
 
 
@@ -272,6 +282,7 @@ def test_clone_merge():
     assert len_d > len(dfs(e))
     assert e.eval() == d.eval()
 
+
 def test_clone_merge_no_merge_literals():
     a, b, c = as_apply((2, 3, 2))
     d = (a + b) * (c + b)
@@ -281,7 +292,6 @@ def test_clone_merge_no_merge_literals():
     assert len_d == len(dfs(e))
     assert e.eval() == d.eval()
 
+
 def test_len():
     assert_raises(TypeError, len, scope.uniform(0, 1))
-
-
