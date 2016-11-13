@@ -5,6 +5,7 @@ Author: James Bergstra <james.bergstra@gmail.com>
 Licensed: MIT
 """
 from __future__ import print_function
+from __future__ import absolute_import
 from builtins import zip
 from builtins import str
 from builtins import object
@@ -26,8 +27,8 @@ from .base import Ctrl
 from .utils import coarse_utcnow
 
 import sys
-print >> sys.stderr, "WARNING: IPythonTrials is not as complete, stable"
-print >> sys.stderr, "         or well tested as Trials or MongoTrials."
+print(sys.stderr, "WARNING: IPythonTrials is not as complete, stable", file=sys.stderr)
+print("         or well tested as Trials or MongoTrials.", file=sys.stderr)
 
 
 class LostEngineError(RuntimeError):

@@ -14,7 +14,7 @@ from nose import SkipTest
 try:
     from IPython.parallel import Client
 except ImportError:
-    print >> sys.stderr, "Skipping IPython Tests (IPython not found)"
+    print("Skipping IPython Tests (IPython not found)", file=sys.stderr)
     raise SkipTest('IPython not present')
 
 from hyperopt.ipy import IPythonTrials
