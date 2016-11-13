@@ -2,21 +2,30 @@
 #
 # It provides types to build ASTs in a simple lambda-notation style
 #
-
+from __future__ import print_function
+from future import standard_library
+from builtins import zip
+from builtins import map
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import copy
-import logging; logger = logging.getLogger(__name__)
+import logging
 import operator
 import time
 
-from StringIO import StringIO
+from io import StringIO
 from collections import deque
 
 import networkx as nx
 
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
-np_versions = map(int, np.__version__.split('.')[:2])
 
+standard_library.install_aliases()
+logger = logging.getLogger(__name__)
+np_versions = list(map(int, np.__version__.split('.')[:2]))
 
 DEFAULT_MAX_PROGRAM_LEN = 100000
 
@@ -43,82 +52,76 @@ class SymbolTable(object):
     def __init__(self):
         # -- list and dict are special because they are Python builtins
         self._impls = {
-                'list': list,
-                'dict': dict,
-                'range': range,
-                'len': len,
-                'int': int,
-                'float': float,
-                'map': map,
-                'max': max,
-                'min': min,
-                'getattr': getattr,
-                }
+            'list': list,
+            'dict': dict,
+            'range': range,
+            'len': len,
+            'int': int,
+            'float': float,
+            'map': map,
+            'max': max,
+            'min': min,
+            'getattr': getattr,
+        }
 
     def _new_apply(self, name, args, kwargs, o_len, pure):
         pos_args = [as_apply(a) for a in args]
-        named_args = [(k, as_apply(v)) for (k, v) in kwargs.items()]
+        named_args = [(k, as_apply(v)) for (k, v) in list(kwargs.items())]
         named_args.sort()
         return Apply(name,
-                pos_args=pos_args,
-                named_args=named_args,
-                o_len=o_len,
-                pure=pure)
-
-    # ----
+                     pos_args=pos_args,
+                     named_args=named_args,
+                     o_len=o_len,
+                     pure=pure)
 
     def dict(self, *args, **kwargs):
         # XXX: figure out len
         return self._new_apply('dict', args, kwargs, o_len=None,
-                pure=True)
+                               pure=True)
 
     def int(self, arg):
         return self._new_apply('int', [as_apply(arg)], {}, o_len=None,
-                pure=True)
+                               pure=True)
 
     def float(self, arg):
         return self._new_apply('float', [as_apply(arg)], {}, o_len=None,
-                pure=True)
+                               pure=True)
 
     def len(self, obj):
         return self._new_apply('len', [obj], {}, o_len=None,
-                pure=True)
+                               pure=True)
 
     def list(self, init):
         return self._new_apply('list', [as_apply(init)], {}, o_len=None,
-                pure=True)
+                               pure=True)
 
     def map(self, fn, seq, pure=False):
         """
         pure - True is assertion that fn does not modify seq[i]
         """
         return self._new_apply('map', [as_apply(fn), as_apply(seq)], {},
-                               o_len=seq.o_len,
-                               pure=pure
-                               )
+                               o_len=seq.o_len, pure=pure)
 
     def range(self, *args):
         return self._new_apply('range', args, {}, o_len=None, pure=True)
 
     def max(self, *args):
         """ return max of args """
-        return self._new_apply('max', map(as_apply, args), {},
-                o_len=None, pure=True)
+        return self._new_apply('max', list(map(as_apply, args)), {},
+                               o_len=None, pure=True)
 
     def min(self, *args):
         """ return min of args """
-        return self._new_apply('min', map(as_apply, args), {},
-                o_len=None, pure=True)
+        return self._new_apply('min', list(map(as_apply, args)), {},
+                               o_len=None, pure=True)
 
     def getattr(self, obj, attr, *args):
-        return self._new_apply('getattr',
-                [as_apply(obj), as_apply(attr)] + map(as_apply, args),
-                {},
-                o_len=None,
-                pure=True)
-
-    # ----
-
+        return self._new_apply(
+            'getattr',
+            [as_apply(obj), as_apply(attr)] + list(map(as_apply, args)),
+            {},
+            o_len=None,
+            pure=True)
 
     def _define(self, f, o_len, pure):
         name = f.__name__
@@ -171,7 +174,7 @@ class SymbolTable(object):
                 rval[k] = getattr(self, k)
             except AttributeError:
                 raise PyllImportError(k)
-        for k, origk in kwargs.items():
+        for k, origk in list(kwargs.items()):
             try:
                 rval[k] = getattr(self, origk)
             except AttributeError:
@@ -180,6 +183,7 @@ class SymbolTable(object):
 
     def import_(self, _globals, *args, **kwargs):
         _globals.update(self.inject(*args, **kwargs))
+
 
 class SymbolTableEntry(object):
     """A functools.partial-like class for adding symbol table entries.
@@ -192,11 +196,11 @@ class SymbolTableEntry(object):
 
     def __call__(self, *args, **kwargs):
         return self.symbol_table._new_apply(
-                self.apply_name,
-                args,
-                kwargs,
-                self.o_len,
-                self.pure)
+            self.apply_name,
+            args,
+            kwargs,
+            self.o_len,
+            self.pure)
 
 scope = SymbolTable()
 
@@ -211,7 +215,7 @@ def as_apply(obj):
     elif isinstance(obj, list):
         rval = Apply('pos_args', [as_apply(a) for a in obj], {}, None)
     elif isinstance(obj, dict):
-        items = obj.items()
+        items = list(obj.items())
         # -- should be fine to allow numbers and simple things
         #    but think about if it's ok to allow Applys
         #    it messes up sorting at the very least.
@@ -238,9 +242,7 @@ class Apply(object):
     """
 
     def __init__(self, name, pos_args, named_args,
-            o_len=None,
-            pure=False,
-            define_params=None):
+                 o_len=None, pure=False, define_params=None):
         self.name = name
         # -- tuples or arrays -> lists
         self.pos_args = list(pos_args)
@@ -300,7 +302,7 @@ class Apply(object):
             rval = self.pos_args + [v for (k, v) in self.named_args]
         else:
             rval = self.pos_args
-        #assert all(isinstance(arg, Apply) for arg in rval)
+        # assert all(isinstance(arg, Apply) for arg in rval)
         return rval
 
     @property
@@ -319,7 +321,7 @@ class Apply(object):
 
         fn = scope._impls[self.name]
         # XXX does not work for builtin functions
-        defaults = fn.__defaults__  # right-aligned default values for params
+        # defaults = fn.__defaults__  # right-aligned default values for params
         code = fn.__code__
 
         extra_args_ok = bool(code.co_flags & 0x04)
@@ -348,10 +350,10 @@ class Apply(object):
                 param_names = code.co_varnames[:code.co_argcount]
                 pos_params = param_names[:code.co_argcount]
         except AssertionError:
-            print 'YIKES: MISUNDERSTANDING OF CALL PROTOCOL:',
-            print code.co_argcount,
-            print code.co_varnames,
-            print '%x' % code.co_flags
+            print('YIKES: MISUNDERSTANDING OF CALL PROTOCOL:')
+            print(code.co_argcount)
+            print(code.co_varnames)
+            print('%x' % code.co_flags)
             raise
 
         if extra_args_ok:
@@ -369,6 +371,7 @@ class Apply(object):
 
         if extra_args_ok:
             # XXX: THIS IS NOT BEING TESTED AND IS OBVIOUSLY BROKEN
+            # TODO: 'args' does not even exist at this point
             binding[args_param].extend(args[code.co_argcount:])
 
         # -- bind keyword arguments
@@ -413,7 +416,7 @@ class Apply(object):
         L = len(self.pos_args)
         pos_args = list(inputs[:L])
         named_args = [[kw, inputs[L + ii]]
-                for ii, (kw, arg) in enumerate(self.named_args)]
+                      for ii, (kw, arg) in enumerate(self.named_args)]
         # -- danger cloning with new inputs can change the o_len
         if o_len == 'same':
             o_len = self.o_len
@@ -438,16 +441,16 @@ class Apply(object):
             lineno = [0]
 
         if self in memo:
-            print >> ofile, lineno[0], ' ' * indent + memo[self]
+            print(ofile, lineno[0], ' ' * indent + memo[self])
             lineno[0] += 1
         else:
             memo[self] = self.name + ('  [line:%i]' % lineno[0])
-            print >> ofile, lineno[0], ' ' * indent + self.name
+            print(ofile, lineno[0], ' ' * indent + self.name)
             lineno[0] += 1
             for arg in self.pos_args:
                 arg.pprint(ofile, lineno, indent + 2, memo)
             for name, arg in self.named_args:
-                print >> ofile, lineno[0], ' ' * indent + ' ' + name + ' ='
+                print(ofile, lineno[0], ' ' * indent + ' ' + name + ' =')
                 lineno[0] += 1
                 arg.pprint(ofile, lineno, indent + 2, memo)
 
@@ -532,12 +535,12 @@ class Apply(object):
 
 def apply(name, *args, **kwargs):
     pos_args = [as_apply(a) for a in args]
-    named_args = [(k, as_apply(v)) for (k, v) in kwargs.items()]
+    named_args = [(k, as_apply(v)) for (k, v) in list(kwargs.items())]
     named_args.sort()
     return Apply(name,
-            pos_args=pos_args,
-            named_args=named_args,
-            o_len=None)
+                 pos_args=pos_args,
+                 named_args=named_args,
+                 o_len=None)
 
 
 class Literal(Apply):
@@ -573,7 +576,7 @@ class Literal(Apply):
             # TODO: set up a registry for this
             if isinstance(self._obj, np.ndarray):
                 msg = 'Literal{np.ndarray,shape=%s,min=%f,max=%f}' % (
-                        self._obj.shape, self._obj.min(), self._obj.max())
+                      self._obj.shape, self._obj.min(), self._obj.max())
             else:
                 msg = 'Literal{%s}' % str(self._obj)
             memo[self] = '%s  [line:%i]' % (msg, lineno[0])
@@ -604,16 +607,16 @@ class Lambda(object):
             raise TypeError('too many arguments')
         memo = {}
         for arg, param in zip(args, self.params):
-            #print 'applying with arg', param, arg
+            # print('applying with arg', param, arg)
             memo[param[1]] = as_apply(arg)
         if len(args) != len(self.params) or kwargs:
             raise NotImplementedError('named / default arguments',
-                    (args, self.params))
+                                      (args, self.params))
         rval = clone(self.expr, memo)
-        #print 'BEFORE'
-        #print self.expr
-        #print 'AFTER'
-        #print rval
+        # print('BEFORE')
+        # print(self.expr)
+        # print('AFTER')
+        # print(rval)
         return rval
 
 
@@ -675,7 +678,7 @@ def partial(name, *args, **kwargs):
     #    the name is the string used index into scope._impls
     temp_name = 'partial_%s_id%i' % (name, my_id)
     l = Lambda(temp_name, [('x', p0)],
-            expr=apply(name, *(args + (p0,)), **kwargs))
+               expr=apply(name, *(args + (p0,)), **kwargs))
     scope.define(l)
     # assert that the next partial will get a different id
     # XXX; THIS ASSUMES THAT SCOPE ONLY GROWS
@@ -738,7 +741,7 @@ def clone_merge(expr, memo=None, merge_literals=False):
     # -- args are somewhat slow to construct, so cache them out front
     #    XXX node.arg does not always work (builtins, weird co_flags)
     node_args = [(node.pos_args, node.named_args) for node in nodes]
-    del node
+    # del node
     for ii, node_ii in enumerate(nodes):
         if node_ii in memo:
             continue
@@ -777,11 +780,11 @@ class GarbageCollected(object):
 
 
 def rec_eval(expr, deepcopy_inputs=False, memo=None,
-        max_program_len=None,
-        memo_gc=True,
-        print_trace=False,
-        print_node_on_error=True,
-        ):
+             max_program_len=None,
+             memo_gc=True,
+             print_trace=False,
+             print_node_on_error=True,
+             ):
     """
     expr - pyll Apply instance to be evaluated
 
@@ -832,6 +835,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
             clients.setdefault(aa, set())
             for ii in node_inputs[aa]:
                 clients.setdefault(ii, set()).add(aa)
+
         def set_memo(k, v):
             assert v is not GarbageCollected
             memo[k] = v
@@ -840,7 +844,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                 #    then we can free memo[ii] by replacing it
                 #    with a dummy symbol
                 if all(iic in memo for iic in clients[ii]):
-                    #print 'collecting', ii
+                    # print('collecting', ii)
                     memo[ii] = GarbageCollected
     else:
         def set_memo(k, v):
@@ -852,7 +856,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
             raise RuntimeError('Probably infinite loop in document')
         node = todo.pop()
         if print_trace:
-            print 'rec_eval:print_trace', len(todo), node.name
+            print('rec_eval:print_trace', len(todo), node.name)
 
         if node in memo:
             # -- we've already computed this, move on.
@@ -870,7 +874,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                     raise TypeError('switch argument was', switch_i)
                 if switch_i != int(switch_i) or switch_i < 0:
                     raise ValueError('switch pos must be positive int',
-                            switch_i)
+                                     switch_i)
                 rval_var = node.pos_args[switch_i + 1]
                 if rval_var in memo:
                     set_memo(node, memo[rval_var])
@@ -897,11 +901,12 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
             # -- not waiting on anything;
             #    this instruction can be evaluated.
             args = _args = [memo[v] for v in node.pos_args]
-            kwargs = _kwargs = dict([(k, memo[v])
-                for (k, v) in node.named_args])
+            kwargs = _kwargs = dict(
+                [(k, memo[v]) for (k, v) in node.named_args]
+            )
 
             if memo_gc:
-                for aa in args + kwargs.values():
+                for aa in args + list(kwargs.values()):
                     assert aa is not GarbageCollected
 
             if deepcopy_inputs:
@@ -911,14 +916,14 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
             try:
                 rval = scope._impls[node.name](*args, **kwargs)
 
-            except Exception, e:
+            except Exception as e:
                 if print_node_on_error:
-                    print '=' * 80
-                    print 'ERROR in rec_eval'
-                    print 'EXCEPTION', type(e), str(e)
-                    print 'NODE'
-                    print node  # -- typically a multi-line string
-                    print '=' * 80
+                    print('=' * 80)
+                    print('ERROR in rec_eval')
+                    print('EXCEPTION', type(e), str(e))
+                    print('NODE')
+                    print(node)  # -- typically a multi-line string
+                    print('=' * 80)
                 raise
 
             if isinstance(rval, Apply):
@@ -928,7 +933,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                 # XXX: consider if it is desirable, efficient, buggy
                 #      etc. to keep using the same memo dictionary
                 foo = rec_eval(rval, deepcopy_inputs, memo,
-                        memo_gc=memo_gc)
+                               memo_gc=memo_gc)
                 set_memo(node, foo)
             else:
                 set_memo(node, rval)
@@ -942,7 +947,6 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
 @scope.define_pure
 def pos_args(*args):
     return args
-
 
 
 @scope.define_pure
@@ -1114,7 +1118,7 @@ def switch(pos, *args):
     # switch is an unusual expression, in that it affects control flow
     # when executed with rec_eval. args are not all evaluated, only
     # args[pos] is evaluated.
-    ##raise RuntimeError('switch is not meant to be evaluated')
+    # raise RuntimeError('switch is not meant to be evaluated')
     #
     # .. However, in quick-evaluation schemes it is handy that this be defined
     # as follows:
@@ -1124,7 +1128,7 @@ def switch(pos, *args):
 def _kwswitch(kw, **kwargs):
     """conditional evaluation according to string value"""
     # Get the index of the string in kwargs to use switch
-    keys, values = zip(*sorted(kwargs.iteritems()))
+    keys, values = list(zip(*sorted(kwargs.items())))
     match_idx = scope.call_method_pure(keys, 'index', kw)
     return scope.switch(match_idx, *values)
 
@@ -1143,6 +1147,6 @@ def curtime(obj):
 
 @scope.define
 def pdb_settrace(obj):
-    import pdb; pdb.set_trace()
+    import pdb
+    pdb.set_trace()
     return obj
-
