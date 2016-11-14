@@ -218,14 +218,14 @@ def test_new_trial_ids(trials):
 
 @with_mongo_trials
 def test_attachments(trials):
-    blob = binary_type('abcde')
+    blob = b'abcde'
     assert 'aname' not in trials.attachments
     trials.attachments['aname'] = blob
     assert 'aname' in trials.attachments
     assert trials.attachments[u'aname'] == blob
     assert trials.attachments['aname'] == blob
 
-    blob2 = binary_type('zzz')
+    blob2 = b'zzz'
     trials.attachments['aname'] = blob2
     assert 'aname' in trials.attachments
     assert trials.attachments[u'aname'] == blob2
