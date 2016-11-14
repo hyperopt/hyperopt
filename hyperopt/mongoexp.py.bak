@@ -126,9 +126,6 @@ from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
 from .utils import working_dir, temp_dir
-import six
-from six.moves import map
-from six.moves import range
 # from . import plotting
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
@@ -557,7 +554,7 @@ class MongoJobs(object):
 
     def attachment_names(self, doc):
         def as_str(name_id):
-            assert isinstance(name_id[0], six.string_types), name_id
+            assert isinstance(name_id[0], basestring), name_id
             return str(name_id[0])
         return list(map(as_str, doc.get('_attachments', [])))
 

@@ -173,7 +173,7 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         else:
             y = vals[label]
         plt.title(titles[varnum], fontsize=fontsize)
-        c = map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[label]])
+        c = list(map(color_fn_bw, [loss_by_tid[ii] for ii in idxs[label]]))
         if len(y):
             plt.scatter(x, y, c=c)
         if 'log' in dist_name:

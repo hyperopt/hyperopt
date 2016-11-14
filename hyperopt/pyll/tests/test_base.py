@@ -1,8 +1,5 @@
-from __future__ import print_function
 from __future__ import division
-from builtins import str
-from builtins import range
-from past.utils import old_div
+from hyperopt.pyll import base
 from hyperopt.pyll.base import (
     Literal, as_apply, Apply, dfs, scope, rec_eval, p0, Lambda, clone_merge
 )
@@ -10,8 +7,6 @@ from hyperopt.pyll.base import (
 from nose import SkipTest
 from nose.tools import assert_raises
 import numpy as np
-
-from hyperopt.pyll import base
 
 
 def test_literal_pprint():
@@ -161,11 +156,11 @@ def test_eval_arithmetic():
     assert (a - b).eval() == -1
     assert (a - b * c).eval() == -10
 
-    assert (old_div(a, b)).eval() == 0   # int div
-    assert (old_div(b, a)).eval() == 1   # int div
-    assert (old_div(c, a)).eval() == 2
-    assert (old_div(4, a)).eval() == 2
-    assert (old_div(a, 4.0)).eval() == 0.5
+    assert (a // b).eval() == 0   # int div
+    assert (b // a).eval() == 1   # int div
+    assert (c / a).eval() == 2
+    assert (4 / a).eval() == 2
+    assert (a / 4.0).eval() == 0.5
 
 
 def test_bincount():
@@ -229,10 +224,7 @@ def test_kwswitch():
 
 def test_recursion():
     scope.define(Lambda('Fact', [('x', p0)],
-                        expr=scope.switch(
-        p0 > 1,
-        1,
-        p0 * ('Fact')(*p0 - 1))))
+                 expr=scope.switch(p0 > 1, 1, p0 * base.apply('Fact', p0 - 1))))
     print(scope.Fact(3))
     # print( rec_eval(scope.Fact(3)))
     assert rec_eval(scope.Fact(3)) == 6

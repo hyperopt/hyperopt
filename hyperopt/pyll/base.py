@@ -3,25 +3,24 @@
 # It provides types to build ASTs in a simple lambda-notation style
 #
 from __future__ import print_function
+from __future__ import absolute_import
 from future import standard_library
-from builtins import zip
-from builtins import map
-from builtins import str
-from builtins import range
-from past.builtins import basestring
-from builtins import object
 import copy
 import logging
 import operator
 import time
 
-from io import StringIO
 from collections import deque
 
 import networkx as nx
 
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
+import six
+from six import StringIO
+from six.moves import zip
+from six.moves import map
+from six.moves import range
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -147,7 +146,7 @@ class SymbolTable(object):
         return self._define(f, o_len, pure)
 
     def undefine(self, f):
-        if isinstance(f, basestring):
+        if isinstance(f, six.string_types):
             name = f
         else:
             name = f.__name__
@@ -220,7 +219,7 @@ def as_apply(obj):
         #    but think about if it's ok to allow Applys
         #    it messes up sorting at the very least.
         items.sort()
-        if all(isinstance(k, basestring) for k in obj):
+        if all(isinstance(k, six.string_types) for k in obj):
             named_args = [(k, as_apply(v)) for (k, v) in items]
             rval = Apply('dict', [], named_args, len(named_args))
         else:
@@ -256,7 +255,7 @@ class Apply(object):
         self.define_params = define_params
         assert all(isinstance(v, Apply) for v in pos_args)
         assert all(isinstance(v, Apply) for k, v in named_args)
-        assert all(isinstance(k, basestring) for k, v in named_args)
+        assert all(isinstance(k, six.string_types) for k, v in named_args)
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -441,16 +440,16 @@ class Apply(object):
             lineno = [0]
 
         if self in memo:
-            print(ofile, lineno[0], ' ' * indent + memo[self])
+            print(lineno[0], ' ' * indent + memo[self], file=ofile)
             lineno[0] += 1
         else:
             memo[self] = self.name + ('  [line:%i]' % lineno[0])
-            print(ofile, lineno[0], ' ' * indent + self.name)
+            print(lineno[0], ' ' * indent + self.name, file=ofile)
             lineno[0] += 1
             for arg in self.pos_args:
                 arg.pprint(ofile, lineno, indent + 2, memo)
             for name, arg in self.named_args:
-                print(ofile, lineno[0], ' ' * indent + ' ' + name + ' =')
+                print(lineno[0], ' ' * indent + ' ' + name + ' =', file=ofile)
                 lineno[0] += 1
                 arg.pprint(ofile, lineno, indent + 2, memo)
 
@@ -571,7 +570,7 @@ class Literal(Apply):
         if memo is None:
             memo = {}
         if self in memo:
-            print >> ofile, lineno[0], ' ' * indent + memo[self]
+            print(lineno[0], ' ' * indent + memo[self], file=ofile)
         else:
             # TODO: set up a registry for this
             if isinstance(self._obj, np.ndarray):
@@ -580,7 +579,7 @@ class Literal(Apply):
             else:
                 msg = 'Literal{%s}' % str(self._obj)
             memo[self] = '%s  [line:%i]' % (msg, lineno[0])
-            print >> ofile, lineno[0], ' ' * indent + msg
+            print(lineno[0], ' ' * indent + msg, file=ofile)
         lineno[0] += 1
 
     def replace_input(self, old_node, new_node):
@@ -741,7 +740,10 @@ def clone_merge(expr, memo=None, merge_literals=False):
     # -- args are somewhat slow to construct, so cache them out front
     #    XXX node.arg does not always work (builtins, weird co_flags)
     node_args = [(node.pos_args, node.named_args) for node in nodes]
-    # del node
+    try:
+        del node
+    except:
+        pass
     for ii, node_ii in enumerate(nodes):
         if node_ii in memo:
             continue

@@ -1,11 +1,6 @@
 from __future__ import print_function
 from __future__ import absolute_import
 from future import standard_library
-from builtins import map
-from builtins import zip
-from builtins import str
-from builtins import range
-from builtins import object
 import six.moves.cPickle as pickle
 import os
 import signal
@@ -30,6 +25,9 @@ from hyperopt.fmin import fmin
 from hyperopt import rand
 import hyperopt.tests.test_base
 from .test_domains import gauss_wave2
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 standard_library.install_aliases()
 
 
@@ -150,7 +148,7 @@ def with_mongo_trials(f, exp_key=None):
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
                                  exp_key=exp_key)
-            print(len(trials.results))
+            print('Length of trials: ', len(trials.results))
             f(trials)
     wrapper.__name__ = f.__name__
     return wrapper
