@@ -28,6 +28,7 @@ from .test_domains import gauss_wave2
 from six.moves import map
 from six.moves import range
 from six.moves import zip
+from six import binary_type
 standard_library.install_aliases()
 
 
@@ -217,18 +218,18 @@ def test_new_trial_ids(trials):
 
 @with_mongo_trials
 def test_attachments(trials):
-    blob = 'abcde'
+    blob = binary_type('abcde')
     assert 'aname' not in trials.attachments
     trials.attachments['aname'] = blob
     assert 'aname' in trials.attachments
     assert trials.attachments[u'aname'] == blob
     assert trials.attachments['aname'] == blob
 
-    blob2 = 'zzz'
+    blob2 = binary_type('zzz')
     trials.attachments['aname'] = blob2
     assert 'aname' in trials.attachments
-    assert trials.attachments['aname'] == blob2
     assert trials.attachments[u'aname'] == blob2
+    assert trials.attachments['aname'] == blob2
 
     del trials.attachments['aname']
     assert 'aname' not in trials.attachments

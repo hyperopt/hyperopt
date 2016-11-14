@@ -129,7 +129,7 @@ from .utils import working_dir, temp_dir
 import six
 from six.moves import map
 from six.moves import range
-# from . import plotting
+from six import binary_type
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
@@ -959,7 +959,7 @@ class MongoTrials(Trials):
                 if gfs.exists(filename=name, **query):
                     gout = gfs.get_last_version(filename=name, **query)
                     gfs.delete(gout._id)
-                gfs.put(value, filename=name, **query)
+                gfs.put(value, filename=name, encoding='utf-8', **query)
 
             def __delitem__(_self, name):
                 gout = gfs.get_last_version(filename=name, **query)
