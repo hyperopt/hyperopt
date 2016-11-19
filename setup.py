@@ -114,7 +114,7 @@ if scripts is None:
 
 setuptools.setup(
     name=package_name,
-    version='0.0.3.dev',
+    version='0.1',
     packages=packages,
     scripts=scripts,
     url='http://hyperopt.github.com/hyperopt/',

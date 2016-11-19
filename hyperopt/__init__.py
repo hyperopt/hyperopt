@@ -36,5 +36,4 @@ from . import tpe
 from . import mix
 from . import anneal
 
-__version__ = '0.0.3.dev'
-
+__version__ = '0.1'
