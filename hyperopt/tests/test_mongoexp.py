@@ -1,6 +1,5 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from future import standard_library
 import six.moves.cPickle as pickle
 import os
 import signal
@@ -28,8 +27,6 @@ from .test_domains import gauss_wave2
 from six.moves import map
 from six.moves import range
 from six.moves import zip
-from six import binary_type
-standard_library.install_aliases()
 
 
 def skiptest(f):
@@ -60,7 +57,7 @@ class TempMongo(object):
                          "--dbpath=%s/db" % self.workdir,
                          "--noprealloc",
                          "--port=22334"]
-            # print "starting mongod", proc_args
+            print("starting mongod", proc_args)
             self.mongo_proc = subprocess.Popen(
                 proc_args,
                 stdout=subprocess.PIPE,
@@ -95,15 +92,13 @@ class TempMongo(object):
                 raise e
 
     def __exit__(self, *args):
-        # print 'CLEANING UP MONGO ...'
         os.kill(self.mongo_proc.pid, signal.SIGTERM)
         self.mongo_proc.wait()
         subprocess.call(["rm", "-Rf", self.workdir])
-        # print 'CLEANING UP MONGO DONE'
 
     @staticmethod
     def connection_string(dbname):
-        return as_mongo_str('localhost:22334/%s' % dbname) + '/jobs'
+        return as_mongo_str('localhost:22334/{}/jobs'.format(dbname))
 
     @staticmethod
     def mongo_jobs(dbname):
