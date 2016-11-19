@@ -116,7 +116,6 @@ from .base import JOB_STATES
 from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
                    JOB_STATE_ERROR)
 from .base import Trials
-# from .base import trials_from_docs
 from .base import InvalidTrial
 from .base import Ctrl
 from .base import SONify
@@ -129,7 +128,6 @@ from .utils import working_dir, temp_dir
 import six
 from six.moves import map
 from six.moves import range
-from six import binary_type
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
@@ -213,7 +211,7 @@ def parse_url(url, pwfile=None):
     try:
         _, dbname, collection = tmp.path.split('/')
     except:
-        print(sys.stderr, "Failed to parse '%s'" % (str(tmp.path)))
+        print("Failed to parse '%s'" % (str(tmp.path)), file=sys.stderr)
         raise
     logger.info('DB %s' % dbname)
     logger.info('COLLECTION %s' % collection)
@@ -226,9 +224,9 @@ def parse_url(url, pwfile=None):
     else:
         password = tmp.password
     logger.info('PASS %s' % password)
+    port = int(float(tmp.port))  # port has to be casted explicitly here.
 
-    return (protocol, tmp.username, password, tmp.hostname, tmp.port, dbname,
-            collection)
+    return (protocol, tmp.username, password, tmp.hostname, port, dbname, collection)
 
 
 def connection_with_tunnel(host='localhost',
