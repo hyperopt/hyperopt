@@ -468,7 +468,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
     assert minsigma > 0
     assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
-    # print weights.dtype
     srtd_weights /= srtd_weights.sum()
     if 0:
         print('WEIGHTS', srtd_weights)

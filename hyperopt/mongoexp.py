@@ -239,9 +239,6 @@ def connection_with_tunnel(host='localhost',
             ['ssh', '-NTf', '-L',
                     '%i:%s:%i' % (local_port, '127.0.0.1', port),
                     host],
-            # stdin=subprocess.PIPE,
-            # stdout=subprocess.PIPE,
-            # stderr=subprocess.PIPE,
         )
         # -- give the subprocess time to set up
         time.sleep(.5)

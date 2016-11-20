@@ -226,7 +226,6 @@ def test_recursion():
     scope.define(Lambda('Fact', [('x', p0)],
                  expr=scope.switch(p0 > 1, 1, p0 * base.apply('Fact', p0 - 1))))
     print(scope.Fact(3))
-    # print( rec_eval(scope.Fact(3)))
     assert rec_eval(scope.Fact(3)) == 6
 
 
