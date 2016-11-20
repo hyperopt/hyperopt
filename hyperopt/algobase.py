@@ -1,19 +1,18 @@
 """ Support code for new-style search algorithms.
 """
-
-__authors__ = "James Bergstra"
-__license__ = "3-clause BSD License"
-__contact__ = "github.com/hyperopt/hyperopt"
-
+from __future__ import print_function
+from builtins import object
 import copy
 from collections import deque
 
 import numpy as np
 
 from . import pyll
-from .base import (
-    miscs_update_idxs_vals,
-    )
+from .base import miscs_update_idxs_vals
+
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/hyperopt/hyperopt"
 
 
 class ExprEvaluator(object):
@@ -148,7 +147,6 @@ class ExprEvaluator(object):
                 #    then we can free memo[ii] by replacing it
                 #    with a dummy symbol
                 if all(iic in memo for iic in self.clients[ii]):
-                    #print 'collecting', ii
                     memo[ii] = pyll.base.GarbageCollected
         else:
             memo[k] = v
@@ -199,7 +197,7 @@ class ExprEvaluator(object):
         if self.memo_gc:
             # -- Ensure no computed argument has been (accidentally) freed for
             #    garbage-collection.
-            for aa in args + kwargs.values():
+            for aa in args + list(kwargs.values()):
                 assert aa is not pyll.base.GarbageCollected
 
         if self.deepcopy_inputs:
@@ -229,7 +227,7 @@ class SuggestAlgo(ExprEvaluator):
         self.domain = domain
         self.trials = trials
         self.label_by_node = dict([
-            (n, l) for l, n in self.domain.vh.vals_by_label().items()])
+            (n, l) for l, n in list(self.domain.vh.vals_by_label().items())])
         self._seed = seed
         self.rng = np.random.RandomState(seed)
 

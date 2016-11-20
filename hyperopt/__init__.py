@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 
 from .base import STATUS_STRINGS
 from .base import STATUS_NEW
@@ -24,16 +25,15 @@ from .fmin import partial
 from .fmin import space_eval
 
 # -- syntactic sugar
-import hp
+from . import hp
 
 # -- exceptions
-import exceptions
+from . import exceptions
 
 # -- Import built-in optimization algorithms
-import rand
-import tpe
-import mix
-import anneal
+from . import rand
+from . import tpe
+from . import mix
+from . import anneal
 
-__version__ = '0.0.3.dev'
-
+__version__ = '0.1'

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import range
 import numpy as np
 from nose.tools import raises, eq_
 import shutil
@@ -15,13 +17,13 @@ def test_fast_isin():
     D.sort()
     T1 = (X[Z] == D).all()
 
-    X = np.array(range(10000) + range(10000))
+    X = np.array(list(range(10000)) + list(range(10000)))
     Z = fast_isin(X, Y)
     T2 = (X[Z] == np.append(D, D.copy())).all()
 
-    X = np.random.randint(0, 100, size = (40, ))
+    X = np.random.randint(0, 100, size=(40, ))
     X.sort()
-    Y = np.random.randint(0, 100, size = (60, ))
+    Y = np.random.randint(0, 100, size=(60, ))
     Y.sort()
 
     XinY = np.array([ind for ind in range(len(X)) if X[ind] in Y])
@@ -37,9 +39,9 @@ def test_get_most_recent_inds():
     test_data = []
     most_recent_data = []
     for ind in range(300):
-        k = np.random.randint(1,6)
+        k = np.random.randint(1, 6)
         for _ind in range(k):
-            test_data.append({'_id': ind, 'version':_ind})
+            test_data.append({'_id': ind, 'version': _ind})
         most_recent_data.append({'_id': ind, 'version': _ind})
     rng = np.random.RandomState(0)
     p = rng.permutation(len(test_data))
@@ -49,37 +51,39 @@ def test_get_most_recent_inds():
     assert all([t in most_recent_data for t in test_data_rearranged_most_recent])
     assert len(test_data_rearranged_most_recent) == len(most_recent_data)
 
-    test_data = [{'_id':0, 'version':1}]
-    
+    test_data = [{'_id': 0, 'version': 1}]
+
     assert get_most_recent_inds(test_data).tolist() == [0]
-    
-    test_data = [{'_id':0, 'version':1}, {'_id':0, 'version':2}]
+
+    test_data = [{'_id': 0, 'version': 1}, {'_id': 0, 'version': 2}]
     assert get_most_recent_inds(test_data).tolist() == [1]
-    
-    test_data = [{'_id':0, 'version':1}, {'_id':0, 'version':2},
-                 {'_id':1, 'version':1}]
-    
+
+    test_data = [{'_id': 0, 'version': 1}, {'_id': 0, 'version': 2},
+                 {'_id': 1, 'version': 1}]
+
     assert get_most_recent_inds(test_data).tolist() == [1, 2]
-    
-    test_data = [{'_id': -1, 'version':1}, {'_id':0, 'version':1},
-                 {'_id':0, 'version':2}, {'_id':1, 'version':1}]
-    
+
+    test_data = [{'_id': -1, 'version': 1}, {'_id': 0, 'version': 1},
+                 {'_id': 0, 'version': 2}, {'_id': 1, 'version': 1}]
+
     assert get_most_recent_inds(test_data).tolist() == [0, 2, 3]
-    
-    test_data = [{'_id': -1, 'version':1}, {'_id':0, 'version':1},
-                 {'_id':0, 'version':2}, {'_id':0, 'version':2}]
-    
+
+    test_data = [{'_id': -1, 'version': 1}, {'_id': 0, 'version': 1},
+                 {'_id': 0, 'version': 2}, {'_id': 0, 'version': 2}]
+
     assert get_most_recent_inds(test_data).tolist() == [0, 3]
+
 
 @raises(RuntimeError)
 def test_temp_dir_pardir():
     with temp_dir("../test_temp_dir"):
         pass
 
+
 def test_temp_dir():
     fn = "test_temp_dir"
     if os.path.exists(fn):
-        print "Path %s exists, not running test_temp_dir()" % fn
+        print("Path %s exists, not running test_temp_dir()" % fn)
         return
     try:
         assert not os.path.exists(fn)
@@ -96,17 +100,19 @@ def test_temp_dir():
         if os.path.isdir(fn):
             os.rmdir(fn)
 
+
 def test_path_split_all():
     ll = "foo bar baz".split()
     path = os.path.join(*ll)
     eq_(list(path_split_all(path)), ll)
+
 
 def test_temp_dir_sentinel():
     from os.path import join, isdir, exists, abspath
     basedir = "test_temp_dir_sentinel"
     fn = join(basedir, "foo", "bar")
     if exists(basedir):
-        print "Path %s exists, not running test_temp_dir_sentinel()" % basedir
+        print("Path %s exists, not running test_temp_dir_sentinel()" % basedir)
         return
     os.makedirs(basedir)
     eq_(get_closest_dir(fn)[0], basedir)
@@ -126,6 +132,7 @@ def test_temp_dir_sentinel():
     finally:
         if isdir(basedir):
             shutil.rmtree(basedir)
+
 
 def test_workdir():
     fn = "test_work_dir"

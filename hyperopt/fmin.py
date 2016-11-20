@@ -1,7 +1,9 @@
-try:
-    import dill as cPickle
-except ImportError:
-    import cPickle
+from __future__ import print_function
+from __future__ import absolute_import
+from future import standard_library
+from builtins import str
+from builtins import object
+import six.moves.cPickle as pickle
 
 import functools
 import logging
@@ -11,10 +13,11 @@ import time
 
 import numpy as np
 
-import pyll
+from . import pyll
 from .utils import coarse_utcnow
 from . import base
 
+standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 
@@ -47,14 +50,14 @@ class FMinIter(object):
     """Object for conducting search experiments.
     """
     catch_eval_exceptions = False
-    cPickle_protocol = -1
+    pickle_protocol = -1
 
     def __init__(self, algo, domain, trials, rstate, async=None,
-            max_queue_len=1,
-            poll_interval_secs=1.0,
-            max_evals=sys.maxint,
-            verbose=0,
-            ):
+                 max_queue_len=1,
+                 poll_interval_secs=1.0,
+                 max_evals=sys.maxsize,
+                 verbose=0,
+                 ):
         self.algo = algo
         self.domain = domain
         self.trials = trials
@@ -70,10 +73,10 @@ class FMinIter(object):
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
                 logger.warn('over-writing old domain trials attachment')
-            msg = cPickle.dumps(
-                    domain, protocol=self.cPickle_protocol)
+            msg = pickle.dumps(
+                domain, protocol=self.pickle_protocol)
             # -- sanity check for unpickling
-            cPickle.loads(msg)
+            pickle.loads(msg)
             trials.attachments['FMinIter_Domain'] = msg
 
     def serial_evaluate(self, N=-1):
@@ -87,7 +90,7 @@ class FMinIter(object):
                 ctrl = base.Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.domain.evaluate(spec, ctrl)
-                except Exception, e:
+                except Exception as e:
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = base.JOB_STATE_ERROR
                     trial['misc']['error'] = (str(type(e)), str(e))
@@ -99,8 +102,6 @@ class FMinIter(object):
                         self.trials.refresh()
                         raise
                 else:
-                    #logger.debug('job returned status: %s' % result['status'])
-                    #logger.debug('job returned loss: %s' % result.get('loss'))
                     trial['state'] = base.JOB_STATE_DONE
                     trial['result'] = result
                     trial['refresh_time'] = coarse_utcnow()
@@ -150,8 +151,8 @@ class FMinIter(object):
                 self.trials.refresh()
                 if 0:
                     for d in self.trials.trials:
-                        print 'trial %i %s %s' % (d['tid'], d['state'],
-                            d['result'].get('status'))
+                        print('trial %i %s %s' % (d['tid'], d['state'],
+                                                  d['result'].get('status')))
                 new_trials = algo(new_ids, self.domain, trials,
                                   self.rstate.randint(2 ** 31 - 1))
                 assert len(new_ids) >= len(new_trials)
@@ -187,7 +188,7 @@ class FMinIter(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         self.run(1, block_until_done=self.async)
         if len(self.trials) >= self.max_evals:
             raise StopIteration()
@@ -205,7 +206,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          catch_eval_exceptions=False,
          verbose=0,
          return_argmin=True,
-        ):
+         ):
     """Minimize a function over a hyperparameter space.
 
     More realistically: *explore* a function over a hyperparameter space
@@ -304,13 +305,13 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
             verbose=verbose,
             catch_eval_exceptions=catch_eval_exceptions,
             return_argmin=return_argmin,
-            )
+        )
 
     if trials is None:
         trials = base.Trials()
 
     domain = base.Domain(fn, space,
-        pass_expr_memo_ctrl=pass_expr_memo_ctrl)
+                         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
                     rstate=rstate,

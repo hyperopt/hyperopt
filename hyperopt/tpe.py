@@ -1,25 +1,31 @@
 """
 Graphical model (GM)-based optimization algorithm using Theano
 """
-
-__authors__ = "James Bergstra"
-__license__ = "3-clause BSD License"
-__contact__ = "github.com/jaberg/hyperopt"
-
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from builtins import str
+from builtins import map
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import logging
 import time
 
 import numpy as np
 from scipy.special import erf
-import pyll
-from pyll import scope
-from pyll.stochastic import implicit_stochastic
+from . import pyll
+from .pyll import scope
+from .pyll.stochastic import implicit_stochastic
 
 from .base import miscs_to_idxs_vals
 from .base import miscs_update_idxs_vals
-from .base import Trials
-import rand
+# from .base import Trials
+from . import rand
 
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/jaberg/hyperopt"
 logger = logging.getLogger(__name__)
 
 EPS = 1e-12
@@ -62,12 +68,12 @@ def categorical_lpdf(sample, p, upper):
 @implicit_stochastic
 @scope.define
 def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
-        size=()):
+         size=()):
     """Sample from truncated 1-D Gaussian Mixture Model"""
-    weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
+    weights, mus, sigmas = list(map(np.asarray, (weights, mus, sigmas)))
     assert len(weights) == len(mus) == len(sigmas)
     n_samples = np.prod(size)
-    #n_components = len(weights)
+    # n_components = len(weights)
     if low is None and high is None:
         # -- draw from a standard GMM
         active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
@@ -86,26 +92,26 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
             if low <= draw < high:
                 samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
-    #print 'SAMPLES', samples
+    # print 'SAMPLES', samples
     if q is None:
         return samples
     else:
-        return np.round(samples / q) * q
+        return np.round(old_div(samples, q)) * q
 
 
 @scope.define
 def normal_cdf(x, mu, sigma):
     top = (x - mu)
     bottom = np.maximum(np.sqrt(2) * sigma, EPS)
-    z = top / bottom
+    z = old_div(top, bottom)
     return 0.5 * (1 + erf(z))
 
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     verbose = 0
-    samples, weights, mus, sigmas = map(np.asarray,
-            (samples, weights, mus, sigmas))
+    samples, weights, mus, sigmas = list(map(np.asarray,
+                                         (samples, weights, mus, sigmas)))
     if samples.size == 0:
         return np.asarray([])
     if weights.ndim != 1:
@@ -119,25 +125,25 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if verbose:
-        print 'GMM1_lpdf:samples', set(samples)
-        print 'GMM1_lpdf:weights', weights
-        print 'GMM1_lpdf:mus', mus
-        print 'GMM1_lpdf:sigmas', sigmas
-        print 'GMM1_lpdf:low', low
-        print 'GMM1_lpdf:high', high
-        print 'GMM1_lpdf:q', q
+        print('GMM1_lpdf:samples', set(samples))
+        print('GMM1_lpdf:weights', weights)
+        print('GMM1_lpdf:mus', mus)
+        print('GMM1_lpdf:sigmas', sigmas)
+        print('GMM1_lpdf:low', low)
+        print('GMM1_lpdf:high', high)
+        print('GMM1_lpdf:q', q)
 
     if low is None and high is None:
         p_accept = 1
     else:
         p_accept = np.sum(
-                weights * (
-                    normal_cdf(high, mus, sigmas)
-                    - normal_cdf(low, mus, sigmas)))
+            weights * (
+                normal_cdf(high, mus, sigmas) -
+                normal_cdf(low, mus, sigmas)))
 
     if q is None:
         dist = samples[:, None] - mus
-        mahal = (dist / np.maximum(sigmas, EPS)) ** 2
+        mahal = (old_div(dist, np.maximum(sigmas, EPS))) ** 2
         # mahal shape is (n_samples, n_components)
         Z = np.sqrt(2 * np.pi * sigmas ** 2)
         coef = weights / Z / p_accept
@@ -146,13 +152,13 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
             if high is None:
-                ubound = samples + q / 2.0
+                ubound = samples + old_div(q, 2.0)
             else:
-                ubound = np.minimum(samples + q / 2.0, high)
+                ubound = np.minimum(samples + old_div(q, 2.0), high)
             if low is None:
-                lbound = samples - q / 2.0
+                lbound = samples - old_div(q, 2.0)
             else:
-                lbound = np.maximum(samples - q / 2.0, low)
+                lbound = np.maximum(samples - old_div(q, 2.0), low)
             # -- two-stage addition is slightly more numerically accurate
             inc_amt = w * normal_cdf(ubound, mu, sigma)
             inc_amt -= w * normal_cdf(lbound, mu, sigma)
@@ -160,7 +166,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         rval = np.log(prob) - np.log(p_accept)
 
     if verbose:
-        print 'GMM1_lpdf:rval:', dict(zip(samples, rval))
+        print('GMM1_lpdf:rval:', dict(list(zip(samples, rval))))
 
     rval.shape = _samples.shape
     return rval
@@ -184,7 +190,7 @@ def lognormal_cdf(x, mu, sigma):
     try:
         top = np.log(np.maximum(x, EPS)) - mu
         bottom = np.maximum(np.sqrt(2) * sigma, EPS)
-        z = top / bottom
+        z = old_div(top, bottom)
         return .5 + .5 * erf(z)
     finally:
         np.seterr(**olderr)
@@ -197,7 +203,7 @@ def lognormal_lpdf(x, mu, sigma):
     assert np.all(sigma >= 0)
     sigma = np.maximum(sigma, EPS)
     Z = sigma * x * np.sqrt(2 * np.pi)
-    E = 0.5 * ((np.log(x) - mu) / sigma) ** 2
+    E = 0.5 * (old_div((np.log(x) - mu), sigma)) ** 2
     rval = -E - np.log(Z)
     return rval
 
@@ -209,26 +215,26 @@ def qlognormal_lpdf(x, mu, sigma, q):
 
     # XXX: subtracting two numbers potentially very close together.
     return np.log(
-            lognormal_cdf(x, mu, sigma)
-            - lognormal_cdf(x - q, mu, sigma))
+        lognormal_cdf(x, mu, sigma) -
+        lognormal_cdf(x - q, mu, sigma))
 
 
 @implicit_stochastic
 @scope.define
 def LGMM1(weights, mus, sigmas, low=None, high=None, q=None,
-        rng=None, size=()):
-    weights, mus, sigmas = map(np.asarray, (weights, mus, sigmas))
+          rng=None, size=()):
+    weights, mus, sigmas = list(map(np.asarray, (weights, mus, sigmas)))
     n_samples = np.prod(size)
-    #n_components = len(weights)
+    # n_components = len(weights)
     if low is None and high is None:
         active = np.argmax(
-                rng.multinomial(1, weights, (n_samples,)),
-                axis=1)
+            rng.multinomial(1, weights, (n_samples,)),
+            axis=1)
         assert len(active) == n_samples
         samples = np.exp(
-                rng.normal(
-                    loc=mus[active],
-                    scale=sigmas[active]))
+            rng.normal(
+                loc=mus[active],
+                scale=sigmas[active]))
     else:
         # -- draw from truncated components
         # TODO: one-sided-truncation
@@ -246,7 +252,7 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None,
 
     samples = np.reshape(np.asarray(samples), size)
     if q is not None:
-        samples = np.round(samples / q) * q
+        samples = np.round(old_div(samples, q)) * q
     return samples
 
 
@@ -258,8 +264,8 @@ def logsum_rows(x):
 
 @scope.define
 def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
-    samples, weights, mus, sigmas = map(np.asarray,
-            (samples, weights, mus, sigmas))
+    samples, weights, mus, sigmas = list(map(np.asarray,
+                                         (samples, weights, mus, sigmas)))
     assert weights.ndim == 1
     assert mus.ndim == 1
     assert sigmas.ndim == 1
@@ -271,9 +277,9 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         p_accept = 1
     else:
         p_accept = np.sum(
-                weights * (
-                    normal_cdf(high, mus, sigmas)
-                    - normal_cdf(low, mus, sigmas)))
+            weights * (
+                normal_cdf(high, mus, sigmas) -
+                normal_cdf(low, mus, sigmas)))
 
     if q is None:
         # compute the lpdf of each sample under each component
@@ -284,13 +290,13 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         prob = np.zeros(samples.shape, dtype='float64')
         for w, mu, sigma in zip(weights, mus, sigmas):
             if high is None:
-                ubound = samples + q / 2.0
+                ubound = samples + old_div(q, 2.0)
             else:
-                ubound = np.minimum(samples + q / 2.0, np.exp(high))
+                ubound = np.minimum(samples + old_div(q, 2.0), np.exp(high))
             if low is None:
-                lbound = samples - q / 2.0
+                lbound = samples - old_div(q, 2.0)
             else:
-                lbound = np.maximum(samples - q / 2.0, np.exp(low))
+                lbound = np.maximum(samples - old_div(q, 2.0), np.exp(low))
             lbound = np.maximum(0, lbound)
             # -- two-stage addition is slightly more numerically accurate
             inc_amt = w * lognormal_cdf(ubound, mu, sigma)
@@ -332,8 +338,8 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
         mus = mus[order]
         sigma = np.zeros_like(mus)
         sigma[1:-1] = np.maximum(
-                mus[1:-1] - mus[0:-2],
-                mus[2:] - mus[1:-1])
+            mus[1:-1] - mus[0:-2],
+            mus[2:] - mus[1:-1])
         if len(mus) > 2:
             lsigma = mus[2] - mus[0]
             usigma = mus[-1] - mus[-3]
@@ -350,8 +356,8 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
         sigma[order] = sigma.copy()
 
         if not np.all(mus_orig == mus):
-            print 'orig', mus_orig
-            print 'mus', mus
+            print('orig', mus_orig)
+            print('mus', mus)
         assert np.all(mus_orig == mus)
 
         # put the prior back in
@@ -360,20 +366,18 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
 
     maxsigma = prior_sigma
     # -- magic formula:
-    minsigma = prior_sigma / np.sqrt(1 + len(mus))
+    minsigma = old_div(prior_sigma, np.sqrt(1 + len(mus)))
 
-    #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
     weights[0] = prior_weight
 
-    #print weights.dtype
-    weights = weights / weights.sum()
+    weights = old_div(weights, weights.sum())
     if 0:
-        print 'WEIGHTS', weights
-        print 'MUS', mus
-        print 'SIGMA', sigma
+        print('WEIGHTS', weights)
+        print('MUS', mus)
+        print('SIGMA', sigma)
 
     return weights, mus, sigma
 
@@ -387,7 +391,7 @@ def linear_forgetting_weights(N, LF):
     elif N < LF:
         return np.ones(N)
     else:
-        ramp = np.linspace(1.0 / N, 1.0, num=N - LF)
+        ramp = np.linspace(old_div(1.0, N), 1.0, num=N - LF)
         flat = np.ones(LF)
         weights = np.concatenate([ramp, flat], axis=0)
         assert weights.shape == (N,), (weights.shape, N)
@@ -395,13 +399,14 @@ def linear_forgetting_weights(N, LF):
 
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
 # non-default LF argument
+
+
 @scope.define_info(o_len=3)
 def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
-        LF=DEFAULT_LF):
+                           LF=DEFAULT_LF):
     """
     mus - matrix (N, M) of M, N-dimensional component centers
     """
-    #mus_orig = np.array(mus)
     mus = np.array(mus)
     assert str(mus.dtype) != 'object'
 
@@ -432,8 +437,8 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
         srtd_mus[prior_pos + 1:] = mus[order[prior_pos:]]
         sigma = np.zeros_like(srtd_mus)
         sigma[1:-1] = np.maximum(
-                srtd_mus[1:-1] - srtd_mus[0:-2],
-                srtd_mus[2:] - srtd_mus[1:-1])
+            srtd_mus[1:-1] - srtd_mus[0:-2],
+            srtd_mus[2:] - srtd_mus[1:-1])
         lsigma = srtd_mus[1] - srtd_mus[0]
         usigma = srtd_mus[-1] - srtd_mus[-2]
         sigma[0] = lsigma
@@ -452,10 +457,9 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
         srtd_weights[prior_pos] = prior_weight
 
     # -- magic formula:
-    maxsigma = prior_sigma / 1.0
-    minsigma = prior_sigma / min(100.0, (1.0 + len(srtd_mus)))
+    maxsigma = old_div(prior_sigma, 1.0)
+    minsigma = old_div(prior_sigma, min(100.0, (1.0 + len(srtd_mus))))
 
-    #print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     sigma[prior_pos] = prior_sigma
@@ -464,13 +468,11 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
     assert minsigma > 0
     assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
-
-    #print weights.dtype
     srtd_weights /= srtd_weights.sum()
     if 0:
-        print 'WEIGHTS', srtd_weights
-        print 'MUS', srtd_mus
-        print 'SIGMA', sigma
+        print('WEIGHTS', srtd_weights)
+        print('MUS', srtd_mus)
+        print('SIGMA', sigma)
 
     return srtd_weights, srtd_mus, sigma
 
@@ -487,9 +489,9 @@ def ap_uniform_sampler(obs, prior_weight, low, high, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
-            prior_weight, prior_mu, prior_sigma)
+                                                        prior_weight, prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=None,
-            size=size, rng=rng)
+                      size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('quniform')
@@ -497,42 +499,42 @@ def ap_quniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(obs,
-            prior_weight, prior_mu, prior_sigma)
+                                                        prior_weight, prior_mu, prior_sigma)
     return scope.GMM1(weights, mus, sigmas, low=low, high=high, q=q,
-            size=size, rng=rng)
+                      size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('loguniform')
 def ap_loguniform_sampler(obs, prior_weight, low, high,
-        size=(), rng=None):
+                          size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            scope.log(obs), prior_weight, prior_mu, prior_sigma)
+        scope.log(obs), prior_weight, prior_mu, prior_sigma)
     rval = scope.LGMM1(weights, mus, sigmas, low=low, high=high,
-            size=size, rng=rng)
+                       size=size, rng=rng)
     return rval
 
 
 @adaptive_parzen_sampler('qloguniform')
 def ap_qloguniform_sampler(obs, prior_weight, low, high, q,
-        size=(), rng=None):
+                           size=(), rng=None):
     prior_mu = 0.5 * (high + low)
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            scope.log(
-                # -- map observations that were quantized to be below exp(low)
-                #    (particularly 0) back up to exp(low) where they will
-                #    interact in a reasonable way with the AdaptiveParzen
-                #    thing.
-                scope.maximum(
-                    obs,
-                    scope.maximum(  # -- protect against exp(low) underflow
-                        EPS,
-                        scope.exp(low)))),
-            prior_weight, prior_mu, prior_sigma)
+        scope.log(
+            # -- map observations that were quantized to be below exp(low)
+            #    (particularly 0) back up to exp(low) where they will
+            #    interact in a reasonable way with the AdaptiveParzen
+            #    thing.
+            scope.maximum(
+                obs,
+                scope.maximum(  # -- protect against exp(low) underflow
+                    EPS,
+                    scope.exp(low)))),
+        prior_weight, prior_mu, prior_sigma)
     return scope.LGMM1(weights, mus, sigmas, low, high, q=q,
-            size=size, rng=rng)
+                       size=size, rng=rng)
 
 
 # -- Normal
@@ -540,21 +542,21 @@ def ap_qloguniform_sampler(obs, prior_weight, low, high, q,
 @adaptive_parzen_sampler('normal')
 def ap_normal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            obs, prior_weight, mu, sigma)
+        obs, prior_weight, mu, sigma)
     return scope.GMM1(weights, mus, sigmas, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('qnormal')
 def ap_qnormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            obs, prior_weight, mu, sigma)
+        obs, prior_weight, mu, sigma)
     return scope.GMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('lognormal')
 def ap_loglognormal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            scope.log(obs), prior_weight, mu, sigma)
+        scope.log(obs), prior_weight, mu, sigma)
     rval = scope.LGMM1(weights, mus, sigmas, size=size, rng=rng)
     return rval
 
@@ -563,7 +565,7 @@ def ap_loglognormal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
 def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
     log_obs = scope.log(scope.maximum(obs, EPS))
     weights, mus, sigmas = scope.adaptive_parzen_normal(
-            log_obs, prior_weight, mu, sigma)
+        log_obs, prior_weight, mu, sigma)
     rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
     return rval
 
@@ -572,13 +574,13 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 
 @adaptive_parzen_sampler('randint')
 def ap_categorical_sampler(obs, prior_weight, upper,
-        size=(), rng=None, LF=DEFAULT_LF):
+                           size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
-    return scope.categorical(pseudocounts / scope.sum(pseudocounts),
-            upper=upper, size=size, rng=rng)
+    return scope.categorical(old_div(pseudocounts, scope.sum(pseudocounts)),
+                             upper=upper, size=size, rng=rng)
 
 
 # @adaptive_parzen_sampler('categorical')
@@ -589,18 +591,20 @@ def ap_categorical_sampler(obs, prior_weight, upper,
 
 @scope.define
 def tpe_cat_pseudocounts(counts, upper, prior_weight, p, size):
-    #print counts
     if size == 0 or np.prod(size) == 0:
         return []
     if p.ndim == 2:
         assert np.all(p == p[0])
         p = p[0]
     pseudocounts = counts + upper * (prior_weight * p)
-    return pseudocounts / np.sum(pseudocounts)
+    return old_div(pseudocounts, np.sum(pseudocounts))
 
+
+# TODO: this seems to be a redefinition of the function
+# starting in line 573.
 @adaptive_parzen_sampler('categorical')
 def ap_categorical_sampler(obs, prior_weight, p, upper=None,
-        size=(), rng=None, LF=DEFAULT_LF):
+                           size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
     pseudocounts = scope.tpe_cat_pseudocounts(counts, upper, prior_weight, p, size)
@@ -610,14 +614,15 @@ def ap_categorical_sampler(obs, prior_weight, p, upper=None,
 # Posterior clone performs symbolic inference on the pyll graph of priors.
 #
 
+
 @scope.define_info(o_len=2)
 def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
-        gamma_cap=DEFAULT_LF):
+                     gamma_cap=DEFAULT_LF):
     """Return the elements of o_vals that correspond to trials whose losses
     were above gamma, or below gamma.
     """
-    o_idxs, o_vals, l_idxs, l_vals = map(np.asarray, [o_idxs, o_vals, l_idxs,
-        l_vals])
+    o_idxs, o_vals, l_idxs, l_vals = list(map(np.asarray,
+                                          [o_idxs, o_vals, l_idxs, l_vals]))
 
     # XXX if this is working, refactor this sort for efficiency
 
@@ -625,24 +630,20 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
     n_below = min(int(np.ceil(gamma * np.sqrt(len(l_vals)))), gamma_cap)
     l_order = np.argsort(l_vals)
 
-
     keep_idxs = set(l_idxs[l_order[:n_below]])
     below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
 
     if 0:
-        print 'DEBUG: thresh', l_vals[l_order[:n_below]]
+        print('DEBUG: thresh', l_vals[l_order[:n_below]])
 
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
-
-    #print 'AA0', below
-    #print 'AA1', above
 
     return np.asarray(below), np.asarray(above)
 
 
 def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
-        oloss_idxs, oloss_vals, oloss_gamma, prior_weight):
+                    oloss_idxs, oloss_vals, oloss_gamma, prior_weight):
     """
     This method clones a posterior inference graph by iterating forward in
     topological order, and replacing prior random-variables (prior_vals) with
@@ -650,7 +651,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
     """
     assert all(isinstance(arg, pyll.Apply)
-            for arg in [oloss_idxs, oloss_vals, oloss_gamma])
+               for arg in [oloss_idxs, oloss_vals, oloss_gamma])
 
     expr = pyll.as_apply([specs, prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
@@ -665,8 +666,8 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
         # which will permit the "adaptive parzen samplers" to adapt to the
         # correct samples.
         obs_below, obs_above = scope.ap_filter_trials(
-                obs_idxs[nid], obs_vals[nid],
-                oloss_idxs, oloss_vals, oloss_gamma)
+            obs_idxs[nid], obs_vals[nid],
+            oloss_idxs, oloss_vals, oloss_gamma)
         obs_memo[prior_vals[nid]] = [obs_below, obs_above]
     for node in nodes:
         if node not in memo:
@@ -679,25 +680,24 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 fn = adaptive_parzen_samplers[node.name]
                 b_args = [obs_below, prior_weight] + aa
                 named_args = [[kw, memo[arg]]
-                        for (kw, arg) in node.named_args]
+                              for (kw, arg) in node.named_args]
                 b_post = fn(*b_args, **dict(named_args))
                 a_args = [obs_above, prior_weight] + aa
                 a_post = fn(*a_args, **dict(named_args))
 
                 assert a_post.name == b_post.name
                 fn_lpdf = getattr(scope, a_post.name + '_lpdf')
-                #print fn_lpdf
                 a_kwargs = dict([(n, a) for n, a in a_post.named_args
-                            if n not in ('rng', 'size')])
+                                 if n not in ('rng', 'size')])
                 b_kwargs = dict([(n, a) for n, a in b_post.named_args
-                            if n not in ('rng', 'size')])
+                                 if n not in ('rng', 'size')])
 
                 # calculate the llik of b_post under both distributions
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
 
-                #improvement = below_llik - above_llik
-                #new_node = scope.broadcast_best(b_post, improvement)
+                # improvement = below_llik - above_llik
+                # new_node = scope.broadcast_best(b_post, improvement)
                 new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, 'obj'):
                 # -- keep same literals in the graph
@@ -708,9 +708,9 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
             memo[node] = new_node
     post_specs = memo[specs]
     post_idxs = dict([(nid, memo[idxs])
-        for nid, idxs in prior_idxs.items()])
+                      for nid, idxs in list(prior_idxs.items())])
     post_vals = dict([(nid, memo[vals])
-        for nid, vals in prior_vals.items()])
+                      for nid, vals in list(prior_vals.items())])
     assert set(post_idxs.keys()) == set(post_vals.keys())
     assert set(post_idxs.keys()) == set(prior_idxs.keys())
     return post_specs, post_idxs, post_vals
@@ -727,12 +727,10 @@ def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
 
     This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
     """
-    #print 'FULL IDXS'
-    #print full_idxs
     assert len(set(full_idxs)) == len(full_idxs)
     full_idxs = list(full_idxs)
     rval = np.zeros(len(full_idxs))
-    pos_of_tid = dict(zip(full_idxs, range(len(full_idxs))))
+    pos_of_tid = dict(list(zip(full_idxs, list(range(len(full_idxs))))))
     assert set(idxs_by_label.keys()) == set(llik_by_label.keys())
     for nid in idxs_by_label:
         idxs = idxs_by_label[nid]
@@ -742,14 +740,12 @@ def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
         assert len(idxs) == len(llik)
         for ii, ll in zip(idxs, llik):
             rval[pos_of_tid[ii]] += ll
-            #rval[full_idxs.index(ii)] += ll
     return rval
 
 
 @scope.define
 def broadcast_best(samples, below_llik, above_llik):
     if len(samples):
-        #print 'AA2', dict(zip(samples, below_llik - above_llik))
         score = below_llik - above_llik
         if len(samples) != len(score):
             raise ValueError()
@@ -777,43 +773,43 @@ def tpe_transform(domain, prior_weight, gamma):
 
     # -- these dummy values will be replaced in suggest1() and never used
     observed = dict(
-            idxs=pyll.Literal(),
-            vals=pyll.Literal())
+        idxs=pyll.Literal(),
+        vals=pyll.Literal())
     observed_loss = dict(
-            idxs=pyll.Literal(),
-            vals=pyll.Literal())
+        idxs=pyll.Literal(),
+        vals=pyll.Literal())
 
     specs, idxs, vals = build_posterior(
-            # -- vectorized clone of bandit template
-            domain.vh.v_expr,
-            # -- this dict and next represent prior dists
-            domain.vh.idxs_by_label(),
-            domain.vh.vals_by_label(),
-            observed['idxs'],
-            observed['vals'],
-            observed_loss['idxs'],
-            observed_loss['vals'],
-            pyll.Literal(gamma),
-            s_prior_weight
-            )
+        # -- vectorized clone of bandit template
+        domain.vh.v_expr,
+        # -- this dict and next represent prior dists
+        domain.vh.idxs_by_label(),
+        domain.vh.vals_by_label(),
+        observed['idxs'],
+        observed['vals'],
+        observed_loss['idxs'],
+        observed_loss['vals'],
+        pyll.Literal(gamma),
+        s_prior_weight
+    )
 
     return (s_prior_weight, observed, observed_loss,
             specs, idxs, vals)
 
 
 def suggest(new_ids, domain, trials, seed,
-        prior_weight=_default_prior_weight,
-        n_startup_jobs=_default_n_startup_jobs,
-        n_EI_candidates=_default_n_EI_candidates,
-        gamma=_default_gamma,
-        linear_forgetting=_default_linear_forgetting,
-        ):
+            prior_weight=_default_prior_weight,
+            n_startup_jobs=_default_n_startup_jobs,
+            n_EI_candidates=_default_n_EI_candidates,
+            gamma=_default_gamma,
+            linear_forgetting=_default_linear_forgetting,
+            ):
 
     new_id = new_ids[0]
 
     t0 = time.time()
     (s_prior_weight, observed, observed_loss, specs, opt_idxs, opt_vals) \
-            = tpe_transform(domain, prior_weight, gamma)
+        = tpe_transform(domain, prior_weight, gamma)
     tt = time.time() - t0
     logger.info('tpe_transform took %f seconds' % tt)
 
@@ -833,7 +829,7 @@ def suggest(new_ids, domain, trials, seed,
             best_docs_loss[tid] = loss
             best_docs[tid] = doc
 
-    tid_docs = best_docs.items()
+    tid_docs = list(best_docs.items())
     # -- sort docs by order of suggestion
     #    so that linear_forgetting removes the oldest ones
     tid_docs.sort()
@@ -861,17 +857,17 @@ def suggest(new_ids, domain, trials, seed,
         assert n_startup_jobs <= 0
         fake_id_0 = new_id + 2
 
-    fake_ids = range(fake_id_0, fake_id_0 + n_EI_candidates)
+    fake_ids = list(range(fake_id_0, fake_id_0 + n_EI_candidates))
 
     # -- this dictionary will map pyll nodes to the values
     #    they should take during the evaluation of the pyll program
     memo = {
         domain.s_new_ids: fake_ids,
         domain.s_rng: np.random.RandomState(seed),
-           }
+    }
 
     o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-        [d['misc'] for d in docs], keys=domain.params.keys())
+        [d['misc'] for d in docs], keys=list(domain.params.keys()))
     memo[observed['idxs']] = o_idxs_d
     memo[observed['vals']] = o_vals_d
 
@@ -879,7 +875,7 @@ def suggest(new_ids, domain, trials, seed,
     memo[observed_loss['vals']] = losses
 
     idxs, vals = pyll.rec_eval([opt_idxs, opt_vals], memo=memo,
-            print_node_on_error=False)
+                               print_node_on_error=False)
 
     # -- retrieve the best of the samples and form the return tuple
     # the build_posterior makes all specs the same
@@ -889,11 +885,9 @@ def suggest(new_ids, domain, trials, seed,
     rval_miscs = [dict(tid=new_id, cmd=domain.cmd, workdir=domain.workdir)]
 
     miscs_update_idxs_vals(rval_miscs, idxs, vals,
-            idxs_map={fake_ids[0]: new_id},
-            assert_all_vals_used=False)
+                           idxs_map={fake_ids[0]: new_id},
+                           assert_all_vals_used=False)
     rval_docs = trials.new_trial_docs([new_id],
-            rval_specs, rval_results, rval_miscs)
+                                      rval_specs, rval_results, rval_miscs)
 
     return rval_docs
-
-
