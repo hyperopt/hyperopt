@@ -176,8 +176,6 @@ class AnnealingAlgo(SuggestAlgo):
         picks_tids = np.asarray(tids)[picks]
         picks_vals = np.asarray(vals)[picks]
 
-        # ltvs = np.asarray(sorted(zip(losses, tids, vals)))
-        # best_loss, best_tid, best_val = ltvs[best_idx]
         if size == 1:
             self.best_tids.append(int(picks_tids))
         return picks_loss, picks_tids, picks_vals

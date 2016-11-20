@@ -156,11 +156,8 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
     R = int(np.ceil(len(all_labels) / float(C)))
 
     for plotnum, varnum in enumerate(order):
-        # print varnum, titles[varnum]
         label = all_labels[varnum]
         plt.subplot(R, C, plotnum + 1)
-        # print '-' * 80
-        # print 'Node', label
 
         # hide x ticks
         ticks_num, ticks_txt = plt.xticks()
@@ -240,7 +237,6 @@ if 0:
             rval += p_current_is_best * tscore
             rval_denom += p_current_is_best
             if p_current_is_best < 0.001:
-                # print 'breaking after',i, 'examples'
                 break
         return rval / rval_denom
 

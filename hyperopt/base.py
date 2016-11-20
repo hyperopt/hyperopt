@@ -315,14 +315,14 @@ class Trials(object):
         try:
             return iter(self._trials)
         except AttributeError:
-            print((sys.stderr, "You have to refresh before you iterate"))
+            print("You have to refresh before you iterate", file=sys.stderr)
             raise
 
     def __len__(self):
         try:
             return len(self._trials)
         except AttributeError:
-            print((sys.stderr, "You have to refresh before you compute len"))
+            print("You have to refresh before you compute len", file=sys.stderr)
             raise
 
     def __getitem__(self, item):
@@ -571,10 +571,6 @@ class Trials(object):
                    loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
                 cutoff += 1
             pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
-            # print pmin
-            # print loss3[:cutoff, 0]
-            # print loss3[:cutoff, 1]
-            # print loss3[:cutoff, 2]
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
             return avg_true_loss
 
@@ -866,7 +862,6 @@ class Domain(object):
         # -- don't do this here because SON-compatibility is only a requirement
         #    for trials destined for a mongodb. In-memory rvals can contain
         #    anything.
-        # return base.SONify(dict_rval)
         return dict_rval
 
     def evaluate_async(self, config, ctrl, attach_attachments=True,):
@@ -917,7 +912,6 @@ class Domain(object):
         # -- don't do this here because SON-compatibility is only a requirement
         #    for trials destined for a mongodb. In-memory rvals can contain
         #    anything.
-        # return base.SONify(dict_rval)
         return dict_rval
 
     def short_str(self):

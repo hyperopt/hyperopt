@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 def suggest(new_ids, domain, trials, seed):
-    # logger.debug("in suggest with seed: %s" % (str(seed)))
-    # logger.debug('generating trials for new_ids: %s' % str(new_ids))
-
     rng = np.random.RandomState(seed)
     rval = []
     for ii, new_id in enumerate(new_ids):

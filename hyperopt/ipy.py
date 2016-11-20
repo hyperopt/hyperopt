@@ -12,9 +12,6 @@ from builtins import object
 from time import sleep, time
 
 import numpy as np
-# from IPython.parallel import interactive
-# from IPython.parallel import TaskAborted
-# from IPython.display import clear_output
 
 from .base import Trials
 from .base import Domain
@@ -51,7 +48,6 @@ class IPythonTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = [doc['tid'] for doc in docs]
         self._dynamic_trials.extend(docs)
-        # print "size of dynamic trials", len(self._dynamic_trials)
         return rval
 
     def refresh(self):
@@ -73,11 +69,8 @@ class IPythonTrials(Trials):
 
         # -- remove completed jobs from job_map
         for eid, (p, tt) in list(job_map.items()):
-            # print "eid p tt", eid, p, tt
             if p is None:
                 continue
-            # print p
-            # assert eid == p.engine_id
             if p.ready():
                 try:
                     tt['result'] = p.get()
@@ -145,7 +138,6 @@ class IPythonTrials(Trials):
             idles = [eid for (eid, (p, tt)) in list(self.job_map.items()) if p is None]
 
             if idles:
-                # print "how many idles?", idles, len(idles)
                 new_ids = self.new_trial_ids(len(idles))
                 new_trials = algo(new_ids, domain, self, rstate.randint(2 ** 31 - 1))
                 if len(new_trials) == 0:

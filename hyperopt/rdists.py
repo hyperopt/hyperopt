@@ -264,9 +264,6 @@ class qnormal_gen(object):
         lbound[flip] = self.mu - (ubound[flip] - self.mu)
         ubound[flip] = self.mu - (tmp - self.mu)
 
-        # if lbound > self.mu:
-        # lbound, ubound = (self.mu - (ubound - self.mu),
-        # self.mu - (lbound - self.mu))
         assert np.all(ubound > lbound)
         a = self._norm_logcdf(ubound)
         b = self._norm_logcdf(lbound)

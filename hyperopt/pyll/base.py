@@ -301,7 +301,6 @@ class Apply(object):
             rval = self.pos_args + [v for (k, v) in self.named_args]
         else:
             rval = self.pos_args
-        # assert all(isinstance(arg, Apply) for arg in rval)
         return rval
 
     @property
@@ -320,7 +319,7 @@ class Apply(object):
 
         fn = scope._impls[self.name]
         # XXX does not work for builtin functions
-        # defaults = fn.__defaults__  # right-aligned default values for params
+        defaults = fn.__defaults__  # right-aligned default values for params
         code = fn.__code__
 
         extra_args_ok = bool(code.co_flags & 0x04)
@@ -612,10 +611,6 @@ class Lambda(object):
             raise NotImplementedError('named / default arguments',
                                       (args, self.params))
         rval = clone(self.expr, memo)
-        # print('BEFORE')
-        # print(self.expr)
-        # print('AFTER')
-        # print(rval)
         return rval
 
 
@@ -846,7 +841,6 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                 #    then we can free memo[ii] by replacing it
                 #    with a dummy symbol
                 if all(iic in memo for iic in clients[ii]):
-                    # print('collecting', ii)
                     memo[ii] = GarbageCollected
     else:
         def set_memo(k, v):

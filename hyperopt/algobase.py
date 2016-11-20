@@ -147,7 +147,6 @@ class ExprEvaluator(object):
                 #    then we can free memo[ii] by replacing it
                 #    with a dummy symbol
                 if all(iic in memo for iic in self.clients[ii]):
-                    # print('collecting', ii)
                     memo[ii] = pyll.base.GarbageCollected
         else:
             memo[k] = v

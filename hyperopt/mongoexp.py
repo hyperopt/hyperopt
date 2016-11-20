@@ -627,7 +627,6 @@ class MongoJobs(object):
                 break
         if file_id is None:
             raise OperationFailure('Attachment not found: %s' % name)
-        # print "Deleting", file_id
         del attachments[i]
         self.update(doc, {'_attachments': attachments}, collection=collection)
         self.gfs.delete(file_id)

@@ -368,13 +368,11 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     # -- magic formula:
     minsigma = old_div(prior_sigma, np.sqrt(1 + len(mus)))
 
-    # print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
     weights[0] = prior_weight
 
-    # print weights.dtype
     weights = old_div(weights, weights.sum())
     if 0:
         print('WEIGHTS', weights)
@@ -409,7 +407,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
     """
     mus - matrix (N, M) of M, N-dimensional component centers
     """
-    # mus_orig = np.array(mus)
     mus = np.array(mus)
     assert str(mus.dtype) != 'object'
 
@@ -463,7 +460,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
     maxsigma = old_div(prior_sigma, 1.0)
     minsigma = old_div(prior_sigma, min(100.0, (1.0 + len(srtd_mus))))
 
-    # print 'maxsigma, minsigma', maxsigma, minsigma
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     sigma[prior_pos] = prior_sigma
@@ -596,7 +592,6 @@ def ap_categorical_sampler(obs, prior_weight, upper,
 
 @scope.define
 def tpe_cat_pseudocounts(counts, upper, prior_weight, p, size):
-    # print counts
     if size == 0 or np.prod(size) == 0:
         return []
     if p.ndim == 2:
@@ -644,9 +639,6 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
 
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
-
-    # print 'AA0', below
-    # print 'AA1', above
 
     return np.asarray(below), np.asarray(above)
 
@@ -696,7 +688,6 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
 
                 assert a_post.name == b_post.name
                 fn_lpdf = getattr(scope, a_post.name + '_lpdf')
-                # print fn_lpdf
                 a_kwargs = dict([(n, a) for n, a in a_post.named_args
                                  if n not in ('rng', 'size')])
                 b_kwargs = dict([(n, a) for n, a in b_post.named_args
@@ -737,8 +728,6 @@ def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
 
     This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
     """
-    # print 'FULL IDXS'
-    # print full_idxs
     assert len(set(full_idxs)) == len(full_idxs)
     full_idxs = list(full_idxs)
     rval = np.zeros(len(full_idxs))
@@ -752,14 +741,12 @@ def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
         assert len(idxs) == len(llik)
         for ii, ll in zip(idxs, llik):
             rval[pos_of_tid[ii]] += ll
-            # rval[full_idxs.index(ii)] += ll
     return rval
 
 
 @scope.define
 def broadcast_best(samples, below_llik, above_llik):
     if len(samples):
-        # print 'AA2', dict(zip(samples, below_llik - above_llik))
         score = below_llik - above_llik
         if len(samples) != len(score):
             raise ValueError()
