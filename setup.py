@@ -5,7 +5,8 @@
 
 import logging
 import os
-import setuptools
+import re
+import sys
 
 # ----- overrides -----
 
@@ -30,13 +31,12 @@ debug = True
 
 # -------------------------
 
-if debug:
-    logging.basicConfig(level=logging.DEBUG)
+if debug: logging.basicConfig(level=logging.DEBUG)
 
+import setuptools
 
 def find_scripts():
     return [s for s in setuptools.findall('scripts/') if os.path.splitext(s)[1] != '.pyc']
-
 
 def package_to_path(package):
     """
@@ -46,8 +46,7 @@ def package_to_path(package):
 
     No idea if this works on windows
     """
-    return package.replace('.', '/')
-
+    return package.replace('.','/')
 
 def find_subdirectories(package):
     """
@@ -60,7 +59,6 @@ def find_subdirectories(package):
         subdirectories = []
     return subdirectories
 
-
 def subdir_findall(dir, subdir):
     """
     Find all files in a subdirectory and return paths relative to dir
@@ -71,7 +69,6 @@ def subdir_findall(dir, subdir):
     strip_n = len(dir.split('/'))
     path = '/'.join((dir, subdir))
     return ['/'.join(s.split('/')[strip_n:]) for s in setuptools.findall(path)]
-
 
 def find_package_data(packages):
     """
@@ -87,42 +84,41 @@ def find_package_data(packages):
     for package in packages:
         package_data[package] = []
         for subdir in find_subdirectories(package):
-            if '.'.join((package, subdir)) in packages:  # skip submodules
+            if '.'.join((package, subdir)) in packages: # skip submodules
                 logging.debug("skipping submodule %s/%s" % (package, subdir))
                 continue
-            if skip_tests and (subdir == 'tests'):  # skip tests
+            if skip_tests and (subdir == 'tests'): # skip tests
                 logging.debug("skipping tests %s/%s" % (package, subdir))
                 continue
             package_data[package] += subdir_findall(package_to_path(package), subdir)
     return package_data
 
 # ----------- Override defaults here ----------------
-if packages is None:
-    packages = setuptools.find_packages()
+if packages is None: packages = setuptools.find_packages()
 
-if len(packages) == 0:
-    raise Exception("No valid packages found")
+if len(packages) == 0: raise Exception("No valid packages found")
 
-if package_name is None:
-    package_name = packages[0]
+if package_name is None: package_name = packages[0]
 
-if package_data is None:
-    package_data = find_package_data(packages)
+if package_data is None: package_data = find_package_data(packages)
 
-if scripts is None:
-    scripts = find_scripts()
+if scripts is None: scripts = find_scripts()
+
+extra = {}
+if sys.version_info >= (3,):
+    extra['use_2to3'] = True
 
 setuptools.setup(
-    name=package_name,
-    version='0.1',
-    packages=packages,
-    scripts=scripts,
-    url='http://hyperopt.github.com/hyperopt/',
-    author='James Bergstra',
-    author_email='james.bergstra@gmail.com',
-    description='Distributed Asynchronous Hyperparameter Optimization',
-    long_description=open('README.txt').read(),
-    classifiers=[
+    name = package_name,
+    version = '0.0.3.dev',
+    packages = packages,
+    scripts = scripts,
+    url = 'http://hyperopt.github.com/hyperopt/',
+    author = 'James Bergstra',
+    author_email = 'james.bergstra@gmail.com',
+    description = 'Distributed Asynchronous Hyperparameter Optimization',
+    long_description = open('README.txt').read(),
+    classifiers = [
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Education',
         'Intended Audience :: Science/Research',
@@ -139,11 +135,16 @@ setuptools.setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development',
     ],
-    platforms=['Linux', 'OS-X', 'Windows'],
-    license='BSD',
-    keywords='Bayesian optimization hyperparameter model selection',
-    package_data=package_data,
-    include_package_data=True,
-    install_requires=['numpy', 'scipy', 'nose', 'pymongo', 'six', 'networkx'],
-    zip_safe=False
+    platforms = ['Linux', 'OS-X', 'Windows'],
+    license = 'BSD',
+    keywords = 'Bayesian optimization hyperparameter model selection',
+    package_data = package_data,
+    include_package_data = True,
+    install_requires = list(reversed([
+        'numpy',
+        'scipy',
+        'nose',
+        'pymongo',
+        'networkx'])),
+    **extra
 )

@@ -1,11 +1,10 @@
 """
 Random search - presented as hyperopt.fmin_random
 """
-from __future__ import absolute_import
 import logging
 import numpy as np
 
-from . import pyll
+import pyll
 
 from .base import miscs_update_idxs_vals
 
@@ -13,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 def suggest(new_ids, domain, trials, seed):
+    #logger.debug("in suggest with seed: %s" % (str(seed)))
+    #logger.debug('generating trials for new_ids: %s' % str(new_ids))
+
     rng = np.random.RandomState(seed)
     rval = []
     for ii, new_id in enumerate(new_ids):

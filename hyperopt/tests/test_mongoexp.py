@@ -1,6 +1,4 @@
-from __future__ import print_function
-from __future__ import absolute_import
-import six.moves.cPickle as pickle
+import cPickle
 import os
 import signal
 import subprocess
@@ -23,11 +21,7 @@ from hyperopt.mongoexp import MongoJobs
 from hyperopt.fmin import fmin
 from hyperopt import rand
 import hyperopt.tests.test_base
-from .test_domains import gauss_wave2
-from six.moves import map
-from six.moves import range
-from six.moves import zip
-
+from test_domains import gauss_wave2
 
 def skiptest(f):
     def wrapper(*args, **kwargs):
@@ -43,7 +37,6 @@ class TempMongo(object):
     with TempMongo() as foo:
         mj = foo.mongo_jobs('test1')
     """
-
     def __init__(self, workdir="/tmp/hyperopt_test"):
         self.workdir = workdir
 
@@ -53,25 +46,25 @@ class TempMongo(object):
             assert 0
         except IOError:
             subprocess.call(["mkdir", "-p", '%s/db' % self.workdir])
-            proc_args = ["mongod",
-                         "--dbpath=%s/db" % self.workdir,
+            proc_args = [ "mongod",
+                        "--dbpath=%s/db" % self.workdir,
                          "--noprealloc",
-                         "--port=22334"]
-            print("starting mongod", proc_args)
+                        "--port=22334"]
+            #print "starting mongod", proc_args
             self.mongo_proc = subprocess.Popen(
-                proc_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=self.workdir,  # this prevented mongod assertion fail
-            )
+                    proc_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=self.workdir, # this prevented mongod assertion fail 
+                    )
             try:
                 interval = .125
                 while interval <= 2:
                     if interval > .125:
-                        print("Waiting for mongo to come up")
+                        print "Waiting for mongo to come up"
                     time.sleep(interval)
                     interval *= 2
-                    if self.db_up():
+                    if  self.db_up():
                         break
                 if self.db_up():
                     return self
@@ -79,31 +72,33 @@ class TempMongo(object):
                     try:
                         os.kill(self.mongo_proc.pid, signal.SIGTERM)
                     except OSError:
-                        pass  # if it crashed there is no such process
+                        pass # if it crashed there is no such process
                     out, err = self.mongo_proc.communicate()
-                    print(out, file=sys.stderr)
-                    print(err, file=sys.stderr)
+                    print >> sys.stderr, out
+                    print >> sys.stderr, err
                     raise RuntimeError('No database connection', proc_args)
-            except Exception as e:
+            except Exception, e:
                 try:
                     os.kill(self.mongo_proc.pid, signal.SIGTERM)
                 except OSError:
-                    pass  # if it crashed there is no such process
+                    pass # if it crashed there is no such process
                 raise e
 
     def __exit__(self, *args):
+        #print 'CLEANING UP MONGO ...'
         os.kill(self.mongo_proc.pid, signal.SIGTERM)
         self.mongo_proc.wait()
         subprocess.call(["rm", "-Rf", self.workdir])
+        #print 'CLEANING UP MONGO DONE'
 
     @staticmethod
     def connection_string(dbname):
-        return as_mongo_str('localhost:22334/{}/jobs'.format(dbname))
+        return as_mongo_str('localhost:22334/%s' % dbname) + '/jobs'
 
     @staticmethod
     def mongo_jobs(dbname):
         return MongoJobs.new_from_connection_str(
-            TempMongo.connection_string(dbname))
+                TempMongo.connection_string(dbname))
 
     def db_up(self):
         try:
@@ -113,27 +108,26 @@ class TempMongo(object):
             return False
 
 # -- If we can't create a TempMongo instance, then
-#    simply print what happened,
+#    simply print what happened, 
 try:
     with TempMongo() as temp_mongo:
         pass
-except OSError as e:
-    print(e, file=sys.stderr)
-    print(("Failed to create a TempMongo context,"
-           " skipping all mongo tests."), file=sys.stderr)
+except OSError, e:
+    print >> sys.stderr, e
+    print >> sys.stderr, ("Failed to create a TempMongo context,"
+        " skipping all mongo tests.")
     if "such file" in str(e):
-        print("Hint: is mongod executable on path?", file=sys.stderr)
+        print >> sys.stderr, "Hint: is mongod executable on path?"
     raise nose.SkipTest()
 
 
 class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
-
     def setUp(self):
         self.temp_mongo = TempMongo()
         self.temp_mongo.__enter__()
         self.trials = MongoTrials(
-            self.temp_mongo.connection_string('foo'),
-            exp_key=None)
+                self.temp_mongo.connection_string('foo'),
+                exp_key=None)
 
     def tearDown(self, *args):
         self.temp_mongo.__exit__(*args)
@@ -143,8 +137,8 @@ def with_mongo_trials(f, exp_key=None):
     def wrapper():
         with TempMongo() as temp_mongo:
             trials = MongoTrials(temp_mongo.connection_string('foo'),
-                                 exp_key=exp_key)
-            print('Length of trials: ', len(trials.results))
+                    exp_key=exp_key)
+            print(len(trials.results))
             f(trials)
     wrapper.__name__ = f.__name__
     return wrapper
@@ -159,40 +153,39 @@ def _worker_thread_fn(host_id, n_jobs, timeout, dbname='foo', logfilename=None):
     try:
         while n_jobs:
             mw.run_one(host_id, timeout, erase_created_workdir=True)
-            print('worker: %s ran job' % str(host_id))
+            print 'worker: %s ran job' % str(host_id)
             n_jobs -= 1
     except ReserveTimeout:
-        print('worker timed out:', host_id)
+        print 'worker timed out:', host_id
         pass
 
 
 def with_worker_threads(n_threads, dbname='foo',
-                        n_jobs=sys.maxsize, timeout=10.0):
+        n_jobs=sys.maxint, timeout=10.0):
     """
     Decorator that will run a test with some MongoWorker threads in flight
     """
     def newth(ii):
         return threading.Thread(
-            target=_worker_thread_fn,
-            args=(('hostname', ii), n_jobs, timeout, dbname))
-
+                target=_worker_thread_fn,
+                args=(('hostname', ii), n_jobs, timeout, dbname))
     def deco(f):
         def wrapper(*args, **kwargs):
             # --start some threads
-            threads = list(map(newth, list(range(n_threads))))
+            threads = map(newth, range(n_threads))
             [th.start() for th in threads]
             try:
                 return f(*args, **kwargs)
             finally:
                 [th.join() for th in threads]
-        wrapper.__name__ = f.__name__  # -- nose requires test in name
+        wrapper.__name__ = f.__name__ # -- nose requires test in name
         return wrapper
     return deco
 
 
 @with_mongo_trials
 def test_with_temp_mongo(trials):
-    pass  # -- just verify that the decorator can run
+    pass # -- just verify that the decorator can run
 
 
 @with_mongo_trials
@@ -213,18 +206,18 @@ def test_new_trial_ids(trials):
 
 @with_mongo_trials
 def test_attachments(trials):
-    blob = b'abcde'
+    blob = 'abcde'
     assert 'aname' not in trials.attachments
     trials.attachments['aname'] = blob
     assert 'aname' in trials.attachments
     assert trials.attachments[u'aname'] == blob
     assert trials.attachments['aname'] == blob
 
-    blob2 = b'zzz'
+    blob2 = 'zzz'
     trials.attachments['aname'] = blob2
     assert 'aname' in trials.attachments
-    assert trials.attachments[u'aname'] == blob2
     assert trials.attachments['aname'] == blob2
+    assert trials.attachments[u'aname'] == blob2
 
     del trials.attachments['aname']
     assert 'aname' not in trials.attachments
@@ -299,8 +292,9 @@ class TestExperimentWithThreads(unittest.TestCase):
         # -- should not matter which domain is used here
         domain = gauss_wave2()
 
-        pickle.dumps(domain.expr)
-        pickle.dumps(passthrough)
+        cPickle.dumps(domain.expr)
+        cPickle.dumps(passthrough)
+
 
         worker_threads = [
             threading.Thread(
@@ -310,7 +304,6 @@ class TestExperimentWithThreads(unittest.TestCase):
 
         with TempMongo() as tm:
             mj = tm.mongo_jobs('foodb')
-            print(mj)
             trials_list = [
                 MongoTrials(tm.connection_string('foodb'), key)
                 for key in exp_keys]
@@ -342,6 +335,7 @@ class TestExperimentWithThreads(unittest.TestCase):
                     max_evals)
                 self.assertEqual(len(trials), max_evals)
 
+
             # Verify that the first two experiments match.
             # (Do these need sorting by trial id?)
             trials_A0, trials_A1, trials_B0 = trials_list
@@ -357,26 +351,26 @@ class TestExperimentWithThreads(unittest.TestCase):
 
 
 class FakeOptions(object):
-
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
 
 # -- assert that the test raises a ReserveTimeout within 5 seconds
-@nose.tools.timed(10.0)  # XXX:  this needs a suspiciously long timeout
+@nose.tools.timed(10.0)  #XXX:  this needs a suspiciously long timeout
 @nose.tools.raises(ReserveTimeout)
 @with_mongo_trials
 def test_main_worker(trials):
     options = FakeOptions(
-        max_jobs=1,
-        # XXX: sync this with TempMongo
-        mongo=as_mongo_str('localhost:22334/foodb'),
-        reserve_timeout=1,
-        poll_interval=.5,
-        workdir=None,
-        exp_key='foo',
-        last_job_timeout=None,
-    )
+            max_jobs=1,
+            # XXX: sync this with TempMongo
+            mongo=as_mongo_str('localhost:22334/foodb'),
+            reserve_timeout=1,
+            poll_interval=.5,
+            workdir=None,
+            exp_key='foo',
+            last_job_timeout=None,
+            )
     # -- check that it runs
     #    and that the reserve timeout is respected
     main_worker_helper(options, ())
+

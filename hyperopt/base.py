@@ -20,16 +20,14 @@ The design is that there are three components fitting together in this project:
          appropriate thread-aware Ctrl subclass should go with it.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import str
-from builtins import map
-from builtins import zip
-from builtins import range
-from past.builtins import basestring
-from builtins import object
+
+__authors__ = "James Bergstra"
+__license__ = "3-clause BSD License"
+__contact__ = "github.com/hyperopt/hyperopt"
+
 import logging
 import datetime
+import os
 import sys
 
 import numpy as np
@@ -41,18 +39,15 @@ try:
 except ImportError:
     have_bson = False
 
-from . import pyll
-from .pyll.stochastic import recursive_set_rng_kwarg
+import pyll
+#from pyll import scope  # looks unused but
+from pyll.stochastic import recursive_set_rng_kwarg
 
 from .exceptions import (
     DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
-
-__authors__ = "James Bergstra"
-__license__ = "3-clause BSD License"
-__contact__ = "github.com/hyperopt/hyperopt"
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +68,7 @@ STATUS_STRINGS = (
     'suspended',  # computations have been suspended, job is not finished
     'ok',         # computations are finished, terminated normally
     'fail')       # computations are finished, terminated with error
-#   - result['status_fail'] should contain more info
+                  #   - result['status_fail'] should contain more info
 
 
 # -- JOBSTATE values
@@ -136,14 +131,14 @@ def SONify(arg, memo=None):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
             rval = dict(
-                [(SONify(k, memo), SONify(v, memo)) for k, v in list(arg.items())])
-        elif isinstance(arg, (basestring, float, int, int, type(None))):
+                [(SONify(k, memo), SONify(v, memo)) for k, v in arg.items()])
+        elif isinstance(arg, (basestring, float, int, long, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:
                 rval = SONify(arg.sum())
             else:
-                rval = list(map(SONify, arg))  # N.B. memo None
+                rval = map(SONify, arg)  # N.B. memo None
         # -- put this after ndarray because ndarray not hashable
         elif arg in (True, False):
             rval = int(arg)
@@ -193,7 +188,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
     if keys is None:
         if len(miscs) == 0:
             raise ValueError('cannot infer keys from empty miscs')
-        keys = list(miscs[0]['idxs'].keys())
+        keys = miscs[0]['idxs'].keys()
     idxs = dict([(k, []) for k in keys])
     vals = dict([(k, []) for k in keys])
     for misc in miscs:
@@ -209,7 +204,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
 
 def spec_from_misc(misc):
     spec = {}
-    for k, v in list(misc['vals'].items()):
+    for k, v in misc['vals'].items():
         if len(v) == 0:
             pass
         elif len(v) == 1:
@@ -296,7 +291,6 @@ class Trials(object):
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
-
             def __contains__(_self, name):
                 return self.aname(trial, name) in self.attachments
 
@@ -315,14 +309,14 @@ class Trials(object):
         try:
             return iter(self._trials)
         except AttributeError:
-            print("You have to refresh before you iterate", file=sys.stderr)
+            print(sys.stderr, "You have to refresh before you iterate")
             raise
 
     def __len__(self):
         try:
             return len(self._trials)
         except AttributeError:
-            print("You have to refresh before you compute len", file=sys.stderr)
+            print(sys.stderr, "You have to refresh before you compute len")
             raise
 
     def __getitem__(self, item):
@@ -339,8 +333,8 @@ class Trials(object):
         else:
             self._trials = [tt
                             for tt in self._dynamic_trials
-                            if (tt['state'] != JOB_STATE_ERROR and
-                                tt['exp_key'] == self._exp_key)]
+                            if (tt['state'] != JOB_STATE_ERROR
+                                and tt['exp_key'] == self._exp_key)]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -432,7 +426,7 @@ class Trials(object):
 
     def new_trial_ids(self, N):
         aa = len(self._ids)
-        rval = list(range(aa, aa + N))
+        rval = range(aa, aa + N)
         self._ids.update(rval)
         return rval
 
@@ -455,7 +449,7 @@ class Trials(object):
         return rval
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
-        assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))
+        assert _all_same(map(len, [tids, specs, results, miscs, sources]))
         rval = []
         for tid, spec, result, misc, source in zip(tids, specs, results, miscs,
                                                    sources):
@@ -470,7 +464,7 @@ class Trials(object):
                 owner=source['owner'],
                 book_time=source['book_time'],
                 refresh_time=source['refresh_time'],
-            )
+                )
             # -- ensure that misc has the following fields,
             #    some of which may already by set correctly.
             assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
@@ -518,13 +512,13 @@ class Trials(object):
         if bandit is None:
             return [r.get('loss') for r in self.results]
         else:
-            return list(map(bandit.loss, self.results, self.specs))
+            return map(bandit.loss, self.results, self.specs)
 
     def statuses(self, bandit=None):
         if bandit is None:
             return [r.get('status') for r in self.results]
         else:
-            return list(map(bandit.status, self.results, self.specs))
+            return map(bandit.status, self.results, self.specs)
 
     def average_best_error(self, bandit=None):
         """Return the average best error of the experiment
@@ -556,7 +550,7 @@ class Trials(object):
             loss = fmap(bandit.loss)
             loss_v = fmap(bandit.loss_variance)
             true_loss = fmap(bandit.true_loss)
-        loss3 = list(zip(loss, loss_v, true_loss))
+        loss3 = zip(loss, loss_v, true_loss)
         if not loss3:
             raise ValueError('Empty loss vector')
         loss3.sort()
@@ -567,10 +561,14 @@ class Trials(object):
         else:
             cutoff = 0
             sigma = np.sqrt(loss3[0][1])
-            while (cutoff < len(loss3) and
-                   loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
+            while (cutoff < len(loss3)
+                    and loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
                 cutoff += 1
             pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
+            #print pmin
+            #print loss3[:cutoff, 0]
+            #print loss3[:cutoff, 1]
+            #print loss3[:cutoff, 2]
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
             return avg_true_loss
 
@@ -592,7 +590,7 @@ class Trials(object):
         # unpack the one-element lists to values
         # and skip over the 0-element lists
         rval = {}
-        for k, v in list(vals.items()):
+        for k, v in vals.items():
             if v:
                 rval[k] = v[0]
         return rval
@@ -623,8 +621,8 @@ class Trials(object):
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
-        from .fmin import fmin
-        return fmin(
+        import fmin as fmin_module
+        return fmin_module.fmin(
             fn, space, algo, max_evals,
             trials=self,
             rstate=rstate,
@@ -856,12 +854,13 @@ class Domain(object):
 
         if attach_attachments:
             attachments = dict_rval.pop('attachments', {})
-            for key, val in list(attachments.items()):
+            for key, val in attachments.items():
                 ctrl.attachments[key] = val
 
         # -- don't do this here because SON-compatibility is only a requirement
         #    for trials destined for a mongodb. In-memory rvals can contain
         #    anything.
+        #return base.SONify(dict_rval)
         return dict_rval
 
     def evaluate_async(self, config, ctrl, attach_attachments=True,):
@@ -874,7 +873,7 @@ class Domain(object):
         memo = self.memo_from_config(config)
         use_obj_for_literal_in_memo(self.expr, ctrl, Ctrl, memo)
         if self.pass_expr_memo_ctrl:
-            pyll_rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
+            rval = self.fn(expr=self.expr, memo=memo, ctrl=ctrl)
         else:
             # -- the "work" of evaluating `config` can be written
             #    either into the pyll part (self.expr)
@@ -883,9 +882,8 @@ class Domain(object):
                 self.expr,
                 memo=memo,
                 print_node_on_error=self.rec_eval_print_node_on_error)
-            return (self.fn, pyll_rval)
-
-    def evaluate_async2(self, rval, ctrl, attach_attachments=True):
+            return (self.fn,pyll_rval)
+    def evaluate_async2(self,rval,ctrl,attach_attachments=True):
         '''
         this is the second part of async evaluation for ipython parallel engines (see ipy.py)
         '''
@@ -906,13 +904,15 @@ class Domain(object):
 
         if attach_attachments:
             attachments = dict_rval.pop('attachments', {})
-            for key, val in list(attachments.items()):
+            for key, val in attachments.items():
                 ctrl.attachments[key] = val
 
         # -- don't do this here because SON-compatibility is only a requirement
         #    for trials destined for a mongodb. In-memory rvals can contain
         #    anything.
+        #return base.SONify(dict_rval)
         return dict_rval
+
 
     def short_str(self):
         return 'Domain{%s}' % str(self.fn)
