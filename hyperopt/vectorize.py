@@ -1,20 +1,25 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import zip
+from builtins import range
+from builtins import object
 import sys
 
 import numpy as np
 
-from pyll import Apply
-from pyll import as_apply
-from pyll import dfs
-from pyll import toposort
-from pyll import scope
-from pyll import stochastic
-from pyll import clone_merge
+from .pyll import Apply
+from .pyll import as_apply
+from .pyll import dfs
+from .pyll import toposort
+from .pyll import scope
+from .pyll import stochastic
 
 stoch = stochastic.implicit_stochastic_symbols
 
 
 def ERR(msg):
-    print >> sys.stderr, 'hyperopt.vectorize.ERR', msg
+    print('hyperopt.vectorize.ERR', msg, file=sys.stderr)
 
 
 @scope.define_pure
@@ -22,7 +27,7 @@ def vchoice_split(idxs, choices, n_options):
     rval = [[] for ii in range(n_options)]
     if len(idxs) != len(choices):
         raise ValueError('idxs and choices different len',
-                (len(idxs), len(choices)))
+                         (len(idxs), len(choices)))
     for ii, cc in zip(idxs, choices):
         rval[cc].append(ii)
     return rval
@@ -50,23 +55,25 @@ def idxs_map(idxs, cmd, *args, **kwargs):
     # XXX: consider insisting on sorted idxs
     # XXX: use np.searchsorted instead of dct
 
-    if 0: # these should all be true, but evaluating them is slow
+    if 0:  # these should all be true, but evaluating them is slow
         for ii, (idxs_ii, vals_ii) in enumerate(args):
-            for jj in idxs: assert jj in idxs_ii
-        for kw, (idxs_kw, vals_kw) in kwargs.items():
-            for jj in idxs: assert jj in idxs_kw
+            for jj in idxs:
+                assert jj in idxs_ii
+        for kw, (idxs_kw, vals_kw) in list(kwargs.items()):
+            for jj in idxs:
+                assert jj in idxs_kw
 
     args_imap = []
     for idxs_j, vals_j in args:
         if len(idxs_j):
-            args_imap.append(dict(zip(idxs_j, vals_j)))
+            args_imap.append(dict(list(zip(idxs_j, vals_j))))
         else:
             args_imap.append({})
 
     kwargs_imap = {}
-    for kw, (idxs_j, vals_j) in kwargs.items():
+    for kw, (idxs_j, vals_j) in list(kwargs.items()):
         if len(idxs_j):
-            kwargs_imap[kw] = dict(zip(idxs_j, vals_j))
+            kwargs_imap[kw] = dict(list(zip(idxs_j, vals_j)))
         else:
             kwargs_imap[kw] = {}
 
@@ -78,17 +85,17 @@ def idxs_map(idxs, cmd, *args, **kwargs):
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
-            ERR('arg_imap %s' % str(arg_imap))
+            ERR('arg_imap %s' % str(args_imap))
             ERR('args_imap %s' % str(args_imap))
             raise
         try:
             kwargs_nn = dict([(kw, arg_imap[ii])
-                for kw, arg_imap in kwargs_imap.items()])
+                              for kw, arg_imap in list(kwargs_imap.items())])
         except:
             ERR('args_nn %s' % cmd)
             ERR('ii %s' % ii)
             ERR('kw %s' % kw)
-            ERR('arg_imap %s' % str(arg_imap))
+            ERR('arg_imap %s' % str(args_imap))
             raise
         try:
             rval_nn = f(*args_nn, **kwargs_nn)
@@ -107,7 +114,7 @@ def idxs_take(idxs, vals, which):
     # TODO: consider insisting on sorted idxs
     # TODO: use np.searchsorted instead of dct
     assert len(idxs) == len(vals)
-    table = dict(zip(idxs, vals))
+    table = dict(list(zip(idxs, vals)))
     return np.asarray([table[w] for w in which])
 
 
@@ -127,6 +134,7 @@ def vectorize_stochastic(orig):
         # -- this is an idxs_map of a random draw of distribution `dist`
         idxs = orig.pos_args[0]
         dist = orig.pos_args[1]._obj
+
         def foo(arg):
             # -- each argument is an idxs, vals pair
             assert arg.name == 'pos_args'
@@ -150,7 +158,7 @@ def vectorize_stochastic(orig):
                 raise NotImplementedError()
         new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
         new_named_args = [[aname, foo(arg)]
-                for aname, arg in orig.named_args]
+                          for aname, arg in orig.named_args]
         vnode = Apply(dist, new_pos_args, new_named_args, o_len=None)
         n_times = scope.len(idxs)
         if 'size' in dict(vnode.named_args):
@@ -169,13 +177,14 @@ def replace_repeat_stochastic(expr, return_memo=False):
             # -- this is an idxs_map of a random draw of distribution `dist`
             idxs = orig.pos_args[0]
             dist = orig.pos_args[1]._obj
+
             def foo(arg):
                 # -- each argument is an idxs, vals pair
                 assert arg.name == 'pos_args'
                 assert len(arg.pos_args) == 2
                 arg_vals = arg.pos_args[1]
-                if (arg_vals.name == 'asarray'
-                        and arg_vals.inputs()[0].name == 'repeat'):
+                if (arg_vals.name == 'asarray' and
+                   arg_vals.inputs()[0].name == 'repeat'):
                     # -- draws are iid, so forget about
                     #    repeating the distribution parameters
                     repeated_thing = arg_vals.inputs()[0].inputs()[1]
@@ -190,14 +199,14 @@ def replace_repeat_stochastic(expr, return_memo=False):
                         raise NotImplementedError()
             new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
             new_named_args = [[aname, foo(arg)]
-                    for aname, arg in orig.named_args]
+                              for aname, arg in orig.named_args]
             vnode = Apply(dist, new_pos_args, new_named_args, None)
             n_times = scope.len(idxs)
             if 'size' in dict(vnode.named_args):
                 raise NotImplementedError('random node already has size')
             vnode.named_args.append(['size', n_times])
             # -- loop over all nodes that *use* this one, and change them
-            for client in nodes[ii+1:]:
+            for client in nodes[ii + 1:]:
                 client.replace_input(orig, vnode)
             if expr is orig:
                 expr = vnode
@@ -238,7 +247,7 @@ class VectorizeHelper(object):
         self.take_memo = {}  # node -> list of idxs_take retrieving node vals
         self.v_expr = self.build_idxs_vals(expr, expr_idxs)
 
-        #TODO: graph-optimization pass to remove cruft:
+        # TODO: graph-optimization pass to remove cruft:
         #  - unions of 1
         #  - unions of full sets with their subsets
         #  - idxs_take that can be merged
@@ -259,12 +268,12 @@ class VectorizeHelper(object):
                 assert take.name == 'idxs_take'
                 assert [idxs, vals] == take.pos_args[:2]
 
-
     def build_idxs_vals(self, node, wanted_idxs):
         """
         This recursive procedure should be called on an output-node.
         """
         checkpoint_asserts = False
+
         def checkpoint():
             if checkpoint_asserts:
                 self.assert_integrity_idxs_take()
@@ -315,8 +324,8 @@ class VectorizeHelper(object):
 
         # -- switch case: complicated
         elif node.name == 'switch':
-            if (node in self.idxs_memo
-                    and wanted_idxs in self.idxs_memo[node].pos_args):
+            if (node in self.idxs_memo and
+               wanted_idxs in self.idxs_memo[node].pos_args):
                 # -- phew, easy case
                 all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
                 wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
@@ -336,19 +345,19 @@ class VectorizeHelper(object):
 
                 options = node.pos_args[1:]
                 args_idxs = scope.vchoice_split(all_idxs, all_choices,
-                        len(options))
+                                                len(options))
                 all_vals = scope.vchoice_merge(all_idxs, all_choices)
                 for opt_ii, idxs_ii in zip(options, args_idxs):
                     all_vals.pos_args.append(
-                            as_apply([
-                                idxs_ii,
-                                self.build_idxs_vals(opt_ii, idxs_ii),
-                                ]))
+                        as_apply([
+                            idxs_ii,
+                            self.build_idxs_vals(opt_ii, idxs_ii),
+                        ]))
 
                 wanted_vals = scope.idxs_take(
-                        all_idxs,     # -- may grow in future
-                        all_vals,     # -- may be replaced in future
-                        wanted_idxs)  # -- fixed.
+                    all_idxs,     # -- may grow in future
+                    all_vals,     # -- may be replaced in future
+                    wanted_idxs)  # -- fixed.
                 if node in self.idxs_memo:
                     assert self.idxs_memo[node].name == 'array_union'
                     self.idxs_memo[node].pos_args.append(wanted_idxs)
@@ -367,17 +376,17 @@ class VectorizeHelper(object):
             #    It is generally handled with idxs_memo,
             #    but vectorize_stochastic may immediately transform it into
             #    a more compact form.
-            if (node in self.idxs_memo
-                    and wanted_idxs in self.idxs_memo[node].pos_args):
+            if (node in self.idxs_memo and
+               wanted_idxs in self.idxs_memo[node].pos_args):
                 # -- phew, easy case
                 for take in self.take_memo[node]:
                     if take.pos_args[2] == wanted_idxs:
                         return take
                 raise NotImplementedError('how did this happen?')
-                #all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
-                #wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
-                #self.take_memo[node].append(wanted_vals)
-                #checkpoint()
+                # all_idxs, all_vals = self.take_memo[node][0].pos_args[:2]
+                # wanted_vals = scope.idxs_take(all_idxs, all_vals, wanted_idxs)
+                # self.take_memo[node].append(wanted_vals)
+                # checkpoint()
             else:
                 # XXX
                 # -- determine if wanted_idxs is actually a subset of the idxs
@@ -409,9 +418,9 @@ class VectorizeHelper(object):
 
                 checkpoint()
                 wanted_vals = scope.idxs_take(
-                        all_idxs,     # -- may grow in future
-                        all_vals,     # -- may be replaced in future
-                        wanted_idxs)  # -- fixed.
+                    all_idxs,     # -- may grow in future
+                    all_vals,     # -- may be replaced in future
+                    wanted_idxs)  # -- fixed.
                 if node in self.idxs_memo:
                     assert self.idxs_memo[node].name == 'array_union'
                     self.idxs_memo[node].pos_args.append(wanted_idxs)
@@ -430,10 +439,8 @@ class VectorizeHelper(object):
 
     def idxs_by_label(self):
         return dict([(name, self.idxs_memo[node])
-                for name, node in self.params.items()])
+                     for name, node in list(self.params.items())])
 
     def vals_by_label(self):
         return dict([(name, self.take_memo[node][0].pos_args[1])
-                for name, node in self.params.items()])
-
-
+                     for name, node in list(self.params.items())])

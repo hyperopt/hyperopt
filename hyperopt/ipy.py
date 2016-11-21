@@ -1,14 +1,17 @@
-"""Utilities for Parallel Model Selection with IPython
+"""Utilities for Parallel Model Selection with
+on
 
 Author: James Bergstra <james.bergstra@gmail.com>
 Licensed: MIT
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
+from builtins import object
 from time import sleep, time
 
 import numpy as np
-from IPython.parallel import interactive
-#from IPython.parallel import TaskAborted
-#from IPython.display import clear_output
 
 from .base import Trials
 from .base import Domain
@@ -21,8 +24,8 @@ from .base import Ctrl
 from .utils import coarse_utcnow
 
 import sys
-print >> sys.stderr, "WARNING: IPythonTrials is not as complete, stable"
-print >> sys.stderr, "         or well tested as Trials or MongoTrials."
+print(sys.stderr, "WARNING: IPythonTrials is not as complete, stable", file=sys.stderr)
+print("         or well tested as Trials or MongoTrials.", file=sys.stderr)
 
 
 class LostEngineError(RuntimeError):
@@ -32,8 +35,8 @@ class LostEngineError(RuntimeError):
 class IPythonTrials(Trials):
 
     def __init__(self, client,
-            job_error_reaction='raise',
-            save_ipy_metadata=True):
+                 job_error_reaction='raise',
+                 save_ipy_metadata=True):
         self._client = client
         self._clientlbv = client.load_balanced_view()
         self.job_map = {}
@@ -45,7 +48,6 @@ class IPythonTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = [doc['tid'] for doc in docs]
         self._dynamic_trials.extend(docs)
-        #print "size of dynamic trials", len(self._dynamic_trials)
         return rval
 
     def refresh(self):
@@ -56,7 +58,7 @@ class IPythonTrials(Trials):
             job_map[eid] = self.job_map.pop(eid, (None, None))
 
         # -- deal with lost engines, abandoned promises
-        for eid, (p, tt) in self.job_map.items():
+        for eid, (p, tt) in list(self.job_map.items()):
             if self.job_error_reaction == 'raise':
                 raise LostEngineError(p)
             elif self.job_error_reaction == 'log':
@@ -66,12 +68,9 @@ class IPythonTrials(Trials):
                 raise ValueError(self.job_error_reaction)
 
         # -- remove completed jobs from job_map
-        for eid, (p, tt) in job_map.items():
-            #print "eid p tt", eid, p, tt
-            if p is None: 
+        for eid, (p, tt) in list(job_map.items()):
+            if p is None:
                 continue
-            #print p
-            #assert eid == p.engine_id
             if p.ready():
                 try:
                     tt['result'] = p.get()
@@ -93,17 +92,18 @@ class IPythonTrials(Trials):
         self.job_map = job_map
         Trials.refresh(self)
 
-    def fmin(self, fn, space, **kw):        
+    def fmin(self, fn, space, **kw):
+        # TODO: all underscore variables are completely unused throughout.
         algo = kw.get('algo')
         max_evals = kw.get('max_evals')
-        rstate = kw.get('rstate',None)
-        _allow_trials_fmin=True,
-        _pass_expr_memo_ctrl=None,
-        _catch_eval_exceptions=False,
-        verbose=kw.get('verbose',0)
-        _return_argmin=True,
-        wait=True,
-        pass_expr_memo_ctrl=None,
+        rstate = kw.get('rstate', None)
+        _allow_trials_fmin = True,
+        _pass_expr_memo_ctrl = None,
+        _catch_eval_exceptions = False,
+        verbose = kw.get('verbose', 0)
+        _return_argmin = True,
+        wait = True,
+        pass_expr_memo_ctrl = None,
 
         if rstate is None:
             rstate = np.random
@@ -126,20 +126,18 @@ class IPythonTrials(Trials):
             self.refresh()
 
             if verbose and last_print_time + 1 < time():
-                print 'fmin: %4i/%4i/%4i/%4i  %f' % (
+                print('fmin: %4i/%4i/%4i/%4i  %f' % (
                     self.count_by_state_unsynced(JOB_STATE_NEW),
                     self.count_by_state_unsynced(JOB_STATE_RUNNING),
                     self.count_by_state_unsynced(JOB_STATE_DONE),
                     self.count_by_state_unsynced(JOB_STATE_ERROR),
                     min([float('inf')] + [l for l in self.losses() if l is not None])
-                    )
+                ))
                 last_print_time = time()
 
-            idles = [eid for (eid, (p, tt)) in self.job_map.items() if p is None]
-            
+            idles = [eid for (eid, (p, tt)) in list(self.job_map.items()) if p is None]
 
             if idles:
-                #print "how many idles?", idles, len(idles)
                 new_ids = self.new_trial_ids(len(idles))
                 new_trials = algo(new_ids, domain, self, rstate.randint(2 ** 31 - 1))
                 if len(new_trials) == 0:
@@ -164,7 +162,7 @@ class IPythonTrials(Trials):
                         # -- XXX bypassing checks because 'ar'
                         # is not ok for SONify... but should check
                         # for all else being SONify
-                        
+
                         tt = self._dynamic_trials[-1]
                         assert tt['tid'] == tid
                         self.job_map[eid] = (promise, tt)
@@ -172,7 +170,7 @@ class IPythonTrials(Trials):
 
         if wait:
             if verbose:
-                print 'fmin: Waiting on remaining jobs...'
+                print('fmin: Waiting on remaining jobs...')
             self.wait(verbose=verbose)
 
         return self.argmin
@@ -182,14 +180,14 @@ class IPythonTrials(Trials):
         while True:
             self.refresh()
             if verbose and last_print_time + verbose_print_interval < time():
-                print 'fmin: %4i/%4i/%4i/%4i  %f' % (
+                print('fmin: %4i/%4i/%4i/%4i  %f' % (
                     self.count_by_state_unsynced(JOB_STATE_NEW),
                     self.count_by_state_unsynced(JOB_STATE_RUNNING),
                     self.count_by_state_unsynced(JOB_STATE_DONE),
                     self.count_by_state_unsynced(JOB_STATE_ERROR),
-                    min([float('inf')]
-                        + [l for l in self.losses() if l is not None])
-                    )
+                    min([float('inf')] +
+                        [l for l in self.losses() if l is not None])
+                ))
                 last_print_time = time()
             if self.count_by_state_unsynced(JOB_STATE_NEW):
                 sleep(1e-1)
@@ -204,7 +202,7 @@ class IPythonTrials(Trials):
         del rval['_client']
         del rval['_trials']
         del rval['job_map']
-        #print rval.keys()
+        # print rval.keys()
         return rval
 
     def __setstate__(self, dct):
@@ -213,10 +211,11 @@ class IPythonTrials(Trials):
         Trials.refresh(self)
 
 
-##Monkey patching to allow the apply_async call and response to
-## be handled on behalf of the domain.
-class IPYAsync:
-    def __init__(self,async,domain,rv,eid,tid, ctrl):
+# Monkey patching to allow the apply_async call and response to
+# be handled on behalf of the domain.
+class IPYAsync(object):
+
+    def __init__(self, async, domain, rv, eid, tid, ctrl):
         self.async = async
         self.domain = domain
         self.rv = rv
@@ -224,23 +223,28 @@ class IPYAsync:
         self.eid = eid
         self.tid = tid
         self.ctrl = ctrl
+
     def ready(self):
         return self.async.ready()
+
     def get(self):
         if self.async.successful():
             val = self.async.get()
-            return self.domain.evaluate_async2(val,self.ctrl)
+            return self.domain.evaluate_async2(val, self.ctrl)
         else:
             return self.rv
     pass
 
-#@interactive
+# @interactive
+
+
 def call_domain(domain, spec, ctrl, trial, view, eid, tid):
     rv = {'loss': None, 'status': 'fail'}
-    rt = coarse_utcnow()    
-    #print "in call domain for spec", str(spec)
+    # TODO: rt unused
+    rt = coarse_utcnow()
+    # print "in call domain for spec", str(spec)
     promise = None
-    fn, pyll_rval = domain.evaluate_async(spec,ctrl)
-    promise = IPYAsync(view.apply_async(fn,pyll_rval),domain,rv, eid, tid, ctrl)
-    
+    fn, pyll_rval = domain.evaluate_async(spec, ctrl)
+    promise = IPYAsync(view.apply_async(fn, pyll_rval), domain, rv, eid, tid, ctrl)
+
     return promise

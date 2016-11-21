@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import object
+from past.utils import old_div
 import unittest
 
 import numpy as np
@@ -42,7 +45,6 @@ def coin_flip():
     return {'loss': hp.choice('flip', [0.0, 1.0]), 'status': base.STATUS_OK}
 
 
-
 @domain_constructor(loss_target=0)
 def quadratic1():
     """
@@ -56,9 +58,9 @@ def quadratic1():
 def q1_choice():
     o_x = hp.choice('o_x', [
         (-3, hp.uniform('x_neg', -5, 5)),
-        ( 3, hp.uniform('x_pos', -5, 5)),
-        ])
-    return {'loss': (o_x[0] - o_x[1])  ** 2, 'status': base.STATUS_OK}
+        (3, hp.uniform('x_pos', -5, 5)),
+    ])
+    return {'loss': (o_x[0] - o_x[1]) ** 2, 'status': base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
@@ -69,7 +71,7 @@ def q1_lognormal():
     """
     return {'loss': scope.min(0.1 * (hp.lognormal('x', 0, 2) - 10) ** 2,
                               10),
-            'status': base.STATUS_OK }
+            'status': base.STATUS_OK}
 
 
 @domain_constructor(loss_target=-2)
@@ -101,7 +103,7 @@ def distractor():
     """
 
     x = hp.uniform('x', -15, 15)
-    f1 = 1.0 / (1.0 + scope.exp(-x))    # climbs rightward from 0.0 to 1.0
+    f1 = old_div(1.0, (1.0 + scope.exp(-x)))    # climbs rightward from 0.0 to 1.0
     f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
     return {'loss': -f1 - f2, 'status': base.STATUS_OK}
 
@@ -122,7 +124,7 @@ def gauss_wave():
     x = hp.uniform('x', -20, 20)
     t = hp.choice('curve', [x, x + np.pi])
     f1 = scope.sin(t)
-    f2 = 2 * scope.exp(-(t / 5.0) ** 2)
+    f2 = 2 * scope.exp(-(old_div(t, 5.0)) ** 2)
     return {'loss': - (f1 + f2), 'status': base.STATUS_OK}
 
 
@@ -142,24 +144,24 @@ def gauss_wave2():
     var = .1
     x = hp.uniform('x', -20, 20)
     amp = hp.uniform('amp', 0, 1)
-    t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(x / 5.0) ** 2))
+    t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(old_div(x, 5.0)) ** 2))
     return {'loss': - hp.choice('hf', [t, t + scope.sin(x) * amp]),
             'loss_variance': var, 'status': base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
 def many_dists():
-    a=hp.choice('a', [0, 1, 2])
-    b=hp.randint('b', 10)
-    c=hp.uniform('c', 4, 7)
-    d=hp.loguniform('d', -2, 0)
-    e=hp.quniform('e', 0, 10, 3)
-    f=hp.qloguniform('f', 0, 3, 2)
-    g=hp.normal('g', 4, 7)
-    h=hp.lognormal('h', -2, 2)
-    i=hp.qnormal('i', 0, 10, 2)
-    j=hp.qlognormal('j', 0, 2, 1)
-    k=hp.pchoice('k', [(.1, 0), (.9, 1)])
+    a = hp.choice('a', [0, 1, 2])
+    b = hp.randint('b', 10)
+    c = hp.uniform('c', 4, 7)
+    d = hp.loguniform('d', -2, 0)
+    e = hp.quniform('e', 0, 10, 3)
+    f = hp.qloguniform('f', 0, 3, 2)
+    g = hp.normal('g', 4, 7)
+    h = hp.lognormal('h', -2, 2)
+    i = hp.qnormal('i', 0, 10, 2)
+    j = hp.qlognormal('j', 0, 2, 1)
+    k = hp.pchoice('k', [(.1, 0), (.9, 1)])
     z = a + b + c + d + e + f + g + h + i + j + k
     return {'loss': scope.float(scope.log(1e-12 + z ** 2)),
             'status': base.STATUS_OK}
@@ -172,7 +174,7 @@ def branin():
     and is roughly an angular trough across a 2D input space.
 
         f(x, y) = a (y - b x ** 2 + c x - r ) ** 2 + s (1 - t) cos(x) + s
-    
+
     The recommended values of a, b, c, r, s and t are:
         a = 1
         b = 5.1 / (4 pi ** 2)
@@ -191,28 +193,30 @@ def branin():
     x = hp.uniform('x', -5., 10.)
     y = hp.uniform('y', 0., 15.)
     pi = float(np.pi)
-    loss = ((y - (5.1 / (4 * pi ** 2)) * x ** 2 + 5 * x / pi - 6) ** 2
-             + 10 * (1 - 1 / (8 * pi)) * scope.cos(x) + 10)
+    loss = ((y - (old_div(5.1, (4 * pi ** 2))) * x ** 2 + 5 * x / pi - 6) ** 2 +
+            10 * (1 - old_div(1, (8 * pi))) * scope.cos(x) + 10)
     return {'loss': loss,
             'loss_variance': 0,
             'status': base.STATUS_OK}
 
 
 class DomainExperimentMixin(object):
+
     def test_basic(self):
         domain = self._domain_cls()
-        #print 'domain params', domain.params, domain
-        #print 'algo params', algo.vh.params
+        # print 'domain params', domain.params, domain
+        # print 'algo params', algo.vh.params
         trials = Trials()
         fmin(lambda x: x, domain.expr,
              trials=trials,
              algo=suggest,
              max_evals=self._n_steps)
-        assert trials.average_best_error(domain) - domain.loss_target  < .2
+        assert trials.average_best_error(domain) - domain.loss_target < .2
 
     @classmethod
     def make(cls, domain_cls, n_steps=500):
         class Tester(unittest.TestCase, cls):
+
             def setUp(self):
                 self._n_steps = n_steps
                 self._domain_cls = domain_cls
@@ -227,7 +231,7 @@ n_armsTester = DomainExperimentMixin.make(n_arms)
 distractorTester = DomainExperimentMixin.make(distractor)
 gauss_waveTester = DomainExperimentMixin.make(gauss_wave)
 gauss_wave2Tester = DomainExperimentMixin.make(gauss_wave2,
-        n_steps=5000)
+                                               n_steps=5000)
 many_distsTester = DomainExperimentMixin.make(many_dists)
 braninTester = DomainExperimentMixin.make(branin)
 

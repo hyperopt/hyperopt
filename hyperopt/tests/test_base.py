@@ -1,12 +1,12 @@
+from __future__ import print_function
+from builtins import range
+from builtins import object
 import copy
 import unittest
 import numpy as np
 import bson
 
 from hyperopt.pyll import scope
-uniform = scope.uniform
-normal = scope.normal
-one_of = scope.one_of
 
 from hyperopt.base import JOB_STATE_NEW
 from hyperopt.base import TRIAL_KEYS
@@ -17,25 +17,29 @@ from hyperopt.base import SONify
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
 
+uniform = scope.uniform
+normal = scope.normal
+one_of = scope.one_of
+
 
 def ok_trial(tid, *args, **kwargs):
     return dict(
         tid=tid,
         result={'status': 'algo, ok'},
-        spec={'a':1, 'foo': (args, kwargs)},
+        spec={'a': 1, 'foo': (args, kwargs)},
         misc={
-            'tid':tid,
-            'cmd':("some cmd",),
-            'idxs':{'z':[tid]},
-            'vals':{'z':[1]}},
-        extra='extra', # -- more stuff here is ok
+            'tid': tid,
+            'cmd': ("some cmd",),
+            'idxs': {'z': [tid]},
+            'vals': {'z': [1]}},
+        extra='extra',  # -- more stuff here is ok
         owner=None,
         state=JOB_STATE_NEW,
         version=0,
         book_time=None,
         refresh_time=None,
         exp_key=None,
-        )
+    )
 
 
 class Suggest_API(object):
@@ -52,15 +56,15 @@ class Suggest_API(object):
     @classmethod
     def make_tst_class(cls, suggest, domain, name):
         class Tester(unittest.TestCase, cls):
+
             def suggest(self, *args, **kwargs):
-                print args, kwargs
+                print(args, kwargs)
                 return suggest(*args, **kwargs)
 
             def setUp(self):
                 self.domain = domain
         Tester.__name__ = name
         return Tester
-
 
     seed_randomizes = True
 
@@ -79,10 +83,10 @@ class Suggest_API(object):
         idxs_1, vals_1 = self.idxs_vals_from_ids(ids=ids_1, seed=45)
         idxs_2, vals_2 = self.idxs_vals_from_ids(ids=ids_2, seed=45)
         all_ids_1 = set()
-        for var, ids in idxs_1.items():
+        for var, ids in list(idxs_1.items()):
             all_ids_1.update(ids)
         all_ids_2 = set()
-        for var, ids in idxs_2.items():
+        for var, ids in list(idxs_2.items()):
             all_ids_2.update(ids)
         self.assertEqual(all_ids_1, set(ids_1))
         self.assertEqual(all_ids_2, set(ids_2))
@@ -100,12 +104,13 @@ class Suggest_API(object):
 
         # -- sample 20 points to make sure we get some differences even
         #    for small search spaces (chance of false failure is 1/million).
-        idxs_1, vals_1 = self.idxs_vals_from_ids(ids=range(20), seed=45)
-        idxs_2, vals_2 = self.idxs_vals_from_ids(ids=range(20), seed=46)
+        idxs_1, vals_1 = self.idxs_vals_from_ids(ids=list(range(20)), seed=45)
+        idxs_2, vals_2 = self.idxs_vals_from_ids(ids=list(range(20)), seed=46)
         self.assertNotEqual((idxs_1, vals_1), (idxs_2, vals_2))
 
 
 class TestTrials(unittest.TestCase):
+
     def setUp(self):
         self.trials = Trials()
 
@@ -141,7 +146,7 @@ class TestTrials(unittest.TestCase):
         trials.insert_trial_doc(ok_trial(5, a=1, b=3))
         assert len(trials) == 0
         trials.insert_trial_docs(
-                [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
+            [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
         assert len(trials) == 0
         trials.refresh()
 
@@ -151,12 +156,12 @@ class TestTrials(unittest.TestCase):
         assert len(trials) == len(trials.miscs)
 
         trials.insert_trial_docs(
-                trials.new_trial_docs(
-                    ['id0', 'id1'],
-                    [dict(a=1), dict(a=2)],
-                    [dict(status='new'), dict(status='new')],
-                    [dict(tid='id0', idxs={}, vals={}, cmd=None),
-                        dict(tid='id1', idxs={}, vals={}, cmd=None)],))
+            trials.new_trial_docs(
+                ['id0', 'id1'],
+                [dict(a=1), dict(a=2)],
+                [dict(status='new'), dict(status='new')],
+                [dict(tid='id0', idxs={}, vals={}, cmd=None),
+                 dict(tid='id1', idxs={}, vals={}, cmd=None)],))
 
         assert len(trials) == 4
         assert len(trials) == len(trials.specs)
@@ -190,29 +195,25 @@ class TestSONify(unittest.TestCase):
         assert self.SONify(np.float(1.1)) == 1.1
 
     def test_np_1d_int(self):
-        assert np.all(self.SONify(np.asarray([1, 2, 3]))
-                == [1, 2, 3])
+        assert np.all(self.SONify(np.asarray([1, 2, 3])) ==
+                      [1, 2, 3])
 
     def test_np_1d_float(self):
-        assert np.all(self.SONify(np.asarray([1, 2, 3.4]))
-                == [1, 2, 3.4])
+        assert np.all(self.SONify(np.asarray([1, 2, 3.4])) ==
+                      [1, 2, 3.4])
 
     def test_np_1d_str(self):
-        assert np.all(self.SONify(np.asarray(['a', 'b', 'ccc']))
-                == ['a', 'b', 'ccc'])
+        assert np.all(self.SONify(np.asarray(['a', 'b', 'ccc'])) ==
+                      ['a', 'b', 'ccc'])
 
     def test_np_2d_int(self):
-        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]]))
-                == [[1, 2], [3, 4]])
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]])) ==
+                      [[1, 2], [3, 4]])
 
     def test_np_2d_float(self):
-        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]]))
-                == [[1, 2], [3, 4.5]])
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) ==
+                      [[1, 2], [3, 4.5]])
 
     def test_nested_w_bool(self):
-        thing = dict(a=1, b='2', c=True, d=False, e=np.int(3), f=[1l])
+        thing = dict(a=1, b='2', c=True, d=False, e=np.int(3), f=[1])
         assert thing == SONify(thing)
-
-
-
-
