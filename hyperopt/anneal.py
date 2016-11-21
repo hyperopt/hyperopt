@@ -8,33 +8,34 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import zip
-from past.utils import old_div
-import logging
-import numpy as np
-from .pyll.stochastic import (
-    categorical,
-    normal,
-    lognormal,
-    qnormal,
-    qlognormal,
-    uniform,
-    loguniform,
-    quniform,
-    qloguniform,
-)
-from .base import miscs_to_idxs_vals
-from .algobase import (
-    SuggestAlgo,
-    ExprEvaluator,
-)
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
+
+import logging
+
+import numpy as np
+from pyll.stochastic import (
+    # -- integer
+    categorical,
+    # randint, -- unneeded
+    # -- normal
+    normal,
+    lognormal,
+    qnormal,
+    qlognormal,
+    # -- uniform
+    uniform,
+    loguniform,
+    quniform,
+    qloguniform,
+    )
+from .base import miscs_to_idxs_vals
+from .algobase import (
+    SuggestAlgo,
+    ExprEvaluator,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +129,12 @@ class AnnealingAlgo(SuggestAlgo):
         self.tid_docs_losses = sorted(doc_by_tid.items())
         self.tids = np.asarray([t for (t, (d, l)) in self.tid_docs_losses])
         self.losses = np.asarray([l for (t, (d, l)) in self.tid_docs_losses])
-        self.tid_losses_dct = dict(list(zip(self.tids, self.losses)))
+        self.tid_losses_dct = dict(zip(self.tids, self.losses))
         # node_tids: dict from hp label -> trial ids (tids) using that hyperparam
         # node_vals: dict from hp label -> values taken by that hyperparam
         self.node_tids, self.node_vals = miscs_to_idxs_vals(
             [d['misc'] for (tid, (d, l)) in self.tid_docs_losses],
-            keys=list(domain.params.keys()))
+            keys=domain.params.keys())
         self.best_tids = []
 
     def shrinking(self, label):
@@ -145,7 +146,7 @@ class AnnealingAlgo(SuggestAlgo):
             the name of a hyperparameter
         """
         T = len(self.node_vals[label])
-        return old_div(1.0, (1.0 + T * self.shrink_coef))
+        return 1.0 / (1.0 + T * self.shrink_coef)
 
     def choose_ltv(self, label, size):
         """Returns (loss, tid, val) of best/runner-up trial
@@ -168,7 +169,7 @@ class AnnealingAlgo(SuggestAlgo):
                     return rval
 
         # -- choose a new good seed point
-        good_idx = self.rng.geometric(old_div(1.0, self.avg_best_idx), size=size) - 1
+        good_idx = self.rng.geometric(1.0 / self.avg_best_idx, size=size) - 1
         good_idx = np.clip(good_idx, 0, len(tids) - 1).astype('int32')
 
         picks = np.argsort(losses)[good_idx]
@@ -176,6 +177,8 @@ class AnnealingAlgo(SuggestAlgo):
         picks_tids = np.asarray(tids)[picks]
         picks_vals = np.asarray(vals)[picks]
 
+        #ltvs = np.asarray(sorted(zip(losses, tids, vals)))
+        #best_loss, best_tid, best_val = ltvs[best_idx]
         if size == 1:
             self.best_tids.append(int(picks_tids))
         return picks_loss, picks_tids, picks_vals
@@ -261,18 +264,18 @@ class AnnealingAlgo(SuggestAlgo):
         max_midpt = high - half
         clipped_midpt = np.clip(midpt, min_midpt, max_midpt)
 
-        # if pass_q:
+        #if pass_q:
         #    assert low <= val <= high, (low, val, high)
-        # else:
+        #else:
         #    val = min(high, max(val, low))
-        # new_high = min(high, val + width / 2)
-        # if new_high == high:
+        #new_high = min(high, val + width / 2)
+        #if new_high == high:
         #    new_low = new_high - width
-        # else:
+        #else:
         #    new_low = max(low, val - width / 2)
         #    if new_low == low:
         #        new_high = min(high, new_low + width)
-        # assert low <= new_low <= new_high <= high
+        #assert low <= new_low <= new_high <= high
         if pass_q:
             return uniform_like(
                 low=clipped_midpt - half,
@@ -317,12 +320,12 @@ class AnnealingAlgo(SuggestAlgo):
         upper = memo[node.arg['upper']]
         val1 = np.atleast_1d(val)
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
+            counts = np.bincount(val1, minlength=upper) / float(val1.size)
         else:
             counts = np.zeros(upper)
             prior = 1.0
         prior = self.shrinking(label)
-        p = (1 - prior) * counts + prior * (old_div(1.0, upper))
+        p = (1 - prior) * counts + prior * (1.0 / upper)
         rval = categorical(p=p, upper=upper, rng=self.rng,
                            size=memo[node.arg['size']])
         return rval
@@ -338,16 +341,16 @@ class AnnealingAlgo(SuggestAlgo):
         p = p_orig = np.asarray(memo[node.arg['p']])
         if p.ndim == 2:
             if len(p) not in (1, len(val1)):
-                print(node)
-                print(p)
-                print(np.asarray(p).shape)
+                print node
+                print p
+                print np.asarray(p).shape
             assert len(p) in (1, len(val1))
         else:
             assert p.ndim == 1
             p = p[np.newaxis, :]
         upper = memo[node.arg['upper']]
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
+            counts = np.bincount(val1, minlength=upper) / float(val1.size)
             prior = self.shrinking(label)
         else:
             counts = np.zeros(upper)

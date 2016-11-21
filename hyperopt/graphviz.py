@@ -3,14 +3,9 @@ Use graphviz's dot language to express the relationship between hyperparamters
 in a search space.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from future import standard_library
 
-import io
-from .pyll_utils import expr_to_config
-
-standard_library.install_aliases()
+import StringIO
+from pyll_utils import expr_to_config
 
 
 def dot_hyperparameters(expr):
@@ -36,23 +31,23 @@ def dot_hyperparameters(expr):
     conditions = ()
     hps = {}
     expr_to_config(expr, conditions, hps)
-    rval = io.StringIO()
-    print("digraph {", file=rval)
+    rval = StringIO.StringIO()
+    print >> rval, "digraph {"
     edges = set()
 
     def var_node(a):
-        print('"%s" [ shape=box];' % a, file=rval)
+        print >> rval, '"%s" [ shape=box];' % a
 
     def cond_node(a):
-        print('"%s" [ shape=ellipse];' % a, file=rval)
+        print >> rval, '"%s" [ shape=ellipse];' % a
 
     def edge(a, b):
         text = '"%s" -> "%s";' % (a, b)
         if text not in edges:
-            print(text, file=rval)
+            print >> rval, text
             edges.add(text)
 
-    for hp, dct in list(hps.items()):
+    for hp, dct in hps.items():
         # create the node
         var_node(hp)
 
@@ -76,5 +71,6 @@ def dot_hyperparameters(expr):
                 edge(and_conds[0].name, parent_label)
                 cond_node(parent_label)
                 edge(parent_label, hp)
-    print("}", file=rval)
+    print >> rval, "}"
     return rval.getvalue()
+
