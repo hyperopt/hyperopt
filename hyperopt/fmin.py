@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from future import standard_library
 from builtins import str
 from builtins import object
-import six.moves.cPickle as pickle
+import dill
 
 import functools
 import logging
@@ -73,10 +73,9 @@ class FMinIter(object):
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
                 logger.warn('over-writing old domain trials attachment')
-            msg = pickle.dumps(
-                domain, protocol=self.pickle_protocol)
+            msg = dill.dumps(domain)
             # -- sanity check for unpickling
-            pickle.loads(msg)
+            dill.loads(msg)
             trials.attachments['FMinIter_Domain'] = msg
 
     def serial_evaluate(self, N=-1):

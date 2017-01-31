@@ -5,12 +5,12 @@ Entry point for bin/* scripts
 """
 from __future__ import absolute_import
 from future import standard_library
-import six.moves.cPickle as pickle
 import logging
 import os
 from . import utils
 from .base import SerialExperiment
 import sys
+import dill
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def main_search():
         if not options.load:
             raise IOError()
         handle = open(options.load, 'rb')
-        self = pickle.load(handle)
+        self = dill.load(handle)
         handle.close()
     except IOError:
         bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
@@ -84,7 +84,7 @@ def main_search():
         self.run(int(options.steps))
     finally:
         if options.save:
-            pickle.dump(self, open(options.save, 'wb'))
+            dill.dump(self, open(options.save, 'wb'))
 
 
 def main(cmd, fn_pos=1):

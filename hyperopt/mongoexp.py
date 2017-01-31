@@ -93,7 +93,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 from future import standard_library
 import copy
-import six.moves.cPickle as pickle
 # import hashlib
 import logging
 import optparse
@@ -128,6 +127,7 @@ from .utils import working_dir, temp_dir
 import six
 from six.moves import map
 from six.moves import range
+import dill
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
@@ -741,7 +741,7 @@ class MongoTrials(Trials):
                                               str(numpy.random.randint(1e8)) + '.pkl')
                     logger.error('HYPEROPT REFRESH ERROR: writing error file to %s' % reportpath)
                     _file = open(reportpath, 'w')
-                    pickle.dump({'db_data': db_data,
+                    dill.dump({'db_data': db_data,
                                  'existing_data': existing_data},
                                 _file)
                     _file.close()
@@ -1040,9 +1040,9 @@ class MongoWorker(object):
             cmd_protocol = cmd[0]
             try:
                 if cmd_protocol == 'cpickled fn':
-                    worker_fn = pickle.loads(cmd[1])
+                    worker_fn = dill.loads(cmd[1])
                 elif cmd_protocol == 'call evaluate':
-                    bandit = pickle.loads(cmd[1])
+                    bandit = dill.loads(cmd[1])
                     worker_fn = bandit.evaluate
                 elif cmd_protocol == 'token_load':
                     cmd_toks = cmd[1].split('.')
@@ -1054,14 +1054,14 @@ class MongoWorker(object):
                 elif cmd_protocol == 'driver_attachment':
                     # name = 'driver_attachment_%s' % job['exp_key']
                     blob = ctrl.trials.attachments[cmd[1]]
-                    bandit_name, bandit_args, bandit_kwargs = pickle.loads(blob)
+                    bandit_name, bandit_args, bandit_kwargs = dill.loads(blob)
                     worker_fn = json_call(bandit_name,
                                           args=bandit_args,
                                           kwargs=bandit_kwargs).evaluate
                 elif cmd_protocol == 'domain_attachment':
                     blob = ctrl.trials.attachments[cmd[1]]
                     try:
-                        domain = pickle.loads(blob)
+                        domain = dill.loads(blob)
                     except BaseException as e:
                         logger.info(
                             'Error while unpickling. Try installing dill via "pip install dill" for enhanced pickling support.')

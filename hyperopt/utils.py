@@ -8,12 +8,12 @@ from past.utils import old_div
 import datetime
 import numpy as np
 import logging
-import six.moves.cPickle as pickle
 import os
 import shutil
 import numpy
 from . import pyll
 from contextlib import contextmanager
+import dill
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ def get_obj(f, argfile=None, argstr=None, args=(), kwargs=None):
     if argfile is not None:
         argstr = open(argfile).read()
     if argstr is not None:
-        argd = pickle.loads(argstr)
+        argd = dill.loads(argstr)
     else:
         argd = {}
     args = args + argd.get('args', ())
