@@ -480,6 +480,12 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
 # Adaptive Parzen Samplers
 # These produce conditional estimators for various prior distributions
 #
+# NOTE: These are actually used in a fairly complicated way.
+# They are actually returning pyll.Apply AST (Abstract Syntax Tree) objects.
+# This AST is then manipulated and the corresponding _lpdf function is called
+# (e.g  GMM1_lpdf)
+#
+# Please see the build_posterior function for details
 
 # -- Uniform
 
@@ -685,6 +691,23 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 a_args = [obs_above, prior_weight] + aa
                 a_post = fn(*a_args, **dict(named_args))
 
+                # fn is a function e.g ap_uniform_sampler, ap_normal_sampler, etc
+                # b_post and a_post are pyll.Apply objects that are
+                # AST (Abstract Syntax Trees).  They create the distribution,
+                # (e.g. using adaptive_parzen_normal), and then
+                # call a function to sample randomly from that distibution
+                # (e.g. using scope.GMM1) which return
+                # those samples.
+                #
+                # However we are only interested in using the samples from b_post.
+                # This codes looks at the AST and grabs the function name that we used
+                # for sampling (e.g. scope.GMM1)   and modifies it, e.g. to "scope.GMM1_lpdf".
+                # It then calls this function, passing in the samples as the first parameter.a_args
+                #
+                # The result is that we are effectively calling, for example:
+                # below_llik = GMM1_lpdf( b_post, *adaptive_parzen_normal(obs_below, ...))
+                # above_llik = GMM1_lpdf( b_post, *adaptive_parzen_normal(obs_above, ...))
+
                 assert a_post.name == b_post.name
                 fn_lpdf = getattr(scope, a_post.name + '_lpdf')
                 a_kwargs = dict([(n, a) for n, a in a_post.named_args
@@ -692,7 +715,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 b_kwargs = dict([(n, a) for n, a in b_post.named_args
                                  if n not in ('rng', 'size')])
 
-                # calculate the llik of b_post under both distributions
+                # calculate the log likelihood of b_post under both distributions
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
 
