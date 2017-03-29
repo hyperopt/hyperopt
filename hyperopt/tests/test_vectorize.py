@@ -202,7 +202,8 @@ def test_vectorize_config0():
             'p3': 2.1281244479293568,
             'p4': 1,
             'p5': (3, 4, 0.39676747423066994)}
-    assert foo[1] != foo[2]
+    assert (foo[1].keys() != foo[2].keys()) or \
+           (foo[1].values() != foo[2].values())
 
     print(idxs)
     print(vals['p3'])
