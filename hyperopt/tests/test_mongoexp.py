@@ -14,6 +14,7 @@ import nose
 import nose.plugins.skip
 
 from hyperopt.base import JOB_STATE_DONE
+from hyperopt.mongoexp import parse_url
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
 from hyperopt.mongoexp import ReserveTimeout
@@ -111,6 +112,22 @@ class TempMongo(object):
             return True
         except:  # XXX: don't know what exceptions to put here
             return False
+
+
+def test_parse_url():
+    uris = [
+        'mongo://hyperopt:foobar@127.0.0.1:27017/hyperoptdb/jobs',
+        'mongo://hyperopt:foobar@127.0.0.1:27017/hyperoptdb/jobs?authSource=db1'
+    ]
+    
+    expected = [
+        ('mongo', 'hyperopt', 'foobar', '127.0.0.1', 27017, 'hyperoptdb', 'jobs', None),
+        ('mongo', 'hyperopt', 'foobar', '127.0.0.1', 27017, 'hyperoptdb', 'jobs', 'db1')
+    ]
+    
+    for i, uri in enumerate(uris):
+        assert parse_url(uri) == expected[i] 
+
 
 # -- If we can't create a TempMongo instance, then
 #    simply print what happened,
