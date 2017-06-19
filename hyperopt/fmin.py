@@ -56,6 +56,7 @@ class FMinIter(object):
                  max_queue_len=1,
                  poll_interval_secs=1.0,
                  max_evals=sys.maxsize,
+                 max_time=None,
                  verbose=0,
                  ):
         self.algo = algo
@@ -68,7 +69,10 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.max_time = max_time
         self.rstate = rstate
+
+        self.start_time = time.time() # Start clock
 
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
@@ -144,6 +148,9 @@ class FMinIter(object):
 
         stopped = False
         while n_queued < N:
+            if self.max_time is not None:
+                if time.time() - self.start_time >= self.max_time:
+                    stopped = True
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
@@ -206,6 +213,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          catch_eval_exceptions=False,
          verbose=0,
          return_argmin=True,
+         max_time=None
          ):
     """Minimize a function over a hyperparameter space.
 
@@ -244,6 +252,9 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     max_evals : int
         Allow up to this many function evaluations before returning.
+
+    max_time : float
+        Allow up to this many seconds before returning.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -313,7 +324,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     domain = base.Domain(fn, space,
                          pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
-    rval = FMinIter(algo, domain, trials, max_evals=max_evals,
+    rval = FMinIter(algo, domain, trials, max_evals=max_evals, max_time=max_time,
                     rstate=rstate,
                     verbose=verbose)
     rval.catch_eval_exceptions = catch_eval_exceptions
