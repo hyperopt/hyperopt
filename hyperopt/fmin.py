@@ -148,11 +148,14 @@ class FMinIter(object):
 
         stopped = False
         while n_queued < N:
-            if self.max_time is not None:
-                if time.time() - self.start_time >= self.max_time:
-                    stopped = True
+            if stopped:
+                break
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
+                if self.max_time is not None:
+                    if time.time() - self.start_time >= self.max_time:
+                        stopped = True
+                        break
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
