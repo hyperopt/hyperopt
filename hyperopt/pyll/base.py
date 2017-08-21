@@ -703,7 +703,7 @@ def dfs(aa, seq=None, seqset=None):
 
 def toposort(expr):
     """
-    Return apply nodes of `expr` sub-tree in topological order.
+    Return apply nodes of `expr` sub-tree as a list in topological order.
 
     Raises networkx.NetworkXUnfeasible if subtree contains cycle.
 
@@ -711,7 +711,7 @@ def toposort(expr):
     G = nx.DiGraph()
     for node in dfs(expr):
         G.add_edges_from([(n_in, node) for n_in in node.inputs()])
-    order = nx.topological_sort(G)
+    order = list(nx.topological_sort(G))
     assert order[-1] == expr
     return order
 
