@@ -69,10 +69,7 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
-        self.max_time = max_time
         self.rstate = rstate
-
-        self.start_time = time.time() # Start clock
 
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
@@ -148,14 +145,8 @@ class FMinIter(object):
 
         stopped = False
         while n_queued < N:
-            if stopped:
-                break
             qlen = get_queue_len()
             while qlen < self.max_queue_len and n_queued < N:
-                if self.max_time is not None:
-                    if time.time() - self.start_time >= self.max_time:
-                        stopped = True
-                        break
                 n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                 new_ids = trials.new_trial_ids(n_to_enqueue)
                 self.trials.refresh()
@@ -255,7 +246,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     max_evals : int
         Allow up to this many function evaluations before returning.
-
+    
     max_time : float
         Allow up to this many seconds before returning.
 
@@ -327,11 +318,43 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     domain = base.Domain(fn, space,
                          pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
-    rval = FMinIter(algo, domain, trials, max_evals=max_evals, max_time=max_time,
-                    rstate=rstate,
-                    verbose=verbose)
-    rval.catch_eval_exceptions = catch_eval_exceptions
-    rval.exhaust()
+    # Run fmin iterations in batches and check the run time
+    batch_eval_count = 0
+    batch_eval_delta = 5
+    start_time = time.time()
+    curr_time = start_time
+    final_time = start_time + max_time
+    prev_time = start_time
+    
+    while batch_eval_count <= max_evals:
+        if max_time is not None:
+            # Stop execution if max_time has been reached
+            if curr_time - start_time > max_time:
+                break
+        
+        batch_eval_count += batch_eval_delta # Update max_evals
+        print(batch_eval_count)
+        
+        rval = FMinIter(algo, domain, trials, max_evals=batch_eval_count,
+                        rstate=rstate,
+                        verbose=verbose)
+        rval.catch_eval_exceptions = catch_eval_exceptions
+        rval.exhaust()
+        
+        # Estimate run time of next batch if batch_eval_delta is increased/decreased (heuristics)
+        curr_time = time.time() # Update current time
+        time_per_run = (curr_time - prev_time)/batch_eval_count
+        if curr_time + (batch_eval_count + batch_eval_delta) * time_per_run <= final_time:
+            # Increase max_evals as next computations might be executed before final_time is achieved
+            batch_eval_delta = 5
+        else:
+            # Next computations might not be executed before final_time is achieved
+            # Estimate batch_eval_delta to finish at most at final_time and reset batch_eval_count
+            batch_eval_delta = max(int((final_time - curr_time) / time_per_run - batch_eval_count), 1)
+            batch_eval_count = 0
+        
+        prev_time = curr_time # Update previous time
+        
     if return_argmin:
         return trials.argmin
 
