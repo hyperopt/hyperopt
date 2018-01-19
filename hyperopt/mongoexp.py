@@ -1064,7 +1064,7 @@ class MongoWorker(object):
                         domain = dill.loads(blob)
                     except BaseException as e:
                         logger.info(
-                            'Error while unpickling. Try installing dill via "pip install dill" for enhanced pickling support.')
+                            'Error while unpickling.')
                         raise
                     worker_fn = domain.evaluate
                 else:
