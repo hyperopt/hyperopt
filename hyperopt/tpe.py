@@ -72,7 +72,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
     """Sample from truncated 1-D Gaussian Mixture Model"""
     weights, mus, sigmas = list(map(np.asarray, (weights, mus, sigmas)))
     assert len(weights) == len(mus) == len(sigmas)
-    n_samples = np.prod(size)
+    n_samples = int(np.prod(size))
     # n_components = len(weights)
     if low is None and high is None:
         # -- draw from a standard GMM
