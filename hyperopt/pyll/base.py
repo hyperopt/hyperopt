@@ -871,7 +871,7 @@ def rec_eval(expr, deepcopy_inputs=False, memo=None,
                 if switch_i != int(switch_i) or switch_i < 0:
                     raise ValueError('switch pos must be positive int',
                                      switch_i)
-                rval_var = node.pos_args[switch_i + 1]
+                rval_var = node.pos_args[int(switch_i) + 1]
                 if rval_var in memo:
                     set_memo(node, memo[rval_var])
                     continue
