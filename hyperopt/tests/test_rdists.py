@@ -21,8 +21,8 @@ try:
         check_pdf,
         check_cdf_ppf,
     )
-    # from scipy.stats.tests import test_discrete_basic as tdb
 except ImportError:
+    # XXX skip-tests instead or fix the import error, why would it fail?
 
     def check_cdf_logcdf(*args):
         pass
