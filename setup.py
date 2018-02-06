@@ -122,7 +122,7 @@ setuptools.setup(
     author='James Bergstra',
     author_email='james.bergstra@gmail.com',
     description='Distributed Asynchronous Hyperparameter Optimization',
-    long_description=open('README.txt').read(),
+    long_description='',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Education',
