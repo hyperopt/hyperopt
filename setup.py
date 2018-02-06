@@ -96,6 +96,7 @@ def find_package_data(packages):
             package_data[package] += subdir_findall(package_to_path(package), subdir)
     return package_data
 
+
 # ----------- Override defaults here ----------------
 if packages is None:
     packages = setuptools.find_packages()
