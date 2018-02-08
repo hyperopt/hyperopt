@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from future import standard_library
 from builtins import str
 from builtins import object
-import dill
 
 import functools
 import logging
@@ -19,6 +18,13 @@ from . import base
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
+
+
+try:
+    import dill as pickler
+except Exception as e:
+    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    import six.moves.cPickle as pickler
 
 
 def fmin_pass_expr_memo_ctrl(f):
@@ -73,9 +79,9 @@ class FMinIter(object):
         if self.async:
             if 'FMinIter_Domain' in trials.attachments:
                 logger.warn('over-writing old domain trials attachment')
-            msg = dill.dumps(domain)
+            msg = pickler.dumps(domain)
             # -- sanity check for unpickling
-            dill.loads(msg)
+            pickler.loads(msg)
             trials.attachments['FMinIter_Domain'] = msg
 
     def serial_evaluate(self, N=-1):
