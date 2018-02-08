@@ -96,6 +96,7 @@ def find_package_data(packages):
             package_data[package] += subdir_findall(package_to_path(package), subdir)
     return package_data
 
+
 # ----------- Override defaults here ----------------
 if packages is None:
     packages = setuptools.find_packages()
@@ -121,7 +122,7 @@ setuptools.setup(
     author='James Bergstra',
     author_email='james.bergstra@gmail.com',
     description='Distributed Asynchronous Hyperparameter Optimization',
-    long_description=open('README.txt').read(),
+    long_description='',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Education',
