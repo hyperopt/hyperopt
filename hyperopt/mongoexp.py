@@ -222,7 +222,7 @@ def parse_url(url, pwfile=None):
             password = None
     else:
         password = tmp.password
-    logger.info('PASS %s' % password)
+    logger.info('PASS ***')
     port = int(float(tmp.port))  # port has to be casted explicitly here.
 
     return (protocol, tmp.username, password, tmp.hostname, port, dbname, collection, authdbname)
