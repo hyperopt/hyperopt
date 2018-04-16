@@ -200,13 +200,13 @@ def parse_url(url, pwfile=None):
     logger.info('HOSTNAME %s' % tmp.hostname)
     logger.info('PORT %s' % tmp.port)
     logger.info('PATH %s' % tmp.path)
-    
+
     authdbname = None
     if 'authSource' in query_params and len(query_params['authSource']):
         authdbname = query_params['authSource'][-1]
-        
+
     logger.info('AUTH DB %s' % authdbname)
-    
+
     try:
         _, dbname, collection = tmp.path.split('/')
     except:
@@ -223,7 +223,8 @@ def parse_url(url, pwfile=None):
     else:
         password = tmp.password
     logger.info('PASS %s' % password)
-    port = int(float(tmp.port))  # port has to be casted explicitly here.
+    # If no port given, set it to de defaul (27017)
+    port = int(float(tmp.port)) if tmp.port else 27017  # port has to be casted explicitly here.
 
     return (protocol, tmp.username, password, tmp.hostname, port, dbname, collection, authdbname)
 
@@ -248,12 +249,12 @@ def connection_with_tunnel(dbname, host='localhost',
         if user:
             if not pw:
                 pw = read_pw()
-                
+
             if user == 'hyperopt' and not auth_dbname:
                 auth_dbname = 'admin'
-                    
+
             connection[dbname].authenticate(user, pw, source=auth_dbname)
-            
+
         ssh_tunnel = None
 
     # Note that the w=1 and j=True args to MongoClient above should:
@@ -270,7 +271,9 @@ def connection_from_string(s):
     elif protocol in ('mongo+ssh', 'ssh+mongo'):
         ssh = True
     else:
-        raise ValueError('unrecognized protocol for MongoJobs', protocol)
+        # If protocol is unrecognized, use the raw string, rsplit to remove the db part
+        connection = pymongo.MongoClient(s.rsplit('/', 1)[0])
+        return connection, None, connection[db], connection[db][collection]
     connection, tunnel = connection_with_tunnel(
         dbname=db,
         ssh=ssh,
@@ -1245,7 +1248,7 @@ def main_worker_helper(options, args):
         # XXX: the name of the jobs collection is a parameter elsewhere,
         #      so '/jobs' should not be hard-coded here
         mj = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/jobs')
+            options.mongo + '/jobs')
 
         mworker = MongoWorker(mj,
                               float(options.poll_interval),
