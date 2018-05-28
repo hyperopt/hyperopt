@@ -20,6 +20,7 @@ from .pyll_utils import scope
 from . import hp
 
 from pandas import DataFrame
+from datetime import datetime
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -68,7 +69,10 @@ class SuggestObject(object):
                 spec = base.spec_from_misc(trial['misc'])
                 ctrl = base.Ctrl(self.trials, current_trial=trial)
                 try:
-                    result = self.domain.evaluate(spec, ctrl)
+                    if self.domain.fn is not None:
+                        result = self.domain.evaluate(spec, ctrl)
+                    else:
+                        result = dict(loss=None, status='ok')
                 except Exception as e:
                     logger.info('job exception: %s' % str(e))
                     trial['state'] = base.JOB_STATE_ERROR
@@ -174,19 +178,52 @@ class SuggestObject(object):
         return self.trials
 
 
-def suggest(fn, space, trials=None, num_trials=100):
-    '''
-    :param fn: objective function. if multivariate must be decorated with @scope.define.
-    :param space: space for each hyperparameter to optimize. example:
-    univariate: hp.uniform('x', -10, 10)
-    multivariate: scope(hp.uniform('x', -10, 10), hp.uniform(y, 0, 10))
-    :param trials: Trials object that contains previously computed data
-    :param num_trials: number of trials to run
-    :return: a trial object that contain run information of all the trials. get the best trial with trials.argmin
-    '''
+def dataframe_to_trials(data: DataFrame):
+    trials = base.Trials()
+    names = list(data)[:-1]
+    for index, row in data.iterrows():
+        misc = dict(tid=index, cmd=('domain_attachment', 'FMinIter_Domain'), workdir=None,
+                    idxs=dict(zip(names, [[index]] * len(names))),
+                    vals=dict(zip(names, [[each] for each in row.tolist()[:-1]])))  # last of row is loss
+        trials._dynamic_trials.append(dict(
+            state=2, tid=index, spec=None,
+            result=dict(loss=row[-1], status='ok'),
+            misc=misc, exp_key=None, owner=None, version=0,
+            book_time=datetime.now(), refresh_time=datetime.now(),
+        ))
+    return trials
+
+
+def trials_to_dataframe(trials: base.Trials):
+    trials = trials._dynamic_trials
+    if len(trials) == 0:
+        return None
+    names = list(trials[0]['misc']['vals'].keys())
+    data = DataFrame(columns=names + ['loss'])
+    for name in names:
+        data[name] = [trial['misc']['vals'][name][0] for trial in trials]
+    data['loss'] = [trial['result']['loss'] for trial in trials]
+    return data
+
+
+def suggest(data: DataFrame, space=None, num_trials=10):
+    """
+    :param data: dataframe, last column must be loss
+    :param space: a list of range specification. example: [hp.uniform('x', -100, 100), hp.uniform('y', 0, 10)]
+    :param num_trials:
+    :return: a data frame with new suggested points. losses are set to None for new points
+    """
     algo = tpe.suggest
-    if trials is None:
-        trials = base.Trials()
+
+    if space is None:
+        if len(data) > 0:
+            # default range
+            names = list(data)[:-1]
+            space = [hp.uniform(name, -1000, 1000) for name in names]
+        else:
+            raise Exception("Space cannot be None if data is empty")
+
+    trials = dataframe_to_trials(data)
 
     env_rseed = os.environ.get('HYPEROPT_FMIN_SEED', '')
     if env_rseed:
@@ -194,12 +231,15 @@ def suggest(fn, space, trials=None, num_trials=100):
     else:
         rstate = np.random.RandomState()
 
-    domain = base.Domain(fn, space, pass_expr_memo_ctrl=None)
+    domain = base.Domain(None, space, pass_expr_memo_ctrl=None)
 
     rval = SuggestObject(algo, domain, trials, max_evals=sys.maxsize,
                          rstate=rstate,
                          verbose=0)
     rval.catch_eval_exceptions = True
     rval.run(num_trials, rval.async)
-    return trials
+
+    out_data = trials_to_dataframe(trials)
+
+    return out_data
 # -- flake8 doesn't like blank last line
