@@ -206,12 +206,12 @@ def trials_to_dataframe(trials: base.Trials):
     return data
 
 
-def suggest(data: DataFrame, space=None, num_trials=10):
+def suggest(data: DataFrame, space=None, num_trials=3):
     """
     :param data: dataframe, last column must be loss
     :param space: a list of range specification. example: [hp.uniform('x', -100, 100), hp.uniform('y', 0, 10)]
     :param num_trials:
-    :return: a data frame with new suggested points. losses are set to None for new points
+    :return: a data frame with new suggested points at the end. losses are set to None for new points
     """
     algo = tpe.suggest
 
