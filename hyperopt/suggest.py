@@ -72,7 +72,6 @@ def suggest(data: DataFrame, space=None, num_trials=3):
     domain = base.Domain(None, space, pass_expr_memo_ctrl=None)
 
     new_ids = trials.new_trial_ids(num_trials)
-    trials.refresh()
     new_trials = algo(new_ids, domain, trials,
                       rstate.randint(2 ** 31 - 1))
     for trial in new_trials:
@@ -84,7 +83,6 @@ def suggest(data: DataFrame, space=None, num_trials=3):
         trial['result'] = result
         trial['refresh_time'] = coarse_utcnow()
     trials.insert_trial_docs(new_trials)
-    trials.refresh()
 
     out_data = trials_to_dataframe(trials)
 
