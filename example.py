@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 test_config = dict(
     univariate_simple=dict(
         # 2x + 1
-        # min val = -199, x = -199
+        # min val = -199, x = -100
         func=lambda input_: 2 * input_[0] + 1,
         space=[hp.uniform('x', -100, 100)]
     ),
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         print('iter={}, argmin={}, loss={}'.format(_, argmin, min_loss))
         plot_data.append(min_loss)
 
-    print('Trials data: ')
+    print('*********************************\nTrials data: ')
     print(data)
     plt.figure()
     plt.loglog(plot_data)
