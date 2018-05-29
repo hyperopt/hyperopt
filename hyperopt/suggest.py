@@ -16,47 +16,6 @@ from pandas import DataFrame
 from datetime import datetime
 
 
-class SuggestObject(object):
-    """Object for conducting search experiments.
-    """
-
-    def __init__(self, algo, domain, trials, rstate):
-        self.algo = algo
-        self.domain = domain
-        self.trials = trials
-        self.rstate = rstate
-
-    def serial_evaluate(self):
-        for trial in self.trials._dynamic_trials:
-            if trial['state'] == base.JOB_STATE_NEW:
-                result = dict(loss=None, status='ok')
-                now = coarse_utcnow()
-                trial['book_time'] = now
-                trial['refresh_time'] = now
-                trial['state'] = base.JOB_STATE_DONE
-                trial['result'] = result
-                trial['refresh_time'] = coarse_utcnow()
-        self.trials.refresh()
-
-    def run(self, num_trials):
-        """
-        :param num_trials: 
-        :return: 
-        """
-        trials = self.trials
-        algo = self.algo
-
-        for j in range(num_trials):
-            new_ids = trials.new_trial_ids(1)
-            self.trials.refresh()
-            new_trials = algo(new_ids, self.domain, trials,
-                              self.rstate.randint(2 ** 31 - 1))
-            self.trials.insert_trial_docs(new_trials)
-            self.trials.refresh()
-
-        self.serial_evaluate()
-
-
 def dataframe_to_trials(data: DataFrame):
     trials = base.Trials()
     names = list(data)[:-1]
@@ -112,9 +71,20 @@ def suggest(data: DataFrame, space=None, num_trials=3):
 
     domain = base.Domain(None, space, pass_expr_memo_ctrl=None)
 
-    rval = SuggestObject(algo, domain, trials, rstate=rstate)
-    rval.catch_eval_exceptions = True
-    rval.run(num_trials)
+    new_ids = trials.new_trial_ids(num_trials)
+    trials.refresh()
+    new_trials = algo(new_ids, domain, trials,
+                      rstate.randint(2 ** 31 - 1))
+    for trial in new_trials:
+        result = dict(loss=None, status='ok')
+        now = coarse_utcnow()
+        trial['book_time'] = now
+        trial['refresh_time'] = now
+        trial['state'] = base.JOB_STATE_DONE
+        trial['result'] = result
+        trial['refresh_time'] = coarse_utcnow()
+    trials.insert_trial_docs(new_trials)
+    trials.refresh()
 
     out_data = trials_to_dataframe(trials)
 
