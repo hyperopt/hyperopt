@@ -40,8 +40,7 @@ def algo_as_str(algo):
     return str(algo)
 
 
-def main_plot_history(trials, bandit=None, algo=None, do_show=True,
-                      status_colors=None):
+def main_plot_history(trials, do_show=True, status_colors=None, title="Loss History"):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
@@ -51,41 +50,29 @@ def main_plot_history(trials, bandit=None, algo=None, do_show=True,
 
     # XXX: show the un-finished or error trials
     Ys, colors = zip(*[(y, status_colors[s])
-                       for y, s in zip(trials.losses(bandit), trials.statuses(bandit))
+                       for y, s in zip(trials.losses(), trials.statuses())
                        if y is not None])
     plt.scatter(range(len(Ys)), Ys, c=colors)
     plt.xlabel('time')
     plt.ylabel('loss')
 
-    if bandit is not None and bandit.loss_target is not None:
-        plt.axhline(bandit.loss_target)
-        ymin = min(np.min(Ys), bandit.loss_target)
-        ymax = max(np.max(Ys), bandit.loss_target)
-        yrange = ymax - ymin
-        ymean = (ymax + ymin) / 2.0
-        plt.ylim(
-            ymean - 0.53 * yrange,
-            ymean + 0.53 * yrange,
-        )
-    best_err = trials.average_best_error(bandit)
+    best_err = trials.average_best_error()
     print("avg best error:", best_err)
     plt.axhline(best_err, c='g')
 
-    plt.title('bandit: %s algo: %s' % (
-        bandit.short_str() if bandit else '-',
-        algo_as_str(algo)))
+    plt.title(title)
     if do_show:
         plt.show()
 
 
-def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
+def main_plot_histogram(trials, do_show=True, title="Loss Histogram"):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
 
     status_colors = default_status_colors
     Xs, Ys, Ss, Cs = zip(*[(x, y, s, status_colors[s])
-                           for (x, y, s) in zip(trials.specs, trials.losses(bandit),
-                                                trials.statuses(bandit))
+                           for (x, y, s) in zip(trials.specs, trials.losses(),
+                                                trials.statuses())
                            if y is not None])
 
     # XXX: deal with ok vs. un-finished vs. error trials
@@ -94,14 +81,12 @@ def main_plot_histogram(trials, bandit=None, algo=None, do_show=True):
     plt.xlabel('loss')
     plt.ylabel('frequency')
 
-    plt.title('bandit: %s algo: %s' % (
-        bandit.short_str() if bandit else '-',
-        algo_as_str(algo)))
+    plt.title(title)
     if do_show:
         plt.show()
 
 
-def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
+def main_plot_vars(trials, do_show=True, fontsize=10,
                    colorize_best=None,
                    columns=5,
                    ):
@@ -148,8 +133,7 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
                 return (t, t, t)    # -- white=worst, black=best
 
     all_labels = list(idxs.keys())
-    titles = ['%s (%s)' % (label, bandit.params[label].name)
-              for label in all_labels]
+    titles = all_labels
     order = np.argsort(titles)
 
     C = columns
@@ -163,7 +147,7 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
         ticks_num, ticks_txt = plt.xticks()
         plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
 
-        dist_name = bandit.params[label].name
+        dist_name = label
         x = idxs[label]
         if 'log' in dist_name:
             y = np.log(vals[label])
