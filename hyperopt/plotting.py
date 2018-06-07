@@ -3,10 +3,7 @@ Functions to visualize an Experiment.
 
 """
 from __future__ import print_function
-import math
-import sys
 from past.builtins import xrange
-from hyperopt.mongoexp import MongoJobs
 try:
     unicode = unicode
 except NameError:
