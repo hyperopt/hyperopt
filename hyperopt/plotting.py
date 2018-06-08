@@ -31,12 +31,6 @@ default_status_colors = {
     base.STATUS_FAIL: 'r'}
 
 
-def algo_as_str(algo):
-    if isinstance(algo, basestring):
-        return algo
-    return str(algo)
-
-
 def main_plot_history(trials, do_show=True, status_colors=None, title="Loss History"):
     # -- import here because file-level import is too early
     import matplotlib.pyplot as plt
@@ -94,7 +88,7 @@ def main_plot_vars(trials, do_show=True, fontsize=10,
     losses = trials.losses()
     finite_losses = [y for y in losses if y not in (None, float('inf'))]
     asrt = np.argsort(finite_losses)
-    if colorize_best != None:
+    if colorize_best is not None:
         colorize_thresh = finite_losses[asrt[colorize_best + 1]]
     else:
         # -- set to lower than best (disabled)
@@ -108,7 +102,7 @@ def main_plot_vars(trials, do_show=True, fontsize=10,
 
     def color_fn(lossval):
         if lossval is None:
-            return (1, 1, 1)
+            return 1, 1, 1
         else:
             t = 4 * (lossval - loss_min) / (loss_max - loss_min + .0001)
             if t < 1:
@@ -121,19 +115,19 @@ def main_plot_vars(trials, do_show=True, fontsize=10,
 
     def color_fn_bw(lossval):
         if lossval in (None, float('inf')):
-            return (1, 1, 1)
+            return 1, 1, 1
         else:
             t = (lossval - loss_min) / (loss_max - loss_min + .0001)
             if lossval < colorize_thresh:
-                return (0., 1. - t, 0.)  # -- red best black worst
+                return 0., 1. - t, 0.  # -- red best black worst
             else:
-                return (t, t, t)    # -- white=worst, black=best
+                return t, t, t  # -- white=worst, black=best
 
     all_labels = list(idxs.keys())
     titles = all_labels
     order = np.argsort(titles)
 
-    C = columns
+    C = min(columns, len(all_labels))
     R = int(np.ceil(len(all_labels) / float(C)))
 
     for plotnum, varnum in enumerate(order):
@@ -142,7 +136,7 @@ def main_plot_vars(trials, do_show=True, fontsize=10,
 
         # hide x ticks
         ticks_num, ticks_txt = plt.xticks()
-        plt.xticks(ticks_num, ['' for i in xrange(len(ticks_num))])
+        plt.xticks(ticks_num, [''] * len(ticks_num))
 
         dist_name = label
         x = idxs[label]
