@@ -1,0 +1,32 @@
+dist: trusty
+language: python
+
+matrix:
+   include:
+      - python: 2.7
+        env:
+          - IPYTHON="ipython[all]==5.4.1" HYPEROPT_FMIN_SEED=3
+      - python: 3.5
+        env:
+          - IPYTHON=ipython[all] HYPEROPT_FMIN_SEED=3
+
+services:
+  - mongodb
+
+before_script:
+  - sleep 15  # mongo takes time to start
+  - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
+
+install:
+  - sudo apt-get remove ipython
+  - pip install --upgrade pip
+  - pip install --upgrade setuptools
+  - pip install --upgrade wheel
+  - pip install $IPYTHON
+  - pip install --only-binary=numpy,scipy numpy scipy
+  - python setup.py install
+  - pip install pytest pytest-cov pep8 pytest-pep8
+script:
+  - python -m pytest
+after_success:
+  - coveralls

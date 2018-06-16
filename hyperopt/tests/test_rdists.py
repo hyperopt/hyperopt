@@ -21,8 +21,8 @@ try:
         check_pdf,
         check_cdf_ppf,
     )
-    # from scipy.stats.tests import test_discrete_basic as tdb
 except ImportError:
+    # XXX skip-tests instead or fix the import error, why would it fail?
 
     def check_cdf_logcdf(*args):
         pass
@@ -71,23 +71,25 @@ class TestLogUniform(unittest.TestCase):
 class TestLogNormal(unittest.TestCase):
 
     def test_cdf_logcdf(self):
-        check_cdf_logcdf(lognorm_gen(0, 1), (0, 1), '')
-        check_cdf_logcdf(lognorm_gen(0, 1), (-5, 5), '')
+        check_cdf_logcdf(lognorm_gen(0, 1), (), '')
+        check_cdf_logcdf(lognorm_gen(0, 1), (), '')
 
     def test_cdf_ppf(self):
-        check_cdf_ppf(lognorm_gen(0, 1), (0, 1), '')
-        check_cdf_ppf(lognorm_gen(-2, 1), (-5, 5), '')
+        check_cdf_ppf(lognorm_gen(0, 1), (), '')
+        check_cdf_ppf(lognorm_gen(-2, 1), (), '')
 
     def test_pdf_logpdf(self):
-        check_pdf_logpdf(lognorm_gen(0, 1), (0, 1), '')
-        check_pdf_logpdf(lognorm_gen(mu=-4, sigma=0.5), (-2, 1), '')
+        check_pdf_logpdf(lognorm_gen(0, 1), args=(),
+                         msg='base case')
+        check_pdf_logpdf(lognorm_gen(mu=-4, sigma=0.5), args=(),
+                         msg='non-default mu, sigma')
 
     def test_pdf(self):
-        check_pdf(lognorm_gen(0, 1), (0, 1), '')
-        check_pdf(lognorm_gen(mu=-4, sigma=2), (-3, 2), '')
+        check_pdf(lognorm_gen(0, 1), (), '')
+        check_pdf(lognorm_gen(mu=-4, sigma=2), (), '')
 
     def test_distribution_rvs(self):
-        return
+        return # XXX
         alpha = 0.01
         loc = 0
         scale = 1

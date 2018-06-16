@@ -7,7 +7,11 @@ import numpy as np
 from hyperopt import anneal
 from hyperopt import rand
 from hyperopt import Trials, fmin
-import matplotlib.pyplot as plt
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
 
 from .test_domains import CasePerDomain
 
