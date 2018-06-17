@@ -5,7 +5,6 @@ Entry point for bin/* scripts
 """
 from __future__ import absolute_import
 from future import standard_library
-import six.moves.cPickle as pickle
 import logging
 import os
 from . import utils
@@ -14,6 +13,13 @@ import sys
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
+
+
+try:
+    import dill as pickler
+except Exception as e:
+    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    import six.moves.cPickle as pickler
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
@@ -71,7 +77,7 @@ def main_search():
         if not options.load:
             raise IOError()
         handle = open(options.load, 'rb')
-        self = pickle.load(handle)
+        self = pickler.load(handle)
         handle.close()
     except IOError:
         bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
@@ -84,7 +90,7 @@ def main_search():
         self.run(int(options.steps))
     finally:
         if options.save:
-            pickle.dump(self, open(options.save, 'wb'))
+            pickler.dump(self, open(options.save, 'wb'))
 
 
 def main(cmd, fn_pos=1):

@@ -8,7 +8,6 @@ from past.utils import old_div
 import datetime
 import numpy as np
 import logging
-import six.moves.cPickle as pickle
 import os
 import shutil
 import numpy
@@ -17,6 +16,12 @@ from contextlib import contextmanager
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
+
+try:
+    import dill as pickler
+except Exception as e:
+    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    import six.moves.cPickle as pickler
 
 
 def import_tokens(tokens):
@@ -85,7 +90,7 @@ def get_obj(f, argfile=None, argstr=None, args=(), kwargs=None):
     if argfile is not None:
         argstr = open(argfile).read()
     if argstr is not None:
-        argd = pickle.loads(argstr)
+        argd = pickler.loads(argstr)
     else:
         argd = {}
     args = args + argd.get('args', ())
