@@ -1212,8 +1212,7 @@ def main_worker_helper(options, args):
                             '--poll-interval=%s' % options.poll_interval,
                             '--max-jobs=1',
                             '--mongo=%s' % options.mongo,
-                            '--reserve-timeout=%s' % options.reserve_timeout,
-                            '--log=%s' % options.logfile]
+                            '--reserve-timeout=%s' % options.reserve_timeout]
                 if options.workdir is not None:
                     sub_argv.append('--workdir=%s' % options.workdir)
                 if options.exp_key is not None:
@@ -1256,9 +1255,7 @@ def main_worker_helper(options, args):
         mworker = MongoWorker(mj,
                               float(options.poll_interval),
                               workdir=options.workdir,
-                              exp_key=options.exp_key,
-                              logfilename=options.logfile)
-
+                              exp_key=options.exp_key)
         mworker.run_one(reserve_timeout=float(options.reserve_timeout))
     else:
         raise ValueError("N <= 0")
@@ -1305,10 +1302,6 @@ def main_worker():
                       default=None,
                       help="root workdir (default: load from mongo)",
                       metavar="DIR")
-    parser.add_option("--log",
-                      dest="logfile",
-                      default="logfile.txt",
-                      help="Logfile (default: logfile.txt)")
 
     (options, args) = parser.parse_args()
 
