@@ -1,25 +1,27 @@
 from hyperopt.base import Trials, JOB_STATE_NEW
 
+
 def _generate_trial(tid, space):
     variables = space.keys()
-    idxs = dict([(v, [tid]) for v in variables])
-    vals = dict([(k, [v]) for k, v in space.items()])
+    idxs = {v: [tid] for v in variables}
+    vals = {k: [v] for k, v in space.items()}
     return {'state': JOB_STATE_NEW,
-           'tid': tid,
-           'spec': None,
-           'result': {'status': 'new'},
-           'misc': {'tid': tid,
-                    'cmd': ('domain_attachment',
-                            'FMinIter_Domain'),
-                    'workdir': None,
-                    'idxs': idxs,
-                    'vals': vals},
-           'exp_key': None,
-           'owner': None,
-           'version': 0,
-           'book_time': None,
-           'refresh_time': None,
-           }
+            'tid': tid,
+            'spec': None,
+            'result': {'status': 'new'},
+            'misc': {'tid': tid,
+                     'cmd': ('domain_attachment',
+                             'FMinIter_Domain'),
+                     'workdir': None,
+                     'idxs': idxs,
+                     'vals': vals},
+            'exp_key': None,
+            'owner': None,
+            'version': 0,
+            'book_time': None,
+            'refresh_time': None,
+            }
+
 
 def generate_trials_to_calculate(points):
     """
