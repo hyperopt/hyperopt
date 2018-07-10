@@ -1,30 +1,70 @@
-from __future__ import print_function
 from __future__ import absolute_import
-from future import standard_library
-from builtins import str
-from builtins import object
+from __future__ import print_function
 
 import functools
 import logging
+import numpy as np
 import os
 import sys
 import time
 
-import numpy as np
+from builtins import object
+from builtins import str
+from future import standard_library
 
+from . import base
 from . import pyll
 from .utils import coarse_utcnow
-from . import base
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
-
 try:
     import dill as pickler
 except Exception as e:
-    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    logger.info(
+        'Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
     import six.moves.cPickle as pickler
+
+
+def generate_trial(tid, space):
+    variables = space.keys()
+    idxs = {v: [tid] for v in variables}
+    vals = {k: [v] for k, v in space.items()}
+    return {'state': base.JOB_STATE_NEW,
+            'tid': tid,
+            'spec': None,
+            'result': {'status': 'new'},
+            'misc': {'tid': tid,
+                     'cmd': ('domain_attachment',
+                             'FMinIter_Domain'),
+                     'workdir': None,
+                     'idxs': idxs,
+                     'vals': vals},
+            'exp_key': None,
+            'owner': None,
+            'version': 0,
+            'book_time': None,
+            'refresh_time': None,
+            }
+
+
+def generate_trials_to_calculate(points):
+    """
+    Function that generates trials to be evaluated from list of points
+
+    :param points: List of points to be inserted in trials object in form of
+        dictionary with variable names as keys and variable values as dict
+        values. Example value:
+        [{'x': 0.0, 'y': 0.0}, {'x': 1.0, 'y': 1.0}]
+
+    :return: object of class base.Trials() with points which will be calculated
+        before optimisation start if passed to fmin().
+    """
+    trials = base.Trials()
+    new_trials = [generate_trial(tid, x) for tid, x in enumerate(points)]
+    trials.insert_trial_docs(new_trials)
+    return trials
 
 
 def fmin_pass_expr_memo_ctrl(f):
@@ -211,6 +251,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          catch_eval_exceptions=False,
          verbose=0,
          return_argmin=True,
+         points_to_evaluate=None
          ):
     """Minimize a function over a hyperparameter space.
 
@@ -281,6 +322,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         for example if it is expected that `len(trials)` may be zero after
         fmin, and therefore `trials.argmin` would be undefined.
 
+    points_to_evaluate : list, default None
+        If None trials are evaluated normally. If dict with points to
+        evaluate is added the points are evaluated before optimisation starts.
+        Only works if trials=None.
+
 
     Returns
     -------
@@ -313,7 +359,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         )
 
     if trials is None:
-        trials = base.Trials()
+        if points_to_evaluate is None:
+            trials = base.Trials()
+        else:
+            assert type(points_to_evaluate) == list
+            trials = generate_trials_to_calculate(points_to_evaluate)
 
     domain = base.Domain(fn, space,
                          pass_expr_memo_ctrl=pass_expr_memo_ctrl)

@@ -1,10 +1,11 @@
 from __future__ import print_function
-import unittest
-import numpy as np
-import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, STATUS_FAIL, STATUS_OK
-from hyperopt.base import JOB_STATE_ERROR
+import nose.tools
+import numpy as np
+import unittest
+
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, \
+    STATUS_FAIL, STATUS_OK, JOB_STATE_ERROR
 
 
 def test_quadratic1_rand():
@@ -89,6 +90,7 @@ def test_space_eval():
 def test_set_fmin_rstate():
     def lossfn(x):
         return (x - 3) ** 2
+
     trials_seed0 = Trials()
     argmin_seed0 = fmin(
         fn=lossfn,
@@ -111,7 +113,6 @@ def test_set_fmin_rstate():
 
 
 class TestFmin(unittest.TestCase):
-
     class SomeError(Exception):
         # XXX also test domain.exceptions mechanism that actually catches this
         pass
@@ -123,7 +124,6 @@ class TestFmin(unittest.TestCase):
         self.trials = Trials()
 
     def test_catch_eval_exceptions_True(self):
-
         # -- should go to max_evals, catching all exceptions, so all jobs
         #    should have JOB_STATE_ERROR
         fmin(self.eval_fn,
@@ -132,7 +132,7 @@ class TestFmin(unittest.TestCase):
              trials=self.trials,
              max_evals=2,
              catch_eval_exceptions=True,
-             return_argmin=False,)
+             return_argmin=False, )
         trials = self.trials
         assert len(trials) == 0
         assert len(trials._dynamic_trials) == 2
@@ -158,8 +158,9 @@ def test_status_fail_tpe():
     trials = Trials()
 
     argmin = fmin(
-        fn=lambda x: ({'loss': (x - 3) ** 2, 'status': STATUS_OK} if (x < 0) else
-                      {'status': STATUS_FAIL}),
+        fn=lambda x: (
+            {'loss': (x - 3) ** 2, 'status': STATUS_OK} if (x < 0) else
+            {'status': STATUS_FAIL}),
         space=hp.uniform('x', -5, 5),
         algo=tpe.suggest,
         max_evals=50,
@@ -167,5 +168,21 @@ def test_status_fail_tpe():
 
     assert len(trials) == 50, len(trials)
     assert argmin['x'] < 0, argmin
-    assert 'loss' in trials.best_trial['result'], 'loss' in trials.best_trial['result']
-    assert trials.best_trial['result']['loss'] >= 9, trials.best_trial['result']['loss']
+    assert 'loss' in trials.best_trial['result'], 'loss' in trials.best_trial[
+        'result']
+    assert trials.best_trial['result']['loss'] >= 9, \
+        trials.best_trial['result']['loss']
+
+
+class TestGenerateTrialsToCalculate(unittest.TestCase):
+    def test_generate_trials_to_calculate(self):
+        points = [{'x': 0.0, 'y': 0.0}, {'x': 1.0, 'y': 1.0}]
+        best = fmin(fn=lambda space: space['x'] ** 2 + space['y'] ** 2,
+                    space={'x': hp.uniform('x', -10, 10),
+                           'y': hp.uniform('y', -10, 10)},
+                    algo=tpe.suggest,
+                    max_evals=10,
+                    points_to_evaluate=points
+                    )
+        assert best['x'] == 0.0
+        assert best['y'] == 0.0
