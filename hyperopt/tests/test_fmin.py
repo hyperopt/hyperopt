@@ -1,11 +1,10 @@
 from __future__ import print_function
-
-import nose.tools
-import numpy as np
 import unittest
+import numpy as np
+import nose.tools
 
-from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, \
-    STATUS_FAIL, STATUS_OK, JOB_STATE_ERROR
+from hyperopt import fmin, rand, tpe, hp, Trials, exceptions, space_eval, STATUS_FAIL, STATUS_OK
+from hyperopt.base import JOB_STATE_ERROR
 
 
 def test_quadratic1_rand():

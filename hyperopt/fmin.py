@@ -1,30 +1,30 @@
-from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import absolute_import
+from future import standard_library
+from builtins import str
+from builtins import object
 
 import functools
 import logging
-import numpy as np
 import os
 import sys
 import time
 
-from builtins import object
-from builtins import str
-from future import standard_library
+import numpy as np
 
-from . import base
 from . import pyll
 from .utils import coarse_utcnow
+from . import base
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
+
 try:
     import dill as pickler
 except Exception as e:
-    logger.info(
-        'Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
-    import six.moves.cPickle as pickler
+    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+import six.moves.cPickle as pickler
 
 
 def generate_trial(tid, space):
