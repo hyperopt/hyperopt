@@ -24,7 +24,7 @@ try:
     import dill as pickler
 except Exception as e:
     logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
-import six.moves.cPickle as pickler
+    import six.moves.cPickle as pickler
 
 
 def generate_trial(tid, space):
