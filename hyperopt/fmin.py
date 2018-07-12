@@ -323,10 +323,13 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         fmin, and therefore `trials.argmin` would be undefined.
 
     points_to_evaluate : list, default None
-        If None trials are evaluated normally. If dict with points to
-        evaluate is added the points are evaluated before optimisation starts.
-        Only works if trials=None.
-
+        Only works if trials=None. If points_to_evaluate equals None then the
+        trials are evaluated normally. If list of dicts is passed then
+        given points are evaluated before optimisation starts, so the overall
+        number of optimisation steps is len(points_to_evaluate) + max_evals.
+        Elements of this list must be in a form of a dictionary with variable
+        names as keys and variable values as dict values. Example
+        points_to_evaluate value is [{'x': 0.0, 'y': 0.0}, {'x': 1.0, 'y': 2.0}]
 
     Returns
     -------
