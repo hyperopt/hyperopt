@@ -98,7 +98,7 @@ class FMinIter(object):
     catch_eval_exceptions = False
     pickle_protocol = -1
 
-    def __init__(self, algo, domain, trials, rstate, async=None,
+    def __init__(self, algo, domain, trials, rstate, asynchronous=None,
                  max_queue_len=1,
                  poll_interval_secs=1.0,
                  max_evals=sys.maxsize,
@@ -107,16 +107,16 @@ class FMinIter(object):
         self.algo = algo
         self.domain = domain
         self.trials = trials
-        if async is None:
-            self.async = trials.async
+        if asynchronous is None:
+            self.asynchronous = trials.asynchronous
         else:
-            self.async = async
+            self.asynchronous = asynchronous
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
         self.rstate = rstate
 
-        if self.async:
+        if self.asynchronous:
             if 'FMinIter_Domain' in trials.attachments:
                 logger.warn('over-writing old domain trials attachment')
             msg = pickler.dumps(domain)
@@ -157,7 +157,7 @@ class FMinIter(object):
 
     def block_until_done(self):
         already_printed = False
-        if self.async:
+        if self.asynchronous:
             unfinished_states = [base.JOB_STATE_NEW, base.JOB_STATE_RUNNING]
 
             def get_queue_len():
@@ -210,7 +210,7 @@ class FMinIter(object):
                     stopped = True
                     break
 
-            if self.async:
+            if self.asynchronous:
                 # -- wait for workers to fill in the trials
                 time.sleep(self.poll_interval_secs)
             else:
@@ -234,14 +234,14 @@ class FMinIter(object):
         return self
 
     def __next__(self):
-        self.run(1, block_until_done=self.async)
+        self.run(1, block_until_done=self.asynchronous)
         if len(self.trials) >= self.max_evals:
             raise StopIteration()
         return self.trials
 
     def exhaust(self):
         n_done = len(self.trials)
-        self.run(self.max_evals - n_done, block_until_done=self.async)
+        self.run(self.max_evals - n_done, block_until_done=self.asynchronous)
         self.trials.refresh()
         return self
 

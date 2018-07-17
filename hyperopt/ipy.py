@@ -215,21 +215,21 @@ class IPythonTrials(Trials):
 # be handled on behalf of the domain.
 class IPYAsync(object):
 
-    def __init__(self, async, domain, rv, eid, tid, ctrl):
-        self.async = async
+    def __init__(self, asynchronous, domain, rv, eid, tid, ctrl):
+        self.asynchronous = asynchronous
         self.domain = domain
         self.rv = rv
-        self.metadata = self.async.metadata
+        self.metadata = self.asynchronous.metadata
         self.eid = eid
         self.tid = tid
         self.ctrl = ctrl
 
     def ready(self):
-        return self.async.ready()
+        return self.asynchronous.ready()
 
     def get(self):
-        if self.async.successful():
-            val = self.async.get()
+        if self.asynchronous.successful():
+            val = self.asynchronous.get()
             return self.domain.evaluate_async2(val, self.ctrl)
         else:
             return self.rv

@@ -659,7 +659,7 @@ class MongoTrials(Trials):
     interface directly.  When you are done writing, call refresh() or
     refresh_tids() to bring the MongoTrials up to date.
     """
-    async = True
+    asynchronous = True
 
     def __init__(self, arg, exp_key=None, cmd=None, workdir=None,
                  refresh=True):
