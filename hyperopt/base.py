@@ -263,7 +263,7 @@ class Trials(object):
 
     """
 
-    async = False
+    asynchronous = False
 
     def __init__(self, exp_key=None, refresh=True):
         self._ids = set()
