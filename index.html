@@ -66,9 +66,9 @@ dimensions.</p>
 <span class="kn">from</span> <span class="nn">hyperopt</span> <span class="kn">import</span> <span class="n">fmin</span><span class="p">,</span> <span class="n">tpe</span>
 <span class="n">best</span> <span class="o">=</span> <span class="n">fmin</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">algo</span><span class="o">=</span><span class="n">tpe</span><span class="o">.</span><span class="n">suggest</span><span class="p">,</span> <span class="n">max_evals</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
-<span class="k">print</span> <span class="n">best</span>
+<span class="k">print</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 <span class="c"># -&gt; {'a': 1, 'c2': 0.01420615366247227}</span>
-<span class="k">print</span> <span class="n">hyperopt</span><span class="o">.</span><span class="n">space_eval</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">hyperopt</span><span class="o">.</span><span class="n">space_eval</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span><span class="p">)</span>
 <span class="c"># -&gt; ('case 2', 0.01420615366247227}</span>
 </pre></div>
 
