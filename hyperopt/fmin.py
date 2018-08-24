@@ -251,7 +251,8 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
          catch_eval_exceptions=False,
          verbose=0,
          return_argmin=True,
-         points_to_evaluate=None
+         points_to_evaluate=None,
+         max_queue_len=1
          ):
     """Minimize a function over a hyperparameter space.
 
@@ -330,6 +331,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         Elements of this list must be in a form of a dictionary with variable
         names as keys and variable values as dict values. Example
         points_to_evaluate value is [{'x': 0.0, 'y': 0.0}, {'x': 1.0, 'y': 2.0}]
+        
+    max_queue_len : integer, default 1
+        Sets the queue length generated in the dictionary or trials. Increasing this 
+        value helps to slightly spped up parallel simulatulations which sometimes lag 
+        on suggesting a new trial.
 
     Returns
     -------
@@ -373,7 +379,8 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     rval = FMinIter(algo, domain, trials, max_evals=max_evals,
                     rstate=rstate,
-                    verbose=verbose)
+                    verbose=verbose,
+                    max_queue_len=max_queue_len)
     rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
     if return_argmin:
