@@ -334,7 +334,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
         
     max_queue_len : integer, default 1
         Sets the queue length generated in the dictionary or trials. Increasing this 
-        value helps to slightly spped up parallel simulatulations which sometimes lag 
+        value helps to slightly speed up parallel simulatulations which sometimes lag 
         on suggesting a new trial.
 
     Returns
