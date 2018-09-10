@@ -1,4 +1,4 @@
-# Hyperopt: Distributed Asynchronous Hyper-parameter Optimization [![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)
+# Hyperopt: Distributed Asynchronous Hyper-parameter Optimization [![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)  [![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
 
 Hyperopt is a Python library for serial and parallel optimization over awkward
 search spaces, which may include real-valued, discrete, and conditional
