@@ -56,7 +56,7 @@ def quniform(low, high, q, rng=None, size=()):
 @scope.define
 def qloguniform(low, high, q, rng=None, size=()):
     draw = rng.uniform(low, high, size=size)
-    raw = np.round(old_div(draw, q)) * q)
+    raw = np.round(old_div(draw, q)) * q
     return np.exp(draw)
 
 
