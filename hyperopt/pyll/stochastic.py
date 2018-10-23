@@ -55,8 +55,9 @@ def quniform(low, high, q, rng=None, size=()):
 @implicit_stochastic
 @scope.define
 def qloguniform(low, high, q, rng=None, size=()):
-    draw = np.exp(rng.uniform(low, high, size=size))
-    return np.round(old_div(draw, q)) * q
+    draw = rng.uniform(low, high, size=size)
+    raw = np.round(old_div(draw, q)) * q)
+    return np.exp(draw)
 
 
 # -- NORMAL
