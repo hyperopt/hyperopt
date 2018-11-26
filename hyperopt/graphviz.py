@@ -25,7 +25,7 @@ def dot_hyperparameters(expr):
     in an ancestral sampling process.
 
     E.g.:
-    >>> open('foo.dot', 'wb').write(dot_hyperparameters(search_space()))
+    >>> open('foo.dot', 'w').write(dot_hyperparameters(search_space()))
 
     Then later from the shell, type e.g.
     dot -Tpng foo.dot > foo.png && eog foo.png
