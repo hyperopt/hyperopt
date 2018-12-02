@@ -23,6 +23,9 @@ try:
     )
 except ImportError:
     # XXX skip-tests instead or fix the import error, why would it fail?
+    
+    # -- This is failing because of a bug in the scipy.tests.test_continuous import.
+    # https://github.com/scipy/scipy/commit/c05c6b73a0cd16c4cc12a23e7ad72742dfeb42f1 will fix it with scipy 1.2.0
 
     def check_cdf_logcdf(*args):
         pass
@@ -152,6 +155,13 @@ class TestQUniform(unittest.TestCase):
         assert qn.pmf(.99) == 0.0
         assert qn.pmf(-.99) == 0.0
 
+    def test_output_type_int(self):
+        result = quniform_gen(0, 10, 1).rvs()
+        assert int == type(result)
+
+    def test_output_type_float(self):
+        assert float == type(quniform_gen(0, 10, 1.0).rvs())
+
 
 class TestQLogUniform(unittest.TestCase):
 
@@ -199,6 +209,13 @@ class TestQLogUniform(unittest.TestCase):
                 self.logp(0.6, np.log(.16), np.log(.55), 1) ==
                 -np.inf)
 
+    def test_output_type_int(self):
+        result = qloguniform_gen(0, 10, 1).rvs()
+        assert int == type(result)
+
+    def test_output_type_float(self):
+        assert float == type(qloguniform_gen(0, 10, 1.0).rvs())
+
 
 class TestQNormal(unittest.TestCase):
 
@@ -233,6 +250,13 @@ class TestQNormal(unittest.TestCase):
         qn = qnormal_gen(0, 1, 1)
         assert qn.pmf(500) > -np.inf
 
+    def test_output_type_int(self):
+        result = qnormal_gen(0, 10, 1).rvs()
+        assert int == type(result)
+
+    def test_output_type_float(self):
+        assert float == type(qnormal_gen(0, 10, 1.0).rvs())
+
 
 class TestQLogNormal(unittest.TestCase):
 
@@ -264,4 +288,12 @@ class TestQLogNormal(unittest.TestCase):
         # assert -np.inf < qn.logpmf(1e-20) < -50
         # assert -np.inf < qn.logpmf(1e20) < -50
         pass
+
+    def test_output_type_int(self):
+        result = qlognormal_gen(0, 10, 1).rvs()
+        assert int == type(result)
+
+    def test_output_type_float(self):
+        assert float == type(qlognormal_gen(0, 10, 1.0).rvs())
+
 # -- non-empty last line for flake8
