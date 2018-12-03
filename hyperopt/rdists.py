@@ -98,9 +98,9 @@ class quniform_gen(object):
     """
 
     def __init__(self, low, high, q):
-        low, high, q = list(map(float, (low, high, q)))
-        qlow = np.round(old_div(low, q)) * q
-        qhigh = np.round(old_div(high, q)) * q
+        low, high = list(map(float, (low, high)))
+        qlow = safe_int_cast(np.round(old_div(low, q))) * q
+        qhigh = safe_int_cast(np.round(old_div(high, q))) * q
         if qlow == qhigh:
             xs = [qlow]
             ps = [1.0]
@@ -132,7 +132,7 @@ class quniform_gen(object):
 
     def rvs(self, size=()):
         rval = mtrand.uniform(low=self.low, high=self.high, size=size)
-        rval = np.round(old_div(rval, self.q)) * self.q
+        rval = safe_int_cast(np.round(old_div(rval, self.q))) * self.q
         return rval
 
 
@@ -144,11 +144,11 @@ class qloguniform_gen(quniform_gen):
     #    because I don't understand the design of those rv classes
 
     def __init__(self, low, high, q):
-        low, high, q = list(map(float, (low, high, q)))
+        low, high = list(map(float, (low, high)))
         elow = np.exp(low)
         ehigh = np.exp(high)
-        qlow = np.round(old_div(elow, q)) * q
-        qhigh = np.round(old_div(ehigh, q)) * q
+        qlow = safe_int_cast(np.round(old_div(elow, q))) * q
+        qhigh = safe_int_cast(np.round(old_div(ehigh, q))) * q
 
         # -- loguniform for using the CDF
         lu = loguniform_gen(low=low, high=high)
@@ -188,7 +188,7 @@ class qloguniform_gen(quniform_gen):
 
     def rvs(self, size=()):
         x = mtrand.uniform(low=self.low, high=self.high, size=size)
-        rval = np.round(old_div(np.exp(x), self.q)) * self.q
+        rval = safe_int_cast(np.round(old_div(np.exp(x), self.q))) * self.q
         return rval
 
 
@@ -197,12 +197,13 @@ class qnormal_gen(object):
     """
 
     def __init__(self, mu, sigma, q):
-        self.mu, self.sigma, self.q = list(map(float, (mu, sigma, q)))
+        self.mu, self.sigma = list(map(float, (mu, sigma)))
+        self.q = q
         # -- distfn for using the CDF
         self._norm_logcdf = scipy.stats.norm(loc=mu, scale=sigma).logcdf
 
     def in_domain(self, x):
-        return np.isclose(x, np.round(old_div(x, self.q)) * self.q)
+        return np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q)
 
     def pmf(self, x):
         return np.exp(self.logpmf(x))
@@ -233,7 +234,7 @@ class qnormal_gen(object):
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = np.round(old_div(x, self.q)) * self.q
+        rval = safe_int_cast(np.round(old_div(x, self.q))) * self.q
         return rval
 
 
@@ -242,13 +243,14 @@ class qlognormal_gen(object):
     """
 
     def __init__(self, mu, sigma, q):
-        self.mu, self.sigma, self.q = list(map(float, (mu, sigma, q)))
+        self.mu, self.sigma = list(map(float, (mu, sigma)))
+        self.q = q
         # -- distfn for using the CDF
         self._norm_cdf = scipy.stats.norm(loc=mu, scale=sigma).cdf
 
     def in_domain(self, x):
         return np.logical_and((x >= 0),
-                              np.isclose(x, np.round(old_div(x, self.q)) * self.q))
+                              np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q))
 
     def pmf(self, x):
         x1 = np.atleast_1d(x)
@@ -276,8 +278,16 @@ class qlognormal_gen(object):
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = np.round(old_div(np.exp(x), self.q)) * self.q
+        rval = safe_int_cast(np.round(old_div(np.exp(x), self.q))) * self.q
         return rval
 
+
+def safe_int_cast(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.astype('int')
+    elif isinstance(obj, list):
+        return [int(i) for i in obj]
+    else:
+        return int(obj)
 
 # -- non-empty last line for flake8
