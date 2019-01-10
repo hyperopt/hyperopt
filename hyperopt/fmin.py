@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import time
+from tqdm import tqdm
 
 import numpy as np
 
@@ -188,38 +189,45 @@ class FMinIter(object):
             return self.trials.count_by_state_unsynced(base.JOB_STATE_NEW)
 
         stopped = False
-        while n_queued < N:
-            qlen = get_queue_len()
-            while qlen < self.max_queue_len and n_queued < N:
-                n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
-                new_ids = trials.new_trial_ids(n_to_enqueue)
-                self.trials.refresh()
-                if 0:
-                    for d in self.trials.trials:
-                        print('trial %i %s %s' % (d['tid'], d['state'],
-                                                  d['result'].get('status')))
-                new_trials = algo(new_ids, self.domain, trials,
-                                  self.rstate.randint(2 ** 31 - 1))
-                assert len(new_ids) >= len(new_trials)
-                if len(new_trials):
-                    self.trials.insert_trial_docs(new_trials)
+        with tqdm(total=N, file=sys.stdout, postfix='best loss: ?') as pbar:
+            while n_queued < N:
+                qlen = get_queue_len()
+                while qlen < self.max_queue_len and n_queued < N:
+                    n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
+                    new_ids = trials.new_trial_ids(n_to_enqueue)
                     self.trials.refresh()
-                    n_queued += len(new_trials)
-                    qlen = get_queue_len()
+                    if 0:
+                        for d in self.trials.trials:
+                            print('trial %i %s %s' % (d['tid'], d['state'],
+                                                      d['result'].get('status')))
+                    new_trials = algo(new_ids, self.domain, trials,
+                                      self.rstate.randint(2 ** 31 - 1))
+                    assert len(new_ids) >= len(new_trials)
+                    if len(new_trials):
+                        self.trials.insert_trial_docs(new_trials)
+                        self.trials.refresh()
+                        n_queued += len(new_trials)
+                        qlen = get_queue_len()
+                    else:
+                        stopped = True
+                        break
+    
+                if self.asynchronous:
+                    # -- wait for workers to fill in the trials
+                    time.sleep(self.poll_interval_secs)
                 else:
-                    stopped = True
+                    # -- loop over trials and do the jobs directly
+                    self.serial_evaluate()
+    
+                best_loss = min([d['result']['loss'] for d in 
+                                 self.trials.trials if 
+                                 d['result']['status'] == 'ok'])
+                pbar.postfix = 'best loss: ' + str(best_loss)
+                pbar.update(len(new_trials))
+
+                if stopped:
                     break
-
-            if self.asynchronous:
-                # -- wait for workers to fill in the trials
-                time.sleep(self.poll_interval_secs)
-            else:
-                # -- loop over trials and do the jobs directly
-                self.serial_evaluate()
-
-            if stopped:
-                break
-
+        
         if block_until_done:
             self.block_until_done()
             self.trials.refresh()
