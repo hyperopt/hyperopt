@@ -189,7 +189,8 @@ class FMinIter(object):
             return self.trials.count_by_state_unsynced(base.JOB_STATE_NEW)
 
         stopped = False
-        with tqdm(total=N, file=sys.stdout, postfix='best loss: ?') as pbar:
+        qlen = get_queue_len()
+        with tqdm(total=N+qlen, file=sys.stdout, postfix='best loss: ?') as pbar:
             while n_queued < N:
                 qlen = get_queue_len()
                 while qlen < self.max_queue_len and n_queued < N:
@@ -218,12 +219,15 @@ class FMinIter(object):
                 else:
                     # -- loop over trials and do the jobs directly
                     self.serial_evaluate()
-    
-                best_loss = min([d['result']['loss'] for d in 
-                                 self.trials.trials if 
-                                 d['result']['status'] == 'ok'])
-                pbar.postfix = 'best loss: ' + str(best_loss)
-                pbar.update(len(new_trials))
+                
+                try:
+                    best_loss = min([d['result']['loss'] for d in 
+                                     self.trials.trials if 
+                                     d['result']['status'] == 'ok'])
+                    pbar.postfix = 'best loss: ' + str(best_loss)
+                except:
+                    pass
+                pbar.update(qlen)
 
                 if stopped:
                     break
