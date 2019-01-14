@@ -25,7 +25,7 @@ install:
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy scipy
   - python setup.py install
-  - pip install pytest pytest-cov pep8 pytest-pep8
+  - pip install pytest>=3.6 pytest-cov pep8 pytest-pep8
 script:
   - python -m pytest
 after_success:
