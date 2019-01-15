@@ -619,6 +619,8 @@ class Trials(object):
             error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
             will not be caught, and so they will propagate to calling code.
 
+        show_progressbar : bool, default True
+            Show a progressbar.
 
         """
         # -- Stop-gap implementation!
