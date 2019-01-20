@@ -110,14 +110,16 @@ if package_name is None:
 if package_data is None:
     package_data = find_package_data(packages)
 
-if scripts is None:
-    scripts = find_scripts()
 
 setuptools.setup(
     name=package_name,
     version='0.1.1',
     packages=packages,
-    scripts=scripts,
+    entry_points={
+        'console_scripts': [
+            'hyperopt-mongo-worker=hyperopt.mongoexp:main'
+        ],
+    },
     url='http://hyperopt.github.com/hyperopt/',
     author='James Bergstra',
     author_email='james.bergstra@gmail.com',

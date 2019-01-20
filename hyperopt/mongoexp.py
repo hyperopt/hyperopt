@@ -1188,11 +1188,12 @@ def main_worker_helper(options, args):
     def sighandler_wait_quit(signum, frame):
         logger.info('Caught signal %i, shutting down.' % signum)
         raise WaitQuit(signum)
-
+    is_windows = os.name == 'nt'
+    if not is_windows:
+        signal.signal(signal.SIGHUP, sighandler_shutdown)
+        signal.signal(signal.SIGUSR1, sighandler_wait_quit)
     signal.signal(signal.SIGINT, sighandler_shutdown)
-    signal.signal(signal.SIGHUP, sighandler_shutdown)
     signal.signal(signal.SIGTERM, sighandler_shutdown)
-    signal.signal(signal.SIGUSR1, sighandler_wait_quit)
 
     if N > 1:
         proc = None
@@ -1226,7 +1227,7 @@ def main_worker_helper(options, args):
                 # this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
                     # proc.terminate() is only available as of 2.6
-                    os.kill(proc.pid, signal.SIGTERM)
+                    os.kill(proc.pid, signal.CTRL_C_EVENT if is_windows else signal.SIGTERM)
                     return proc.wait()
                 else:
                     return 0
@@ -1261,6 +1262,9 @@ def main_worker_helper(options, args):
     else:
         raise ValueError("N <= 0")
 
+def main():
+    logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+    sys.exit(main_worker())
 
 def main_worker():
     parser = optparse.OptionParser(usage="%prog [options]")
