@@ -603,6 +603,7 @@ class Trials(object):
              pass_expr_memo_ctrl=None,
              catch_eval_exceptions=False,
              return_argmin=True,
+             show_progressbar=True,
              ):
         """Minimize a function over a hyperparameter space.
 
@@ -618,6 +619,8 @@ class Trials(object):
             error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
             will not be caught, and so they will propagate to calling code.
 
+        show_progressbar : bool, default True
+            Show a progressbar.
 
         """
         # -- Stop-gap implementation!
@@ -632,7 +635,8 @@ class Trials(object):
             allow_trials_fmin=False,  # -- prevent recursion
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
             catch_eval_exceptions=catch_eval_exceptions,
-            return_argmin=return_argmin)
+            return_argmin=return_argmin,
+            show_progressbar=show_progressbar)
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
