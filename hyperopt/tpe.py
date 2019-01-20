@@ -79,10 +79,9 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
         active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
         samples = rng.normal(loc=mus[active], scale=sigmas[active])
     else:
-        # -- draw from truncated components
-        # TODO: one-sided-truncation
-        low = float(low)
-        high = float(high)
+        # -- draw from truncated components, handling one-sided truncation
+        low = float(low) if low is not None else -float('Inf')
+        high = float(high) if high is not None else float('Inf')
         if low >= high:
             raise ValueError('low >= high', (low, high))
         samples = []
