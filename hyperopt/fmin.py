@@ -131,7 +131,7 @@ class FMinIter(object):
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
             if trial['state'] == base.JOB_STATE_NEW:
-                trial['state'] == base.JOB_STATE_RUNNING
+                trial['state'] = base.JOB_STATE_RUNNING
                 now = coarse_utcnow()
                 trial['book_time'] = now
                 trial['refresh_time'] = now
