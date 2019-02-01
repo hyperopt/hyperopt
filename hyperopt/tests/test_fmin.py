@@ -110,6 +110,35 @@ def test_set_fmin_rstate():
     assert argmin_seed0 != argmin_seed1
 
 
+def test_fmin_return_argmin():
+    fn = lambda x: x
+    space = hp.choice('x', [100, 5, 10])
+
+    # With return_argmin=False it should return the
+    # best parameter values
+    best_parameter = fmin(
+        fn=fn,
+        space=space,
+        max_evals=10,
+        algo=rand.suggest,
+        return_argmin=False,
+        rstate=np.random.RandomState(0)
+    )
+    assert best_parameter == 5
+
+    # With return_argmin=True it should return the
+    # optimal point in ths sample space
+    best_args = fmin(
+        fn=fn,
+        space=space,
+        max_evals=10,
+        algo=rand.suggest,
+        return_argmin=True,
+        rstate=np.random.RandomState(0)
+    )
+    assert best_args['x'] == 1
+
+
 class TestFmin(unittest.TestCase):
 
     class SomeError(Exception):
