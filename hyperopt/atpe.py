@@ -436,7 +436,8 @@ class Hyperparameter:
         elif domain.name == 'randint':
             data = {"type": "number"}
             max = domain.pos_args[0]._obj
-            data['enum'] = list(range(max))
+            data['max'] = max
+            data['mode'] = 'randint'
             return data
         else:
             raise ValueError(f"Unsupported hyperopt domain type {domain.name}")
@@ -962,7 +963,7 @@ class ATPEOptimizer:
 
 
     def chooseRandomValueForParameter(self, parameter):
-        if parameter.config['mode'] == 'uniform':
+        if parameter.config.get('mode', 'uniform') == 'uniform':
             minVal = parameter.config['min']
             maxVal = parameter.config['max']
 
@@ -977,7 +978,7 @@ class ATPEOptimizer:
 
             if 'rounding' in parameter.config:
                 value = round(value / parameter.config['rounding']) * parameter.config['rounding']
-        elif parameter.config['mode'] == 'normal':
+        elif parameter.get('mode', 'uniform') == 'normal':
             meanVal = parameter.config['mean']
             stddevVal = parameter.config['stddev']
 
@@ -992,7 +993,7 @@ class ATPEOptimizer:
 
             if 'rounding' in parameter.config:
                 value = round(value / parameter.config['rounding']) * parameter.config['rounding']
-        elif parameter.config['mode'] == 'randint':
+        elif parameter.get('mode', 'uniform') == 'randint':
             max = parameter.config['max']
             value = random.randint(0, max-1)
 
