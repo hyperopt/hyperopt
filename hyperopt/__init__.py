@@ -33,6 +33,7 @@ from . import exceptions
 # -- Import built-in optimization algorithms
 from . import rand
 from . import tpe
+from . import atpe
 from . import mix
 from . import anneal
 
