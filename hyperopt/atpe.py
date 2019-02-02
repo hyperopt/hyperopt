@@ -416,15 +416,15 @@ class Hyperparameter:
             data = {"type": "number"}
             data['scaling'] = 'logarithmic'
             data['mode'] = 'normal'
-            data['mean'] = domain.pos_args[0]._obj
-            data['stddev'] = domain.pos_args[1]._obj
+            data['mean'] = math.exp(domain.pos_args[0]._obj)
+            data['stddev'] = math.exp(domain.pos_args[1]._obj)
             return data
         elif domain.name == 'qlognormal':
             data = {"type": "number"}
             data['scaling'] = 'logarithmic'
             data['mode'] = 'normal'
-            data['mean'] = domain.pos_args[0]._obj
-            data['stddev'] = domain.pos_args[1]._obj
+            data['mean'] = math.exp(domain.pos_args[0]._obj)
+            data['stddev'] = math.exp(domain.pos_args[1]._obj)
             data['rounding'] = domain.pos_args[2]._obj
             return data
         elif domain.name == 'literal':
