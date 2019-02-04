@@ -362,13 +362,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     Returns
     -------
 
-    argmin : None or dictionary
-        If `return_argmin` is False, this function returns nothing.
-        Otherwise, it returns `trials.argmin`.  This argmin can be converted
-        to a point in the configuration space by calling
-        `hyperopt.space_eval(space, best_vals)`.
-
-
+    argmin : dictionary
+        If return_argmin is True returns `trials.argmin` which is a dictionary.  Otherwise
+        this function  returns the result of `hyperopt.space_eval(space, trails.argmin)` if there
+        were succesfull trails. This object shares the same structure as the space passed.
+        If there were no succesfull trails, it returns None.
     """
     if rstate is None:
         env_rseed = os.environ.get('HYPEROPT_FMIN_SEED', '')
@@ -409,6 +407,11 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     rval.exhaust()
     if return_argmin:
         return trials.argmin
+    elif len(trials) > 0:
+        # Only if there are some succesfull trail runs, return the best point in the evaluation space
+        return space_eval(space, trials.argmin)
+    else:
+        return None
 
 
 def space_eval(space, hp_assignment):
