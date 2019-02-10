@@ -5,7 +5,7 @@ import numpy as np
 def suggest(new_ids, domain, trials, seed, p_suggest):
     """Return the result of a randomly-chosen suggest function
 
-    For exampl to search by sometimes using random search, sometimes anneal,
+    For example to search by sometimes using random search, sometimes anneal,
     and sometimes tpe, type:
 
         fmin(...,
