@@ -1173,6 +1173,11 @@ def as_mongo_str(s):
     else:
         return 'mongo://%s' % s
 
+def number_of_jobs_in_db (options):
+    mj = MongoJobs.new_from_connection_str(
+        as_mongo_str(options.mongo) + '/jobs')
+    finalnum = mj.jobs.find().count()
+    return finalnum
 
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
@@ -1203,6 +1208,12 @@ def main_worker_helper(options, args):
             return
 
         while N and cons_errs < int(options.max_consecutive_failures):
+            if options.max_jobs_in_db is not None and options.max_jobs_in_db != sys.maxsize:
+                num_jobs_db = number_of_jobs_in_db(options)
+                if int(num_jobs_db) >= int(options.max_jobs_in_db):
+                    logger.info("Exiting because there are " + str(num_jobs_db) + " jobs in the database, but the limit is " + str(options.max_jobs_in_db))
+                    return
+
             try:
                 # recursive Popen, dropping N from the argv
                 # By using another process to run this job
@@ -1307,6 +1318,11 @@ def main_worker():
                       default=None,
                       help="root workdir (default: load from mongo)",
                       metavar="DIR")
+    parser.add_option("--max-jobs-in-db",
+                      dest="max_jobs_in_db",
+                      default=sys.maxsize,
+                      help="max jobs in db (default: " + str(sys.maxsize) + ")"
+    )
 
     (options, args) = parser.parse_args()
 
