@@ -52,3 +52,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *,cover
+
+# IDE
+.idea/
+

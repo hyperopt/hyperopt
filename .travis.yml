@@ -27,6 +27,6 @@ install:
   - python setup.py install
   - pip install pytest>=3.6 pytest-cov pep8 pytest-pep8
 script:
-  - python -m pytest
+  - nosetests
 after_success:
   - coveralls
