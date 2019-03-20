@@ -74,6 +74,12 @@ def hp_uniform(label, *args, **kwargs):
 
 
 @validate_label
+def hp_uniformint(label, *args, **kwargs):
+    args += (1.0,)
+    return scope.int(hp_quniform(label, *args, **kwargs))
+
+
+@validate_label
 def hp_quniform(label, *args, **kwargs):
     return scope.float(
         scope.hyperopt_param(label,
