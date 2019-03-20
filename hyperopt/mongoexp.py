@@ -1204,25 +1204,38 @@ def main_worker_helper(options, args):
 
         while N and cons_errs < int(options.max_consecutive_failures):
             try:
-                # recursive Popen, dropping N from the argv
-                # By using another process to run this job
-                # we protect ourselves from memory leaks, bad cleanup
-                # and other annoying details.
-                # The tradeoff is that a large dataset must be reloaded once for
-                # each subprocess.
-                sub_argv = [sys.argv[0],
-                            '--poll-interval=%s' % options.poll_interval,
-                            '--max-jobs=1',
-                            '--mongo=%s' % options.mongo,
-                            '--reserve-timeout=%s' % options.reserve_timeout]
-                if options.workdir is not None:
-                    sub_argv.append('--workdir=%s' % options.workdir)
-                if options.exp_key is not None:
-                    sub_argv.append('--exp-key=%s' % options.exp_key)
-                proc = subprocess.Popen(sub_argv)
-                retcode = proc.wait()
-                proc = None
+                if options.use_subprocesses:
+                    # recursive Popen, dropping N from the argv
+                    # By using another process to run this job
+                    # we protect ourselves from memory leaks, bad cleanup
+                    # and other annoying details.
+                    # The tradeoff is that a large dataset must be reloaded once for
+                    # each subprocess.
+                    sub_argv = [sys.argv[0],
+                                '--poll-interval=%s' % options.poll_interval,
+                                '--max-jobs=1',
+                                '--mongo=%s' % options.mongo,
+                                '--reserve-timeout=%s' % options.reserve_timeout]
+                    if options.workdir is not None:
+                        sub_argv.append('--workdir=%s' % options.workdir)
+                    if options.exp_key is not None:
+                        sub_argv.append('--exp-key=%s' % options.exp_key)
+                    proc = subprocess.Popen(sub_argv)
+                    retcode = proc.wait()
+                    proc = None
+                else:
+                    current_mongo_str = as_mongo_str(options.mongo)
+                    # Remove this if not necessary:
+                    if "/jobs" not in current_mongo_str:
+                        current_mongo_str += '/jobs'
+                    mj = MongoJobs.new_from_connection_str(current_mongo_str)
 
+                    mworker = MongoWorker(mj,
+                                          float(options.poll_interval),
+                                          workdir=options.workdir,
+                                          exp_key=options.exp_key)
+                    mworker.run_one(reserve_timeout=float(options.reserve_timeout))
+                    retcode = 0
             except Shutdown:
                 # this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
@@ -1307,6 +1320,11 @@ def main_worker():
                       default=None,
                       help="root workdir (default: load from mongo)",
                       metavar="DIR")
+    parser.add_option("--no-subprocesses",
+                      dest="use_subprocesses",
+                      default=True,
+                      action="store_false",
+                      help="do not use sub-processes for each objective evaluation, the objective function will run in the same python process (useful to keep in memory large data across objective evals) but you have to pay attention to memory leaks (default: False)")
 
     (options, args) = parser.parse_args()
 
