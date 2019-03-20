@@ -1235,7 +1235,7 @@ def main_worker_helper(options, args):
                                           workdir=options.workdir,
                                           exp_key=options.exp_key)
                     mworker.run_one(reserve_timeout=float(options.reserve_timeout))
-                    retcode = 1
+                    retcode = 0
             except Shutdown:
                 # this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
