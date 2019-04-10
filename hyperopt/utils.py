@@ -168,7 +168,7 @@ def use_obj_for_literal_in_memo(expr, obj, lit, memo):
         try:
             if node.obj == lit:
                 memo[node] = obj
-        except AttributeError:
+        except (AttributeError, ValueError) as e:
             # -- non-literal nodes don't have node.obj
             pass
     return memo
