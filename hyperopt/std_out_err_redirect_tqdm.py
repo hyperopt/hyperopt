@@ -21,6 +21,10 @@ class DummyTqdmFile(object):
     def flush(self):
         return getattr(self.file, "flush", lambda: None)()
 
+    def isatty(self):
+        return getattr(self.file, "isatty", lambda: False)()
+
+
 @contextlib.contextmanager
 def std_out_err_redirect_tqdm():
     orig_out_err = sys.stdout, sys.stderr
