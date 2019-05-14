@@ -31,4 +31,8 @@ class InvalidLoss(ValueError):
         ValueError.__init__(self)
         self.result = result
 
+
+class AllTrialsFailed(Exception):
+    """All optimization steps have finished with status base.STATUS_FAIL"""
+
 # -- flake8 doesn't like blank last line

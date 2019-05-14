@@ -44,8 +44,8 @@ except ImportError:
 from . import pyll
 from .pyll.stochastic import recursive_set_rng_kwarg
 
-from .exceptions import (
-    DuplicateLabel, InvalidTrial, InvalidResultStatus, InvalidLoss)
+from .exceptions import (DuplicateLabel, InvalidTrial, InvalidResultStatus,
+                         InvalidLoss, AllTrialsFailed)
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
@@ -580,6 +580,8 @@ class Trials(object):
         """
         candidates = [t for t in self.trials
                       if t['result']['status'] == STATUS_OK]
+        if not candidates:
+            raise AllTrialsFailed
         losses = [float(t['result']['loss']) for t in candidates]
         assert not np.any(np.isnan(losses))
         best = np.argmin(losses)
