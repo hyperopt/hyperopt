@@ -12,6 +12,9 @@ class DummyTqdmFile(object):
     file = None
     def __init__(self, file):
         self.file = file
+        
+    def fileno(self):
+        return self.file.fileno()
 
     def write(self, x):
         # Avoid print() second call (useless \n)
