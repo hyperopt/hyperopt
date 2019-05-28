@@ -598,6 +598,7 @@ class Trials(object):
         return rval
 
     def fmin(self, fn, space, algo, max_evals,
+             max_queue_len=1,
              rstate=None,
              verbose=0,
              pass_expr_memo_ctrl=None,
@@ -632,6 +633,7 @@ class Trials(object):
             trials=self,
             rstate=rstate,
             verbose=verbose,
+            max_queue_len=max_queue_len,
             allow_trials_fmin=False,  # -- prevent recursion
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
             catch_eval_exceptions=catch_eval_exceptions,

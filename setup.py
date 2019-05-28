@@ -147,7 +147,7 @@ setuptools.setup(
     keywords='Bayesian optimization hyperparameter model selection',
     package_data=package_data,
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'pymongo', 'six', 'networkx', 'future', 'tqdm'],
+    install_requires=['numpy', 'scipy', 'pymongo', 'six', 'networkx==2.2', 'future', 'tqdm'],
     extras_require={
         'dill': 'dill'
     },
