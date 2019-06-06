@@ -8,14 +8,17 @@ import bson
 
 from hyperopt.pyll import scope
 
-from hyperopt.base import JOB_STATE_NEW
+from hyperopt.base import JOB_STATE_DONE, JOB_STATE_NEW
 from hyperopt.base import TRIAL_KEYS
 from hyperopt.base import TRIAL_MISC_KEYS
 from hyperopt.base import InvalidTrial
 from hyperopt.base import miscs_to_idxs_vals
 from hyperopt.base import SONify
+from hyperopt.base import STATUS_OK
 from hyperopt.base import Trials
 from hyperopt.base import trials_from_docs
+
+from hyperopt.exceptions import AllTrialsFailed
 
 uniform = scope.uniform
 normal = scope.normal
@@ -35,6 +38,26 @@ def ok_trial(tid, *args, **kwargs):
         extra='extra',  # -- more stuff here is ok
         owner=None,
         state=JOB_STATE_NEW,
+        version=0,
+        book_time=None,
+        refresh_time=None,
+        exp_key=None,
+    )
+
+
+def create_fake_trial(tid, loss=None, status=STATUS_OK, state=JOB_STATE_DONE):
+    return dict(
+        tid=tid,
+        result={'status': status, 'loss': loss} if loss is not None else {'status': status},
+        spec={'a': 1},
+        misc={
+            'tid': tid,
+            'cmd': ("some cmd",),
+            'idxs': {'z': [tid]},
+            'vals': {'z': [1]}},
+        extra='extra',  # -- more stuff here is ok
+        owner=None,
+        state=state,
         version=0,
         book_time=None,
         refresh_time=None,
@@ -173,6 +196,24 @@ class TestTrials(unittest.TestCase):
         assert len(trials) == len(trials.specs)
         assert len(trials) == len(trials.results)
         assert len(trials) == len(trials.miscs)
+
+    def test_best_trial(self):
+        trials = self.trials
+        assert len(trials) == 0
+        # It should throw a reasonable error when no valid trials exist.
+        trials.insert_trial_doc(create_fake_trial(0, loss=np.NaN))
+        trials.refresh()
+        with self.assertRaises(AllTrialsFailed):
+            assert trials.best_trial is None
+
+        # It should work even with some trials with NaN losses.
+        trials.insert_trial_doc(create_fake_trial(1, loss=1.0))
+        trials.insert_trial_doc(create_fake_trial(2, loss=np.NaN))
+        trials.insert_trial_doc(create_fake_trial(3, loss=0.5))
+        trials.refresh()
+
+        best_trial = trials.best_trial
+        self.assertEquals(best_trial['tid'], 3)
 
 
 class TestSONify(unittest.TestCase):

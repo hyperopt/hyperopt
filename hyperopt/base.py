@@ -86,11 +86,13 @@ JOB_STATE_NEW = 0
 JOB_STATE_RUNNING = 1
 JOB_STATE_DONE = 2
 JOB_STATE_ERROR = 3
+JOB_STATE_CANCEL = 4
 JOB_STATES = [
     JOB_STATE_NEW,
     JOB_STATE_RUNNING,
     JOB_STATE_DONE,
-    JOB_STATE_ERROR]
+    JOB_STATE_ERROR,
+    JOB_STATE_CANCEL]
 
 
 TRIAL_KEYS = [
@@ -332,15 +334,15 @@ class Trials(object):
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
+        valid_states = [JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE]
         if self._exp_key is None:
             self._trials = [
                 tt for tt in self._dynamic_trials
-                if tt['state'] != JOB_STATE_ERROR]
+                if tt['state'] in valid_states]
         else:
             self._trials = [tt
                             for tt in self._dynamic_trials
-                            if (tt['state'] != JOB_STATE_ERROR and
-                                tt['exp_key'] == self._exp_key)]
+                            if (tt['state'] in valid_states and tt['exp_key'] == self._exp_key)]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property
@@ -576,14 +578,17 @@ class Trials(object):
 
     @property
     def best_trial(self):
-        """Trial with lowest loss and status=STATUS_OK
+        """
+        Trial with lowest non-NaN loss and status=STATUS_OK.
+        If no such trial exists, returns None.
         """
         candidates = [t for t in self.trials
-                      if t['result']['status'] == STATUS_OK]
+                      if t['result']['status'] == STATUS_OK and not np.isnan(t['result']['loss'])]
         if not candidates:
             raise AllTrialsFailed
         losses = [float(t['result']['loss']) for t in candidates]
-        assert not np.any(np.isnan(losses))
+        if len(losses) == 0:
+            return None
         best = np.argmin(losses)
         return candidates[best]
 

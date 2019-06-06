@@ -8,6 +8,7 @@ from hyperopt import anneal
 from hyperopt import rand
 from hyperopt import Trials, fmin
 
+
 try:
     import matplotlib.pyplot as plt
 except ImportError:
