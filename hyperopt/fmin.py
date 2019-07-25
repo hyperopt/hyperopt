@@ -199,9 +199,11 @@ class FMinIter(object):
                       ) as pbar:
                 while n_queued < N:
                     qlen = get_queue_len()
+                    total_ids = 0
                     while qlen < self.max_queue_len and n_queued < N:
                         n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                         new_ids = trials.new_trial_ids(n_to_enqueue)
+                        total_ids += len(new_ids)
                         self.trials.refresh()
                         if 0:
                             for d in self.trials.trials:
@@ -233,7 +235,7 @@ class FMinIter(object):
                         pbar.postfix = 'best loss: ' + str(best_loss)
                     except:
                         pass
-                    pbar.update(qlen)
+                    pbar.update(total_ids)
 
                     if stopped:
                         break
