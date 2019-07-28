@@ -148,6 +148,7 @@ setuptools.setup(
     package_data=package_data,
     include_package_data=True,
     install_requires=['numpy', 'scipy', 'pymongo', 'six', 'networkx==2.2', 'future', 'tqdm', 'cloudpickle'],
+    extras_require={'SparkTrials':'pyspark'},
     tests_require=['nose'],
     zip_safe=False
 )
