@@ -70,7 +70,6 @@ class SparkTrials(Trials):
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark_context._jsc.sc().maxNumConcurrentTasks()
         self.parallelism = self._decide_parallelism(max_num_concurrent_tasks, parallelism)
-        self.user_specified_parallelism = parallelism
 
         if timeout is not None and (not isinstance(timeout, numbers.Number) or timeout <= 0):
             raise Exception("timeout argument should be None or a positive value.")
