@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import time
+import timeit
 from tqdm import tqdm
 
 import numpy as np
@@ -104,6 +105,7 @@ class FMinIter(object):
                  max_queue_len=1,
                  poll_interval_secs=1.0,
                  max_evals=sys.maxsize,
+                 max_time=np.inf,
                  verbose=0,
                  show_progressbar=True
                  ):
@@ -118,6 +120,8 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.max_time = max_time
+        self.start_time = timeit.default_timer()
         self.rstate = rstate
 
         if self.asynchronous:
@@ -197,9 +201,9 @@ class FMinIter(object):
             with tqdm(total=N+qlen, file=orig_stdout, postfix='best loss: ?',
                       disable=not self.show_progressbar, dynamic_ncols=True,
                       ) as pbar:
-                while n_queued < N:
+                while n_queued < N and (timeit.default_timer() - self.start_time) < self.max_time:
                     qlen = get_queue_len()
-                    while qlen < self.max_queue_len and n_queued < N:
+                    while qlen < self.max_queue_len and n_queued < N and (timeit.default_timer() - self.start_time) < self.max_time:
                         n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                         new_ids = trials.new_trial_ids(n_to_enqueue)
                         self.trials.refresh()
@@ -264,7 +268,7 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
+def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
          allow_trials_fmin=True, pass_expr_memo_ctrl=None,
          catch_eval_exceptions=False,
          verbose=0,
@@ -310,6 +314,9 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     max_evals : int
         Allow up to this many function evaluations before returning.
+
+    max_time : int
+        Limits search time by parametrized number of seconds (infinity is default).
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -380,6 +387,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
             fn, space,
             algo=algo,
             max_evals=max_evals,
+            max_time=max_time,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
@@ -399,7 +407,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     domain = base.Domain(fn, space,
                          pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
-    rval = FMinIter(algo, domain, trials, max_evals=max_evals,
+    rval = FMinIter(algo, domain, trials, max_evals=max_evals, max_time=max_time,
                     rstate=rstate,
                     verbose=verbose,
                     max_queue_len=max_queue_len,

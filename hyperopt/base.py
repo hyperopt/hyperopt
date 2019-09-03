@@ -600,6 +600,7 @@ class Trials(object):
         return rval
 
     def fmin(self, fn, space, algo, max_evals,
+             max_time=np.inf,
              max_queue_len=1,
              rstate=None,
              verbose=0,
@@ -632,6 +633,7 @@ class Trials(object):
         from .fmin import fmin
         return fmin(
             fn, space, algo, max_evals,
+            max_time=max_time,
             trials=self,
             rstate=rstate,
             verbose=verbose,
