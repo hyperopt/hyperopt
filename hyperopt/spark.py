@@ -377,7 +377,7 @@ class _SparkFMinState:
 
     def _poll_new_tasks(self):
         new_task_list = []
-        for trial in copy.deepcopy(self.trials.trials):
+        for trial in copy.copy(self.trials.trials):
             if trial['state'] == base.JOB_STATE_NEW:
                 # check parallelism limit
                 if self.running_trial_count() >= self.trials.parallelism:
