@@ -9,11 +9,11 @@ To run the  unit tests, run the `run-tests.sh` script.  You will need to set the
 For example:
 
 ```bash
-hyperopt$ HYPEROPT_FMIN_SEED=3 SPARK_HOME=/usr/local/lib/spark-2.4.3-bin-hadoop2.6 ./run_tests.sh
+hyperopt$ HYPEROPT_FMIN_SEED=3 SPARK_HOME=/usr/local/lib/spark-2.4.4-bin-hadoop2.7 ./run_tests.sh
 ```
 
 To run the unit test for one file, you can add the file name as the parameter, e.g:
 ```bash
-hyperopt$ HYPEROPT_FMIN_SEED=3 SPARK_HOME=/usr/local/lib/spark-2.4.0-bin-hadoop2.7 ./run_tests.sh hyperopt/tests/test_spark.py
+hyperopt$ HYPEROPT_FMIN_SEED=3 SPARK_HOME=/usr/local/lib/spark-2.4.4-bin-hadoop2.7 ./run_tests.sh hyperopt/tests/test_spark.py
 ```
 

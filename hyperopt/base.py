@@ -93,6 +93,10 @@ JOB_STATES = [
     JOB_STATE_DONE,
     JOB_STATE_ERROR,
     JOB_STATE_CANCEL]
+JOB_VALID_STATES = {
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATE_DONE}
 
 
 TRIAL_KEYS = [
@@ -334,15 +338,14 @@ class Trials(object):
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
-        valid_states = [JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE]
         if self._exp_key is None:
             self._trials = [
                 tt for tt in self._dynamic_trials
-                if tt['state'] in valid_states]
+                if tt['state'] in JOB_VALID_STATES]
         else:
             self._trials = [tt
                             for tt in self._dynamic_trials
-                            if (tt['state'] in valid_states and tt['exp_key'] == self._exp_key)]
+                            if (tt['state'] in JOB_VALID_STATES and tt['exp_key'] == self._exp_key)]
         self._ids.update([tt['tid'] for tt in self._trials])
 
     @property

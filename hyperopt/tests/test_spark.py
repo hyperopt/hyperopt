@@ -43,14 +43,14 @@ class TestTempDir(object):
         shutil.rmtree(cls.tempdir)
 
 
-class ISparkContext(object):
+class BaseSparkContext(object):
 
     NUM_SPARK_EXECUTORS = 4
 
     @classmethod
     def setup_spark(cls):
         cls._spark = SparkSession.builder\
-            .master('local[{n}]'.format(n=ISparkContext.NUM_SPARK_EXECUTORS))\
+            .master('local[{n}]'.format(n=BaseSparkContext.NUM_SPARK_EXECUTORS))\
             .appName(cls.__name__)\
             .getOrCreate()
         cls._sc = cls._spark.sparkContext
@@ -74,7 +74,7 @@ class ISparkContext(object):
         return self._sc
 
 
-class TestSparkContext(unittest.TestCase, ISparkContext):
+class TestSparkContext(unittest.TestCase, BaseSparkContext):
 
     @classmethod
     def setUpClass(cls):
@@ -104,7 +104,7 @@ def fn_succeed_within_range(x):
         raise RuntimeError
 
 
-class FMinTestCase(unittest.TestCase, ISparkContext):
+class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
     @classmethod
     def setUpClass(cls):
@@ -209,10 +209,10 @@ class FMinTestCase(unittest.TestCase, ISparkContext):
     def test_parallelism_arg(self):
         # Computing max_num_concurrent_tasks
         max_num_concurrent_tasks = self.sc._jsc.sc().maxNumConcurrentTasks()
-        self.assertEqual(max_num_concurrent_tasks, ISparkContext.NUM_SPARK_EXECUTORS,
+        self.assertEqual(max_num_concurrent_tasks, BaseSparkContext.NUM_SPARK_EXECUTORS,
                          "max_num_concurrent_tasks ({c}) did not equal "
-                         "ISparkContext.NUM_SPARK_EXECUTORS ({e})"
-                         .format(c=max_num_concurrent_tasks, e=ISparkContext.NUM_SPARK_EXECUTORS))
+                         "BaseSparkContext.NUM_SPARK_EXECUTORS ({e})"
+                         .format(c=max_num_concurrent_tasks, e=BaseSparkContext.NUM_SPARK_EXECUTORS))
 
         max_num_concurrent_tasks = 4
         # Given invalidly small parallelism
