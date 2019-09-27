@@ -43,14 +43,17 @@ class TestTempDir(object):
         shutil.rmtree(cls.tempdir)
 
 
-class ISparkContext(object):
+class BaseSparkContext(object):
+    """
+    Mixin which sets up a SparkContext for tests
+    """
 
     NUM_SPARK_EXECUTORS = 4
 
     @classmethod
     def setup_spark(cls):
         cls._spark = SparkSession.builder\
-            .master('local[{n}]'.format(n=ISparkContext.NUM_SPARK_EXECUTORS))\
+            .master('local[{n}]'.format(n=BaseSparkContext.NUM_SPARK_EXECUTORS))\
             .appName(cls.__name__)\
             .getOrCreate()
         cls._sc = cls._spark.sparkContext
@@ -74,7 +77,7 @@ class ISparkContext(object):
         return self._sc
 
 
-class TestSparkContext(unittest.TestCase, ISparkContext):
+class TestSparkContext(unittest.TestCase, BaseSparkContext):
 
     @classmethod
     def setUpClass(cls):
@@ -104,7 +107,7 @@ def fn_succeed_within_range(x):
         raise RuntimeError
 
 
-class FMinTestCase(unittest.TestCase, ISparkContext):
+class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
     @classmethod
     def setUpClass(cls):
@@ -209,10 +212,10 @@ class FMinTestCase(unittest.TestCase, ISparkContext):
     def test_parallelism_arg(self):
         # Computing max_num_concurrent_tasks
         max_num_concurrent_tasks = self.sc._jsc.sc().maxNumConcurrentTasks()
-        self.assertEqual(max_num_concurrent_tasks, ISparkContext.NUM_SPARK_EXECUTORS,
+        self.assertEqual(max_num_concurrent_tasks, BaseSparkContext.NUM_SPARK_EXECUTORS,
                          "max_num_concurrent_tasks ({c}) did not equal "
-                         "ISparkContext.NUM_SPARK_EXECUTORS ({e})"
-                         .format(c=max_num_concurrent_tasks, e=ISparkContext.NUM_SPARK_EXECUTORS))
+                         "BaseSparkContext.NUM_SPARK_EXECUTORS ({e})"
+                         .format(c=max_num_concurrent_tasks, e=BaseSparkContext.NUM_SPARK_EXECUTORS))
 
         max_num_concurrent_tasks = 4
         # Given invalidly small parallelism
@@ -432,3 +435,23 @@ class FMinTestCase(unittest.TestCase, ISparkContext):
         self.assertGreaterEqual(
             spark_trials.count_cancelled_trials(), 1,
             "Expected at least 1 cancelled trial but found none.")
+
+    def test_invalid_timeout(self):
+        with self.assertRaisesRegexp(
+                Exception,
+                "timeout argument should be None or a positive value. Given value: -1"):
+            SparkTrials(parallelism=4, timeout=-1)
+        with self.assertRaisesRegexp(
+                Exception,
+                "timeout argument should be None or a positive value. Given value: True"):
+            SparkTrials(parallelism=4, timeout=True)
+
+    def test_exception_when_spark_not_available(self):
+        import hyperopt
+        orig_have_spark = hyperopt.spark._have_spark
+        hyperopt.spark._have_spark = False
+        try:
+            with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
+                SparkTrials(parallelism=4)
+        finally:
+            hyperopt.spark._have_spark = orig_have_spark

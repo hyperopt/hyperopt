@@ -1,15 +1,19 @@
 from __future__ import print_function
+
+import copy
 import numbers
 import threading
 import time
 import timeit
 
-import cloudpickle
-
 from hyperopt import base, fmin, Trials
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
-from pyspark.sql import SparkSession
 
+try:
+    from pyspark.sql import SparkSession
+    _have_spark = True
+except ModuleNotFoundError as e:
+    _have_spark = False
 
 logger = _get_logger('hyperopt-spark')
 
@@ -62,6 +66,13 @@ class SparkTrials(Trials):
                               information, visit the documentation for PySpark.
         """
         super(SparkTrials, self).__init__(exp_key=None, refresh=False)
+        if not _have_spark:
+            raise Exception("SparkTrials cannot import pyspark classes.  Make sure that PySpark "
+                            "is available in your environment.  E.g., try running 'import pyspark'")
+        if timeout is not None and (not isinstance(timeout, numbers.Number) or timeout <= 0 or
+                                    isinstance(timeout, bool)):
+            raise Exception("The timeout argument should be None or a positive value. "
+                            "Given value: {timeout}".format(timeout=timeout))
         self._spark_context = SparkSession.builder.getOrCreate().sparkContext if spark_session is None \
                                   else spark_session.sparkContext
         # The feature to support controlling jobGroupIds is in SPARK-22340
@@ -70,10 +81,7 @@ class SparkTrials(Trials):
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark_context._jsc.sc().maxNumConcurrentTasks()
         self.parallelism = self._decide_parallelism(max_num_concurrent_tasks, parallelism)
-        self.user_specified_parallelism = parallelism
 
-        if timeout is not None and (not isinstance(timeout, numbers.Number) or timeout <= 0):
-            raise Exception("timeout argument should be None or a positive value.")
         if not self._spark_supports_job_cancelling and timeout is not None:
             logger.warning(
                 "SparkTrials was constructed with a timeout specified, but this Apache "
@@ -335,13 +343,11 @@ class _SparkFMinState:
 
     def _run_trial_async(self, trial):
         def run_task_thread():
-            # TODO: use broadcast for `domain` object
-            domain = base.Domain(self.eval_function, self.space, pass_expr_memo_ctrl=None)
-            ser_domain = cloudpickle.dumps(domain)
+            local_eval_function, local_space = self.eval_function, self.space
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
-                domain = cloudpickle.loads(ser_domain)
+                domain = base.Domain(local_eval_function, local_space, pass_expr_memo_ctrl=None)
                 result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                 yield result
             try:
@@ -378,8 +384,7 @@ class _SparkFMinState:
 
     def _poll_new_tasks(self):
         new_task_list = []
-        # Make a copy of trials by slicing
-        for trial in self.trials.trials[:]:
+        for trial in copy.copy(self.trials.trials):
             if trial['state'] == base.JOB_STATE_NEW:
                 # check parallelism limit
                 if self.running_trial_count() >= self.trials.parallelism:
