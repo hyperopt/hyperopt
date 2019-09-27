@@ -448,9 +448,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
     def test_exception_when_spark_not_available(self):
         import hyperopt
+        orig_have_spark = hyperopt.spark._have_spark
         hyperopt.spark._have_spark = False
         try:
             with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
                 SparkTrials(parallelism=4)
         finally:
-            hyperopt.spark._have_spark = True
+            hyperopt.spark._have_spark = orig_have_spark
