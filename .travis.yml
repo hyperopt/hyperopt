@@ -35,7 +35,7 @@ before_script:
   - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
 
 before_install:
- - ./download_spark_dependencies.sh
+  - ./download_spark_dependencies.sh
 
 install:
   - sudo apt-get remove ipython

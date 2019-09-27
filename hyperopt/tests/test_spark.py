@@ -44,6 +44,9 @@ class TestTempDir(object):
 
 
 class BaseSparkContext(object):
+    """
+    Mixin which sets up a SparkContext for tests
+    """
 
     NUM_SPARK_EXECUTORS = 4
 
@@ -432,3 +435,22 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertGreaterEqual(
             spark_trials.count_cancelled_trials(), 1,
             "Expected at least 1 cancelled trial but found none.")
+
+    def test_invalid_timeout(self):
+        with self.assertRaisesRegexp(
+                Exception,
+                "timeout argument should be None or a positive value. Given value: -1"):
+            SparkTrials(parallelism=4, timeout=-1)
+        with self.assertRaisesRegexp(
+                Exception,
+                "timeout argument should be None or a positive value. Given value: True"):
+            SparkTrials(parallelism=4, timeout=True)
+
+    def test_exception_when_spark_not_available(self):
+        import hyperopt
+        hyperopt.spark._have_spark = False
+        try:
+            with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
+                SparkTrials(parallelism=4)
+        finally:
+            hyperopt.spark._have_spark = True

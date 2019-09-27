@@ -17,10 +17,11 @@ set -e
 # if (got > 1 argument OR ( got 1 argument AND that argument does not exist)) then
 # print usage and exit.
 if [[ $# -gt 1 || ($# = 1 && ! -e $1) ]]; then
-echo "run_tests.sh [target]"
+echo "run_tests.sh [--no-spark] [target]"
 echo ""
 echo "Run python tests for this package."
-echo "  target -- either a test file or directory [default tests]"
+echo "  --no-spark : flag to tell this script to skip Apache Spark-related tests"
+echo "  target : either a test file or directory [default: tests]"
 if [[ ($# = 1 && ! -e $1) ]]; then
 echo
 echo "ERROR: Could not find $1"
@@ -47,7 +48,6 @@ PYSPARK_PYTHON=`which python`
 fi
 # Override the python driver version as well to make sure we are in sync in the tests.
 export PYSPARK_DRIVER_PYTHON=$PYSPARK_PYTHON
-python_major=$($PYSPARK_PYTHON -c 'import sys; print(".".join(map(str, sys.version_info[:1])))')
 
 echo $PYSPARK_PYTHON
 

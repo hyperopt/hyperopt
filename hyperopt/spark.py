@@ -6,12 +6,14 @@ import threading
 import time
 import timeit
 
-import cloudpickle
-
 from hyperopt import base, fmin, Trials
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
-from pyspark.sql import SparkSession
 
+try:
+    from pyspark.sql import SparkSession
+    _have_spark = True
+except ModuleNotFoundError as e:
+    _have_spark = False
 
 logger = _get_logger('hyperopt-spark')
 
@@ -64,8 +66,13 @@ class SparkTrials(Trials):
                               information, visit the documentation for PySpark.
         """
         super(SparkTrials, self).__init__(exp_key=None, refresh=False)
-        if timeout is not None and (not isinstance(timeout, numbers.Number) or timeout <= 0):
-            raise Exception("timeout argument should be None or a positive value.")
+        if not _have_spark:
+            raise Exception("SparkTrials cannot import pyspark classes.  Make sure that PySpark "
+                            "is available in your environment.  E.g., try running 'import pyspark'")
+        if timeout is not None and (not isinstance(timeout, numbers.Number) or timeout <= 0 or
+                                    isinstance(timeout, bool)):
+            raise Exception("The timeout argument should be None or a positive value. "
+                            "Given value: {timeout}".format(timeout=timeout))
         self._spark_context = SparkSession.builder.getOrCreate().sparkContext if spark_session is None \
                                   else spark_session.sparkContext
         # The feature to support controlling jobGroupIds is in SPARK-22340
