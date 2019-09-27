@@ -423,7 +423,16 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
     if return_argmin:
         if len(trials.trials) == 0:
             raise Exception("There are no evaluation tasks, cannot return argmin of task losses.")
-        return trials.argmin
+        # Make sure the arguments are returned with the correct type
+        out_dict = dict()
+        for arg_idx, arg_val in trials.argmin.items():
+            try:
+                if space[arg_idx].name in ["int", "float"]:
+                    arg_val = eval(space[arg_idx].name + "(arg_val)")
+            except KeyError:
+                print(arg_idx + " not found in space.")
+            out_dict[arg_idx] = arg_val
+        return out_dict
     elif len(trials) > 0:
         # Only if there are some succesfull trail runs, return the best point in the evaluation space
         return space_eval(space, trials.argmin)
