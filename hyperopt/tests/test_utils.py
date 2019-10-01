@@ -4,6 +4,7 @@ import numpy as np
 from nose.tools import raises, eq_
 import shutil
 import os
+from hyperopt import Trials
 from hyperopt.utils import fast_isin
 from hyperopt.utils import get_most_recent_inds
 from hyperopt.utils import temp_dir, working_dir, get_closest_dir, path_split_all
