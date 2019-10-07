@@ -31,7 +31,7 @@ services:
   - mongodb
 
 before_script:
-  - sleep 15  # mongo takes time to start
+  - sleep 15 # mongo takes time to start
   - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
 
 before_install:
@@ -44,8 +44,9 @@ install:
   - pip install --upgrade wheel
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
-  - python setup.py install
-  - pip install pytest>=3.6 pytest-cov pep8 pytest-pep8
+  - pip install .[MongoTrials]
+  - pip install pytest>=3.6
+  - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
 script:
   - ./run_tests.sh
