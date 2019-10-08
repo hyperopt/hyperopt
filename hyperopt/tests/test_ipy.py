@@ -29,7 +29,7 @@ def test0():
     except IOError:
         raise SkipTest()
 
-    client[:].use_dill()
+    client[:].use_cloudpickle()
     trials = IPythonTrials(client, 'log')
 
     def simple_objective(args):
@@ -56,7 +56,7 @@ def test_fmin_fn():
     except IOError:
         raise SkipTest()
 
-    client[:].use_dill()
+    client[:].use_cloudpickle()
 
     trials = IPythonTrials(client, 'log')
     assert not trials._testing_fmin_was_called

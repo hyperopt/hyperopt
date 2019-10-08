@@ -136,9 +136,9 @@ standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 try:
-    import dill as pickler
+    import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
     import six.moves.cPickle as pickler
 
 
