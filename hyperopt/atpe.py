@@ -634,14 +634,14 @@ class ATPEOptimizer:
         self.lastLockedParameters = []
         self.atpeParamDetails = None
 
-    # @Nonlocal(params={})
     def recommendNextParameters(self, hyperparameterSpace, results, currentTrials, lockedValues=None):
         rstate = numpy.random.RandomState(seed=int(random.randint(1, 2 ** 32 - 1)))
 
-        params = {'params': {}}
+        params = {}
 
         def sample(parameters):
-            params['params'] = parameters
+            nonlocal params
+            params = parameters
             return {"loss": 0.5, 'status': 'ok'}
 
         parameters = Hyperparameter(hyperparameterSpace).getFlatParameters()
@@ -819,7 +819,6 @@ class ATPEOptimizer:
         self.lastATPEParameters = atpeParams
         self.atpeParamDetails = atpeParamDetails
 
-        # pprint(atpeParams)
 
         def computePrimarySecondary():
             if len(results) < initializationRounds:
@@ -1267,8 +1266,7 @@ def suggest(new_ids, domain, trials, seed):
     rval = []
     for new_id in new_ids:
         parameters = optimizer.recommendNextParameters(hyperparameterConfig, results, currentTrials=[])
-        params = parameters.get('params')
-        flatParameters = hyperparameters.convertToFlatValues(params)
+        flatParameters = hyperparameters.convertToFlatValues(parameters)
 
         rval_results = [domain.new_result()]
         rval_miscs = [dict(
