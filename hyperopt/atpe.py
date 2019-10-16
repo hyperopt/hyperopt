@@ -611,7 +611,7 @@ class ATPEOptimizer:
         except ImportError:
             raise ImportError("You must install lightgbm and sklearn in order to use the ATPE algorithm. Please run `pip install lightgbm scikit-learn` and try again. These are not built in dependencies of hyperopt.")
 
-        scalingModelData = json.loads(pkg_resources.resource_string(__name__, "atpe_models/scaling_model.json"))
+        scalingModelData = json.loads(pkg_resources.resource_string(__name__, "atpe_models/scaling_model.json").decode('utf-8'))
         self.featureScalingModels = {}
         for key in self.atpeModelFeatureKeys:
             self.featureScalingModels[key] = sklearn.preprocessing.StandardScaler()
@@ -627,7 +627,7 @@ class ATPEOptimizer:
                 self.parameterModels[param] = lightgbm.Booster(model_file=model_file_name)
 
             configString = pkg_resources.resource_string(__name__, "atpe_models/model-" + param + '-configuration.json')
-            data = json.loads(configString)
+            data = json.loads(configString.decode('utf-8'))
             self.parameterModelConfigurations[param] = data
 
         self.lastATPEParameters = None
