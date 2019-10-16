@@ -22,19 +22,6 @@ import hyperopt
 import datetime
 import json
 import copy
-from .base import miscs_update_idxs_vals
-from pprint import pprint
-
-
-class Nonlocal(object):
-    """ Decorator class to help implement nonlocal names in Python 2.x """
-    def __init__(self, **kwargs):
-        self._vars = kwargs
-
-    def __call__(self, func):
-        for k, v in self._vars.items():
-            setattr(func, k, v)
-        return func
 
 
 # Windows doesn't support opening a NamedTemporaryFile.
