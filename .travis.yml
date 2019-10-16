@@ -45,6 +45,8 @@ install:
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
   - pip install .[MongoTrials]
+  - pip install .[SparkTrials]
+  - pip install .[ATPE]
   - pip install pytest>=3.6
   - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
