@@ -272,4 +272,29 @@ class CasePerDomain(object):
         self.bandit = branin()
         self.work()
 
+
+class NonCategoricalCasePerDomain(object):
+    # -- this is a mixin
+    # -- Override self.work to execute a test for each kind of self.bandit
+
+    def test_quadratic1(self):
+        self.bandit = quadratic1()
+        self.work()
+
+    def test_q1lognormal(self):
+        self.bandit = q1_lognormal()
+        self.work()
+
+    def test_twoarms(self):
+        self.bandit = n_arms()
+        self.work()
+
+    def test_distractor(self):
+        self.bandit = distractor()
+        self.work()
+
+    def test_branin(self):
+        self.bandit = branin()
+        self.work()
+
 # -- non-blank last line for flake8
