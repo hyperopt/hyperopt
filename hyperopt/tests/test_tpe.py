@@ -35,11 +35,12 @@ from hyperopt.tpe import LGMM1_lpdf
 
 import hyperopt.rand as rand
 import hyperopt.tpe as tpe
+import hyperopt.atpe as atpe
 from hyperopt import fmin
 
 from .test_domains import (
     domain_constructor,
-    CasePerDomain)
+    CasePerDomain, NonCategoricalCasePerDomain)
 
 DO_SHOW = int(os.getenv('HYPEROPT_SHOW', '0'))
 
@@ -541,6 +542,16 @@ class TestSuggest(unittest.TestCase, CasePerDomain):
              max_evals=10)
 
 
+class TestSuggestAtpe(unittest.TestCase, NonCategoricalCasePerDomain):
+    def work(self):
+        trials = Trials()
+        fmin(passthrough,
+             space=self.bandit.expr,
+             algo=atpe.suggest,
+             trials=trials,
+             max_evals=10)
+
+
 class TestOpt(unittest.TestCase, CasePerDomain):
     thresholds = dict(
         quadratic1=1e-5,
@@ -623,9 +634,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
                  trials=rtrials,
                  max_evals=LEN)
             print('RANDOM MINS', list(sorted(rtrials.losses()))[:6])
-            # logx = np.log([s['x'] for s in rtrials.specs])
-            # print 'RND MEAN', np.mean(logx)
-            # print 'RND STD ', np.std(logx)
+
 
         if 0:
             plt.subplot(2, 2, 1)
@@ -646,11 +655,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
                 [t['x'] for t in self.experiment.trials],
                 bins=20)
 
-        # print trials.losses()
         print('TPE    MINS', list(sorted(trials.losses()))[:6])
-        # logx = np.log([s['x'] for s in trials.specs])
-        # print 'TPE MEAN', np.mean(logx)
-        # print 'TPE STD ', np.std(logx)
         thresh = self.thresholds[bandit.name]
         print('Thresh', thresh)
         assert min(trials.losses()) < thresh
@@ -680,8 +685,6 @@ class TestOptQUniform(object):
                        n_startup_jobs=2,
                        n_EI_candidates=128,
                        gamma=gamma)
-        # print algo.opt_idxs['x']
-        # print algo.opt_vals['x']
 
         trials = Trials()
         fmin(passthrough,

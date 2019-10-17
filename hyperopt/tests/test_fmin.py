@@ -23,8 +23,7 @@ def test_quadratic1_rand():
     assert abs(argmin['x'] - 3.0) < .25
 
 
-def test_quadratic1_tpe():
-    trials = Trials()
+def test_quadratic1_tpe(trials=Trials()):
 
     argmin = fmin(
         fn=lambda x: (x - 3) ** 2,

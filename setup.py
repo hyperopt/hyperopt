@@ -113,7 +113,7 @@ if package_data is None:
 
 setuptools.setup(
     name=package_name,
-    version='0.1.2',
+    version='0.2.1',
     packages=packages,
     entry_points={
         'console_scripts': [
@@ -147,10 +147,11 @@ setuptools.setup(
     keywords='Bayesian optimization hyperparameter model selection',
     package_data=package_data,
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'pymongo', 'six', 'networkx==2.2', 'future', 'tqdm'],
+    install_requires=['numpy', 'scipy', 'six', 'networkx==2.2', 'future', 'tqdm', 'cloudpickle', 'bson'],
     extras_require={
-        'dill': 'dill'
-    },
+        'SparkTrials':'pyspark', 
+        'MongoTrials': 'pymongo',
+        'ATPE': ['lightgbm', 'scikit-learn']},
     tests_require=['nose'],
     zip_safe=False
 )

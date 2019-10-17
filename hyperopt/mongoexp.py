@@ -107,10 +107,14 @@ import urllib.parse
 import warnings
 
 import numpy
-import pymongo
-import gridfs
-from bson import SON
+try:
+    import pymongo
+    import gridfs
+    _has_mongo = True
+except:
+    _has_mongo = False
 
+from bson import SON
 from .base import JOB_STATES
 from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
                    JOB_STATE_ERROR)
@@ -136,9 +140,9 @@ standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 try:
-    import dill as pickler
+    import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
     import six.moves.cPickle as pickler
 
 
@@ -330,6 +334,10 @@ class MongoJobs(object):
             XXX: No idea what this is for, seems unimportant.
 
         """
+        if not _has_mongo:
+            raise Exception("MongoJobs cannot import pymongo classes.  Make sure that pymongo "
+                            "is available in your environment.  E.g., try running 'import pymongo'")
+
         self.db = db
         self.jobs = jobs
         self.gfs = gfs
@@ -663,6 +671,10 @@ class MongoTrials(Trials):
 
     def __init__(self, arg, exp_key=None, cmd=None, workdir=None,
                  refresh=True):
+        if not _has_mongo:
+            raise Exception("MongoTrials cannot import pymongo classes.  Make sure that pymongo "
+                            "is available in your environment.  E.g., try running 'import pymongo'")
+
         if isinstance(arg, MongoJobs):
             self.handle = arg
         else:

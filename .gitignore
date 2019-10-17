@@ -56,3 +56,9 @@ coverage.xml
 # IDE
 .idea/
 
+# MacOS
+.DS_Store
+
+# Generated documentation folders
+sources/
+site/

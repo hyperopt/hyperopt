@@ -1,0 +1,30 @@
+site_name: Hyperopt Documentation
+theme:
+    name: mkdocs
+    highlightjs: true
+    hljs_languages:
+        - yaml
+        - python
+docs_dir: sources
+repo_url: http://github.com/hyperopt
+site_url: http://hyperopt.github.io/hyperopt
+site_description: 'Documentation for Hyperopt, Distributed Asynchronous Hyper-parameter Optimization'
+
+dev_addr: '0.0.0.0:8000'
+
+nav:
+- Home: index.md
+- Getting started:
+  - Getting started with Hyperopt: getting-started/overview.md
+  - Minimizing functions: getting-started/minimizing_functions.md
+  - Defining search spaces: getting-started/search_spaces.md
+- Installation:
+  - Installation notes: setup/installation-notes.md
+  - Running tests: setup/running-tests.md
+- Scale out:
+  - MongoDB: scaleout/mongodb.md
+  - Spark: scaleout/spark.md
+- Misc:
+  - Interfacing with other languages: interfacing-languages.md
+  - Related work: related-work.md
+  - SciPy 2013 submission: scipy_submission.md

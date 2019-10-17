@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 
 try:
-    import dill as pickler
+    import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
     import six.moves.cPickle as pickler
 
 
@@ -163,6 +163,16 @@ class FMinIter(object):
                     break
         self.trials.refresh()
 
+    @property
+    def is_cancelled(self):
+        """
+        Indicates whether this fmin run has been cancelled.  SparkTrials supports cancellation.
+        """
+        if hasattr(self.trials, "_fmin_cancelled"):
+            if self.trials._fmin_cancelled:
+                return True
+        return False
+
     def block_until_done(self):
         already_printed = False
         if self.asynchronous:
@@ -203,7 +213,9 @@ class FMinIter(object):
                       ) as pbar:
                 while n_queued < N and (timeit.default_timer() - self.start_time) < self.max_time:
                     qlen = get_queue_len()
-                    while qlen < self.max_queue_len and n_queued < N and (timeit.default_timer() - self.start_time) < self.max_time:
+                    while qlen < self.max_queue_len and n_queued < N and \
+                            not self.is_cancelled and \
+                            (timeit.default_timer() - self.start_time) < self.max_time:
                         n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                         new_ids = trials.new_trial_ids(n_to_enqueue)
                         self.trials.refresh()
@@ -223,6 +235,9 @@ class FMinIter(object):
                             stopped = True
                             break
 
+                    if self.is_cancelled:
+                        break
+
                     if self.asynchronous:
                         # -- wait for workers to fill in the trials
                         time.sleep(self.poll_interval_secs)
@@ -241,7 +256,7 @@ class FMinIter(object):
 
                     if stopped:
                         break
-        
+
         if block_until_done:
             self.block_until_done()
             self.trials.refresh()
@@ -357,10 +372,10 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
         Elements of this list must be in a form of a dictionary with variable
         names as keys and variable values as dict values. Example
         points_to_evaluate value is [{'x': 0.0, 'y': 0.0}, {'x': 1.0, 'y': 2.0}]
-        
+
     max_queue_len : integer, default 1
-        Sets the queue length generated in the dictionary or trials. Increasing this 
-        value helps to slightly speed up parallel simulatulations which sometimes lag 
+        Sets the queue length generated in the dictionary or trials. Increasing this
+        value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
     show_progressbar : bool, default True
@@ -415,6 +430,8 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
     rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
     if return_argmin:
+        if len(trials.trials) == 0:
+            raise Exception("There are no evaluation tasks, cannot return argmin of task losses.")
         return trials.argmin
     elif len(trials) > 0:
         # Only if there are some succesfull trail runs, return the best point in the evaluation space

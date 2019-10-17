@@ -10,17 +10,39 @@ import numpy as np
 import logging
 import os
 import shutil
+import sys
+import uuid
 import numpy
 from . import pyll
 from contextlib import contextmanager
 
 standard_library.install_aliases()
-logger = logging.getLogger(__name__)
+
+
+def _get_random_id():
+    """
+    Generates a random ID.
+    """
+    return uuid.uuid4().hex[-12:]
+
+
+def _get_logger(name):
+    """ Gets a logger by name, or creates and configures it for the first time. """
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    # If the logger is configured, skip the configure
+    if not logger.handlers and not logging.getLogger().handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        logger.addHandler(handler)
+    return logger
+
+
+logger = _get_logger(__name__)
 
 try:
-    import dill as pickler
+    import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load dill, try installing dill via "pip install dill" for enhanced pickling support.')
+    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
     import six.moves.cPickle as pickler
 
 
