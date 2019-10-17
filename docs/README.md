@@ -8,3 +8,8 @@ pip install mkdocs
 python autogen.py
 mkdocs build && mkdocs serve
 ```
+
+To deploy a new version of docs run:
+```bash
+mkdocs gh-deploy
+```
