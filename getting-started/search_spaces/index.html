@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="http://hyperopt.github.io/hyperopt/getting-started/search_spaces/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Defining search spaces - Hyperopt Documentation</title>
+        <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="../../css/font-awesome.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!--[if lt IE 9]>
+            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+            <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+        <![endif]-->
+
+        <script src="../../js/jquery-1.10.2.min.js" defer></script>
+        <script src="../../js/bootstrap-3.0.3.min.js" defer></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/python.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script> 
+    </head>
+
+    <body>
+
+        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+            <div class="container">
+
+                <!-- Collapsed navigation -->
+                <div class="navbar-header">
+                    <!-- Expander button -->
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="../..">Hyperopt Documentation</a>
+                </div>
+
+                <!-- Expanded navigation -->
+                <div class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li >
+                                <a href="../..">Home</a>
+                            </li>
+                            <li class="dropdown active">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li >
+    <a href="../overview/">Getting started with Hyperopt</a>
+</li>
+                                    
+<li >
+    <a href="../minimizing_functions/">Minimizing functions</a>
+</li>
+                                    
+<li class="active">
+    <a href="./">Defining search spaces</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li >
+    <a href="../../setup/installation-notes/">Installation notes</a>
+</li>
+                                    
+<li >
+    <a href="../../setup/running-tests/">Running tests</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li >
+    <a href="../../scaleout/mongodb/">MongoDB</a>
+</li>
+                                    
+<li >
+    <a href="../../scaleout/spark/">Spark</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li >
+    <a href="../../interfacing-languages/">Interfacing with other languages</a>
+</li>
+                                    
+<li >
+    <a href="../../related-work/">Related work</a>
+</li>
+                                    
+<li >
+    <a href="../../scipy_submission/">SciPy 2013 submission</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav navbar-right">
+                        <li>
+                            <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li >
+                                <a rel="next" href="../minimizing_functions/">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li >
+                                <a rel="prev" href="../../setup/installation-notes/">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="http://github.com/hyperopt/edit/master/docs/getting-started/search_spaces.md"><i class="fa fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+                <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="main active"><a href="#defining-a-search-space">Defining a Search Space</a></li>
+            <li><a href="#parameter-expressions">Parameter Expressions</a></li>
+            <li><a href="#a-search-space-example-scikit-learn">A Search Space Example: scikit-learn</a></li>
+            <li><a href="#adding-non-stochastic-expressions-with-pyll">Adding Non-Stochastic Expressions with pyll</a></li>
+            <li><a href="#adding-new-kinds-of-hyperparameter">Adding New Kinds of Hyperparameter</a></li>
+    </ul>
+</div></div>
+                <div class="col-md-9" role="main">
+
+<h1 id="defining-a-search-space">Defining a Search Space</h1>
+<p>A search space consists of nested function expressions, including stochastic expressions.
+The stochastic expressions are the hyperparameters.
+Sampling from this nested stochastic program defines the random search algorithm.
+The hyperparameter optimization algorithms work by replacing normal "sampling" logic with
+adaptive exploration strategies, which make no attempt to actually sample from the distributions specified in the search space.</p>
+<p>It's best to think of search spaces as stochastic argument-sampling programs. For example</p>
+<pre><code class="python">from hyperopt import hp
+space = hp.choice('a',
+    [
+        ('case 1', 1 + hp.lognormal('c1', 0, 1)),
+        ('case 2', hp.uniform('c2', -10, 10))
+    ])
+</code></pre>
+
+<p>The result of running this code fragment is a variable <code>space</code> that refers to a graph of expression identifiers and their arguments.
+Nothing has actually been sampled, it's just a graph describing <em>how</em> to sample a point.
+The code for dealing with this sort of expression graph is in <code>hyperopt.pyll</code> and I will refer to these graphs as <em>pyll graphs</em> or <em>pyll programs</em>.</p>
+<p>If you like, you can evaluate a sample space by sampling from it.</p>
+<pre><code class="python">import hyperopt.pyll.stochastic
+print hyperopt.pyll.stochastic.sample(space)
+</code></pre>
+
+<p>This search space described by <code>space</code> has 3 parameters:</p>
+<ul>
+<li>'a' - selects the case</li>
+<li>'c1' - a positive-valued parameter that is used in 'case 1'</li>
+<li>'c2' - a bounded real-valued parameter that is used in 'case 2'</li>
+</ul>
+<p>One thing to notice here is that every optimizable stochastic expression has a <em>label</em> as the first argument.
+These labels are used to return parameter choices to the caller, and in various ways internally as well.</p>
+<p>A second thing to notice is that we used tuples in the middle of the graph (around each of 'case 1' and 'case 2').
+Lists, dictionaries, and tuples are all upgraded to "deterministic function expressions" so that they can be part of the search space stochastic program.</p>
+<p>A third thing to notice is the numeric expression <code>1 + hp.lognormal('c1', 0, 1)</code>, that is embedded into the description of the search space.
+As far as the optimization algorithms are concerned, there is no difference between adding the 1 directly in the search space
+and adding the 1 within the logic of the objective function itself.
+As the designer, you can choose where to put this sort of processing to achieve the kind modularity you want.
+Note that the intermediate expression results within the search space can be arbitrary Python objects, even when optimizing in parallel using mongodb.
+It is easy to add new types of non-stochastic expressions to a search space description, see below (Section 2.3) for how to do it.</p>
+<p>A fourth thing to note is that 'c1' and 'c2' are examples what we will call <em>conditional parameters</em>.
+Each of 'c1' and 'c2' only figures in the returned sample for a particular value of 'a'.
+If 'a' is 0, then 'c1' is used but not 'c2'.
+If 'a' is 1, then 'c2' is used but not 'c1'.
+Whenever it makes sense to do so, you should encode parameters as conditional ones this way,
+rather than simply ignoring parameters in the objective function.
+If you expose the fact that 'c1' sometimes has no effect on the objective function (because it has no effect on the argument to the objective function) then search can be more efficient about credit assignment.</p>
+<h2 id="parameter-expressions">Parameter Expressions</h2>
+<p>The stochastic expressions currently recognized by hyperopt's optimization algorithms are:</p>
+<ul>
+<li><code>hp.choice(label, options)</code></li>
+<li>
+<p>Returns one of the options, which should be a list or tuple.
+       The elements of <code>options</code> can themselves be [nested] stochastic expressions.
+       In this case, the stochastic choices that only appear in some of the options become <em>conditional</em> parameters.</p>
+</li>
+<li>
+<p><code>hp.randint(label, upper)</code></p>
+</li>
+<li>
+<p>Returns a random integer in the range [0, upper). The semantics of this
+       distribution is that there is <em>no</em> more correlation in the loss function between nearby integer values,
+       as compared with more distant integer values.  This is an appropriate distribution for describing random seeds    for example.
+       If the loss function is probably more correlated for nearby integer values, then you should probably use one of the "quantized" continuous distributions, such as either <code>quniform</code>, <code>qloguniform</code>, <code>qnormal</code> or <code>qlognormal</code>.</p>
+</li>
+<li>
+<p><code>hp.uniform(label, low, high)</code></p>
+</li>
+<li>Returns a value uniformly between <code>low</code> and <code>high</code>.</li>
+<li>
+<p>When optimizing, this variable is constrained to a two-sided interval.</p>
+</li>
+<li>
+<p><code>hp.quniform(label, low, high, q)</code></p>
+</li>
+<li>Returns a value like round(uniform(low, high) / q) * q</li>
+<li>
+<p>Suitable for a discrete value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.</p>
+</li>
+<li>
+<p><code>hp.loguniform(label, low, high)</code></p>
+</li>
+<li>Returns a value drawn according to exp(uniform(low, high)) so that the logarithm of the return value is uniformly distributed.</li>
+<li>
+<p>When optimizing, this variable is constrained to the interval [exp(low), exp(high)].</p>
+</li>
+<li>
+<p><code>hp.qloguniform(label, low, high, q)</code></p>
+</li>
+<li>Returns a value like round(exp(uniform(low, high)) / q) * q</li>
+<li>
+<p>Suitable for a discrete variable with respect to which the objective is "smooth" and gets smoother with the size of the value, but which should be bounded both above and below.</p>
+</li>
+<li>
+<p><code>hp.normal(label, mu, sigma)</code></p>
+</li>
+<li>
+<p>Returns a real value that's normally-distributed with mean mu and standard deviation sigma. When optimizing, this is an unconstrained variable.</p>
+</li>
+<li>
+<p><code>hp.qnormal(label, mu, sigma, q)</code></p>
+</li>
+<li>Returns a value like round(normal(mu, sigma) / q) * q</li>
+<li>
+<p>Suitable for a discrete variable that probably takes a value around mu, but is fundamentally unbounded.</p>
+</li>
+<li>
+<p><code>hp.lognormal(label, mu, sigma)</code></p>
+</li>
+<li>
+<p>Returns a value drawn according to exp(normal(mu, sigma)) so that the logarithm of the return value is normally distributed.
+        When optimizing, this variable is constrained to be positive.</p>
+</li>
+<li>
+<p><code>hp.qlognormal(label, mu, sigma, q)</code></p>
+</li>
+<li>Returns a value like round(exp(normal(mu, sigma)) / q) * q</li>
+<li>Suitable for a discrete variable with respect to which the objective is smooth and gets smoother with the size of the variable, which is bounded from one side.</li>
+</ul>
+<h2 id="a-search-space-example-scikit-learn">A Search Space Example: scikit-learn</h2>
+<p>To see all these possibilities in action, let's look at how one might go about describing the space of hyperparameters of classification algorithms in scikit-learn.
+(This idea is being developed in <a href="https://github.com/hyperopt/hyperopt-sklearn">hyperopt-sklearn</a>)</p>
+<pre><code class="python">from hyperopt import hp
+space = hp.choice('classifier_type', [
+    {
+        'type': 'naive_bayes',
+    },
+    {
+        'type': 'svm',
+        'C': hp.lognormal('svm_C', 0, 1),
+        'kernel': hp.choice('svm_kernel', [
+            {'ktype': 'linear'},
+            {'ktype': 'RBF', 'width': hp.lognormal('svm_rbf_width', 0, 1)},
+            ]),
+    },
+    {
+        'type': 'dtree',
+        'criterion': hp.choice('dtree_criterion', ['gini', 'entropy']),
+        'max_depth': hp.choice('dtree_max_depth',
+            [None, hp.qlognormal('dtree_max_depth_int', 3, 1, 1)]),
+        'min_samples_split': hp.qlognormal('dtree_min_samples_split', 2, 1, 1),
+    },
+    ])
+</code></pre>
+
+<h2 id="adding-non-stochastic-expressions-with-pyll">Adding Non-Stochastic Expressions with pyll</h2>
+<p>You can use such nodes as arguments to pyll functions (see pyll).
+File a github issue if you want to know more about this.</p>
+<p>In a nutshell, you just have to decorate a top-level (i.e. pickle-friendly) function so
+that it can be used via the <code>scope</code> object.</p>
+<pre><code class="python">import hyperopt.pyll
+from hyperopt.pyll import scope
+
+@scope.define
+def foo(a, b=0):
+     print 'runing foo', a, b
+     return a + b / 2
+
+# -- this will print 0, foo is called as usual.
+print foo(0)
+
+# In describing search spaces you can use `foo` as you
+# would in normal Python. These two calls will not actually call foo,
+# they just record that foo should be called to evaluate the graph.
+
+space1 = scope.foo(hp.uniform('a', 0, 10))
+space2 = scope.foo(hp.uniform('a', 0, 10), hp.normal('b', 0, 1))
+
+# -- this will print an pyll.Apply node
+print space1
+
+# -- this will draw a sample by running foo()
+print hyperopt.pyll.stochastic.sample(space1)
+</code></pre>
+
+<h2 id="adding-new-kinds-of-hyperparameter">Adding New Kinds of Hyperparameter</h2>
+<p>Adding new kinds of stochastic expressions for describing parameter search spaces should be avoided if possible.
+In order for all search algorithms to work on all spaces, the search algorithms must agree on the kinds of hyperparameter that describe the space.
+As the maintainer of the library, I am open to the possibility that some kinds of expressions should be added from time to time, but like I said, I would like to avoid it as much as possible.
+Adding new kinds of stochastic expressions is not one of the ways hyperopt is meant to be extensible.</p></div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"search": 83, "help": 191, "previous": 80, "next": 78};
+        </script>
+        <script src="../../js/base.js" defer></script>
+        <script src="../../search/main.js" defer></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="Search Modal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="exampleModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form role="form">
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="Keyboard Shortcuts Modal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="exampleModalLabel">Keyboard Shortcuts</h4>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
