@@ -113,7 +113,7 @@ if package_data is None:
 
 setuptools.setup(
     name=package_name,
-    version='0.2',
+    version='0.2.1',
     packages=packages,
     entry_points={
         'console_scripts': [

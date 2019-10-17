@@ -22,7 +22,8 @@ import hyperopt
 import datetime
 import json
 import copy
-
+from .base import miscs_update_idxs_vals
+from pprint import pprint
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
@@ -634,14 +635,13 @@ class ATPEOptimizer:
         self.lastLockedParameters = []
         self.atpeParamDetails = None
 
-    # @Nonlocal(params={})
     def recommendNextParameters(self, hyperparameterSpace, results, currentTrials, lockedValues=None):
         rstate = numpy.random.RandomState(seed=int(random.randint(1, 2 ** 32 - 1)))
 
-        params = {'params': {}}
+        params = {'param': {}}
 
         def sample(parameters):
-            params['params'] = parameters
+            params['param'] = parameters
             return {"loss": 0.5, 'status': 'ok'}
 
         parameters = Hyperparameter(hyperparameterSpace).getFlatParameters()
@@ -819,7 +819,6 @@ class ATPEOptimizer:
         self.lastATPEParameters = atpeParams
         self.atpeParamDetails = atpeParamDetails
 
-        # pprint(atpeParams)
 
         def computePrimarySecondary():
             if len(results) < initializationRounds:
@@ -954,7 +953,7 @@ class ATPEOptimizer:
                       rstate=rstate,
                       show_progressbar=False)
 
-        return params
+        return params.get('param')
 
 
     def chooseRandomValueForParameter(self, parameter):
@@ -973,7 +972,7 @@ class ATPEOptimizer:
 
             if 'rounding' in parameter.config:
                 value = round(value / parameter.config['rounding']) * parameter.config['rounding']
-        elif parameter.get('mode', 'uniform') == 'normal':
+        elif parameter.config.get('mode', 'uniform') == 'normal':
             meanVal = parameter.config['mean']
             stddevVal = parameter.config['stddev']
 
@@ -988,7 +987,7 @@ class ATPEOptimizer:
 
             if 'rounding' in parameter.config:
                 value = round(value / parameter.config['rounding']) * parameter.config['rounding']
-        elif parameter.get('mode', 'uniform') == 'randint':
+        elif parameter.config.get('mode', 'uniform') == 'randint':
             max = parameter.config['max']
             value = random.randint(0, max-1)
 
@@ -1267,8 +1266,7 @@ def suggest(new_ids, domain, trials, seed):
     rval = []
     for new_id in new_ids:
         parameters = optimizer.recommendNextParameters(hyperparameterConfig, results, currentTrials=[])
-        params = parameters.get('params')
-        flatParameters = hyperparameters.convertToFlatValues(params)
+        flatParameters = hyperparameters.convertToFlatValues(parameters)
 
         rval_results = [domain.new_result()]
         rval_miscs = [dict(

@@ -58,3 +58,7 @@ coverage.xml
 
 # MacOS
 .DS_Store
+
+# Generated documentation folders
+sources/
+site/
