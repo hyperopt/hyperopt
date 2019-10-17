@@ -641,7 +641,6 @@ class ATPEOptimizer:
         params = {'param': {}}
 
         def sample(parameters):
-            nonlocal params
             params['param'] = parameters
             return {"loss": 0.5, 'status': 'ok'}
 
