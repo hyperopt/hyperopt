@@ -1,5 +1,5 @@
 
-# Hyperopt: Distributed Hyper-parameter Optimization
+# Hyperopt: Distributed Hyperparameter Optimization
 
 <p align="center">
 <img src="https://i.postimg.cc/TPmffWrp/hyperopt-new.png" />
