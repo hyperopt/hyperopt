@@ -12,7 +12,7 @@ from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 try:
     from pyspark.sql import SparkSession
     _have_spark = True
-except ModuleNotFoundError as e:
+except ImportError as e:
     _have_spark = False
 
 logger = _get_logger('hyperopt-spark')
