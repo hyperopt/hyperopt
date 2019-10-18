@@ -6,7 +6,7 @@ theme:
         - yaml
         - python
 docs_dir: sources
-repo_url: http://github.com/hyperopt
+repo_url: http://github.com/hyperopt/hyperopt
 site_url: http://hyperopt.github.io/hyperopt
 site_description: 'Documentation for Hyperopt, Distributed Asynchronous Hyper-parameter Optimization'
 
