@@ -66,7 +66,10 @@ Currently three algorithms are implemented in hyperopt:
 
 Hyperopt has been designed to accommodate Bayesian optimization algorithms based on Gaussian processes and regression trees, but these are not currently implemented.
 
-All algorithms can be run either serially, or in parallel by communicating via [MongoDB](https://mongodb.com).
+All algorithms can be parallelized in two ways, using:
+
+- [Apache Spark](https://spark.apache.org/)
+- [MongoDB](https://mongodb.com)
 
 ## Documentation
 
