@@ -130,7 +130,7 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="http://github.com/hyperopt/edit/master/docs/index.md"><i class="fa fa-github"></i> Edit on GitHub</a>
+                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/index.md"><i class="fa fa-github"></i> Edit on GitHub</a>
                             </li>
                     </ul>
                 </div>
@@ -199,7 +199,11 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
 <li><a href="https://www.electricbrain.io/blog/learning-to-optimize">Adaptive TPE</a></li>
 </ul>
 <p>Hyperopt has been designed to accommodate Bayesian optimization algorithms based on Gaussian processes and regression trees, but these are not currently implemented.</p>
-<p>All algorithms can be run either serially, or in parallel by communicating via <a href="https://mongodb.com">MongoDB</a>.</p>
+<p>All algorithms can be parallelized in two ways, using:</p>
+<ul>
+<li><a href="https://spark.apache.org/">Apache Spark</a></li>
+<li><a href="https://mongodb.com">MongoDB</a></li>
+</ul>
 <h2 id="documentation">Documentation</h2>
 <p><a href="http://hyperopt.github.io/hyperopt">Hyperopt documentation can be found here</a>, but is partly still hosted on the wiki. Here are some quick links to the most relevant pages:</p>
 <ul>
@@ -232,7 +236,7 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
         </footer>
         <script>
             var base_url = ".",
-                shortcuts = {"help": 191, "next": 78, "search": 83, "previous": 80};
+                shortcuts = {"search": 83, "next": 78, "help": 191, "previous": 80};
         </script>
         <script src="js/base.js" defer></script>
         <script src="search/main.js" defer></script>
@@ -306,5 +310,5 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
 
 <!--
 MkDocs version : 1.0.4
-Build Date UTC : 2019-10-18 05:51:19
+Build Date UTC : 2019-10-18 12:19:35
 -->
