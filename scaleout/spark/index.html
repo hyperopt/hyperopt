@@ -141,20 +141,21 @@
                 <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
     <ul class="nav bs-sidenav">
         <li class="main active"><a href="#scaling-out-search-with-apache-spark">Scaling out search with Apache Spark</a></li>
-            <li><a href="#using-sparktrials-in-practice">Using SparkTrials in practice</a></li>
+            <li><a href="#sparktrials-api">SparkTrials API</a></li>
+            <li><a href="#example-workflow-with-sparktrials">Example workflow with SparkTrials</a></li>
     </ul>
 </div></div>
                 <div class="col-md-9" role="main">
 
 <h1 id="scaling-out-search-with-apache-spark">Scaling out search with Apache Spark</h1>
-<p>With the new class <code>SparkTrials</code>, you can tell Hyperopt to distribute a tuning job across a Spark cluster. Initially developed within Databricks, this API has now been contributed to Hyperopt.</p>
+<p>With the new class <code>SparkTrials</code>, you can tell Hyperopt to distribute a tuning job across an Apache Spark cluster. Initially developed within Databricks, this API has now been contributed to Hyperopt.</p>
 <p>Hyperparameter tuning and model selection often involve training hundreds or thousands of models.  <code>SparkTrials</code> runs batches of these training tasks in parallel, one on each Spark executor, allowing massive scale-out for tuning.  To use <code>SparkTrials</code> with Hyperopt, simply pass the <code>SparkTrials</code> object to Hyperopt’s <code>fmin()</code> function:</p>
 <pre><code class="python">import hyperopt
 
 best_hyperparameters = hyperopt.fmin(
   fn = training_function,
   space = search_space,
-  algo = hyperopt.tpe,
+  algo = hyperopt.tpe.suggest,
   max_evals = 64,
   trials = hyperopt.SparkTrials())
 </code></pre>
@@ -168,9 +169,100 @@ best_hyperparameters = hyperopt.fmin(
 </ul>
 <p>These new results are used by Hyperopt to compute better hyperparameter settings for future tasks.</p>
 <p>Since <code>SparkTrials</code> fits and evaluates each model on one Spark worker, it is limited to tuning single-machine ML models and workflows, such as scikit-learn or single-machine TensorFlow.  For distributed ML algorithms such as Apache Spark MLlib or Horovod, you can use Hyperopt’s default Trials class.</p>
-<h2 id="using-sparktrials-in-practice">Using SparkTrials in practice</h2>
-<p><code>SparkTrials</code> takes 2 key parameters: <code>parallelism</code> (Maximum number of parallel trials to run, defaulting to the number of Spark executors) and <code>timeout</code> (Maximum time in seconds which fmin is allowed to take, defaulting to None).  Timeout provides a budgeting mechanism, allowing a cap on how long tuning can take.</p>
-<p>The <code>parallelism</code> parameter can be set in conjunction with the <code>max_evals</code> parameter in <code>fmin()</code>. Hyperopt will test <code>max_evals</code> total settings for your hyperparameters, in batches of size <code>parallelism</code>.  If <code>parallelism = max_evals</code>, then Hyperopt will do Random Search: it will select all hyperparameter settings to test independently and then evaluate them in parallel.  If <code>parallelism = 1</code>, then Hyperopt can make full use of adaptive algorithms like Tree of Parzen Estimators (TPE) which iteratively explore the hyperparameter space: each new hyperparameter setting tested will be chosen based on previous results.  Setting <code>parallelism</code> in between <code>1</code> and <code>max_evals</code> allows you to trade off scalability (getting results faster) and adaptiveness (sometimes getting better models).</p></div>
+<h2 id="sparktrials-api">SparkTrials API</h2>
+<p><code>SparkTrials</code> may be configured via 3 arguments, all of which are optional:</p>
+<p><strong><code>parallelism</code></strong>
+The maximum number of trials to evaluate concurrently. Greater parallelism allows scale-out testing of more hyperparameter settings. Defaults to the number of Spark executors.</p>
+<ul>
+<li>Trade-offs: The <code>parallelism</code> parameter can be set in conjunction with the <code>max_evals</code> parameter in <code>fmin()</code>. Hyperopt will test <code>max_evals</code> total settings for your hyperparameters, in batches of size <code>parallelism</code>.  If <code>parallelism = max_evals</code>, then Hyperopt will do Random Search: it will select all hyperparameter settings to test independently and then evaluate them in parallel.  If <code>parallelism = 1</code>, then Hyperopt can make full use of adaptive algorithms like Tree of Parzen Estimators (TPE) which iteratively explore the hyperparameter space: each new hyperparameter setting tested will be chosen based on previous results.  Setting <code>parallelism</code> in between <code>1</code> and <code>max_evals</code> allows you to trade off scalability (getting results faster) and adaptiveness (sometimes getting better models).</li>
+<li>Limits: There is currently a hard cap on parallelism of 128. <code>SparkTrials</code> will also check the cluster’s configuration to see how many concurrent tasks Spark will allow; if parallelism exceeds this maximum, <code>SparkTrials</code> will reduce parallelism to this maximum.</li>
+</ul>
+<p><strong><code>timeout</code></strong>
+Maximum time in seconds which <code>fmin()</code> is allowed to take, defaulting to None.
+Timeout provides a budgeting mechanism, allowing a cap on how long tuning can take.  When the timeout is hit, runs are terminated if possible, and <code>fmin()</code> exits, returning the current set of results.</p>
+<p><strong><code>spark_session</code></strong>
+<code>SparkSession</code> instance for <code>SparkTrials</code> to use.  If this is not given, <code>SparkTrials</code> will look for an existing <code>SparkSession</code>.</p>
+<p>The <code>SparkTrials</code> API may also be viewed by calling <code>help(SparkTrials)</code>.</p>
+<h2 id="example-workflow-with-sparktrials">Example workflow with SparkTrials</h2>
+<p>Below, we give an example workflow which tunes a scikit-learn model using SparkTrials.   This example was adapted from the <a href="https://scikit-learn.org/stable/auto_examples/linear_model/plot_sparse_logistic_regression_mnist.html">scikit-learn doc example</a> for sparse logistic regression with MNIST.</p>
+<pre><code class="python">from sklearn.datasets import fetch_openml
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import check_random_state
+
+from hyperopt import fmin, hp, tpe
+from hyperopt import SparkTrials, STATUS_OK
+
+# Load MNIST data, and preprocess it by standarizing features.
+X, y = fetch_openml('mnist_784', version=1, return_X_y=True)
+
+random_state = check_random_state(0)
+permutation = random_state.permutation(X.shape[0])
+X = X[permutation]
+y = y[permutation]
+X = X.reshape((X.shape[0], -1))
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, train_size=5000, test_size=10000)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# First, set up the scikit-learn workflow, wrapped within a function.
+def train(params):
+  &quot;&quot;&quot;
+  This is our main training function which we pass to Hyperopt.
+  It takes in hyperparameter settings, fits a model based on those settings,
+  evaluates the model, and returns the loss.
+
+  :param params: map specifying the hyperparameter settings to test
+  :return: loss for the fitted model
+  &quot;&quot;&quot;
+  # We will tune 2 hyperparameters:
+  #  regularization and the penalty type (L1 vs L2).
+  regParam = float(params['regParam'])
+  penalty = params['penalty']
+
+  # Turn up tolerance for faster convergence
+  clf = LogisticRegression(C=1.0 / regParam,
+                           multi_class='multinomial',
+                           penalty=penalty, solver='saga', tol=0.1)
+  clf.fit(X_train, y_train)
+  score = clf.score(X_test, y_test)
+
+  return {'loss': -score, 'status': STATUS_OK}
+
+# Next, define a search space for Hyperopt.
+search_space = {
+  'penalty': hp.choice('penalty', ['l1', 'l2']),
+  'regParam': hp.loguniform('regParam', -10.0, 0),
+}
+
+# Select a search algorithm for Hyperopt to use.
+algo=tpe.suggest  # Tree of Parzen Estimators, a Bayesian method
+
+# We can run Hyperopt locally (only on the driver machine)
+# by calling `fmin` without an explicit `trials` argument.
+best_hyperparameters = fmin(
+  fn=train,
+  space=search_space,
+  algo=algo,
+  max_evals=32)
+best_hyperparameters
+
+# We can distribute tuning across our Spark cluster
+# by calling `fmin` with a `SparkTrials` instance.
+spark_trials = SparkTrials()
+best_hyperparameters = fmin(
+  fn=train,
+  space=search_space,
+  algo=algo,
+  trials=spark_trials,
+  max_evals=32)
+best_hyperparameters
+</code></pre></div>
         </div>
 
         <footer class="col-md-12">
@@ -179,7 +271,7 @@ best_hyperparameters = hyperopt.fmin(
         </footer>
         <script>
             var base_url = "../..",
-                shortcuts = {"search": 83, "next": 78, "help": 191, "previous": 80};
+                shortcuts = {"help": 191, "next": 78, "search": 83, "previous": 80};
         </script>
         <script src="../../js/base.js" defer></script>
         <script src="../../search/main.js" defer></script>
