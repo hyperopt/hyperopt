@@ -114,7 +114,7 @@ try:
 except:
     _has_mongo = False
 
-from bson import SON
+from bson.son import SON
 from .base import JOB_STATES
 from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
                    JOB_STATE_ERROR)
