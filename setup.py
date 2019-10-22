@@ -147,9 +147,9 @@ setuptools.setup(
     keywords='Bayesian optimization hyperparameter model selection',
     package_data=package_data,
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'six', 'networkx==2.2', 'future', 'tqdm', 'cloudpickle', 'bson'],
+    install_requires=['numpy', 'scipy', 'six', 'networkx==2.2', 'future', 'tqdm', 'cloudpickle'],
     extras_require={
-        'SparkTrials':'pyspark', 
+        'SparkTrials':'pyspark',
         'MongoTrials': 'pymongo',
         'ATPE': ['lightgbm', 'scikit-learn']},
     tests_require=['nose'],
