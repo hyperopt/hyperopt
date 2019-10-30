@@ -230,7 +230,8 @@ class Hyperparameter:
             result_key = root + "." + key
             if isinstance(value, str):
                 flatParams[result_key[1:]] = value
-            elif isinstance(value, float) or isinstance(value, bool) or isinstance(value, int):
+            elif isinstance(value, float) or isinstance(value, bool) or isinstance(value, int) \
+                    or numpy.issubdtype(value, numpy.integer) or numpy.issubdtype(value, numpy.floating):
                 flatParams[result_key[1:]] = value
             elif isinstance(value, dict):
                 for subkey, subvalue in value.items():
