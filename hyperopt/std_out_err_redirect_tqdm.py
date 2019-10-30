@@ -7,9 +7,12 @@ import contextlib
 import sys
 from tqdm import tqdm
 
+
 class DummyTqdmFile(object):
     """Dummy file-like that will write to tqdm."""
+
     file = None
+
     def __init__(self, file):
         self.file = file
 
@@ -20,6 +23,7 @@ class DummyTqdmFile(object):
 
     def flush(self):
         return getattr(self.file, "flush", lambda: None)()
+
 
 @contextlib.contextmanager
 def std_out_err_redirect_tqdm():

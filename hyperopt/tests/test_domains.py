@@ -24,17 +24,20 @@ def domain_constructor(**b_kwargs):
         return {'loss': hp.uniform('x', low, high) ** 2 }
 
     """
+
     def deco(f):
         def wrapper(*args, **kwargs):
-            if 'name' in b_kwargs:
+            if "name" in b_kwargs:
                 _b_kwargs = b_kwargs
             else:
                 _b_kwargs = dict(b_kwargs, name=f.__name__)
             f_rval = f(*args, **kwargs)
             domain = Domain(lambda x: x, f_rval, **_b_kwargs)
             return domain
+
         wrapper.__name__ = f.__name__
         return wrapper
+
     return deco
 
 
@@ -42,7 +45,7 @@ def domain_constructor(**b_kwargs):
 def coin_flip():
     """ Possibly the simplest possible Bandit implementation
     """
-    return {'loss': hp.choice('flip', [0.0, 1.0]), 'status': base.STATUS_OK}
+    return {"loss": hp.choice("flip", [0.0, 1.0]), "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
@@ -51,16 +54,15 @@ def quadratic1():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': (hp.uniform('x', -5, 5) - 3) ** 2, 'status': base.STATUS_OK}
+    return {"loss": (hp.uniform("x", -5, 5) - 3) ** 2, "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
 def q1_choice():
-    o_x = hp.choice('o_x', [
-        (-3, hp.uniform('x_neg', -5, 5)),
-        (3, hp.uniform('x_pos', -5, 5)),
-    ])
-    return {'loss': (o_x[0] - o_x[1]) ** 2, 'status': base.STATUS_OK}
+    o_x = hp.choice(
+        "o_x", [(-3, hp.uniform("x_neg", -5, 5)), (3, hp.uniform("x_pos", -5, 5))]
+    )
+    return {"loss": (o_x[0] - o_x[1]) ** 2, "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0)
@@ -69,9 +71,10 @@ def q1_lognormal():
     About the simplest problem you could ask for:
     optimize a one-variable quadratic function.
     """
-    return {'loss': scope.min(0.1 * (hp.lognormal('x', 0, 2) - 10) ** 2,
-                              10),
-            'status': base.STATUS_OK}
+    return {
+        "loss": scope.min(0.1 * (hp.lognormal("x", 0, 2) - 10) ** 2, 10),
+        "status": base.STATUS_OK,
+    }
 
 
 @domain_constructor(loss_target=-2)
@@ -83,12 +86,14 @@ def n_arms(N=2):
 
     """
     rng = np.random.RandomState(123)
-    x = hp.choice('x', [0, 1])
+    x = hp.choice("x", [0, 1])
     reward_mus = as_apply([-1] + [0] * (N - 1))
     reward_sigmas = as_apply([1] * N)
-    return {'loss': scope.normal(reward_mus[x], reward_sigmas[x], rng=rng),
-            'loss_variance': 1.0,
-            'status': base.STATUS_OK}
+    return {
+        "loss": scope.normal(reward_mus[x], reward_sigmas[x], rng=rng),
+        "loss_variance": 1.0,
+        "status": base.STATUS_OK,
+    }
 
 
 @domain_constructor(loss_target=-2)
@@ -102,10 +107,10 @@ def distractor():
     The prior mean is 0.
     """
 
-    x = hp.uniform('x', -15, 15)
-    f1 = old_div(1.0, (1.0 + scope.exp(-x)))    # climbs rightward from 0.0 to 1.0
-    f2 = 2 * scope.exp(-(x + 10) ** 2)  # bump with height 2 at (x=-10)
-    return {'loss': -f1 - f2, 'status': base.STATUS_OK}
+    x = hp.uniform("x", -15, 15)
+    f1 = old_div(1.0, (1.0 + scope.exp(-x)))  # climbs rightward from 0.0 to 1.0
+    f2 = 2 * scope.exp(-((x + 10) ** 2))  # bump with height 2 at (x=-10)
+    return {"loss": -f1 - f2, "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=-1)
@@ -121,11 +126,11 @@ def gauss_wave():
 
     """
 
-    x = hp.uniform('x', -20, 20)
-    t = hp.choice('curve', [x, x + np.pi])
+    x = hp.uniform("x", -20, 20)
+    t = hp.choice("curve", [x, x + np.pi])
     f1 = scope.sin(t)
-    f2 = 2 * scope.exp(-(old_div(t, 5.0)) ** 2)
-    return {'loss': - (f1 + f2), 'status': base.STATUS_OK}
+    f2 = 2 * scope.exp(-((old_div(t, 5.0)) ** 2))
+    return {"loss": -(f1 + f2), "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=-2.5)
@@ -141,30 +146,32 @@ def gauss_wave2():
     """
 
     rng = np.random.RandomState(123)
-    var = .1
-    x = hp.uniform('x', -20, 20)
-    amp = hp.uniform('amp', 0, 1)
-    t = (scope.normal(0, var, rng=rng) + 2 * scope.exp(-(old_div(x, 5.0)) ** 2))
-    return {'loss': - hp.choice('hf', [t, t + scope.sin(x) * amp]),
-            'loss_variance': var, 'status': base.STATUS_OK}
+    var = 0.1
+    x = hp.uniform("x", -20, 20)
+    amp = hp.uniform("amp", 0, 1)
+    t = scope.normal(0, var, rng=rng) + 2 * scope.exp(-((old_div(x, 5.0)) ** 2))
+    return {
+        "loss": -hp.choice("hf", [t, t + scope.sin(x) * amp]),
+        "loss_variance": var,
+        "status": base.STATUS_OK,
+    }
 
 
 @domain_constructor(loss_target=0)
 def many_dists():
-    a = hp.choice('a', [0, 1, 2])
-    b = hp.randint('b', 10)
-    c = hp.uniform('c', 4, 7)
-    d = hp.loguniform('d', -2, 0)
-    e = hp.quniform('e', 0, 10, 3)
-    f = hp.qloguniform('f', 0, 3, 2)
-    g = hp.normal('g', 4, 7)
-    h = hp.lognormal('h', -2, 2)
-    i = hp.qnormal('i', 0, 10, 2)
-    j = hp.qlognormal('j', 0, 2, 1)
-    k = hp.pchoice('k', [(.1, 0), (.9, 1)])
+    a = hp.choice("a", [0, 1, 2])
+    b = hp.randint("b", 10)
+    c = hp.uniform("c", 4, 7)
+    d = hp.loguniform("d", -2, 0)
+    e = hp.quniform("e", 0, 10, 3)
+    f = hp.qloguniform("f", 0, 3, 2)
+    g = hp.normal("g", 4, 7)
+    h = hp.lognormal("h", -2, 2)
+    i = hp.qnormal("i", 0, 10, 2)
+    j = hp.qlognormal("j", 0, 2, 1)
+    k = hp.pchoice("k", [(0.1, 0), (0.9, 1)])
     z = a + b + c + d + e + f + g + h + i + j + k
-    return {'loss': scope.float(scope.log(1e-12 + z ** 2)),
-            'status': base.STATUS_OK}
+    return {"loss": scope.float(scope.log(1e-12 + z ** 2)), "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0.398)
@@ -190,37 +197,40 @@ def branin():
 
     Source: http://www.sfu.ca/~ssurjano/branin.html
     """
-    x = hp.uniform('x', -5., 10.)
-    y = hp.uniform('y', 0., 15.)
+    x = hp.uniform("x", -5.0, 10.0)
+    y = hp.uniform("y", 0.0, 15.0)
     pi = float(np.pi)
-    loss = ((y - (old_div(5.1, (4 * pi ** 2))) * x ** 2 + 5 * x / pi - 6) ** 2 +
-            10 * (1 - old_div(1, (8 * pi))) * scope.cos(x) + 10)
-    return {'loss': loss,
-            'loss_variance': 0,
-            'status': base.STATUS_OK}
+    loss = (
+        (y - (old_div(5.1, (4 * pi ** 2))) * x ** 2 + 5 * x / pi - 6) ** 2
+        + 10 * (1 - old_div(1, (8 * pi))) * scope.cos(x)
+        + 10
+    )
+    return {"loss": loss, "loss_variance": 0, "status": base.STATUS_OK}
 
 
 class DomainExperimentMixin(object):
-
     def test_basic(self):
         domain = self._domain_cls()
         # print 'domain params', domain.params, domain
         # print 'algo params', algo.vh.params
         trials = Trials()
-        fmin(lambda x: x, domain.expr,
-             trials=trials,
-             algo=suggest,
-             max_evals=self._n_steps)
-        assert trials.average_best_error(domain) - domain.loss_target < .2
+        fmin(
+            lambda x: x,
+            domain.expr,
+            trials=trials,
+            algo=suggest,
+            max_evals=self._n_steps,
+        )
+        assert trials.average_best_error(domain) - domain.loss_target < 0.2
 
     @classmethod
     def make(cls, domain_cls, n_steps=500):
         class Tester(unittest.TestCase, cls):
-
             def setUp(self):
                 self._n_steps = n_steps
                 self._domain_cls = domain_cls
-        Tester.__name__ = domain_cls.__name__ + 'Tester'
+
+        Tester.__name__ = domain_cls.__name__ + "Tester"
         return Tester
 
 
@@ -230,8 +240,7 @@ q1_choiceTester = DomainExperimentMixin.make(q1_choice)
 n_armsTester = DomainExperimentMixin.make(n_arms)
 distractorTester = DomainExperimentMixin.make(distractor)
 gauss_waveTester = DomainExperimentMixin.make(gauss_wave)
-gauss_wave2Tester = DomainExperimentMixin.make(gauss_wave2,
-                                               n_steps=5000)
+gauss_wave2Tester = DomainExperimentMixin.make(gauss_wave2, n_steps=5000)
 many_distsTester = DomainExperimentMixin.make(many_dists)
 braninTester = DomainExperimentMixin.make(branin)
 
@@ -296,5 +305,6 @@ class NonCategoricalCasePerDomain(object):
     def test_branin(self):
         self.bandit = branin()
         self.work()
+
 
 # -- non-blank last line for flake8

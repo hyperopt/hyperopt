@@ -57,22 +57,24 @@ def dot_hyperparameters(expr):
         var_node(hp)
 
         # create an edge from anything it depends on
-        for and_conds in dct['conditions']:
+        for and_conds in dct["conditions"]:
             if len(and_conds) > 1:
-                parent_label = ' & '.join([
-                    '%(name)s%(op)s%(val)s' % cond.__dict__
-                    for cond in and_conds])
+                parent_label = " & ".join(
+                    ["%(name)s%(op)s%(val)s" % cond.__dict__ for cond in and_conds]
+                )
                 cond_node(parent_label)
                 edge(parent_label, hp)
                 for cond in and_conds:
-                    sub_parent_label = '%s%s%s' % (
-                        cond.name, cond.op, cond.val)
+                    sub_parent_label = "%s%s%s" % (cond.name, cond.op, cond.val)
                     cond_node(sub_parent_label)
                     edge(cond.name, sub_parent_label)
                     edge(sub_parent_label, parent_label)
             elif len(and_conds) == 1:
-                parent_label = '%s%s%s' % (
-                    and_conds[0].name, and_conds[0].op, and_conds[0].val)
+                parent_label = "%s%s%s" % (
+                    and_conds[0].name,
+                    and_conds[0].op,
+                    and_conds[0].val,
+                )
                 edge(and_conds[0].name, parent_label)
                 cond_node(parent_label)
                 edge(parent_label, hp)

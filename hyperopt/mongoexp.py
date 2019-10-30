@@ -93,10 +93,12 @@ from __future__ import print_function
 from __future__ import absolute_import
 from future import standard_library
 import copy
+
 # import hashlib
 import logging
 import optparse
 import os
+
 # import shutil
 import signal
 import socket
@@ -107,17 +109,18 @@ import urllib.parse
 import warnings
 
 import numpy
+
 try:
     import pymongo
     import gridfs
+
     _has_mongo = True
 except:
     _has_mongo = False
 
 from bson import SON
 from .base import JOB_STATES
-from .base import (JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE,
-                   JOB_STATE_ERROR)
+from .base import JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE, JOB_STATE_ERROR
 from .base import Trials
 from .base import InvalidTrial
 from .base import Ctrl
@@ -142,7 +145,9 @@ logger = logging.getLogger(__name__)
 try:
     import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
+    logger.info(
+        'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
+    )
     import six.moves.cPickle as pickler
 
 
@@ -180,7 +185,7 @@ class ReserveTimeout(Exception):
 
 
 def read_pw():
-    return open(os.path.join(os.getenv('HOME'), ".hyperopt")).read()[:-1]
+    return open(os.path.join(os.getenv("HOME"), ".hyperopt")).read()[:-1]
 
 
 def parse_url(url, pwfile=None):
@@ -197,32 +202,32 @@ def parse_url(url, pwfile=None):
 
     """
 
-    protocol = url[:url.find(':')]
-    ftp_url = 'ftp' + url[url.find(':'):]
+    protocol = url[: url.find(":")]
+    ftp_url = "ftp" + url[url.find(":") :]
 
     # -- parse the string as if it were an ftp address
     tmp = urllib.parse.urlparse(ftp_url)
     query_params = urllib.parse.parse_qs(tmp.query)
 
-    logger.info('PROTOCOL %s' % protocol)
-    logger.info('USERNAME %s' % tmp.username)
-    logger.info('HOSTNAME %s' % tmp.hostname)
-    logger.info('PORT %s' % tmp.port)
-    logger.info('PATH %s' % tmp.path)
-    
+    logger.info("PROTOCOL %s" % protocol)
+    logger.info("USERNAME %s" % tmp.username)
+    logger.info("HOSTNAME %s" % tmp.hostname)
+    logger.info("PORT %s" % tmp.port)
+    logger.info("PATH %s" % tmp.path)
+
     authdbname = None
-    if 'authSource' in query_params and len(query_params['authSource']):
-        authdbname = query_params['authSource'][-1]
-        
-    logger.info('AUTH DB %s' % authdbname)
-    
+    if "authSource" in query_params and len(query_params["authSource"]):
+        authdbname = query_params["authSource"][-1]
+
+    logger.info("AUTH DB %s" % authdbname)
+
     try:
-        _, dbname, collection = tmp.path.split('/')
+        _, dbname, collection = tmp.path.split("/")
     except:
         print("Failed to parse '%s'" % (str(tmp.path)), file=sys.stderr)
         raise
-    logger.info('DB %s' % dbname)
-    logger.info('COLLECTION %s' % collection)
+    logger.info("DB %s" % dbname)
+    logger.info("COLLECTION %s" % collection)
 
     if tmp.password is None:
         if (tmp.username is not None) and pwfile:
@@ -232,38 +237,52 @@ def parse_url(url, pwfile=None):
     else:
         password = tmp.password
     if password is not None:
-        logger.info('PASS ***')
+        logger.info("PASS ***")
     port = int(float(tmp.port))  # port has to be casted explicitly here.
 
-    return (protocol, tmp.username, password, tmp.hostname, port, dbname, collection, authdbname)
+    return (
+        protocol,
+        tmp.username,
+        password,
+        tmp.hostname,
+        port,
+        dbname,
+        collection,
+        authdbname,
+    )
 
 
-def connection_with_tunnel(dbname, host='localhost',
-                           auth_dbname=None, port=27017,
-                           ssh=False, user='hyperopt', pw=None):
+def connection_with_tunnel(
+    dbname,
+    host="localhost",
+    auth_dbname=None,
+    port=27017,
+    ssh=False,
+    user="hyperopt",
+    pw=None,
+):
     if ssh:
         local_port = numpy.random.randint(low=27500, high=28000)
         # -- forward from local to remote machine
         ssh_tunnel = subprocess.Popen(
-            ['ssh', '-NTf', '-L',
-                    '%i:%s:%i' % (local_port, '127.0.0.1', port),
-                    host],
+            ["ssh", "-NTf", "-L", "%i:%s:%i" % (local_port, "127.0.0.1", port), host]
         )
         # -- give the subprocess time to set up
-        time.sleep(.5)
-        connection = pymongo.MongoClient('127.0.0.1', local_port,
-                                         document_class=SON, w=1, j=True)
+        time.sleep(0.5)
+        connection = pymongo.MongoClient(
+            "127.0.0.1", local_port, document_class=SON, w=1, j=True
+        )
     else:
         connection = pymongo.MongoClient(host, port, document_class=SON, w=1, j=True)
         if user:
             if not pw:
                 pw = read_pw()
-                
-            if user == 'hyperopt' and not auth_dbname:
-                auth_dbname = 'admin'
-                    
+
+            if user == "hyperopt" and not auth_dbname:
+                auth_dbname = "admin"
+
             connection[dbname].authenticate(user, pw, source=auth_dbname)
-            
+
         ssh_tunnel = None
 
     # Note that the w=1 and j=True args to MongoClient above should:
@@ -275,20 +294,14 @@ def connection_with_tunnel(dbname, host='localhost',
 
 def connection_from_string(s):
     protocol, user, pw, host, port, db, collection, authdb = parse_url(s)
-    if protocol == 'mongo':
+    if protocol == "mongo":
         ssh = False
-    elif protocol in ('mongo+ssh', 'ssh+mongo'):
+    elif protocol in ("mongo+ssh", "ssh+mongo"):
         ssh = True
     else:
-        raise ValueError('unrecognized protocol for MongoJobs', protocol)
+        raise ValueError("unrecognized protocol for MongoJobs", protocol)
     connection, tunnel = connection_with_tunnel(
-        dbname=db,
-        ssh=ssh,
-        user=user,
-        pw=pw,
-        host=host,
-        port=port,
-        auth_dbname=authdb
+        dbname=db, ssh=ssh, user=user, pw=pw, host=host, port=port, auth_dbname=authdb
     )
     return connection, tunnel, connection[db], connection[db][collection]
 
@@ -335,8 +348,10 @@ class MongoJobs(object):
 
         """
         if not _has_mongo:
-            raise Exception("MongoJobs cannot import pymongo classes.  Make sure that pymongo "
-                            "is available in your environment.  E.g., try running 'import pymongo'")
+            raise Exception(
+                "MongoJobs cannot import pymongo classes.  Make sure that pymongo "
+                "is available in your environment.  E.g., try running 'import pymongo'"
+            )
 
         self.db = db
         self.jobs = jobs
@@ -349,17 +364,27 @@ class MongoJobs(object):
     coll = property(lambda s: s.jobs)
 
     @classmethod
-    def alloc(cls, dbname, host='localhost',
-              auth_dbname='admin', port=27017,
-              jobs_coll='jobs', gfs_coll='fs', ssh=False, user=None, pw=None):
+    def alloc(
+        cls,
+        dbname,
+        host="localhost",
+        auth_dbname="admin",
+        port=27017,
+        jobs_coll="jobs",
+        gfs_coll="fs",
+        ssh=False,
+        user=None,
+        pw=None,
+    ):
         connection, tunnel = connection_with_tunnel(
-            dbname, host, auth_dbname, port, ssh, user, pw)
+            dbname, host, auth_dbname, port, ssh, user, pw
+        )
         db = connection[dbname]
         gfs = gridfs.GridFS(db, collection=gfs_coll)
         return cls(db, db[jobs_coll], gfs, connection, tunnel)
 
     @classmethod
-    def new_from_connection_str(cls, conn_str, gfs_coll='fs', config_name='spec'):
+    def new_from_connection_str(cls, conn_str, gfs_coll="fs", config_name="spec"):
         connection, tunnel, db, coll = connection_from_string(conn_str)
         gfs = gridfs.GridFS(db, collection=gfs_coll)
         return cls(db, coll, gfs, connection, tunnel, config_name)
@@ -375,12 +400,12 @@ class MongoJobs(object):
 
     def create_jobs_indexes(self):
         jobs = self.db.jobs
-        for k in ['exp_key', 'result.loss', 'book_time']:
+        for k in ["exp_key", "result.loss", "book_time"]:
             jobs.create_index(k)
 
     def create_drivers_indexes(self):
         drivers = self.db.drivers
-        drivers.create_index('exp_key', unique=True)
+        drivers.create_index("exp_key", unique=True)
 
     def create_indexes(self):
         self.create_jobs_indexes()
@@ -399,7 +424,7 @@ class MongoJobs(object):
             raise NotImplementedError()
         rval = list(self.jobs.find(filter=dict(state=JOB_STATE_RUNNING)))
         # TODO: mark some as MIA
-        rval = [r for r in rval if not r.get('MIA', False)]
+        rval = [r for r in rval if not r.get("MIA", False)]
         return rval
 
     def jobs_dead(self, cursor=False):
@@ -407,7 +432,7 @@ class MongoJobs(object):
             raise NotImplementedError()
         rval = list(self.jobs.find(filter=dict(state=JOB_STATE_RUNNING)))
         # TODO: mark some as MIA
-        rval = [r for r in rval if r.get('MIA', False)]
+        rval = [r for r in rval if r.get("MIA", False)]
         return rval
 
     def jobs_queued(self, cursor=False):
@@ -421,7 +446,7 @@ class MongoJobs(object):
             # -- this call adds an _id field to cpy
             _id = self.jobs.insert(cpy, check_keys=True)
             # -- so now we return the dict with the _id field
-            assert _id == cpy['_id']
+            assert _id == cpy["_id"]
             return cpy
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
@@ -444,14 +469,15 @@ class MongoJobs(object):
         if cond is None:
             cond = {}
         try:
-            for d in self.jobs.find(filter=cond, projection=['_id', '_attachments']):
-                logger.info('deleting job %s' % d['_id'])
-                for name, file_id in d.get('_attachments', []):
+            for d in self.jobs.find(filter=cond, projection=["_id", "_attachments"]):
+                logger.info("deleting job %s" % d["_id"])
+                for name, file_id in d.get("_attachments", []):
                     try:
                         self.gfs.delete(file_id)
                     except gridfs.errors.NoFile:
-                        logger.error('failed to remove attachment %s:%s' % (
-                            name, file_id))
+                        logger.error(
+                            "failed to remove attachment %s:%s" % (name, file_id)
+                        )
                 self.jobs.remove(d)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
@@ -459,40 +485,46 @@ class MongoJobs(object):
             raise OperationFailure(e)
 
     def delete_all_error_jobs(self):
-        return self.delete_all(cond={'state': JOB_STATE_ERROR})
+        return self.delete_all(cond={"state": JOB_STATE_ERROR})
 
     def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
         if cond is None:
             cond = {}
         else:
-            cond = copy.copy(cond)  # copy is important, will be modified, but only the top-level
+            cond = copy.copy(
+                cond
+            )  # copy is important, will be modified, but only the top-level
 
         if exp_key is not None:
-            cond['exp_key'] = exp_key
+            cond["exp_key"] = exp_key
 
         # having an owner of None implies state==JOB_STATE_NEW, so this effectively
         # acts as a filter to make sure that only new jobs get reserved.
-        if cond.get('owner') is not None:
-            raise ValueError('refusing to reserve owned job')
+        if cond.get("owner") is not None:
+            raise ValueError("refusing to reserve owned job")
         else:
-            cond['owner'] = None
-            cond['state'] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
+            cond["owner"] = None
+            cond[
+                "state"
+            ] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
 
         try:
             rval = self.jobs.find_and_modify(
                 cond,
-                {'$set':
-                    {'owner': host_id,
-                     'book_time': now,
-                     'state': JOB_STATE_RUNNING,
-                     'refresh_time': now,
-                     }
-                 },
+                {
+                    "$set": {
+                        "owner": host_id,
+                        "book_time": now,
+                        "state": JOB_STATE_RUNNING,
+                        "refresh_time": now,
+                    }
+                },
                 new=True,
-                upsert=False)
+                upsert=False,
+            )
         except pymongo.errors.OperationFailure as e:
-            logger.error('Error during reserve_job: %s' % str(e))
+            logger.error("Error during reserve_job: %s" % str(e))
             rval = None
         return rval
 
@@ -510,32 +542,28 @@ class MongoJobs(object):
             collection = self.coll
 
         dct = copy.deepcopy(dct)
-        if '_id' not in doc:
+        if "_id" not in doc:
             raise ValueError('doc must have an "_id" key to be updated')
 
-        if '_id' in dct:
-            if dct['_id'] != doc['_id']:
-                raise ValueError('cannot update the _id field')
-            del dct['_id']
+        if "_id" in dct:
+            if dct["_id"] != doc["_id"]:
+                raise ValueError("cannot update the _id field")
+            del dct["_id"]
 
-        if 'version' in dct:
-            if dct['version'] != doc['version']:
+        if "version" in dct:
+            if dct["version"] != doc["version"]:
                 warnings.warn('Ignoring "version" field in update dictionary')
 
-        if 'version' in doc:
-            doc_query = dict(_id=doc['_id'], version=doc['version'])
-            dct['version'] = doc['version'] + 1
+        if "version" in doc:
+            doc_query = dict(_id=doc["_id"], version=doc["version"])
+            dct["version"] = doc["version"] + 1
         else:
-            doc_query = dict(_id=doc['_id'])
-            dct['version'] = 1
+            doc_query = dict(_id=doc["_id"])
+            dct["version"] = 1
         try:
             # warning - if doc matches nothing then this function succeeds
             # N.B. this matches *at most* one entry, and possibly zero
-            collection.update(
-                doc_query,
-                {'$set': dct},
-                upsert=False,
-                multi=False,)
+            collection.update(doc_query, {"$set": dct}, upsert=False, multi=False)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
             #    see insert() code for rationale.
@@ -546,12 +574,14 @@ class MongoJobs(object):
 
         if do_sanity_checks:
             server_doc = collection.find_one(
-                dict(_id=doc['_id'], version=doc['version']))
+                dict(_id=doc["_id"], version=doc["version"])
+            )
             if server_doc is None:
-                raise OperationFailure('updated doc not found : %s'
-                                       % str(doc))
+                raise OperationFailure("updated doc not found : %s" % str(doc))
             elif server_doc != doc:
-                if 0:  # This is all commented out because it is tripping on the fact that
+                if (
+                    0
+                ):  # This is all commented out because it is tripping on the fact that
                     # str('a') != unicode('a').
                     # TODO: eliminate false alarms and catch real ones
                     mismatching_keys = []
@@ -560,20 +590,23 @@ class MongoJobs(object):
                             if doc[k] != v:
                                 mismatching_keys.append((k, v, doc[k]))
                         else:
-                            mismatching_keys.append((k, v, '<missing>'))
+                            mismatching_keys.append((k, v, "<missing>"))
                     for k, v in list(doc.items()):
                         if k not in server_doc:
-                            mismatching_keys.append((k, '<missing>', v))
+                            mismatching_keys.append((k, "<missing>", v))
 
-                    raise OperationFailure('local and server doc documents are out of sync: %s' %
-                                           repr((doc, server_doc, mismatching_keys)))
+                    raise OperationFailure(
+                        "local and server doc documents are out of sync: %s"
+                        % repr((doc, server_doc, mismatching_keys))
+                    )
         return doc
 
     def attachment_names(self, doc):
         def as_str(name_id):
             assert isinstance(name_id[0], six.string_types), name_id
             return str(name_id[0])
-        return list(map(as_str, doc.get('_attachments', [])))
+
+        return list(map(as_str, doc.get("_attachments", [])))
 
     def set_attachment(self, doc, blob, name, collection=None):
         """Attach potentially large data string `blob` to `doc` by name `name`
@@ -590,21 +623,25 @@ class MongoJobs(object):
 
         # If there is already a file with the given name for this doc, then we will delete it
         # after writing the new file
-        attachments = doc.get('_attachments', [])
+        attachments = doc.get("_attachments", [])
         name_matches = [a for a in attachments if a[0] == name]
 
         # the filename is set to something so that fs.list() will display the file
-        new_file_id = self.gfs.put(blob, filename='%s_%s' % (doc['_id'], name))
-        logger.info('stored blob of %i bytes with id=%s and filename %s_%s' % (
-            len(blob), str(new_file_id), doc['_id'], name))
+        new_file_id = self.gfs.put(blob, filename="%s_%s" % (doc["_id"], name))
+        logger.info(
+            "stored blob of %i bytes with id=%s and filename %s_%s"
+            % (len(blob), str(new_file_id), doc["_id"], name)
+        )
 
-        new_attachments = ([a for a in attachments if a[0] != name] +
-                           [(name, new_file_id)])
+        new_attachments = [a for a in attachments if a[0] != name] + [
+            (name, new_file_id)
+        ]
 
         try:
             ii = 0
-            doc = self.update(doc, {'_attachments': new_attachments},
-                              collection=collection)
+            doc = self.update(
+                doc, {"_attachments": new_attachments}, collection=collection
+            )
             # there is a database leak until we actually delete the files that
             # are no longer pointed to by new_attachments
             while ii < len(name_matches):
@@ -612,8 +649,9 @@ class MongoJobs(object):
                 ii += 1
         except:
             while ii < len(name_matches):
-                logger.warning("Leak during set_attachment: old_file_id=%s" % (
-                    name_matches[ii][1]))
+                logger.warning(
+                    "Leak during set_attachment: old_file_id=%s" % (name_matches[ii][1])
+                )
                 ii += 1
             raise
         assert len([n for n in self.attachment_names(doc) if n == name]) == 1
@@ -626,25 +664,25 @@ class MongoJobs(object):
 
         Returns the blob as a string.
         """
-        attachments = doc.get('_attachments', [])
+        attachments = doc.get("_attachments", [])
         file_ids = [a[1] for a in attachments if a[0] == name]
         if not file_ids:
-            raise OperationFailure('Attachment not found: %s' % name)
+            raise OperationFailure("Attachment not found: %s" % name)
         if len(file_ids) > 1:
-            raise OperationFailure('multiple name matches', (name, file_ids))
+            raise OperationFailure("multiple name matches", (name, file_ids))
         return self.gfs.get(file_ids[0]).read()
 
     def delete_attachment(self, doc, name, collection=None):
-        attachments = doc.get('_attachments', [])
+        attachments = doc.get("_attachments", [])
         file_id = None
         for i, a in enumerate(attachments):
             if a[0] == name:
                 file_id = a[1]
                 break
         if file_id is None:
-            raise OperationFailure('Attachment not found: %s' % name)
+            raise OperationFailure("Attachment not found: %s" % name)
         del attachments[i]
-        self.update(doc, {'_attachments': attachments}, collection=collection)
+        self.update(doc, {"_attachments": attachments}, collection=collection)
         self.gfs.delete(file_id)
 
 
@@ -667,13 +705,15 @@ class MongoTrials(Trials):
     interface directly.  When you are done writing, call refresh() or
     refresh_tids() to bring the MongoTrials up to date.
     """
+
     asynchronous = True
 
-    def __init__(self, arg, exp_key=None, cmd=None, workdir=None,
-                 refresh=True):
+    def __init__(self, arg, exp_key=None, cmd=None, workdir=None, refresh=True):
         if not _has_mongo:
-            raise Exception("MongoTrials cannot import pymongo classes.  Make sure that pymongo "
-                            "is available in your environment.  E.g., try running 'import pymongo'")
+            raise Exception(
+                "MongoTrials cannot import pymongo classes.  Make sure that pymongo "
+                "is available in your environment.  E.g., try running 'import pymongo'"
+            )
 
         if isinstance(arg, MongoJobs):
             self.handle = arg
@@ -688,11 +728,13 @@ class MongoTrials(Trials):
             self.refresh()
 
     def view(self, exp_key=None, cmd=None, workdir=None, refresh=True):
-        rval = self.__class__(self.handle,
-                              exp_key=self._exp_key if exp_key is None else exp_key,
-                              cmd=self.cmd if cmd is None else cmd,
-                              workdir=self.workdir if workdir is None else workdir,
-                              refresh=refresh)
+        rval = self.__class__(
+            self.handle,
+            exp_key=self._exp_key if exp_key is None else exp_key,
+            cmd=self.cmd if cmd is None else cmd,
+            workdir=self.workdir if workdir is None else workdir,
+            refresh=refresh,
+        )
         return rval
 
     def refresh_tids(self, tids):
@@ -714,35 +756,36 @@ class MongoTrials(Trials):
         """
         exp_key = self._exp_key
         if exp_key != None:
-            query = {'exp_key': exp_key}
+            query = {"exp_key": exp_key}
         else:
             query = {}
         t0 = time.time()
-        query['state'] = {'$ne': JOB_STATE_ERROR}
+        query["state"] = {"$ne": JOB_STATE_ERROR}
         if tids is not None:
-            query['tid'] = {'$in': list(tids)}
-        orig_trials = getattr(self, '_trials', [])
+            query["tid"] = {"$in": list(tids)}
+        orig_trials = getattr(self, "_trials", [])
         _trials = orig_trials[:]  # copy to make sure it doesn't get screwed up
         if _trials:
-            db_data = list(self.handle.jobs.find(query,
-                                                 projection=['_id', 'version']))
+            db_data = list(self.handle.jobs.find(query, projection=["_id", "version"]))
             # -- pull down a fresh list of ids from mongo
             if db_data:
                 # make numpy data arrays
-                db_data = numpy.rec.array([(x['_id'], int(x['version']))
-                                           for x in db_data],
-                                          names=['_id', 'version'])
-                db_data.sort(order=['_id', 'version'])
+                db_data = numpy.rec.array(
+                    [(x["_id"], int(x["version"])) for x in db_data],
+                    names=["_id", "version"],
+                )
+                db_data.sort(order=["_id", "version"])
                 db_data = db_data[get_most_recent_inds(db_data)]
 
-                existing_data = numpy.rec.array([(x['_id'],
-                                                  int(x['version'])) for x in _trials],
-                                                names=['_id', 'version'])
-                existing_data.sort(order=['_id', 'version'])
+                existing_data = numpy.rec.array(
+                    [(x["_id"], int(x["version"])) for x in _trials],
+                    names=["_id", "version"],
+                )
+                existing_data.sort(order=["_id", "version"])
 
                 # which records are in db but not in existing, and vice versa
-                db_in_existing = fast_isin(db_data['_id'], existing_data['_id'])
-                existing_in_db = fast_isin(existing_data['_id'], db_data['_id'])
+                db_in_existing = fast_isin(db_data["_id"], existing_data["_id"])
+                existing_in_db = fast_isin(existing_data["_id"], db_data["_id"])
 
                 # filtering out out-of-date records
                 _trials = [_trials[_ind] for _ind in existing_in_db.nonzero()[0]]
@@ -756,29 +799,34 @@ class MongoTrials(Trials):
                 existing_data = existing_data[existing_in_db]
                 try:
                     assert len(db_data) == len(existing_data)
-                    assert (existing_data['_id'] == db_data['_id']).all()
-                    assert (existing_data['version'] <= db_data['version']).all()
+                    assert (existing_data["_id"] == db_data["_id"]).all()
+                    assert (existing_data["version"] <= db_data["version"]).all()
                 except:
-                    reportpath = os.path.join(os.getcwd(),
-                                              'hyperopt_refresh_crash_report_' +
-                                              str(numpy.random.randint(1e8)) + '.pkl')
-                    logger.error('HYPEROPT REFRESH ERROR: writing error file to %s' % reportpath)
-                    _file = open(reportpath, 'w')
-                    pickler.dump({'db_data': db_data,
-                                 'existing_data': existing_data},
-                                _file)
+                    reportpath = os.path.join(
+                        os.getcwd(),
+                        "hyperopt_refresh_crash_report_"
+                        + str(numpy.random.randint(1e8))
+                        + ".pkl",
+                    )
+                    logger.error(
+                        "HYPEROPT REFRESH ERROR: writing error file to %s" % reportpath
+                    )
+                    _file = open(reportpath, "w")
+                    pickler.dump(
+                        {"db_data": db_data, "existing_data": existing_data}, _file
+                    )
                     _file.close()
                     raise
 
-                same_version = existing_data['version'] == db_data['version']
+                same_version = existing_data["version"] == db_data["version"]
                 _trials = [_trials[_ind] for _ind in same_version.nonzero()[0]]
                 version_changes = existing_data[numpy.invert(same_version)]
 
                 # actually get the updated records
-                update_ids = new_data['_id'].tolist() + version_changes['_id'].tolist()
+                update_ids = new_data["_id"].tolist() + version_changes["_id"].tolist()
                 num_new = len(update_ids)
                 update_query = copy.deepcopy(query)
-                update_query['_id'] = {'$in': update_ids}
+                update_query["_id"] = {"$in": update_ids}
                 updated_trials = list(self.handle.jobs.find(update_query))
                 _trials.extend(updated_trials)
             else:
@@ -792,8 +840,10 @@ class MongoTrials(Trials):
                 _trials = [_trials[_i] for _i in get_most_recent_inds(_trials)]
             num_new = len(_trials)
 
-        logger.debug('Refresh data download took %f seconds for %d ids' %
-                     (time.time() - t0, num_new))
+        logger.debug(
+            "Refresh data download took %f seconds for %d ids"
+            % (time.time() - t0, num_new)
+        )
 
         if tids is not None:
             # -- If tids were given, then _trials only contains
@@ -802,17 +852,17 @@ class MongoTrials(Trials):
             #    tids don't match.
             new_trials = _trials
             tids_set = set(tids)
-            assert all(t['tid'] in tids_set for t in new_trials)
-            old_trials = [t for t in orig_trials if t['tid'] not in tids_set]
+            assert all(t["tid"] in tids_set for t in new_trials)
+            old_trials = [t for t in orig_trials if t["tid"] not in tids_set]
             _trials = new_trials + old_trials
 
         # -- reassign new trials to self, in order of increasing tid
-        jarray = numpy.array([j['_id'] for j in _trials])
+        jarray = numpy.array([j["_id"] for j in _trials])
         jobsort = jarray.argsort()
         self._trials = [_trials[_idx] for _idx in jobsort]
-        self._specs = [_trials[_idx]['spec'] for _idx in jobsort]
-        self._results = [_trials[_idx]['result'] for _idx in jobsort]
-        self._miscs = [_trials[_idx]['misc'] for _idx in jobsort]
+        self._specs = [_trials[_idx]["spec"] for _idx in jobsort]
+        self._results = [_trials[_idx]["result"] for _idx in jobsort]
+        self._miscs = [_trials[_idx]["misc"] for _idx in jobsort]
 
     def refresh(self):
         self.refresh_tids(None)
@@ -828,15 +878,15 @@ class MongoTrials(Trials):
         # TODO: consider searching by SON rather than dict
         if isinstance(arg, int):
             if arg not in JOB_STATES:
-                raise ValueError('invalid state', arg)
+                raise ValueError("invalid state", arg)
             query = dict(state=arg)
         else:
-            assert hasattr(arg, '__iter__')
+            assert hasattr(arg, "__iter__")
             states = list(arg)
             assert all([x in JOB_STATES for x in states])
-            query = dict(state={'$in': states})
+            query = dict(state={"$in": states})
         if exp_key != None:
-            query['exp_key'] = exp_key
+            query["exp_key"] = exp_key
         rval = self.handle.jobs.find(query).count()
         return rval
 
@@ -847,7 +897,7 @@ class MongoTrials(Trials):
             cond = dict(cond)
 
         if self._exp_key:
-            cond['exp_key'] = self._exp_key
+            cond["exp_key"] = self._exp_key
         # -- remove all documents matching condition
         self.handle.delete_all(cond)
         gfs = self.handle.gfs
@@ -873,18 +923,17 @@ class MongoTrials(Trials):
         #
 
         # -- mongo docs say you can't upsert an empty document
-        query = {'a': 0}
+        query = {"a": 0}
 
         doc = None
         while doc is None:
             doc = db.job_ids.find_and_modify(
-                query,
-                {'$inc': {'last_id': N}},
-                upsert=True)
+                query, {"$inc": {"last_id": N}}, upsert=True
+            )
             if doc is None:
-                logger.warning('no last_id found, re-trying')
+                logger.warning("no last_id found, re-trying")
                 time.sleep(1.0)
-        lid = doc.get('last_id', 0)
+        lid = doc.get("last_id", 0)
         return list(range(lid, lid + N))
 
     def trial_attachments(self, trial):
@@ -896,7 +945,6 @@ class MongoTrials(Trials):
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
-
             def __contains__(_self, name):
                 return name in self.handle.attachment_names(doc=trial)
 
@@ -908,21 +956,17 @@ class MongoTrials(Trials):
 
             def __getitem__(_self, name):
                 try:
-                    return self.handle.get_attachment(
-                        doc=trial,
-                        name=name)
+                    return self.handle.get_attachment(doc=trial, name=name)
                 except OperationFailure:
                     raise KeyError(name)
 
             def __setitem__(_self, name, value):
                 self.handle.set_attachment(
-                    doc=trial,
-                    blob=value,
-                    name=name,
-                    collection=self.handle.db.jobs)
+                    doc=trial, blob=value, name=name, collection=self.handle.db.jobs
+                )
 
             def __delitem__(_self, name):
-                raise NotImplementedError('delete trial_attachment')
+                raise NotImplementedError("delete trial_attachment")
 
             def keys(self):
                 return [k for k in self]
@@ -947,17 +991,14 @@ class MongoTrials(Trials):
 
         query = {}
         if self._exp_key:
-            query['exp_key'] = self._exp_key
+            query["exp_key"] = self._exp_key
 
         class Attachments(object):
-
             def __iter__(_self):
                 if query:
                     # -- gfs.list does not accept query kwargs
                     #    (at least, as of pymongo 2.4)
-                    filenames = [fname
-                                 for fname in gfs.list()
-                                 if fname in _self]
+                    filenames = [fname for fname in gfs.list() if fname in _self]
                 else:
                     filenames = gfs.list()
                 return iter(filenames)
@@ -976,7 +1017,7 @@ class MongoTrials(Trials):
                 if gfs.exists(filename=name, **query):
                     gout = gfs.get_last_version(filename=name, **query)
                     gfs.delete(gout._id)
-                gfs.put(value, filename=name, encoding='utf-8', **query)
+                gfs.put(value, filename=name, encoding="utf-8", **query)
 
             def __delitem__(_self, name):
                 gout = gfs.get_last_version(filename=name, **query)
@@ -989,12 +1030,14 @@ class MongoWorker(object):
     poll_interval = 3.0  # -- seconds
     workdir = None
 
-    def __init__(self, mj,
-                 poll_interval=poll_interval,
-                 workdir=workdir,
-                 exp_key=None,
-                 logfilename='logfile.txt',
-                 ):
+    def __init__(
+        self,
+        mj,
+        poll_interval=poll_interval,
+        workdir=workdir,
+        exp_key=None,
+        logfilename="logfile.txt",
+    ):
         """
         mj - MongoJobs interface to jobs collection
         poll_interval - seconds
@@ -1010,46 +1053,40 @@ class MongoWorker(object):
     def make_log_handler(self):
         self.log_handler = logging.FileHandler(self.logfilename)
         self.log_handler.setFormatter(
-            logging.Formatter(
-                fmt='%(levelname)s (%(name)s): %(message)s'))
+            logging.Formatter(fmt="%(levelname)s (%(name)s): %(message)s")
+        )
         self.log_handler.setLevel(logging.INFO)
 
-    def run_one(self,
-                host_id=None,
-                reserve_timeout=None,
-                erase_created_workdir=False,
-                ):
+    def run_one(self, host_id=None, reserve_timeout=None, erase_created_workdir=False):
         if host_id == None:
-            host_id = '%s:%i' % (socket.gethostname(), os.getpid()),
+            host_id = ("%s:%i" % (socket.gethostname(), os.getpid()),)
         job = None
         start_time = time.time()
         mj = self.mj
         while job is None:
-            if (reserve_timeout and
-               (time.time() - start_time) > reserve_timeout):
+            if reserve_timeout and (time.time() - start_time) > reserve_timeout:
                 raise ReserveTimeout()
             job = mj.reserve(host_id, exp_key=self.exp_key)
             if not job:
-                interval = (1 +
-                            numpy.random.rand() *
-                            (float(self.poll_interval) - 1.0))
-                logger.info('no job found, sleeping for %.1fs' % interval)
+                interval = 1 + numpy.random.rand() * (float(self.poll_interval) - 1.0)
+                logger.info("no job found, sleeping for %.1fs" % interval)
                 time.sleep(interval)
 
-        logger.debug('job found: %s' % str(job))
+        logger.debug("job found: %s" % str(job))
 
         # -- don't let the cmd mess up our trial object
-        spec = spec_from_misc(job['misc'])
+        spec = spec_from_misc(job["misc"])
 
         ctrl = MongoCtrl(
-            trials=MongoTrials(mj, exp_key=job['exp_key'], refresh=False),
+            trials=MongoTrials(mj, exp_key=job["exp_key"], refresh=False),
             read_only=False,
-            current_trial=job)
+            current_trial=job,
+        )
         if self.workdir is None:
-            workdir = job['misc'].get('workdir', os.getcwd())
+            workdir = job["misc"].get("workdir", os.getcwd())
             if workdir is None:
-                workdir = ''
-            workdir = os.path.join(workdir, str(job['_id']))
+                workdir = ""
+            workdir = os.path.join(workdir, str(job["_id"]))
         else:
             workdir = self.workdir
         workdir = os.path.abspath(os.path.expanduser(workdir))
@@ -1059,39 +1096,38 @@ class MongoWorker(object):
                 self.make_log_handler()
                 root_logger.addHandler(self.log_handler)
 
-            cmd = job['misc']['cmd']
+            cmd = job["misc"]["cmd"]
             cmd_protocol = cmd[0]
             try:
-                if cmd_protocol == 'cpickled fn':
+                if cmd_protocol == "cpickled fn":
                     worker_fn = pickler.loads(cmd[1])
-                elif cmd_protocol == 'call evaluate':
+                elif cmd_protocol == "call evaluate":
                     bandit = pickler.loads(cmd[1])
                     worker_fn = bandit.evaluate
-                elif cmd_protocol == 'token_load':
-                    cmd_toks = cmd[1].split('.')
-                    cmd_module = '.'.join(cmd_toks[:-1])
+                elif cmd_protocol == "token_load":
+                    cmd_toks = cmd[1].split(".")
+                    cmd_module = ".".join(cmd_toks[:-1])
                     worker_fn = exec_import(cmd_module, cmd[1])
-                elif cmd_protocol == 'bandit_json evaluate':
+                elif cmd_protocol == "bandit_json evaluate":
                     bandit = json_call(cmd[1])
                     worker_fn = bandit.evaluate
-                elif cmd_protocol == 'driver_attachment':
+                elif cmd_protocol == "driver_attachment":
                     # name = 'driver_attachment_%s' % job['exp_key']
                     blob = ctrl.trials.attachments[cmd[1]]
                     bandit_name, bandit_args, bandit_kwargs = pickler.loads(blob)
-                    worker_fn = json_call(bandit_name,
-                                          args=bandit_args,
-                                          kwargs=bandit_kwargs).evaluate
-                elif cmd_protocol == 'domain_attachment':
+                    worker_fn = json_call(
+                        bandit_name, args=bandit_args, kwargs=bandit_kwargs
+                    ).evaluate
+                elif cmd_protocol == "domain_attachment":
                     blob = ctrl.trials.attachments[cmd[1]]
                     try:
                         domain = pickler.loads(blob)
                     except BaseException as e:
-                        logger.info(
-                            'Error while unpickling.')
+                        logger.info("Error while unpickling.")
                         raise
                     worker_fn = domain.evaluate
                 else:
-                    raise ValueError('Unrecognized cmd protocol', cmd_protocol)
+                    raise ValueError("Unrecognized cmd protocol", cmd_protocol)
 
                 with temp_dir(workdir, erase_created_workdir), working_dir(workdir):
                     result = worker_fn(spec, ctrl)
@@ -1099,25 +1135,25 @@ class MongoWorker(object):
             except BaseException as e:
                 # XXX: save exception to database, but if this fails, then
                 #      at least raise the original traceback properly
-                logger.info('job exception: %s' % str(e))
+                logger.info("job exception: %s" % str(e))
                 ctrl.checkpoint()
-                mj.update(job,
-                          {'state': JOB_STATE_ERROR,
-                           'error': (str(type(e)), str(e))})
+                mj.update(
+                    job, {"state": JOB_STATE_ERROR, "error": (str(type(e)), str(e))}
+                )
                 raise
         finally:
             if self.logfilename:
                 root_logger.removeHandler(self.log_handler)
 
-        logger.info('job finished: %s' % str(job['_id']))
-        attachments = result.pop('attachments', {})
+        logger.info("job finished: %s" % str(job["_id"]))
+        attachments = result.pop("attachments", {})
         for aname, aval in list(attachments.items()):
             logger.info(
-                'mongoexp: saving attachment name=%s (%i bytes)' % (
-                    aname, len(aval)))
+                "mongoexp: saving attachment name=%s (%i bytes)" % (aname, len(aval))
+            )
             ctrl.attachments[aname] = aval
         ctrl.checkpoint(result)
-        mj.update(job, {'state': JOB_STATE_DONE})
+        mj.update(job, {"state": JOB_STATE_DONE})
 
 
 class MongoCtrl(Ctrl):
@@ -1170,20 +1206,21 @@ class MongoCtrl(Ctrl):
     def set_attachment(self):
         # XXX: Is there a better deprecation error?
         raise RuntimeError(
-            'set_attachment deprecated. Use `self.attachments[name] = value`')
+            "set_attachment deprecated. Use `self.attachments[name] = value`"
+        )
 
 
 def exec_import(cmd_module, cmd):
     worker_fn = None
-    exec('import %s; worker_fn = %s' % (cmd_module, cmd))
+    exec("import %s; worker_fn = %s" % (cmd_module, cmd))
     return worker_fn
 
 
 def as_mongo_str(s):
-    if s.startswith('mongo://'):
+    if s.startswith("mongo://"):
         return s
     else:
-        return 'mongo://%s' % s
+        return "mongo://%s" % s
 
 
 def main_worker_helper(options, args):
@@ -1194,13 +1231,14 @@ def main_worker_helper(options, args):
         last_job_timeout = None
 
     def sighandler_shutdown(signum, frame):
-        logger.info('Caught signal %i, shutting down.' % signum)
+        logger.info("Caught signal %i, shutting down." % signum)
         raise Shutdown(signum)
 
     def sighandler_wait_quit(signum, frame):
-        logger.info('Caught signal %i, shutting down.' % signum)
+        logger.info("Caught signal %i, shutting down." % signum)
         raise WaitQuit(signum)
-    is_windows = os.name == 'nt'
+
+    is_windows = os.name == "nt"
     if not is_windows:
         signal.signal(signal.SIGHUP, sighandler_shutdown)
         signal.signal(signal.SIGUSR1, sighandler_wait_quit)
@@ -1223,15 +1261,17 @@ def main_worker_helper(options, args):
                     # and other annoying details.
                     # The tradeoff is that a large dataset must be reloaded once for
                     # each subprocess.
-                    sub_argv = [sys.argv[0],
-                                '--poll-interval=%s' % options.poll_interval,
-                                '--max-jobs=1',
-                                '--mongo=%s' % options.mongo,
-                                '--reserve-timeout=%s' % options.reserve_timeout]
+                    sub_argv = [
+                        sys.argv[0],
+                        "--poll-interval=%s" % options.poll_interval,
+                        "--max-jobs=1",
+                        "--mongo=%s" % options.mongo,
+                        "--reserve-timeout=%s" % options.reserve_timeout,
+                    ]
                     if options.workdir is not None:
-                        sub_argv.append('--workdir=%s' % options.workdir)
+                        sub_argv.append("--workdir=%s" % options.workdir)
                     if options.exp_key is not None:
-                        sub_argv.append('--exp-key=%s' % options.exp_key)
+                        sub_argv.append("--exp-key=%s" % options.exp_key)
                     proc = subprocess.Popen(sub_argv)
                     retcode = proc.wait()
                     proc = None
@@ -1239,20 +1279,24 @@ def main_worker_helper(options, args):
                     current_mongo_str = as_mongo_str(options.mongo)
                     # Remove this if not necessary:
                     if "/jobs" not in current_mongo_str:
-                        current_mongo_str += '/jobs'
+                        current_mongo_str += "/jobs"
                     mj = MongoJobs.new_from_connection_str(current_mongo_str)
 
-                    mworker = MongoWorker(mj,
-                                          float(options.poll_interval),
-                                          workdir=options.workdir,
-                                          exp_key=options.exp_key)
+                    mworker = MongoWorker(
+                        mj,
+                        float(options.poll_interval),
+                        workdir=options.workdir,
+                        exp_key=options.exp_key,
+                    )
                     mworker.run_one(reserve_timeout=float(options.reserve_timeout))
                     retcode = 0
             except Shutdown:
                 # this is the normal way to stop the infinite loop (if originally N=-1)
                 if proc:
                     # proc.terminate() is only available as of 2.6
-                    os.kill(proc.pid, signal.CTRL_C_EVENT if is_windows else signal.SIGTERM)
+                    os.kill(
+                        proc.pid, signal.CTRL_C_EVENT if is_windows else signal.SIGTERM
+                    )
                     return proc.wait()
                 else:
                     return 0
@@ -1271,72 +1315,94 @@ def main_worker_helper(options, args):
             else:
                 cons_errs = 0
             N -= 1
-        logger.info("exiting with N=%i after %i consecutive exceptions" % (
-            N, cons_errs))
+        logger.info(
+            "exiting with N=%i after %i consecutive exceptions" % (N, cons_errs)
+        )
     elif N == 1:
         # XXX: the name of the jobs collection is a parameter elsewhere,
         #      so '/jobs' should not be hard-coded here
-        mj = MongoJobs.new_from_connection_str(
-            as_mongo_str(options.mongo) + '/jobs')
+        mj = MongoJobs.new_from_connection_str(as_mongo_str(options.mongo) + "/jobs")
 
-        mworker = MongoWorker(mj,
-                              float(options.poll_interval),
-                              workdir=options.workdir,
-                              exp_key=options.exp_key)
+        mworker = MongoWorker(
+            mj,
+            float(options.poll_interval),
+            workdir=options.workdir,
+            exp_key=options.exp_key,
+        )
         mworker.run_one(reserve_timeout=float(options.reserve_timeout))
     else:
         raise ValueError("N <= 0")
+
 
 def main():
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     sys.exit(main_worker())
 
+
 def main_worker():
     parser = optparse.OptionParser(usage="%prog [options]")
 
-    parser.add_option("--exp-key",
-                      dest='exp_key',
-                      default=None,
-                      metavar='str',
-                      help="identifier for this workers's jobs")
-    parser.add_option("--last-job-timeout",
-                      dest='last_job_timeout',
-                      metavar='T',
-                      default=None,
-                      help="Do not reserve a job after T seconds have passed")
-    parser.add_option("--max-consecutive-failures",
-                      dest="max_consecutive_failures",
-                      metavar='N',
-                      default=4,
-                      help="stop if N consecutive jobs fail (default: 4)")
-    parser.add_option("--max-jobs",
-                      dest='max_jobs',
-                      default=sys.maxsize,
-                      help="stop after running this many jobs (default: inf)")
-    parser.add_option("--mongo",
-                      dest='mongo',
-                      default='localhost/hyperopt',
-                      help="<host>[:port]/<db> for IPC and job storage")
-    parser.add_option("--poll-interval",
-                      dest='poll_interval',
-                      metavar='N',
-                      default=5,
-                      help="check work queue every 1 < T < N seconds (default: 5")
-    parser.add_option("--reserve-timeout",
-                      dest='reserve_timeout',
-                      metavar='T',
-                      default=120.0,
-                      help="poll database for up to T seconds to reserve a job")
-    parser.add_option("--workdir",
-                      dest="workdir",
-                      default=None,
-                      help="root workdir (default: load from mongo)",
-                      metavar="DIR")
-    parser.add_option("--no-subprocesses",
-                      dest="use_subprocesses",
-                      default=True,
-                      action="store_false",
-                      help="do not use sub-processes for each objective evaluation, the objective function will run in the same python process (useful to keep in memory large data across objective evals) but you have to pay attention to memory leaks (default: False)")
+    parser.add_option(
+        "--exp-key",
+        dest="exp_key",
+        default=None,
+        metavar="str",
+        help="identifier for this workers's jobs",
+    )
+    parser.add_option(
+        "--last-job-timeout",
+        dest="last_job_timeout",
+        metavar="T",
+        default=None,
+        help="Do not reserve a job after T seconds have passed",
+    )
+    parser.add_option(
+        "--max-consecutive-failures",
+        dest="max_consecutive_failures",
+        metavar="N",
+        default=4,
+        help="stop if N consecutive jobs fail (default: 4)",
+    )
+    parser.add_option(
+        "--max-jobs",
+        dest="max_jobs",
+        default=sys.maxsize,
+        help="stop after running this many jobs (default: inf)",
+    )
+    parser.add_option(
+        "--mongo",
+        dest="mongo",
+        default="localhost/hyperopt",
+        help="<host>[:port]/<db> for IPC and job storage",
+    )
+    parser.add_option(
+        "--poll-interval",
+        dest="poll_interval",
+        metavar="N",
+        default=5,
+        help="check work queue every 1 < T < N seconds (default: 5",
+    )
+    parser.add_option(
+        "--reserve-timeout",
+        dest="reserve_timeout",
+        metavar="T",
+        default=120.0,
+        help="poll database for up to T seconds to reserve a job",
+    )
+    parser.add_option(
+        "--workdir",
+        dest="workdir",
+        default=None,
+        help="root workdir (default: load from mongo)",
+        metavar="DIR",
+    )
+    parser.add_option(
+        "--no-subprocesses",
+        dest="use_subprocesses",
+        default=True,
+        action="store_false",
+        help="do not use sub-processes for each objective evaluation, the objective function will run in the same python process (useful to keep in memory large data across objective evals) but you have to pay attention to memory leaks (default: False)",
+    )
 
     (options, args) = parser.parse_args()
 

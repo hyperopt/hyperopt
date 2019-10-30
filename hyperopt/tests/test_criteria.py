@@ -9,12 +9,13 @@ import hyperopt.criteria as crit
 def test_ei():
     rng = np.random.RandomState(123)
     for mean, var in [(0, 1), (-4, 9)]:
-        thresholds = np.arange(-5, 5, .25) * np.sqrt(var) + mean
+        thresholds = np.arange(-5, 5, 0.25) * np.sqrt(var) + mean
 
-        v_n = [crit.EI_gaussian_empirical(mean, var, thresh, rng, 10000)
-               for thresh in thresholds]
-        v_a = [crit.EI_gaussian(mean, var, thresh)
-               for thresh in thresholds]
+        v_n = [
+            crit.EI_gaussian_empirical(mean, var, thresh, rng, 10000)
+            for thresh in thresholds
+        ]
+        v_a = [crit.EI_gaussian(mean, var, thresh) for thresh in thresholds]
 
         # import matplotlib.pyplot as plt
         # plt.plot(thresholds, v_n)
@@ -30,14 +31,12 @@ def test_ei():
 
 def test_log_ei():
     for mean, var in [(0, 1), (-4, 9)]:
-        thresholds = np.arange(-5, 30, .25) * np.sqrt(var) + mean
+        thresholds = np.arange(-5, 30, 0.25) * np.sqrt(var) + mean
 
-        ei = np.asarray(
-            [crit.EI_gaussian(mean, var, thresh)
-             for thresh in thresholds])
+        ei = np.asarray([crit.EI_gaussian(mean, var, thresh) for thresh in thresholds])
         nlei = np.asarray(
-            [crit.logEI_gaussian(mean, var, thresh)
-             for thresh in thresholds])
+            [crit.logEI_gaussian(mean, var, thresh) for thresh in thresholds]
+        )
         naive = np.log(ei)
         # import matplotlib.pyplot as plt
         # plt.plot(thresholds, ei, label='ei')
@@ -53,8 +52,12 @@ def test_log_ei():
 def test_log_ei_range():
     assert np.all(
         np.isfinite(
-            [crit.logEI_gaussian(0, 1, thresh)
-             for thresh in [-500, 0, 50, 100, 500, 5000]]))
+            [
+                crit.logEI_gaussian(0, 1, thresh)
+                for thresh in [-500, 0, 50, 100, 500, 5000]
+            ]
+        )
+    )
 
 
 def test_ucb():
@@ -62,5 +65,6 @@ def test_ucb():
     assert np.allclose(crit.UCB(0, 1, 2), 2)
     assert np.allclose(crit.UCB(0, 4, 1), 2)
     assert np.allclose(crit.UCB(1, 4, 1), 3)
+
 
 # -- flake8

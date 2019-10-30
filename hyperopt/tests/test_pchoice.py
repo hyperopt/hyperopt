@@ -8,22 +8,21 @@ import hyperopt.pyll.stochastic
 
 
 class TestPChoice(unittest.TestCase):
-
     def test_basic(self):
 
-        space = hp.pchoice('naive_type',
-                           [(.14, 'gaussian'),
-                            (.02, 'multinomial'),
-                               (.84, 'bernoulli')])
+        space = hp.pchoice(
+            "naive_type",
+            [(0.14, "gaussian"), (0.02, "multinomial"), (0.84, "bernoulli")],
+        )
         a, b, c = 0, 0, 0
         rng = np.random.RandomState(123)
         for i in range(0, 1000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
-            if nesto == 'gaussian':
+            if nesto == "gaussian":
                 a += 1
-            elif nesto == 'multinomial':
+            elif nesto == "multinomial":
                 b += 1
-            elif nesto == 'bernoulli':
+            elif nesto == "bernoulli":
                 c += 1
         print((a, b, c))
         assert a + b + c == 1000
@@ -32,20 +31,20 @@ class TestPChoice(unittest.TestCase):
         assert 800 < c < 900
 
     def test_basic2(self):
-        space = hp.choice('normal_choice', [
-            hp.pchoice('fsd',
-                       [(.1, 'first'),
-                        (.8, 'second'),
-                           (.1, 2)]),
-            hp.choice('something_else', [10, 20])
-        ])
+        space = hp.choice(
+            "normal_choice",
+            [
+                hp.pchoice("fsd", [(0.1, "first"), (0.8, "second"), (0.1, 2)]),
+                hp.choice("something_else", [10, 20]),
+            ],
+        )
         a, b, c = 0, 0, 0
         rng = np.random.RandomState(123)
         for i in range(0, 1000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
-            if nesto == 'first':
+            if nesto == "first":
                 a += 1
-            elif nesto == 'second':
+            elif nesto == "second":
                 b += 1
             elif nesto == 2:
                 c += 1
@@ -58,10 +57,13 @@ class TestPChoice(unittest.TestCase):
         assert b > 2 * c
 
     def test_basic3(self):
-        space = hp.pchoice('something', [
-            (.2, hp.pchoice('number', [(.8, 2), (.2, 1)])),
-            (.8, hp.pchoice('number1', [(.7, 5), (.3, 6)]))
-        ])
+        space = hp.pchoice(
+            "something",
+            [
+                (0.2, hp.pchoice("number", [(0.8, 2), (0.2, 1)])),
+                (0.8, hp.pchoice("number1", [(0.7, 5), (0.3, 6)])),
+            ],
+        )
         a, b, c, d = 0, 0, 0, 0
         rng = np.random.RandomState(123)
         for i in range(0, 2000):
@@ -80,7 +82,7 @@ class TestPChoice(unittest.TestCase):
         assert a + b + c + d == 2000
         assert 300 < a + b < 500
         assert 1500 < c + d < 1700
-        assert a * .3 > b  # a * 1.2 > 4 * b
+        assert a * 0.3 > b  # a * 1.2 > 4 * b
         assert c * 3 * 1.2 > d * 7
 
 
@@ -91,11 +93,7 @@ class TestSimpleFMin(unittest.TestCase):
     #
 
     def setUp(self):
-        self.space = hp.pchoice('a', [
-            (.1, 0),
-            (.2, 1),
-            (.3, 2),
-            (.4, 3)])
+        self.space = hp.pchoice("a", [(0.1, 0), (0.2, 1), (0.3, 2), (0.4, 3)])
         self.trials = Trials()
 
     def objective(self, a):
@@ -106,76 +104,82 @@ class TestSimpleFMin(unittest.TestCase):
         # (a) accepted by tpe.suggest and
         # (b) handled correctly.
         N = 150
-        fmin(self.objective,
-             space=self.space,
-             trials=self.trials,
-             algo=rand.suggest,
-             max_evals=N)
+        fmin(
+            self.objective,
+            space=self.space,
+            trials=self.trials,
+            algo=rand.suggest,
+            max_evals=N,
+        )
 
-        a_vals = [t['misc']['vals']['a'][0] for t in self.trials.trials]
+        a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
         print(counts)
-        assert counts[3] > N * .35
-        assert counts[3] < N * .60
+        assert counts[3] > N * 0.35
+        assert counts[3] < N * 0.60
 
     def test_tpe(self):
         N = 100
-        fmin(self.objective,
-             space=self.space,
-             trials=self.trials,
-             algo=partial(tpe.suggest, n_startup_jobs=10),
-             max_evals=N)
+        fmin(
+            self.objective,
+            space=self.space,
+            trials=self.trials,
+            algo=partial(tpe.suggest, n_startup_jobs=10),
+            max_evals=N,
+        )
 
-        a_vals = [t['misc']['vals']['a'][0] for t in self.trials.trials]
+        a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
         print(counts)
-        assert counts[3] > N * .6
+        assert counts[3] > N * 0.6
 
     def test_anneal(self):
         N = 100
-        fmin(self.objective,
-             space=self.space,
-             trials=self.trials,
-             algo=partial(anneal.suggest),
-             max_evals=N)
+        fmin(
+            self.objective,
+            space=self.space,
+            trials=self.trials,
+            algo=partial(anneal.suggest),
+            max_evals=N,
+        )
 
-        a_vals = [t['misc']['vals']['a'][0] for t in self.trials.trials]
+        a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
         print(counts)
-        assert counts[3] > N * .6
+        assert counts[3] > N * 0.6
 
 
 def test_bug1_rand():
-    space = hp.choice('preprocess_choice', [
-        {'pwhiten': hp.pchoice('whiten_randomPCA',
-                               [(.3, False), (.7, True)])},
-        {'palgo': False},
-        {'pthree': 7}])
-    fmin(fn=lambda x: 1,
-         space=space,
-         algo=rand.suggest,
-         max_evals=50)
+    space = hp.choice(
+        "preprocess_choice",
+        [
+            {"pwhiten": hp.pchoice("whiten_randomPCA", [(0.3, False), (0.7, True)])},
+            {"palgo": False},
+            {"pthree": 7},
+        ],
+    )
+    fmin(fn=lambda x: 1, space=space, algo=rand.suggest, max_evals=50)
 
 
 def test_bug1_tpe():
-    space = hp.choice('preprocess_choice', [
-        {'pwhiten': hp.pchoice('whiten_randomPCA',
-                               [(.3, False), (.7, True)])},
-        {'palgo': False},
-        {'pthree': 7}])
-    fmin(fn=lambda x: 1,
-         space=space,
-         algo=tpe.suggest,
-         max_evals=50)
+    space = hp.choice(
+        "preprocess_choice",
+        [
+            {"pwhiten": hp.pchoice("whiten_randomPCA", [(0.3, False), (0.7, True)])},
+            {"palgo": False},
+            {"pthree": 7},
+        ],
+    )
+    fmin(fn=lambda x: 1, space=space, algo=tpe.suggest, max_evals=50)
 
 
 def test_bug1_anneal():
-    space = hp.choice('preprocess_choice', [
-        {'pwhiten': hp.pchoice('whiten_randomPCA',
-                               [(.3, False), (.7, True)])},
-        {'palgo': False},
-        {'pthree': 7}])
-    fmin(fn=lambda x: 1,
-         space=space,
-         algo=anneal.suggest,
-         max_evals=50)
+    space = hp.choice(
+        "preprocess_choice",
+        [
+            {"pwhiten": hp.pchoice("whiten_randomPCA", [(0.3, False), (0.7, True)])},
+            {"palgo": False},
+            {"pthree": 7},
+        ],
+    )
+    fmin(fn=lambda x: 1, space=space, algo=anneal.suggest, max_evals=50)
