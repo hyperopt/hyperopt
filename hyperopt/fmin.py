@@ -252,6 +252,7 @@ class FMinIter(object):
                         # -- loop over trials and do the jobs directly
                         self.serial_evaluate()
 
+                    self.trials.refresh()
                     try:
                         best_loss = min([d['result']['loss'] for d in
                                          self.trials.trials if
