@@ -201,13 +201,25 @@ class FMinIter(object):
         def get_queue_len():
             return self.trials.count_by_state_unsynced(base.JOB_STATE_NEW)
 
+        def get_n_done():
+            return self.trials.count_by_state_unsynced(base.JOB_STATE_DONE)
+
+        def get_n_unfinished():
+            unfinished_states = [base.JOB_STATE_NEW, base.JOB_STATE_RUNNING]
+            return self.trials.count_by_state_unsynced(unfinished_states)
+
         stopped = False
         qlen = get_queue_len()
         with std_out_err_redirect_tqdm() as orig_stdout:
-            with tqdm(total=N+qlen, file=orig_stdout, postfix='best loss: ?',
-                      disable=not self.show_progressbar, dynamic_ncols=True,
+            # total_evals = N + qlen
+            init_evals_done = get_n_done()
+            with tqdm(total=self.max_evals, file=orig_stdout, postfix='best loss: ?',
+                      disable=not self.show_progressbar, dynamic_ncols=True, unit='trial',
+                      initial=init_evals_done,
                       ) as pbar:
-                while n_queued < N:
+
+                all_trials_complete=False
+                while n_queued < N or (block_until_done and not all_trials_complete):
                     qlen = get_queue_len()
                     while qlen < self.max_queue_len and n_queued < N and \
                             not self.is_cancelled:
@@ -247,7 +259,15 @@ class FMinIter(object):
                         pbar.postfix = 'best loss: ' + str(best_loss)
                     except:
                         pass
-                    pbar.update(qlen)
+
+                    n_unfinished = get_n_unfinished()
+                    if n_unfinished==0:
+                        all_trials_complete=True
+
+                    # From tqdm doc: `update(n)` n (int): Increment to add to the internal counter of iterations
+                    d_jobs = get_n_done() - pbar.n
+                    if d_jobs>0:
+                        pbar.update(d_jobs)
 
                     if stopped:
                         break
