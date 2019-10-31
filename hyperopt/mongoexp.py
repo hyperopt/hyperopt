@@ -113,12 +113,12 @@ import numpy
 try:
     import pymongo
     import gridfs
+    from bson import SON
 
     _has_mongo = True
 except:
     _has_mongo = False
 
-from bson import SON
 from .base import JOB_STATES
 from .base import JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE, JOB_STATE_ERROR
 from .base import Trials
@@ -146,7 +146,8 @@ try:
     import cloudpickle as pickler
 except Exception as e:
     logger.info(
-        'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
+        'Failed to load cloudpickle, try installing cloudpickle via "pip '
+        'install cloudpickle" for enhanced pickling support.'
     )
     import six.moves.cPickle as pickler
 

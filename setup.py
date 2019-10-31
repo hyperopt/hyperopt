@@ -115,7 +115,7 @@ if package_data is None:
 
 setuptools.setup(
     name=package_name,
-    version="0.2.1",
+    version="0.2.2",
     packages=packages,
     entry_points={"console_scripts": ["hyperopt-mongo-worker=hyperopt.mongoexp:main"]},
     url="http://hyperopt.github.com/hyperopt/",
@@ -153,7 +153,6 @@ setuptools.setup(
         "future",
         "tqdm",
         "cloudpickle",
-        "bson",
         "black",
         "pre-commit",
     ],

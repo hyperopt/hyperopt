@@ -281,6 +281,8 @@ class Hyperparameter:
                 isinstance(value, float)
                 or isinstance(value, bool)
                 or isinstance(value, int)
+                or numpy.issubdtype(value, numpy.integer)
+                or numpy.issubdtype(value, numpy.floating)
             ):
                 flatParams[result_key[1:]] = value
             elif isinstance(value, dict):
