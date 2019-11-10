@@ -60,13 +60,7 @@ git clone https://github.com/jaberg/hyperopt.git
 cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE]'
 ```
 
-Then install the pre-commit hook as
-```
-pre-commit install
-```
-
-so that black is automatically run (and failing if required) every time you 
-commit
+We recommend to use `black` to format your code before submitting a PR
 
 ## Algorithms
 

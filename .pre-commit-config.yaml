@@ -1,6 +1,6 @@
+# not used at the moment
 repos:
 -   repo: https://github.com/ambv/black
     rev: stable
     hooks:
     - id: black
-#      args: [--check]

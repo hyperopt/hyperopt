@@ -153,8 +153,6 @@ setuptools.setup(
         "future",
         "tqdm",
         "cloudpickle",
-        "black",
-        "pre-commit",
     ],
     extras_require={
         "SparkTrials": "pyspark",
