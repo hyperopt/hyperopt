@@ -12,10 +12,6 @@ Hyperopt is a Python library for serial and parallel optimization over awkward
 search spaces, which may include real-valued, discrete, and conditional
 dimensions.
 
-## Requirements
-
-python 3.6+
-
 ## Getting started
 
 Install hyperopt from PyPI
