@@ -73,8 +73,9 @@ class SparkTrials(Trials):
                                     isinstance(timeout, bool)):
             raise Exception("The timeout argument should be None or a positive value. "
                             "Given value: {timeout}".format(timeout=timeout))
-        self._spark_context = SparkSession.builder.getOrCreate().sparkContext if spark_session is None \
-                                  else spark_session.sparkContext
+        self._spark = SparkSession.builder.getOrCreate() if spark_session is None \
+                      else spark_session
+        self._spark_context = self._spark.sparkContext
         # The feature to support controlling jobGroupIds is in SPARK-22340
         self._spark_supports_job_cancelling = hasattr(self._spark_context.parallelize([1]),
                                                       "collectWithJobGroup")
@@ -177,7 +178,7 @@ class SparkTrials(Trials):
         assert not pass_expr_memo_ctrl, "SparkTrials does not support `pass_expr_memo_ctrl`"
         assert not catch_eval_exceptions, "SparkTrials does not support `catch_eval_exceptions`"
 
-        state = _SparkFMinState(self._spark_context, fn, space, self)
+        state = _SparkFMinState(self._spark, fn, space, self)
 
         # Will launch a dispatcher thread which runs each trial task as one spark job.
         state.launch_dispatcher()
@@ -219,12 +220,15 @@ class _SparkFMinState:
     Each trial's thread runs 1 Spark job with 1 task.
     """
 
+    # definition of a long-running trial, configurable here for testing purposes
+    _LONG_TRIAL_DEFINITION_SECONDS = 60
+
     def __init__(self,
-                 spark_context,
+                 spark,
                  eval_function,
                  space,
                  trials):
-        self.spark_context = spark_context
+        self.spark = spark
         self.eval_function = eval_function
         self.space = space
         self.trials = trials
@@ -233,6 +237,7 @@ class _SparkFMinState:
         self._task_threads = set()
 
         if self.trials._spark_supports_job_cancelling:
+            spark_context = spark.sparkContext
             self._job_group_id = spark_context.getLocalProperty("spark.jobGroup.id")
             self._job_desc = spark_context.getLocalProperty("spark.job.description")
             interrupt_on_cancel = spark_context.getLocalProperty("spark.job.interruptOnCancel")
@@ -287,13 +292,24 @@ class _SparkFMinState:
     def launch_dispatcher(self):
         def run_dispatcher():
             start_time = timeit.default_timer()
+            last_time_trials_finished = start_time
+
+            spark_task_maxFailures = int(self.spark.conf.get('spark.task.maxFailures', '4'))
+            # When tasks take a long time, it can be bad to have Spark retry failed tasks.
+            # This flag lets us message the user once about this issue if we find that tasks
+            # are taking a long time to finish.
+            can_warn_about_maxFailures = spark_task_maxFailures > 1
+
             while not self._fmin_done:
                 new_tasks = self._poll_new_tasks()
 
                 for trial in new_tasks:
                     self._run_trial_async(trial)
 
-                elapsed_time = timeit.default_timer() - start_time
+                cur_time = timeit.default_timer()
+                elapsed_time = cur_time - start_time
+                if len(new_tasks) > 0:
+                    last_time_trials_finished = cur_time
 
                 # In the future, timeout checking logic could be moved to `fmin`.
                 # For now, timeouts are specific to SparkTrials.
@@ -306,6 +322,18 @@ class _SparkFMinState:
                     self.trials._fmin_cancelled_reason = "fmin run timeout"
                     self._cancel_running_trials()
                     logger.warning("fmin cancelled because of " + self.trials._fmin_cancelled_reason)
+
+                if can_warn_about_maxFailures and cur_time - last_time_trials_finished \
+                        > _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS:
+                    logger.warning(
+                        "SparkTrials found that the Spark conf 'spark.task.maxFailures' is set to "
+                        "{maxFailures}, which will make trials re-run automatically if they fail. "
+                        "If failures can occur from bad hyperparameter settings, or if trials are "
+                        "very long-running, then retries may not be a good idea. "
+                        "Consider setting `spark.conf.set('spark.task.maxFailures', '1')` to "
+                        "prevent retries.".format(maxFailures=spark_task_maxFailures))
+                    can_warn_about_maxFailures = False
+
                 time.sleep(1)
 
             if self.trials._fmin_cancelled:
@@ -351,7 +379,7 @@ class _SparkFMinState:
                 result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                 yield result
             try:
-                worker_rdd = self.spark_context.parallelize([0], 1)
+                worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
                     result = worker_rdd.mapPartitions(run_task_on_executor).collectWithJobGroup(
                         self._job_group_id, self._job_desc, self._job_interrupt_on_cancel
@@ -397,7 +425,7 @@ class _SparkFMinState:
         if self.trials._spark_supports_job_cancelling:
             logger.debug("Cancelling all running jobs in job group {g}"
                          .format(g=self._job_group_id))
-            self.spark_context.cancelJobGroup(self._job_group_id)
+            self.spark.sparkContext.cancelJobGroup(self._job_group_id)
             # Make a copy of trials by slicing
             for trial in self.trials.trials[:]:
                 if trial['state'] in [base.JOB_STATE_NEW, base.JOB_STATE_RUNNING]:
