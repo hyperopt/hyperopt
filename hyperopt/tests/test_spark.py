@@ -13,7 +13,7 @@ from hyperopt import anneal, base, fmin, hp
 from hyperopt import SparkTrials
 
 from .test_fmin import test_quadratic1_tpe
-
+from ..spark import _SparkFMinState
 
 @contextlib.contextmanager
 def patch_logger(name, level=logging.INFO):
@@ -455,3 +455,39 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 SparkTrials(parallelism=4)
         finally:
             hyperopt.spark._have_spark = orig_have_spark
+
+    def test_task_maxFailures_warning(self):
+        # With quick trials, do not print warning.
+        with patch_logger('hyperopt-spark', logging.DEBUG) as output:
+            fmin(
+                fn=fn_succeed_within_range,
+                space=hp.uniform('x', -1, 1),
+                algo=anneal.suggest,
+                max_evals=1,
+                trials=SparkTrials())
+            log_output = output.getvalue().strip()
+            self.assertNotIn(
+                "spark.task.maxFailures",
+                log_output,
+                """ "spark.task.maxFailures" warning should not appear in log: {log_output}"""
+                .format(log_output=log_output))
+
+        # With slow trials, print warning.
+        ORIG_LONG_TRIAL_DEFINITION_SECONDS = _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS
+        try:
+            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = 0
+            with patch_logger('hyperopt-spark', logging.DEBUG) as output:
+                fmin(
+                    fn=fn_succeed_within_range,
+                    space=hp.uniform('x', -1, 1),
+                    algo=anneal.suggest,
+                    max_evals=1,
+                    trials=SparkTrials())
+                log_output = output.getvalue().strip()
+                self.assertIn(
+                    "spark.task.maxFailures",
+                    log_output,
+                    """ "spark.task.maxFailures" warning missing from log: {log_output}"""
+                    .format(log_output=log_output))
+        finally:
+            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = ORIG_LONG_TRIAL_DEFINITION_SECONDS
