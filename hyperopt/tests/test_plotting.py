@@ -53,5 +53,4 @@ class TestPlotting(unittest.TestCase):
     def test_plot_vars(self):
         hyperopt.plotting.main_plot_vars(
             self.trials,
-            self.domain,
-            do_show=get_do_show())
+            self.domain)
