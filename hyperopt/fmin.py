@@ -213,7 +213,7 @@ class FMinIter(object):
         with std_out_err_redirect_tqdm() as orig_stdout:
             # total_evals = N + qlen
             init_evals_done = get_n_done()
-            with tqdm(total=self.max_evals, file=orig_stdout, postfix='best loss: ?',
+            with tqdm(total=self.max_evals, file=orig_stdout, postfix={'best loss': '?'},
                       disable=not self.show_progressbar, dynamic_ncols=True, unit='trial',
                       initial=init_evals_done,
                       ) as pbar:
