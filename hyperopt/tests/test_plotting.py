@@ -50,6 +50,4 @@ class TestPlotting(unittest.TestCase):
         hyperopt.plotting.main_plot_histogram(self.trials, do_show=get_do_show())
 
     def test_plot_vars(self):
-        hyperopt.plotting.main_plot_vars(
-            self.trials, self.domain, do_show=get_do_show()
-        )
+        hyperopt.plotting.main_plot_vars(self.trials, self.domain)

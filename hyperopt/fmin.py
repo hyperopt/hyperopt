@@ -227,7 +227,7 @@ class FMinIter(object):
             with tqdm(
                 total=self.max_evals,
                 file=orig_stdout,
-                postfix="best loss: ?",
+                postfix={"best loss": "?"},
                 disable=not self.show_progressbar,
                 dynamic_ncols=True,
                 unit="trial",

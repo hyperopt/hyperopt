@@ -1596,7 +1596,7 @@ def suggest(new_ids, domain, trials, seed):
         if minVal < 0:
             for result in results:
                 if result["loss"] is not None:
-                    result["loss"] = result["loss"] + minVal + 0.1
+                    result["loss"] = result["loss"] - minVal + 0.1
 
     hyperparameters = Hyperparameter(hyperparameterConfig)
 

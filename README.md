@@ -56,7 +56,7 @@ print(space_eval(space, best))
 If you're a developer, clone this repository and install from source:
 
 ```bash
-git clone https://github.com/jaberg/hyperopt.git
+git clone https://github.com/hyperopt/hyperopt.git
 cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE]'
 ```
 
