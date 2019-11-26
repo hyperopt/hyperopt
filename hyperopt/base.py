@@ -151,7 +151,7 @@ def SONify(arg, memo=None):
             else:
                 rval = list(map(SONify, arg))  # N.B. memo None
         # -- put this after ndarray because ndarray not hashable
-        elif arg in (True, False):
+        elif isinstance(arg, bool):
             rval = int(arg)
         else:
             add_arg_to_raise = False
