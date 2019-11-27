@@ -16,6 +16,7 @@ import numpy as np
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
+from . import progress
 from .std_out_err_redirect_tqdm import std_out_err_redirect_tqdm
 
 standard_library.install_aliases()
@@ -122,7 +123,12 @@ class FMinIter(object):
         self.algo = algo
         self.domain = domain
         self.trials = trials
-        self.show_progressbar = show_progressbar
+        if not show_progressbar or not verbose:
+            self.progress_callback = progress.no_progress_callback
+        elif show_progressbar is True:
+            self.progress_callback = progress.default_callback
+        else:
+            self.progress_callback = show_progressbar
         if asynchronous is None:
             self.asynchronous = trials.asynchronous
         else:
@@ -222,16 +228,10 @@ class FMinIter(object):
             return self.trials.count_by_state_unsynced(unfinished_states)
 
         stopped = False
-        init_evals_done = get_n_done()
-        with std_out_err_redirect_tqdm() as orig_stdout, tqdm(
-            total=self.max_evals,
-            file=orig_stdout,
-            postfix={"best loss": "?"},
-            disable=not self.show_progressbar or not self.verbose,
-            dynamic_ncols=True,
-            unit="trial",
-            initial=init_evals_done,
-        ) as pbar:
+        initial_n_done = get_n_done()
+        with self.progress_callback(
+            initial=initial_n_done, total=self.max_evals
+        ) as progress_ctx:
 
             all_trials_complete = False
             while n_queued < N or (block_until_done and not all_trials_complete):
@@ -274,7 +274,7 @@ class FMinIter(object):
                             if d["result"]["status"] == "ok"
                         ]
                     )
-                    pbar.postfix = "best loss: " + str(best_loss)
+                    progress_ctx.postfix = "best loss: " + str(best_loss)
                 except:
                     pass
 
@@ -282,10 +282,11 @@ class FMinIter(object):
                 if n_unfinished == 0:
                     all_trials_complete = True
 
-                # From tqdm doc: `update(n)` n (int): Increment to add to the internal counter of iterations
-                d_jobs = get_n_done() - pbar.n
-                if d_jobs > 0:
-                    pbar.update(d_jobs)
+                n_done = get_n_done()
+                n_done_this_iteration = n_done - initial_n_done
+                if n_done_this_iteration > 0:
+                    progress_ctx.update(n_done_this_iteration)
+                initial_n_done = n_done
 
                 if stopped:
                     break
@@ -416,8 +417,8 @@ def fmin(
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool, default True
-        Show a progressbar. Disabled if verbose is False.
+    show_progressbar : bool or context manager, default True (or False is verbose is False).
+        Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
     Returns
     -------
