@@ -21,6 +21,9 @@ class DummyTqdmFile(object):
     def flush(self):
         return getattr(self.file, "flush", lambda: None)()
 
+    def close(self):
+        return getattr(self.file, "close", lambda: None)()
+
     def isatty(self):
         return getattr(self.file, "isatty", lambda: False)()
 
