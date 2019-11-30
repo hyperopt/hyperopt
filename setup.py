@@ -158,6 +158,7 @@ setuptools.setup(
         "SparkTrials": "pyspark",
         "MongoTrials": "pymongo",
         "ATPE": ["lightgbm", "scikit-learn"],
+        "dev": ["black", "pre-commit"]
     },
     tests_require=["nose"],
     zip_safe=False,
