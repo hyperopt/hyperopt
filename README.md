@@ -56,7 +56,7 @@ git clone https://github.com/hyperopt/hyperopt.git
 cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 ```
 
-Note that dev dependencies require black, using python 3.6+ under the hood.
+Note that dev dependencies require `black`, using python 3.6+ under the hood.
 
 We recommend to use `black` to format your code before submitting a PR. You can use it 
 with a pre-commit hook as follows:
@@ -65,7 +65,7 @@ with a pre-commit hook as follows:
 pre-commit install
 ```
 
-Then, once you commit ensure than git hooks are activated (Pycharm for example have the 
+Then, once you commit ensure that git hooks are activated (Pycharm for example has the 
 option to omit them). This will run black automatically on all files you modified, 
 failing if there are any files requiring to be blacked.
 
