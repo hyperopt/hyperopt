@@ -100,9 +100,10 @@ class SparkTrials(Trials):
         if not self._spark_supports_job_cancelling and timeout is not None:
             logger.warning(
                 "SparkTrials was constructed with a timeout specified, but this Apache "
-                "Spark version does not support job group-based cancellation. The timeout will be "
-                "respected when starting new Spark jobs, but SparkTrials will not be able to "
-                "cancel running Spark jobs which exceed the timeout."
+                "Spark version does not support job group-based cancellation. The "
+                "timeout will be respected when starting new Spark jobs, but "
+                "SparkTrials will not be able to cancel running Spark jobs which exceed"
+                " the timeout."
             )
 
         self.timeout = timeout
@@ -125,8 +126,8 @@ class SparkTrials(Trials):
             parallelism = max_num_concurrent_tasks
         elif parallelism <= 0:
             logger.warning(
-                "User-specified parallelism was invalid value ({p}), so parallelism will"
-                " be set to max_num_concurrent_tasks ({c}).".format(
+                "User-specified parallelism was invalid value ({p}), so parallelism "
+                "will be set to max_num_concurrent_tasks ({c}).".format(
                     p=parallelism, c=max_num_concurrent_tasks
                 )
             )
@@ -289,8 +290,8 @@ class _SparkFMinState:
                 self._job_interrupt_on_cancel = False
             else:
                 self._job_interrupt_on_cancel = "true" == interrupt_on_cancel.lower()
-            # In certain Spark deployments, the local property "spark.jobGroup.id" value is None,
-            # so we create one to use for SparkTrials.
+            # In certain Spark deployments, the local property "spark.jobGroup.id"
+            # value is None, so we create one to use for SparkTrials.
             if self._job_group_id is None:
                 self._job_group_id = "Hyperopt_SparkTrials_" + _get_random_id()
             if self._job_desc is None:
@@ -316,12 +317,13 @@ class _SparkFMinState:
 
     def _finish_trial_run(self, is_success, is_cancelled, trial, data):
         """
-        Call this method when a trial evaluation finishes. It will save results to the trial object
-        and update task counters.
+        Call this method when a trial evaluation finishes. It will save results to the
+        trial object and update task counters.
         :param is_success: whether the trial succeeded
         :param is_cancelled: whether the trial was cancelled
-        :param data: If the trial succeeded, this is the return value from the trial task function.
-                     Otherwise, this is the exception raised when running the trial task.
+        :param data: If the trial succeeded, this is the return value from the trial
+        task function. Otherwise, this is the exception raised when running the trial
+        task.
         """
         if is_cancelled:
             logger.debug(

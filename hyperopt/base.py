@@ -684,7 +684,7 @@ class Ctrl(object):
     """
 
     info = logger.info
-    warn = logger.warn
+    warn = logger.warning
     error = logger.error
     debug = logger.debug
 

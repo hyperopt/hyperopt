@@ -19,7 +19,8 @@ try:
     import cloudpickle as pickler
 except Exception as e:
     logger.info(
-        'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
+        'Failed to load cloudpickle, try installing cloudpickle via "pip install '
+        'cloudpickle" for enhanced pickling support.'
     )
     import six.moves.cPickle as pickler
 
