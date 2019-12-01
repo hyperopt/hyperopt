@@ -26,7 +26,8 @@ try:
     import cloudpickle as pickler
 except Exception as e:
     logger.info(
-        'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
+        'Failed to load cloudpickle, try installing cloudpickle via "pip install '
+        'cloudpickle" for enhanced pickling support.'
     )
     import six.moves.cPickle as pickler
 
@@ -115,7 +116,7 @@ class FMinIter(object):
         max_queue_len=1,
         poll_interval_secs=1.0,
         max_evals=sys.maxsize,
-        verbose=0,
+        verbose=False,
         show_progressbar=True,
     ):
         self.algo = algo
@@ -130,10 +131,11 @@ class FMinIter(object):
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
         self.rstate = rstate
+        self.verbose = verbose
 
         if self.asynchronous:
             if "FMinIter_Domain" in trials.attachments:
-                logger.warn("over-writing old domain trials attachment")
+                logger.warning("over-writing old domain trials attachment")
             msg = pickler.dumps(domain)
             # -- sanity check for unpickling
             pickler.loads(msg)
@@ -151,7 +153,7 @@ class FMinIter(object):
                 try:
                     result = self.domain.evaluate(spec, ctrl)
                 except Exception as e:
-                    logger.info("job exception: %s" % str(e))
+                    logger.error("job exception: %s" % str(e))
                     trial["state"] = base.JOB_STATE_ERROR
                     trial["misc"]["error"] = (str(type(e)), str(e))
                     trial["refresh_time"] = coarse_utcnow()
@@ -190,7 +192,7 @@ class FMinIter(object):
 
             qlen = get_queue_len()
             while qlen > 0:
-                if not already_printed:
+                if not already_printed and self.verbose:
                     logger.info("Waiting for %d jobs to finish ..." % qlen)
                     already_printed = True
                 time.sleep(self.poll_interval_secs)
@@ -220,7 +222,6 @@ class FMinIter(object):
             return self.trials.count_by_state_unsynced(unfinished_states)
 
         stopped = False
-        qlen = get_queue_len()
         with std_out_err_redirect_tqdm() as orig_stdout:
             # total_evals = N + qlen
             init_evals_done = get_n_done()
@@ -228,7 +229,7 @@ class FMinIter(object):
                 total=self.max_evals,
                 file=orig_stdout,
                 postfix={"best loss": "?"},
-                disable=not self.show_progressbar,
+                disable=not self.show_progressbar or not self.verbose,
                 dynamic_ncols=True,
                 unit="trial",
                 initial=init_evals_done,
@@ -245,12 +246,6 @@ class FMinIter(object):
                         n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
                         new_ids = trials.new_trial_ids(n_to_enqueue)
                         self.trials.refresh()
-                        if 0:
-                            for d in self.trials.trials:
-                                print(
-                                    "trial %i %s %s"
-                                    % (d["tid"], d["state"], d["result"].get("status"))
-                                )
                         new_trials = algo(
                             new_ids,
                             self.domain,
@@ -338,7 +333,7 @@ def fmin(
     allow_trials_fmin=True,
     pass_expr_memo_ctrl=None,
     catch_eval_exceptions=False,
-    verbose=0,
+    verbose=True,
     return_argmin=True,
     points_to_evaluate=None,
     max_queue_len=1,
@@ -396,8 +391,9 @@ def fmin(
         if the `HYPEROPT_FMIN_SEED` environment variable is set to a non-empty
         string, otherwise np.random is used in whatever state it is in.
 
-    verbose : int
-        Print out some information to stdout during search.
+    verbose : bool
+        Print out some information to stdout during search. If False, disable
+            progress bar irrespectively of show_progressbar argument
 
     allow_trials_fmin : bool, default True
         If the `trials` argument
@@ -428,7 +424,7 @@ def fmin(
         on suggesting a new trial.
 
     show_progressbar : bool, default True
-        Show a progressbar.
+        Show a progressbar. Disabled if verbose is False.
 
     Returns
     -------

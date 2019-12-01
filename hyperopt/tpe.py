@@ -368,10 +368,6 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     weights[0] = prior_weight
 
     weights = old_div(weights, weights.sum())
-    if 0:
-        print("WEIGHTS", weights)
-        print("MUS", mus)
-        print("SIGMA", sigma)
 
     return weights, mus, sigma
 
@@ -837,7 +833,7 @@ def suggest(
     n_startup_jobs=_default_n_startup_jobs,
     n_EI_candidates=_default_n_EI_candidates,
     gamma=_default_gamma,
-    linear_forgetting=_default_linear_forgetting,
+    verbose=True,
 ):
 
     new_id = new_ids[0]
@@ -852,7 +848,8 @@ def suggest(
         opt_vals,
     ) = tpe_transform(domain, prior_weight, gamma)
     tt = time.time() - t0
-    logger.info("tpe_transform took %f seconds" % tt)
+    if verbose:
+        logger.info("tpe_transform took %f seconds" % tt)
 
     best_docs = dict()
     best_docs_loss = dict()
@@ -878,13 +875,14 @@ def suggest(
     tids = [k for k, v in tid_docs]
     docs = [v for k, v in tid_docs]
 
-    if docs:
-        logger.info(
-            "TPE using %i/%i trials with best loss %f"
-            % (len(docs), len(trials), min(best_docs_loss.values()))
-        )
-    else:
-        logger.info("TPE using 0 trials")
+    if verbose:
+        if docs:
+            logger.info(
+                "TPE using %i/%i trials with best loss %f"
+                % (len(docs), len(trials), min(best_docs_loss.values()))
+            )
+        else:
+            logger.info("TPE using 0 trials")
 
     if len(docs) < n_startup_jobs:
         # N.B. THIS SEEDS THE RNG BASED ON THE new_id
