@@ -7,9 +7,12 @@ import contextlib
 import sys
 from tqdm import tqdm
 
+
 class DummyTqdmFile(object):
     """Dummy file-like that will write to tqdm."""
+
     file = None
+
     def __init__(self, file):
         self.file = file
 

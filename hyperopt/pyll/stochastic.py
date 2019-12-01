@@ -32,6 +32,7 @@ def rng_from_seed(seed):
 
 # -- UNIFORM
 
+
 @implicit_stochastic
 @scope.define
 def uniform(low, high, rng=None, size=()):
@@ -60,6 +61,7 @@ def qloguniform(low, high, q, rng=None, size=()):
 
 
 # -- NORMAL
+
 
 @implicit_stochastic
 @scope.define
@@ -136,10 +138,11 @@ def categorical(p, upper=None, rng=None, size=()):
         return rval
     elif p.ndim == 2:
         n_draws_, n_choices = p.shape
-        n_draws, = size
+        (n_draws,) = size
         assert n_draws == n_draws_
-        rval = [np.where(rng.multinomial(pvals=p[ii], n=1))[0][0]
-                for ii in range(n_draws)]
+        rval = [
+            np.where(rng.multinomial(pvals=p[ii], n=1))[0][0] for ii in range(n_draws)
+        ]
         rval = np.asarray(rval)
         rval.shape = size
         return rval
@@ -149,12 +152,16 @@ def categorical(p, upper=None, rng=None, size=()):
 
 def choice(args):
     return scope.one_of(*args)
+
+
 scope.choice = choice
 
 
 def one_of(*args):
     ii = scope.randint(len(args))
     return scope.switch(ii, *args)
+
+
 scope.one_of = one_of
 
 
@@ -170,11 +177,11 @@ def recursive_set_rng_kwarg(expr, rng=None):
     for node in dfs(expr):
         if node.name in implicit_stochastic_symbols:
             for ii, (name, arg) in enumerate(list(node.named_args)):
-                if name == 'rng':
-                    node.named_args[ii] = ('rng', lrng)
+                if name == "rng":
+                    node.named_args[ii] = ("rng", lrng)
                     break
             else:
-                node.named_args.append(('rng', lrng))
+                node.named_args.append(("rng", lrng))
     return expr
 
 

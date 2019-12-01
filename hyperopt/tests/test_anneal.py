@@ -22,7 +22,6 @@ def passthrough(x):
 
 
 class TestItJustRuns(unittest.TestCase, CasePerDomain):
-
     def work(self):
         trials = Trials()
         space = self.bandit.expr
@@ -31,7 +30,8 @@ class TestItJustRuns(unittest.TestCase, CasePerDomain):
             space=space,
             trials=trials,
             algo=anneal.suggest,
-            max_evals=10)
+            max_evals=10,
+        )
 
 
 class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
@@ -43,7 +43,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
         gauss_wave=-2.0,
         gauss_wave2=-2.0,
         n_arms=-2.5,
-        many_dists=.0005,
+        many_dists=0.0005,
         branin=0.7,
     )
 
@@ -59,8 +59,8 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
     )
 
     def setUp(self):
-        self.olderr = np.seterr('raise')
-        np.seterr(under='ignore')
+        self.olderr = np.seterr("raise")
+        np.seterr(under="ignore")
 
     def tearDown(self, *args):
         np.seterr(**self.olderr)
@@ -68,52 +68,52 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
     def work(self):
         bandit = self.bandit
         assert bandit.name is not None
-        algo = partial(
-            anneal.suggest,
-        )
+        algo = partial(anneal.suggest)
         LEN = self.LEN.get(bandit.name, 50)
 
         trials = Trials()
-        fmin(fn=passthrough,
-             space=self.bandit.expr,
-             trials=trials,
-             algo=algo,
-             max_evals=LEN)
+        fmin(
+            fn=passthrough,
+            space=self.bandit.expr,
+            trials=trials,
+            algo=algo,
+            max_evals=LEN,
+        )
         assert len(trials) == LEN
 
         if 1:
             rtrials = Trials()
-            fmin(fn=passthrough,
-                 space=self.bandit.expr,
-                 trials=rtrials,
-                 algo=rand.suggest,
-                 max_evals=LEN)
-            print('RANDOM BEST 6:', list(sorted(rtrials.losses()))[:6])
+            fmin(
+                fn=passthrough,
+                space=self.bandit.expr,
+                trials=rtrials,
+                algo=rand.suggest,
+                max_evals=LEN,
+            )
+            print("RANDOM BEST 6:", list(sorted(rtrials.losses()))[:6])
 
         if 0:
             plt.subplot(2, 2, 1)
             plt.scatter(list(range(LEN)), trials.losses())
-            plt.title('TPE losses')
+            plt.title("TPE losses")
             plt.subplot(2, 2, 2)
-            plt.scatter(list(range(LEN)), ([s['x'] for s in trials.specs]))
-            plt.title('TPE x')
+            plt.scatter(list(range(LEN)), ([s["x"] for s in trials.specs]))
+            plt.title("TPE x")
             plt.subplot(2, 2, 3)
-            plt.title('RND losses')
+            plt.title("RND losses")
             plt.scatter(list(range(LEN)), rtrials.losses())
             plt.subplot(2, 2, 4)
-            plt.title('RND x')
-            plt.scatter(list(range(LEN)), ([s['x'] for s in rtrials.specs]))
+            plt.title("RND x")
+            plt.scatter(list(range(LEN)), ([s["x"] for s in rtrials.specs]))
             plt.show()
         if 0:
-            plt.hist(
-                [t['x'] for t in self.experiment.trials],
-                bins=20)
+            plt.hist([t["x"] for t in self.experiment.trials], bins=20)
 
         # print trials.losses()
-        print('ANNEAL BEST 6:', list(sorted(trials.losses()))[:6])
+        print("ANNEAL BEST 6:", list(sorted(trials.losses()))[:6])
         # logx = np.log([s['x'] for s in trials.specs])
         # print 'TPE MEAN', np.mean(logx)
         # print 'TPE STD ', np.std(logx)
         thresh = self.thresholds[bandit.name]
-        print('Thresh', thresh)
+        print("Thresh", thresh)
         assert min(trials.losses()) < thresh

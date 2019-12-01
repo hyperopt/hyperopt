@@ -42,7 +42,9 @@ logger = _get_logger(__name__)
 try:
     import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
+    logger.info(
+        'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
+    )
     import six.moves.cPickle as pickler
 
 
@@ -51,22 +53,22 @@ def import_tokens(tokens):
     # import as many as we can
     rval = None
     for i in range(len(tokens)):
-        modname = '.'.join(tokens[:i + 1])
+        modname = ".".join(tokens[: i + 1])
         # XXX: try using getattr, and then merge with load_tokens
         try:
-            logger.info('importing %s' % modname)
+            logger.info("importing %s" % modname)
             exec("import {}".format(modname))
             exec("rval = {}".format(modname))
         except ImportError as e:
-            logger.info('failed to import %s' % modname)
-            logger.info('reason: %s' % str(e))
+            logger.info("failed to import %s" % modname)
+            logger.info("reason: %s" % str(e))
             break
     return rval, tokens[i:]
 
 
 def load_tokens(tokens):
     # XXX: merge with import_tokens
-    logger.info('load_tokens: %s' % str(tokens))
+    logger.info("load_tokens: %s" % str(tokens))
     symbol, remainder = import_tokens(tokens)
     for attr in remainder:
         symbol = getattr(symbol, attr)
@@ -74,7 +76,7 @@ def load_tokens(tokens):
 
 
 def json_lookup(json):
-    symbol = load_tokens(json.split('.'))
+    symbol = load_tokens(json.split("."))
     return symbol
 
 
@@ -96,9 +98,9 @@ def json_call(json, args=(), kwargs=None):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)
     elif isinstance(json, dict):
-        raise NotImplementedError('dict calling convention undefined', json)
+        raise NotImplementedError("dict calling convention undefined", json)
     elif isinstance(json, (tuple, list)):
-        raise NotImplementedError('seq calling convention undefined', json)
+        raise NotImplementedError("seq calling convention undefined", json)
     else:
         raise TypeError(json)
 
@@ -115,8 +117,8 @@ def get_obj(f, argfile=None, argstr=None, args=(), kwargs=None):
         argd = pickler.loads(argstr)
     else:
         argd = {}
-    args = args + argd.get('args', ())
-    kwargs.update(argd.get('kwargs', {}))
+    args = args + argd.get("args", ())
+    kwargs.update(argd.get("kwargs", {}))
     return json_call(f, args=args, kwargs=kwargs)
 
 
@@ -137,7 +139,7 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape
-    return old_div(wincounts.astype('float64'), wincounts.sum())
+    return old_div(wincounts.astype("float64"), wincounts.sum())
 
 
 def fast_isin(X, Y):
@@ -155,22 +157,22 @@ def fast_isin(X, Y):
         T.sort()
         D = T.searchsorted(X)
         T = np.append(T, np.array([0]))
-        W = (T[D] == X)
+        W = T[D] == X
         if isinstance(W, bool):
             return np.zeros((len(X),), bool)
         else:
-            return (T[D] == X)
+            return T[D] == X
     else:
         return np.zeros((len(X),), bool)
 
 
 def get_most_recent_inds(obj):
-    data = numpy.rec.array([(x['_id'], int(x['version']))
-                            for x in obj],
-                           names=['_id', 'version'])
-    s = data.argsort(order=['_id', 'version'])
+    data = numpy.rec.array(
+        [(x["_id"], int(x["version"])) for x in obj], names=["_id", "version"]
+    )
+    s = data.argsort(order=["_id", "version"])
     data = data[s]
-    recent = (data['_id'][1:] != data['_id'][:-1]).nonzero()[0]
+    recent = (data["_id"][1:] != data["_id"][:-1]).nonzero()[0]
     recent = numpy.append(recent, [len(data) - 1])
     return s[recent]
 
@@ -204,8 +206,9 @@ def coarse_utcnow():
     """
     now = datetime.datetime.utcnow()
     microsec = (now.microsecond // 10 ** 3) * (10 ** 3)
-    return datetime.datetime(now.year, now.month, now.day, now.hour,
-                             now.minute, now.second, microsec)
+    return datetime.datetime(
+        now.year, now.month, now.day, now.hour, now.minute, now.second, microsec
+    )
 
 
 @contextmanager
@@ -233,7 +236,7 @@ def get_closest_dir(workdir):
     erasing work-dirs should never progress above this file.
     Also returns the name of first non-existing dir for use as filename.
     """
-    closest_dir = ''
+    closest_dir = ""
     for wdi in path_split_all(workdir):
         if os.path.isdir(os.path.join(closest_dir, wdi)):
             closest_dir = os.path.join(closest_dir, wdi)
@@ -252,7 +255,7 @@ def temp_dir(dir, erase_after=False, with_sentinel=True):
         if erase_after and with_sentinel:
             closest_dir, fn = get_closest_dir(dir)
             sentinel = os.path.join(closest_dir, fn + ".inuse")
-            open(sentinel, 'w').close()
+            open(sentinel, "w").close()
         os.makedirs(dir)
         created_by_me = True
     else:

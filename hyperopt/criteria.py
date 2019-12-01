@@ -66,19 +66,18 @@ def logEI_gaussian(mean, var, thresh):
         score = np.asarray(score)
         rval = np.zeros_like(score)
 
-        olderr = np.seterr(all='ignore')
+        olderr = np.seterr(all="ignore")
         try:
             negs = score < 0
             nonnegs = np.logical_not(negs)
             negs_score = score[negs]
             negs_pdf = n.logpdf(negs_score)
-            r = np.exp(np.log(-negs_score) +
-                       n.logcdf(negs_score) -
-                       negs_pdf)
+            r = np.exp(np.log(-negs_score) + n.logcdf(negs_score) - negs_pdf)
             rval[negs] = np.log(sigma[negs]) + negs_pdf + np.log1p(-r)
             nonnegs_score = score[nonnegs]
             rval[nonnegs] = np.log(sigma[nonnegs]) + np.log(
-                nonnegs_score * n.cdf(nonnegs_score) + n.pdf(nonnegs_score))
+                nonnegs_score * n.cdf(nonnegs_score) + n.pdf(nonnegs_score)
+            )
             rval[np.logical_not(np.isfinite(rval))] = -np.inf
         finally:
             np.seterr(**olderr)

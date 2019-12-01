@@ -40,12 +40,12 @@ space = hp.choice('a',
     ])
 
 # minimize the objective over the space
-from hyperopt import fmin, tpe
+from hyperopt import fmin, tpe, space_eval
 best = fmin(objective, space, algo=tpe.suggest, max_evals=100)
 
-print best
+print(best)
 # -> {'a': 1, 'c2': 0.01420615366247227}
-print hyperopt.space_eval(space, best)
+print(space_eval(space, best))
 # -> ('case 2', 0.01420615366247227}
 ```
 
@@ -53,8 +53,21 @@ If you're a developer, clone this repository and install from source:
 
 ```bash
 git clone https://github.com/hyperopt/hyperopt.git
-cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE]'
+cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 ```
+
+Note that dev dependencies require `black`, using python 3.6+ under the hood.
+
+We recommend to use `black` to format your code before submitting a PR. You can use it 
+with a pre-commit hook as follows:
+
+```
+pre-commit install
+```
+
+Then, once you commit ensure that git hooks are activated (Pycharm for example has the 
+option to omit them). This will run black automatically on all files you modified, 
+failing if there are any files requiring to be blacked.
 
 ## Algorithms
 
