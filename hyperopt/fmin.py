@@ -222,80 +222,73 @@ class FMinIter(object):
             return self.trials.count_by_state_unsynced(unfinished_states)
 
         stopped = False
-        with std_out_err_redirect_tqdm() as orig_stdout:
-            # total_evals = N + qlen
-            init_evals_done = get_n_done()
-            with tqdm(
-                total=self.max_evals,
-                file=orig_stdout,
-                postfix={"best loss": "?"},
-                disable=not self.show_progressbar or not self.verbose,
-                dynamic_ncols=True,
-                unit="trial",
-                initial=init_evals_done,
-            ) as pbar:
+        init_evals_done = get_n_done()
+        with std_out_err_redirect_tqdm() as orig_stdout, tqdm(
+            total=self.max_evals,
+            file=orig_stdout,
+            postfix={"best loss": "?"},
+            disable=not self.show_progressbar or not self.verbose,
+            dynamic_ncols=True,
+            unit="trial",
+            initial=init_evals_done,
+        ) as pbar:
 
-                all_trials_complete = False
-                while n_queued < N or (block_until_done and not all_trials_complete):
-                    qlen = get_queue_len()
-                    while (
-                        qlen < self.max_queue_len
-                        and n_queued < N
-                        and not self.is_cancelled
-                    ):
-                        n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
-                        new_ids = trials.new_trial_ids(n_to_enqueue)
-                        self.trials.refresh()
-                        new_trials = algo(
-                            new_ids,
-                            self.domain,
-                            trials,
-                            self.rstate.randint(2 ** 31 - 1),
-                        )
-                        assert len(new_ids) >= len(new_trials)
-                        if len(new_trials):
-                            self.trials.insert_trial_docs(new_trials)
-                            self.trials.refresh()
-                            n_queued += len(new_trials)
-                            qlen = get_queue_len()
-                        else:
-                            stopped = True
-                            break
-
-                    if self.is_cancelled:
-                        break
-
-                    if self.asynchronous:
-                        # -- wait for workers to fill in the trials
-                        time.sleep(self.poll_interval_secs)
-                    else:
-                        # -- loop over trials and do the jobs directly
-                        self.serial_evaluate()
-
+            all_trials_complete = False
+            while n_queued < N or (block_until_done and not all_trials_complete):
+                qlen = get_queue_len()
+                while (
+                    qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
+                ):
+                    n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
+                    new_ids = trials.new_trial_ids(n_to_enqueue)
                     self.trials.refresh()
-                    try:
-                        best_loss = min(
-                            [
-                                d["result"]["loss"]
-                                for d in self.trials.trials
-                                if d["result"]["status"] == "ok"
-                            ]
-                        )
-                        pbar.postfix = "best loss: " + str(best_loss)
-                    except:
-                        pass
-
-                    n_unfinished = get_n_unfinished()
-                    if n_unfinished == 0:
-                        all_trials_complete = True
-
-                    # From tqdm doc: `update(n)` n (int): Increment to add to the internal counter of iterations
-                    d_jobs = get_n_done() - pbar.n
-                    if d_jobs > 0:
-                        pbar.update(d_jobs)
-
-                    if stopped:
+                    new_trials = algo(
+                        new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
+                    )
+                    assert len(new_ids) >= len(new_trials)
+                    if len(new_trials):
+                        self.trials.insert_trial_docs(new_trials)
+                        self.trials.refresh()
+                        n_queued += len(new_trials)
+                        qlen = get_queue_len()
+                    else:
+                        stopped = True
                         break
+
+                if self.is_cancelled:
+                    break
+
+                if self.asynchronous:
+                    # -- wait for workers to fill in the trials
+                    time.sleep(self.poll_interval_secs)
+                else:
+                    # -- loop over trials and do the jobs directly
+                    self.serial_evaluate()
+
+                self.trials.refresh()
+                try:
+                    best_loss = min(
+                        [
+                            d["result"]["loss"]
+                            for d in self.trials.trials
+                            if d["result"]["status"] == "ok"
+                        ]
+                    )
+                    pbar.postfix = "best loss: " + str(best_loss)
+                except:
+                    pass
+
+                n_unfinished = get_n_unfinished()
+                if n_unfinished == 0:
+                    all_trials_complete = True
+
+                # From tqdm doc: `update(n)` n (int): Increment to add to the internal counter of iterations
+                d_jobs = get_n_done() - pbar.n
+                if d_jobs > 0:
+                    pbar.update(d_jobs)
+
+                if stopped:
+                    break
 
         if block_until_done:
             self.block_until_done()
