@@ -42,7 +42,7 @@ try:
 except ImportError:
     have_bson = False
 
-from . import pyll
+from . import pyll, progress
 from .pyll.stochastic import recursive_set_rng_kwarg
 
 from .exceptions import (
@@ -641,8 +641,8 @@ class Trials(object):
             error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
             will not be caught, and so they will propagate to calling code.
 
-        show_progressbar : bool, default True
-            Show a progressbar.
+        show_progressbar : bool or context manager, default True.
+            Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
         """
         # -- Stop-gap implementation!
