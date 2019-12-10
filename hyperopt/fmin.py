@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import time
+import timeit
 from tqdm import tqdm
 
 import numpy as np
@@ -117,6 +118,7 @@ class FMinIter(object):
         max_queue_len=1,
         poll_interval_secs=1.0,
         max_evals=sys.maxsize,
+        timeout=None,
         verbose=False,
         show_progressbar=True,
     ):
@@ -136,6 +138,8 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.timeout = timeout
+        self.start_time = timeit.default_timer()
         self.rstate = rstate
         self.verbose = verbose
 
@@ -234,7 +238,8 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            while n_queued < N or (block_until_done and not all_trials_complete):
+            while (n_queued < N or (block_until_done and not all_trials_complete)) and \
+                    (self.timeout is None or (timeit.default_timer() - self.start_time) < self.timeout):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -322,6 +327,7 @@ def fmin(
     space,
     algo,
     max_evals,
+    timeout=None,
     trials=None,
     rstate=None,
     allow_trials_fmin=True,
@@ -370,6 +376,10 @@ def fmin(
 
     max_evals : int
         Allow up to this many function evaluations before returning.
+
+    timeout : int
+        Limits search time by parametrized number of seconds.
+        None is default, it means there is no time constraint in the search process.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -442,6 +452,7 @@ def fmin(
             space,
             algo=algo,
             max_evals=max_evals,
+            timeout=timeout,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
@@ -465,6 +476,7 @@ def fmin(
         domain,
         trials,
         max_evals=max_evals,
+        timeout=timeout,
         rstate=rstate,
         verbose=verbose,
         max_queue_len=max_queue_len,
