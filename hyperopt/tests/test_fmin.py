@@ -2,6 +2,8 @@ from __future__ import print_function
 import unittest
 import numpy as np
 import nose.tools
+import timeit
+import time
 
 from hyperopt import (
     fmin,
@@ -235,3 +237,36 @@ class TestGenerateTrialsToCalculate(unittest.TestCase):
         )
         assert best["x"] == 0.0
         assert best["y"] == 0.0
+
+
+def test_timeout():
+    fn = lambda x: [time.sleep(1), x][1]
+    space = hp.choice('x', range(20))
+
+    start_time_1 = timeit.default_timer()
+    fmin(
+        fn=fn,
+        space=space,
+        max_evals=10,
+        timeout=1,
+        algo=rand.suggest,
+        return_argmin=False,
+        rstate=np.random.RandomState(0)
+    )
+    end_time_1 = timeit.default_timer()
+    assert (end_time_1 - start_time_1) < 2
+    assert (end_time_1 - start_time_1) > 0.9
+
+    start_time_5 = timeit.default_timer()
+    fmin(
+        fn=fn,
+        space=space,
+        max_evals=10,
+        timeout=5,
+        algo=rand.suggest,
+        return_argmin=False,
+        rstate=np.random.RandomState(0)
+    )
+    end_time_5 = timeit.default_timer()
+    assert (end_time_5 - start_time_5) < 6
+    assert (end_time_5 - start_time_5) > 4.9
