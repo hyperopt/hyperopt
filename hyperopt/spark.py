@@ -204,8 +204,12 @@ class SparkTrials(Trials):
         Refer to :func:`hyperopt.fmin` for docs on each argument
         """
 
-        validate_timeout(timeout)
-        self.timeout = timeout
+        if timeout is not None:
+            if self.timeout is not None:
+                logger.warning('Timeout param was defined in Trials object, ignoring fmin definition')
+            else:
+                validate_timeout(timeout)
+                self.timeout = timeout
 
         assert (
             not pass_expr_memo_ctrl
