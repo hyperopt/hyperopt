@@ -239,8 +239,9 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            while (n_queued < N or (block_until_done and not all_trials_complete)) and \
-                    (self.timeout is None or (timer() - self.start_time) < self.timeout):
+            while (n_queued < N or (block_until_done and not all_trials_complete)) and (
+                self.timeout is None or (timer() - self.start_time) < self.timeout
+            ):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled

@@ -206,7 +206,9 @@ class SparkTrials(Trials):
 
         if timeout is not None:
             if self.timeout is not None:
-                logger.warning('Timeout param was defined in Trials object, ignoring fmin definition')
+                logger.warning(
+                    "Timeout param was defined in Trials object, ignoring fmin definition"
+                )
             else:
                 validate_timeout(timeout)
                 self.timeout = timeout

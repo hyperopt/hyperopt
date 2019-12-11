@@ -241,7 +241,7 @@ class TestGenerateTrialsToCalculate(unittest.TestCase):
 
 def test_timeout():
     fn = lambda x: [time.sleep(1), x][1]
-    space = hp.choice('x', range(20))
+    space = hp.choice("x", range(20))
 
     start_time_1 = timer()
     fmin(
@@ -251,7 +251,7 @@ def test_timeout():
         timeout=1,
         algo=rand.suggest,
         return_argmin=False,
-        rstate=np.random.RandomState(0)
+        rstate=np.random.RandomState(0),
     )
     end_time_1 = timer()
     assert (end_time_1 - start_time_1) < 2
@@ -265,7 +265,7 @@ def test_timeout():
         timeout=5,
         algo=rand.suggest,
         return_argmin=False,
-        rstate=np.random.RandomState(0)
+        rstate=np.random.RandomState(0),
     )
     end_time_5 = timer()
     assert (end_time_5 - start_time_5) < 6

@@ -230,9 +230,9 @@ def spec_from_misc(misc):
 
 def validate_timeout(timeout):
     if timeout is not None and (
-            not isinstance(timeout, numbers.Number)
-            or timeout <= 0
-            or isinstance(timeout, bool)
+        not isinstance(timeout, numbers.Number)
+        or timeout <= 0
+        or isinstance(timeout, bool)
     ):
         raise Exception(
             "The timeout argument should be None or a positive value. "
