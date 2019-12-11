@@ -1,13 +1,13 @@
 from __future__ import print_function
 
 import copy
-import numbers
 import threading
 import time
 import timeit
 
 from hyperopt import base, fmin, Trials
-from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
+from hyperopt.base import validate_timeout
+from hyperopt.utils
 
 try:
     from pyspark.sql import SparkSession
@@ -72,15 +72,7 @@ class SparkTrials(Trials):
                 "SparkTrials cannot import pyspark classes.  Make sure that PySpark "
                 "is available in your environment.  E.g., try running 'import pyspark'"
             )
-        if timeout is not None and (
-            not isinstance(timeout, numbers.Number)
-            or timeout <= 0
-            or isinstance(timeout, bool)
-        ):
-            raise Exception(
-                "The timeout argument should be None or a positive value. "
-                "Given value: {timeout}".format(timeout=timeout)
-            )
+        validate_timeout(timeout)
         self._spark = (
             SparkSession.builder.getOrCreate()
             if spark_session is None
@@ -198,6 +190,7 @@ class SparkTrials(Trials):
         space,
         algo,
         max_evals,
+        timeout,
         max_queue_len,
         rstate,
         verbose,
@@ -210,6 +203,9 @@ class SparkTrials(Trials):
         This should not be called directly but is called via :func:`hyperopt.fmin`
         Refer to :func:`hyperopt.fmin` for docs on each argument
         """
+
+        validate_timeout(timeout)
+        self.timeout = timeout
 
         assert (
             not pass_expr_memo_ctrl
@@ -229,6 +225,7 @@ class SparkTrials(Trials):
                 space,
                 algo,
                 max_evals,
+                timeout=timeout,
                 max_queue_len=max_queue_len,
                 trials=self,
                 allow_trials_fmin=False,  # -- prevent recursion

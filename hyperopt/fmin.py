@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 import numpy as np
 
+from hyperopt.base import validate_timeout
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
@@ -445,6 +446,8 @@ def fmin(
             rstate = np.random.RandomState(int(env_rseed))
         else:
             rstate = np.random.RandomState()
+
+    validate_timeout(timeout)
 
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
