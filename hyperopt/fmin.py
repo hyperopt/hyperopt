@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 import time
-import timeit
+from timeit import default_timer as timer
 from tqdm import tqdm
 
 import numpy as np
@@ -240,7 +240,7 @@ class FMinIter(object):
 
             all_trials_complete = False
             while (n_queued < N or (block_until_done and not all_trials_complete)) and \
-                    (self.timeout is None or (timeit.default_timer() - self.start_time) < self.timeout):
+                    (self.timeout is None or (timer() - self.start_time) < self.timeout):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
