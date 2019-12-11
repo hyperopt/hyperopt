@@ -22,6 +22,8 @@ The design is that there are three components fitting together in this project:
 """
 from __future__ import print_function
 from __future__ import absolute_import
+
+import numbers
 from builtins import str
 from builtins import map
 from builtins import zip
@@ -37,15 +39,21 @@ import numpy as np
 try:
     import bson  # -- comes with pymongo
     from bson.objectid import ObjectId
+
     have_bson = True
 except ImportError:
     have_bson = False
 
-from . import pyll
+from . import pyll, progress
 from .pyll.stochastic import recursive_set_rng_kwarg
 
-from .exceptions import (DuplicateLabel, InvalidTrial, InvalidResultStatus,
-                         InvalidLoss, AllTrialsFailed)
+from .exceptions import (
+    DuplicateLabel,
+    InvalidTrial,
+    InvalidResultStatus,
+    InvalidLoss,
+    AllTrialsFailed,
+)
 from .utils import pmin_sampled
 from .utils import use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
@@ -62,17 +70,18 @@ logger = logging.getLogger(__name__)
 #    one of these values. They are used by optimization routines
 #    and plotting functions.
 
-STATUS_NEW = 'new'
-STATUS_RUNNING = 'running'
-STATUS_SUSPENDED = 'suspended'
-STATUS_OK = 'ok'
-STATUS_FAIL = 'fail'
+STATUS_NEW = "new"
+STATUS_RUNNING = "running"
+STATUS_SUSPENDED = "suspended"
+STATUS_OK = "ok"
+STATUS_FAIL = "fail"
 STATUS_STRINGS = (
-    'new',        # computations have not started
-    'running',    # computations are in prog
-    'suspended',  # computations have been suspended, job is not finished
-    'ok',         # computations are finished, terminated normally
-    'fail')       # computations are finished, terminated with error
+    "new",  # computations have not started
+    "running",  # computations are in prog
+    "suspended",  # computations have been suspended, job is not finished
+    "ok",  # computations are finished, terminated normally
+    "fail",
+)  # computations are finished, terminated with error
 #   - result['status_fail'] should contain more info
 
 
@@ -92,29 +101,24 @@ JOB_STATES = [
     JOB_STATE_RUNNING,
     JOB_STATE_DONE,
     JOB_STATE_ERROR,
-    JOB_STATE_CANCEL]
-JOB_VALID_STATES = {
-    JOB_STATE_NEW,
-    JOB_STATE_RUNNING,
-    JOB_STATE_DONE}
+    JOB_STATE_CANCEL,
+]
+JOB_VALID_STATES = {JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE}
 
 
 TRIAL_KEYS = [
-    'tid',
-    'spec',
-    'result',
-    'misc',
-    'state',
-    'owner',
-    'book_time',
-    'refresh_time',
-    'exp_key']
+    "tid",
+    "spec",
+    "result",
+    "misc",
+    "state",
+    "owner",
+    "book_time",
+    "refresh_time",
+    "exp_key",
+]
 
-TRIAL_MISC_KEYS = [
-    'tid',
-    'cmd',
-    'idxs',
-    'vals']
+TRIAL_MISC_KEYS = ["tid", "cmd", "idxs", "vals"]
 
 
 def _all_same(*args):
@@ -142,7 +146,8 @@ def SONify(arg, memo=None):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
             rval = dict(
-                [(SONify(k, memo), SONify(v, memo)) for k, v in list(arg.items())])
+                [(SONify(k, memo), SONify(v, memo)) for k, v in list(arg.items())]
+            )
         elif isinstance(arg, (basestring, float, int, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
@@ -151,11 +156,11 @@ def SONify(arg, memo=None):
             else:
                 rval = list(map(SONify, arg))  # N.B. memo None
         # -- put this after ndarray because ndarray not hashable
-        elif arg in (True, False):
+        elif isinstance(arg, bool):
             rval = int(arg)
         else:
             add_arg_to_raise = False
-            raise TypeError('SONify', arg)
+            raise TypeError("SONify", arg)
     except Exception as e:
         if add_arg_to_raise:
             e.args = e.args + (arg,)
@@ -164,9 +169,7 @@ def SONify(arg, memo=None):
     return rval
 
 
-def miscs_update_idxs_vals(miscs, idxs, vals,
-                           assert_all_vals_used=True,
-                           idxs_map=None):
+def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_map=None):
     """
     Unpack the idxs-vals format into the list of dictionaries that is
     `misc`.
@@ -179,18 +182,18 @@ def miscs_update_idxs_vals(miscs, idxs, vals,
 
     assert set(idxs.keys()) == set(vals.keys())
 
-    misc_by_id = dict([(m['tid'], m) for m in miscs])
+    misc_by_id = dict([(m["tid"], m) for m in miscs])
     for m in miscs:
-        m['idxs'] = dict([(key, []) for key in idxs])
-        m['vals'] = dict([(key, []) for key in idxs])
+        m["idxs"] = dict([(key, []) for key in idxs])
+        m["vals"] = dict([(key, []) for key in idxs])
 
     for key in idxs:
         assert len(idxs[key]) == len(vals[key])
         for tid, val in zip(idxs[key], vals[key]):
             tid = idxs_map.get(tid, tid)
             if assert_all_vals_used or tid in misc_by_id:
-                misc_by_id[tid]['idxs'][key] = [tid]
-                misc_by_id[tid]['vals'][key] = [val]
+                misc_by_id[tid]["idxs"][key] = [tid]
+                misc_by_id[tid]["vals"][key] = [val]
 
     return miscs
 
@@ -198,16 +201,16 @@ def miscs_update_idxs_vals(miscs, idxs, vals,
 def miscs_to_idxs_vals(miscs, keys=None):
     if keys is None:
         if len(miscs) == 0:
-            raise ValueError('cannot infer keys from empty miscs')
-        keys = list(miscs[0]['idxs'].keys())
+            raise ValueError("cannot infer keys from empty miscs")
+        keys = list(miscs[0]["idxs"].keys())
     idxs = dict([(k, []) for k in keys])
     vals = dict([(k, []) for k in keys])
     for misc in miscs:
         for node_id in idxs:
-            t_idxs = misc['idxs'][node_id]
-            t_vals = misc['vals'][node_id]
+            t_idxs = misc["idxs"][node_id]
+            t_vals = misc["vals"][node_id]
             assert len(t_idxs) == len(t_vals)
-            assert t_idxs == [] or t_idxs == [misc['tid']]
+            assert t_idxs == [] or t_idxs == [misc["tid"]]
             idxs[node_id].extend(t_idxs)
             vals[node_id].extend(t_vals)
     return idxs, vals
@@ -215,14 +218,26 @@ def miscs_to_idxs_vals(miscs, keys=None):
 
 def spec_from_misc(misc):
     spec = {}
-    for k, v in list(misc['vals'].items()):
+    for k, v in list(misc["vals"].items()):
         if len(v) == 0:
             pass
         elif len(v) == 1:
             spec[k] = v[0]
         else:
-            raise NotImplementedError('multiple values', (k, v))
+            raise NotImplementedError("multiple values", (k, v))
     return spec
+
+
+def validate_timeout(timeout):
+    if timeout is not None and (
+            not isinstance(timeout, numbers.Number)
+            or timeout <= 0
+            or isinstance(timeout, bool)
+    ):
+        raise Exception(
+            "The timeout argument should be None or a positive value. "
+            "Given value: {timeout}".format(timeout=timeout)
+        )
 
 
 class Trials(object):
@@ -290,7 +305,7 @@ class Trials(object):
         return rval
 
     def aname(self, trial, name):
-        return 'ATTACH::%s::%s' % (trial['tid'], name)
+        return "ATTACH::%s::%s" % (trial["tid"], name)
 
     def trial_attachments(self, trial):
         """
@@ -302,7 +317,6 @@ class Trials(object):
 
         # don't offer more here than in MongoCtrl
         class Attachments(object):
-
             def __contains__(_self, name):
                 return self.aname(trial, name) in self.attachments
 
@@ -334,19 +348,21 @@ class Trials(object):
     def __getitem__(self, item):
         # -- how to make it obvious whether indexing is by _trials position
         #    or by tid if both are integers?
-        raise NotImplementedError('')
+        raise NotImplementedError("")
 
     def refresh(self):
         # In MongoTrials, this method fetches from database
         if self._exp_key is None:
             self._trials = [
-                tt for tt in self._dynamic_trials
-                if tt['state'] in JOB_VALID_STATES]
+                tt for tt in self._dynamic_trials if tt["state"] in JOB_VALID_STATES
+            ]
         else:
-            self._trials = [tt
-                            for tt in self._dynamic_trials
-                            if (tt['state'] in JOB_VALID_STATES and tt['exp_key'] == self._exp_key)]
-        self._ids.update([tt['tid'] for tt in self._trials])
+            self._trials = [
+                tt
+                for tt in self._dynamic_trials
+                if (tt["state"] in JOB_VALID_STATES and tt["exp_key"] == self._exp_key)
+            ]
+        self._ids.update([tt["tid"] for tt in self._trials])
 
     @property
     def trials(self):
@@ -354,19 +370,19 @@ class Trials(object):
 
     @property
     def tids(self):
-        return [tt['tid'] for tt in self._trials]
+        return [tt["tid"] for tt in self._trials]
 
     @property
     def specs(self):
-        return [tt['spec'] for tt in self._trials]
+        return [tt["spec"] for tt in self._trials]
 
     @property
     def results(self):
-        return [tt['result'] for tt in self._trials]
+        return [tt["result"] for tt in self._trials]
 
     @property
     def miscs(self):
-        return [tt['misc'] for tt in self._trials]
+        return [tt["misc"] for tt in self._trials]
 
     @property
     def idxs_vals(self):
@@ -381,18 +397,16 @@ class Trials(object):
         return self.idxs_vals[1]
 
     def assert_valid_trial(self, trial):
-        if not (hasattr(trial, 'keys') and hasattr(trial, 'values')):
-            raise InvalidTrial('trial should be dict-like', trial)
+        if not (hasattr(trial, "keys") and hasattr(trial, "values")):
+            raise InvalidTrial("trial should be dict-like", trial)
         for key in TRIAL_KEYS:
             if key not in trial:
-                raise InvalidTrial('trial missing key %s', key)
+                raise InvalidTrial("trial missing key %s", key)
         for key in TRIAL_MISC_KEYS:
-            if key not in trial['misc']:
+            if key not in trial["misc"]:
                 raise InvalidTrial('trial["misc"] missing key', key)
-        if trial['tid'] != trial['misc']['tid']:
-            raise InvalidTrial(
-                'tid mismatch between root and misc',
-                trial)
+        if trial["tid"] != trial["misc"]["tid"]:
+            raise InvalidTrial("tid mismatch between root and misc", trial)
         # -- check for SON-encodable
         if have_bson:
             try:
@@ -400,20 +414,19 @@ class Trials(object):
             except:
                 # TODO: save the trial object somewhere to inspect, fix, re-insert
                 #       so that precious data is not simply deallocated and lost.
-                print('-' * 80)
+                print("-" * 80)
                 print("CANT ENCODE")
-                print('-' * 80)
+                print("-" * 80)
                 raise
-        if trial['exp_key'] != self._exp_key:
-            raise InvalidTrial('wrong exp_key',
-                               (trial['exp_key'], self._exp_key))
+        if trial["exp_key"] != self._exp_key:
+            raise InvalidTrial("wrong exp_key", (trial["exp_key"], self._exp_key))
         # XXX how to assert that tids are unique?
         return trial
 
     def _insert_trial_docs(self, docs):
         """insert with no error checking
         """
-        rval = [doc['tid'] for doc in docs]
+        rval = [doc["tid"] for doc in docs]
         self._dynamic_trials.extend(docs)
         return rval
 
@@ -431,8 +444,7 @@ class Trials(object):
     def insert_trial_docs(self, docs):
         """ trials - something like is returned by self.new_trial_docs()
         """
-        docs = [self.assert_valid_trial(SONify(doc))
-                for doc in docs]
+        docs = [self.assert_valid_trial(SONify(doc)) for doc in docs]
         return self._insert_trial_docs(docs)
 
     def new_trial_ids(self, N):
@@ -446,41 +458,39 @@ class Trials(object):
         rval = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
             doc = dict(
-                state=JOB_STATE_NEW,
-                tid=tid,
-                spec=spec,
-                result=result,
-                misc=misc)
-            doc['exp_key'] = self._exp_key
-            doc['owner'] = None
-            doc['version'] = 0
-            doc['book_time'] = None
-            doc['refresh_time'] = None
+                state=JOB_STATE_NEW, tid=tid, spec=spec, result=result, misc=misc
+            )
+            doc["exp_key"] = self._exp_key
+            doc["owner"] = None
+            doc["version"] = 0
+            doc["book_time"] = None
+            doc["refresh_time"] = None
             rval.append(doc)
         return rval
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
         assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))
         rval = []
-        for tid, spec, result, misc, source in zip(tids, specs, results, miscs,
-                                                   sources):
+        for tid, spec, result, misc, source in zip(
+            tids, specs, results, miscs, sources
+        ):
             doc = dict(
                 version=0,
                 tid=tid,
                 spec=spec,
                 result=result,
                 misc=misc,
-                state=source['state'],
-                exp_key=source['exp_key'],
-                owner=source['owner'],
-                book_time=source['book_time'],
-                refresh_time=source['refresh_time'],
+                state=source["state"],
+                exp_key=source["exp_key"],
+                owner=source["owner"],
+                book_time=source["book_time"],
+                refresh_time=source["refresh_time"],
             )
             # -- ensure that misc has the following fields,
             #    some of which may already by set correctly.
-            assign = ('tid', tid), ('cmd', None), ('from_tid', source['tid'])
+            assign = ("tid", tid), ("cmd", None), ("from_tid", source["tid"])
             for k, v in assign:
-                assert doc['misc'].setdefault(k, v) == v
+                assert doc["misc"].setdefault(k, v) == v
             rval.append(doc)
         return rval
 
@@ -496,11 +506,11 @@ class Trials(object):
         if trials is None:
             trials = self._trials
         if arg in JOB_STATES:
-            queue = [doc for doc in trials if doc['state'] == arg]
-        elif hasattr(arg, '__iter__'):
+            queue = [doc for doc in trials if doc["state"] == arg]
+        elif hasattr(arg, "__iter__"):
             states = set(arg)
             assert all([x in JOB_STATES for x in states])
-            queue = [doc for doc in trials if doc['state'] in states]
+            queue = [doc for doc in trials if doc["state"] in states]
         else:
             raise TypeError(arg)
         rval = len(queue)
@@ -512,22 +522,22 @@ class Trials(object):
         called refresh() first.
         """
         if self._exp_key is not None:
-            exp_trials = [tt
-                          for tt in self._dynamic_trials
-                          if tt['exp_key'] == self._exp_key]
+            exp_trials = [
+                tt for tt in self._dynamic_trials if tt["exp_key"] == self._exp_key
+            ]
         else:
             exp_trials = self._dynamic_trials
         return self.count_by_state_synced(arg, trials=exp_trials)
 
     def losses(self, bandit=None):
         if bandit is None:
-            return [r.get('loss') for r in self.results]
+            return [r.get("loss") for r in self.results]
         else:
             return list(map(bandit.loss, self.results, self.specs))
 
     def statuses(self, bandit=None):
         if bandit is None:
-            return [r.get('status') for r in self.results]
+            return [r.get("status") for r in self.results]
         else:
             return list(map(bandit.status, self.results, self.specs))
 
@@ -543,27 +553,35 @@ class Trials(object):
 
         if bandit is None:
             results = self.results
-            loss = [r['loss']
-                    for r in results if r['status'] == STATUS_OK]
-            loss_v = [r.get('loss_variance', 0)
-                      for r in results if r['status'] == STATUS_OK]
-            true_loss = [r.get('true_loss', r['loss'])
-                         for r in results if r['status'] == STATUS_OK]
+            loss = [r["loss"] for r in results if r["status"] == STATUS_OK]
+            loss_v = [
+                r.get("loss_variance", 0) for r in results if r["status"] == STATUS_OK
+            ]
+            true_loss = [
+                r.get("true_loss", r["loss"])
+                for r in results
+                if r["status"] == STATUS_OK
+            ]
         else:
+
             def fmap(f):
-                rval = np.asarray([
-                    f(r, s)
-                    for (r, s) in zip(self.results, self.specs)
-                    if bandit.status(r) == STATUS_OK]).astype('float')
+                rval = np.asarray(
+                    [
+                        f(r, s)
+                        for (r, s) in zip(self.results, self.specs)
+                        if bandit.status(r) == STATUS_OK
+                    ]
+                ).astype("float")
                 if not np.all(np.isfinite(rval)):
                     raise ValueError()
                 return rval
+
             loss = fmap(bandit.loss)
             loss_v = fmap(bandit.loss_variance)
             true_loss = fmap(bandit.true_loss)
         loss3 = list(zip(loss, loss_v, true_loss))
         if not loss3:
-            raise ValueError('Empty loss vector')
+            raise ValueError("Empty loss vector")
         loss3.sort()
         loss3 = np.asarray(loss3)
         if np.all(loss3[:, 1] == 0):
@@ -572,8 +590,7 @@ class Trials(object):
         else:
             cutoff = 0
             sigma = np.sqrt(loss3[0][1])
-            while (cutoff < len(loss3) and
-                   loss3[cutoff][0] < loss3[0][0] + 3 * sigma):
+            while cutoff < len(loss3) and loss3[cutoff][0] < loss3[0][0] + 3 * sigma:
                 cutoff += 1
             pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
             avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
@@ -585,11 +602,14 @@ class Trials(object):
         Trial with lowest non-NaN loss and status=STATUS_OK.
         If no such trial exists, returns None.
         """
-        candidates = [t for t in self.trials
-                      if t['result']['status'] == STATUS_OK and not np.isnan(t['result']['loss'])]
+        candidates = [
+            t
+            for t in self.trials
+            if t["result"]["status"] == STATUS_OK and not np.isnan(t["result"]["loss"])
+        ]
         if not candidates:
             raise AllTrialsFailed
-        losses = [float(t['result']['loss']) for t in candidates]
+        losses = [float(t["result"]["loss"]) for t in candidates]
         if len(losses) == 0:
             return None
         best = np.argmin(losses)
@@ -598,7 +618,7 @@ class Trials(object):
     @property
     def argmin(self):
         best_trial = self.best_trial
-        vals = best_trial['misc']['vals']
+        vals = best_trial["misc"]["vals"]
         # unpack the one-element lists to values
         # and skip over the 0-element lists
         rval = {}
@@ -607,16 +627,21 @@ class Trials(object):
                 rval[k] = v[0]
         return rval
 
-    def fmin(self, fn, space, algo, max_evals,
-             max_time=np.inf,
-             max_queue_len=1,
-             rstate=None,
-             verbose=0,
-             pass_expr_memo_ctrl=None,
-             catch_eval_exceptions=False,
-             return_argmin=True,
-             show_progressbar=True,
-             ):
+    def fmin(
+        self,
+        fn,
+        space,
+        algo,
+        max_evals,
+        timeout=None,
+        max_queue_len=1,
+        rstate=None,
+        verbose=0,
+        pass_expr_memo_ctrl=None,
+        catch_eval_exceptions=False,
+        return_argmin=True,
+        show_progressbar=True,
+    ):
         """Minimize a function over a hyperparameter space.
 
         For most parameters, see `hyperopt.fmin.fmin`.
@@ -631,17 +656,21 @@ class Trials(object):
             error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
             will not be caught, and so they will propagate to calling code.
 
-        show_progressbar : bool, default True
-            Show a progressbar.
+        show_progressbar : bool or context manager, default True.
+            Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
         """
         # -- Stop-gap implementation!
         #    fmin should have been a Trials method in the first place
         #    but for now it's still sitting in another file.
         from .fmin import fmin
+
         return fmin(
-            fn, space, algo, max_evals,
-            max_time=max_time,
+            fn,
+            space,
+            algo,
+            max_evals,
+            timeout=timeout,
             trials=self,
             rstate=rstate,
             verbose=verbose,
@@ -650,7 +679,8 @@ class Trials(object):
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
             catch_eval_exceptions=catch_eval_exceptions,
             return_argmin=return_argmin,
-            show_progressbar=show_progressbar)
+            show_progressbar=show_progressbar,
+        )
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
@@ -668,8 +698,9 @@ def trials_from_docs(docs, validate=True, **kwargs):
 class Ctrl(object):
     """Control object for interruptible, checkpoint-able evaluation
     """
+
     info = logger.info
-    warn = logger.warn
+    warn = logger.warning
     error = logger.error
     debug = logger.debug
 
@@ -688,7 +719,7 @@ class Ctrl(object):
     def checkpoint(self, r=None):
         assert self.current_trial in self.trials._trials
         if r is not None:
-            self.current_trial['result'] = r
+            self.current_trial["result"] = r
 
     @property
     def attachments(self):
@@ -713,13 +744,11 @@ class Ctrl(object):
         assert len(specs) == len(results) == len(miscs)
         if new_tids is None:
             new_tids = self.trials.new_trial_ids(num_news)
-        new_trials = self.trials.source_trial_docs(tids=new_tids,
-                                                   specs=specs,
-                                                   results=results,
-                                                   miscs=miscs,
-                                                   sources=[trial])
+        new_trials = self.trials.source_trial_docs(
+            tids=new_tids, specs=specs, results=results, miscs=miscs, sources=[trial]
+        )
         for t in new_trials:
-            t['state'] = JOB_STATE_DONE
+            t["state"] = JOB_STATE_DONE
         return self.trials.insert_trial_docs(new_trials)
 
 
@@ -727,6 +756,7 @@ class Domain(object):
     """Picklable representation of search space and evaluation function.
 
     """
+
     rec_eval_print_node_on_error = False
 
     # -- the Ctrl object is not used directly, but rather
@@ -735,12 +765,15 @@ class Domain(object):
     #    the pyll graph describing the search space.
     pyll_ctrl = pyll.as_apply(Ctrl)
 
-    def __init__(self, fn, expr,
-                 workdir=None,
-                 pass_expr_memo_ctrl=None,
-                 name=None,
-                 loss_target=None,
-                 ):
+    def __init__(
+        self,
+        fn,
+        expr,
+        workdir=None,
+        pass_expr_memo_ctrl=None,
+        name=None,
+        loss_target=None,
+    ):
         """
         Paramaters
         ----------
@@ -778,9 +811,7 @@ class Domain(object):
         """
         self.fn = fn
         if pass_expr_memo_ctrl is None:
-            self.pass_expr_memo_ctrl = getattr(fn,
-                                               'fmin_pass_expr_memo_ctrl',
-                                               False)
+            self.pass_expr_memo_ctrl = getattr(fn, "fmin_pass_expr_memo_ctrl", False)
         else:
             self.pass_expr_memo_ctrl = pass_expr_memo_ctrl
 
@@ -788,17 +819,17 @@ class Domain(object):
 
         self.params = {}
         for node in pyll.dfs(self.expr):
-            if node.name == 'hyperopt_param':
-                label = node.arg['label'].obj
+            if node.name == "hyperopt_param":
+                label = node.arg["label"].obj
                 if label in self.params:
                     raise DuplicateLabel(label)
-                self.params[label] = node.arg['obj']
+                self.params[label] = node.arg["obj"]
 
         self.loss_target = loss_target
         self.name = name
 
         self.workdir = workdir
-        self.s_new_ids = pyll.Literal('new_ids')  # -- list at eval-time
+        self.s_new_ids = pyll.Literal("new_ids")  # -- list at eval-time
         before = pyll.dfs(self.expr)
         # -- raises exception if expr contains cycles
         pyll.toposort(self.expr)
@@ -814,11 +845,11 @@ class Domain(object):
         assert set(idxs_by_label.keys()) == set(vals_by_label.keys())
         assert set(idxs_by_label.keys()) == set(self.params.keys())
 
-        self.s_rng = pyll.Literal('rng-placeholder')
+        self.s_rng = pyll.Literal("rng-placeholder")
         # -- N.B. operates inplace:
         self.s_idxs_vals = recursive_set_rng_kwarg(
-            pyll.scope.pos_args(idxs_by_label, vals_by_label),
-            self.s_rng)
+            pyll.scope.pos_args(idxs_by_label, vals_by_label), self.s_rng
+        )
 
         # -- raises an exception if no topological ordering exists
         pyll.toposort(self.s_idxs_vals)
@@ -828,13 +859,13 @@ class Domain(object):
         #    should be [un]serialized.
         #    XXX This mechanism deserves review as support for ipython
         #        workers improves.
-        self.cmd = ('domain_attachment', 'FMinIter_Domain')
+        self.cmd = ("domain_attachment", "FMinIter_Domain")
 
     def memo_from_config(self, config):
         memo = {}
         for node in pyll.dfs(self.expr):
-            if node.name == 'hyperopt_param':
-                label = node.arg['label'].obj
+            if node.name == "hyperopt_param":
+                label = node.arg["label"].obj
                 # -- hack because it's not really garbagecollected
                 #    this does have the desired effect of crashing the
                 #    function if rec_eval actually needs a value that
@@ -854,26 +885,27 @@ class Domain(object):
             pyll_rval = pyll.rec_eval(
                 self.expr,
                 memo=memo,
-                print_node_on_error=self.rec_eval_print_node_on_error)
+                print_node_on_error=self.rec_eval_print_node_on_error,
+            )
             rval = self.fn(pyll_rval)
 
         if isinstance(rval, (float, int, np.number)):
-            dict_rval = {'loss': float(rval), 'status': STATUS_OK}
+            dict_rval = {"loss": float(rval), "status": STATUS_OK}
         else:
             dict_rval = dict(rval)
-            status = dict_rval['status']
+            status = dict_rval["status"]
             if status not in STATUS_STRINGS:
                 raise InvalidResultStatus(dict_rval)
 
             if status == STATUS_OK:
                 # -- make sure that the loss is present and valid
                 try:
-                    dict_rval['loss'] = float(dict_rval['loss'])
+                    dict_rval["loss"] = float(dict_rval["loss"])
                 except (TypeError, KeyError):
                     raise InvalidLoss(dict_rval)
 
         if attach_attachments:
-            attachments = dict_rval.pop('attachments', {})
+            attachments = dict_rval.pop("attachments", {})
             for key, val in list(attachments.items()):
                 ctrl.attachments[key] = val
 
@@ -882,13 +914,13 @@ class Domain(object):
         #    anything.
         return dict_rval
 
-    def evaluate_async(self, config, ctrl, attach_attachments=True,):
-        '''
+    def evaluate_async(self, config, ctrl, attach_attachments=True):
+        """
         this is the first part of async evaluation for ipython parallel engines (see ipy.py)
 
         This breaks evaluate into two parts to allow for the apply_async call
         to only pass the objective function and arguments.
-        '''
+        """
         memo = self.memo_from_config(config)
         use_obj_for_literal_in_memo(self.expr, ctrl, Ctrl, memo)
         if self.pass_expr_memo_ctrl:
@@ -900,30 +932,31 @@ class Domain(object):
             pyll_rval = pyll.rec_eval(
                 self.expr,
                 memo=memo,
-                print_node_on_error=self.rec_eval_print_node_on_error)
+                print_node_on_error=self.rec_eval_print_node_on_error,
+            )
             return (self.fn, pyll_rval)
 
     def evaluate_async2(self, rval, ctrl, attach_attachments=True):
-        '''
+        """
         this is the second part of async evaluation for ipython parallel engines (see ipy.py)
-        '''
+        """
         if isinstance(rval, (float, int, np.number)):
-            dict_rval = {'loss': float(rval), 'status': STATUS_OK}
+            dict_rval = {"loss": float(rval), "status": STATUS_OK}
         else:
             dict_rval = dict(rval)
-            status = dict_rval['status']
+            status = dict_rval["status"]
             if status not in STATUS_STRINGS:
                 raise InvalidResultStatus(dict_rval)
 
             if status == STATUS_OK:
                 # -- make sure that the loss is present and valid
                 try:
-                    dict_rval['loss'] = float(dict_rval['loss'])
+                    dict_rval["loss"] = float(dict_rval["loss"])
                 except (TypeError, KeyError):
                     raise InvalidLoss(dict_rval)
 
         if attach_attachments:
-            attachments = dict_rval.pop('attachments', {})
+            attachments = dict_rval.pop("attachments", {})
             for key, val in list(attachments.items()):
                 ctrl.attachments[key] = val
 
@@ -933,22 +966,22 @@ class Domain(object):
         return dict_rval
 
     def short_str(self):
-        return 'Domain{%s}' % str(self.fn)
+        return "Domain{%s}" % str(self.fn)
 
     def loss(self, result, config=None):
         """Extract the scalar-valued loss from a result document
         """
-        return result.get('loss', None)
+        return result.get("loss", None)
 
     def loss_variance(self, result, config=None):
         """Return the variance in the estimate of the loss"""
-        return result.get('loss_variance', 0.0)
+        return result.get("loss_variance", 0.0)
 
     def true_loss(self, result, config=None):
         """Return a true loss, in the case that the `loss` is a surrogate"""
         # N.B. don't use get() here, it evaluates self.loss un-necessarily
         try:
-            return result['true_loss']
+            return result["true_loss"]
         except KeyError:
             return self.loss(result, config=config)
 
@@ -961,13 +994,13 @@ class Domain(object):
     def status(self, result, config=None):
         """Extract the job status from a result document
         """
-        return result['status']
+        return result["status"]
 
     def new_result(self):
         """Return a JSON-encodable object
         to serve as the 'result' for new jobs.
         """
-        return {'status': STATUS_NEW}
+        return {"status": STATUS_NEW}
 
 
 # -- flake8 doesn't like blank last line

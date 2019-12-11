@@ -28,14 +28,15 @@ one_of = scope.one_of
 def ok_trial(tid, *args, **kwargs):
     return dict(
         tid=tid,
-        result={'status': 'algo, ok'},
-        spec={'a': 1, 'foo': (args, kwargs)},
+        result={"status": "algo, ok"},
+        spec={"a": 1, "foo": (args, kwargs)},
         misc={
-            'tid': tid,
-            'cmd': ("some cmd",),
-            'idxs': {'z': [tid]},
-            'vals': {'z': [1]}},
-        extra='extra',  # -- more stuff here is ok
+            "tid": tid,
+            "cmd": ("some cmd",),
+            "idxs": {"z": [tid]},
+            "vals": {"z": [1]},
+        },
+        extra="extra",  # -- more stuff here is ok
         owner=None,
         state=JOB_STATE_NEW,
         version=0,
@@ -48,14 +49,17 @@ def ok_trial(tid, *args, **kwargs):
 def create_fake_trial(tid, loss=None, status=STATUS_OK, state=JOB_STATE_DONE):
     return dict(
         tid=tid,
-        result={'status': status, 'loss': loss} if loss is not None else {'status': status},
-        spec={'a': 1},
+        result={"status": status, "loss": loss}
+        if loss is not None
+        else {"status": status},
+        spec={"a": 1},
         misc={
-            'tid': tid,
-            'cmd': ("some cmd",),
-            'idxs': {'z': [tid]},
-            'vals': {'z': [1]}},
-        extra='extra',  # -- more stuff here is ok
+            "tid": tid,
+            "cmd": ("some cmd",),
+            "idxs": {"z": [tid]},
+            "vals": {"z": [1]},
+        },
+        extra="extra",  # -- more stuff here is ok
         owner=None,
         state=state,
         version=0,
@@ -79,13 +83,13 @@ class Suggest_API(object):
     @classmethod
     def make_tst_class(cls, suggest, domain, name):
         class Tester(unittest.TestCase, cls):
-
             def suggest(self, *args, **kwargs):
                 print(args, kwargs)
                 return suggest(*args, **kwargs)
 
             def setUp(self):
                 self.domain = domain
+
         Tester.__name__ = name
         return Tester
 
@@ -101,8 +105,8 @@ class Suggest_API(object):
         # -- suggest implementations should work for arbitrary ID
         #    values (possibly assuming they are hashable), and the
         #    ID values should have no effect on the return values.
-        ids_1 = [-2, 0, 7, 'a', '007', 66, 'a3', '899', 23, 2333]
-        ids_2 = ['a', 'b', 'c', 'd', 1, 2, 3, 0.1, 0.2, 0.3]
+        ids_1 = [-2, 0, 7, "a", "007", 66, "a3", "899", 23, 2333]
+        ids_2 = ["a", "b", "c", "d", 1, 2, 3, 0.1, 0.2, 0.3]
         idxs_1, vals_1 = self.idxs_vals_from_ids(ids=ids_1, seed=45)
         idxs_2, vals_2 = self.idxs_vals_from_ids(ids=ids_2, seed=45)
         all_ids_1 = set()
@@ -133,14 +137,13 @@ class Suggest_API(object):
 
 
 class TestTrials(unittest.TestCase):
-
     def setUp(self):
         self.trials = Trials()
 
     def test_valid(self):
         trials = self.trials
         f = trials.insert_trial_doc
-        fine = ok_trial('ID', 1, 2, 3)
+        fine = ok_trial("ID", 1, 2, 3)
 
         # --original runs fine
         f(fine)
@@ -150,26 +153,27 @@ class TestTrials(unittest.TestCase):
             rval = copy.deepcopy(fine)
             del rval[key]
             return rval
+
         for key in TRIAL_KEYS:
             self.assertRaises(InvalidTrial, f, knockout(key))
 
         # -- take out each mandatory misc key
         def knockout2(key):
             rval = copy.deepcopy(fine)
-            del rval['misc'][key]
+            del rval["misc"][key]
             return rval
+
         for key in TRIAL_MISC_KEYS:
             self.assertRaises(InvalidTrial, f, knockout2(key))
 
     def test_insert_sync(self):
         trials = self.trials
         assert len(trials) == 0
-        trials.insert_trial_doc(ok_trial('a', 8))
+        trials.insert_trial_doc(ok_trial("a", 8))
         assert len(trials) == 0
         trials.insert_trial_doc(ok_trial(5, a=1, b=3))
         assert len(trials) == 0
-        trials.insert_trial_docs(
-            [ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
+        trials.insert_trial_docs([ok_trial(tid=4, a=2, b=3), ok_trial(tid=9, a=4, b=3)])
         assert len(trials) == 0
         trials.refresh()
 
@@ -180,11 +184,15 @@ class TestTrials(unittest.TestCase):
 
         trials.insert_trial_docs(
             trials.new_trial_docs(
-                ['id0', 'id1'],
+                ["id0", "id1"],
                 [dict(a=1), dict(a=2)],
-                [dict(status='new'), dict(status='new')],
-                [dict(tid='id0', idxs={}, vals={}, cmd=None),
-                 dict(tid='id1', idxs={}, vals={}, cmd=None)],))
+                [dict(status="new"), dict(status="new")],
+                [
+                    dict(tid="id0", idxs={}, vals={}, cmd=None),
+                    dict(tid="id1", idxs={}, vals={}, cmd=None),
+                ],
+            )
+        )
 
         assert len(trials) == 4
         assert len(trials) == len(trials.specs)
@@ -213,11 +221,10 @@ class TestTrials(unittest.TestCase):
         trials.refresh()
 
         best_trial = trials.best_trial
-        self.assertEquals(best_trial['tid'], 3)
+        self.assertEquals(best_trial["tid"], 3)
 
 
 class TestSONify(unittest.TestCase):
-
     def SONify(self, foo):
         rval = SONify(foo)
         assert bson.BSON.encode(dict(a=rval))
@@ -236,25 +243,20 @@ class TestSONify(unittest.TestCase):
         assert self.SONify(np.float(1.1)) == 1.1
 
     def test_np_1d_int(self):
-        assert np.all(self.SONify(np.asarray([1, 2, 3])) ==
-                      [1, 2, 3])
+        assert np.all(self.SONify(np.asarray([1, 2, 3])) == [1, 2, 3])
 
     def test_np_1d_float(self):
-        assert np.all(self.SONify(np.asarray([1, 2, 3.4])) ==
-                      [1, 2, 3.4])
+        assert np.all(self.SONify(np.asarray([1, 2, 3.4])) == [1, 2, 3.4])
 
     def test_np_1d_str(self):
-        assert np.all(self.SONify(np.asarray(['a', 'b', 'ccc'])) ==
-                      ['a', 'b', 'ccc'])
+        assert np.all(self.SONify(np.asarray(["a", "b", "ccc"])) == ["a", "b", "ccc"])
 
     def test_np_2d_int(self):
-        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]])) ==
-                      [[1, 2], [3, 4]])
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4]])) == [[1, 2], [3, 4]])
 
     def test_np_2d_float(self):
-        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) ==
-                      [[1, 2], [3, 4.5]])
+        assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) == [[1, 2], [3, 4.5]])
 
     def test_nested_w_bool(self):
-        thing = dict(a=1, b='2', c=True, d=False, e=np.int(3), f=[1])
+        thing = dict(a=1, b="2", c=True, d=False, e=np.int(3), f=[1])
         assert thing == SONify(thing)

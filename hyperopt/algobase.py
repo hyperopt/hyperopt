@@ -16,10 +16,7 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 
 class ExprEvaluator(object):
-    def __init__(self, expr,
-                 deepcopy_inputs=False,
-                 max_program_len=None,
-                 memo_gc=True):
+    def __init__(self, expr, deepcopy_inputs=False, max_program_len=None, memo_gc=True):
         """
         Parameters
         ----------
@@ -52,7 +49,7 @@ class ExprEvaluator(object):
             #    this error would have been appreciated.
             #
             # TODO: Good candidate for Py3K keyword-only argument
-            raise ValueError('deepcopy_inputs should be bool', deepcopy_inputs)
+            raise ValueError("deepcopy_inputs should be bool", deepcopy_inputs)
         self.deepcopy_inputs = deepcopy_inputs
         if max_program_len is None:
             self.max_program_len = pyll.base.DEFAULT_MAX_PROGRAM_LEN
@@ -82,7 +79,7 @@ class ExprEvaluator(object):
         todo = deque([self.expr])
         while todo:
             if len(todo) > self.max_program_len:
-                raise RuntimeError('Probably infinite loop in document')
+                raise RuntimeError("Probably infinite loop in document")
             node = todo.pop()
 
             if node in memo:
@@ -90,7 +87,7 @@ class ExprEvaluator(object):
                 continue
 
             # -- different kinds of nodes are treated differently:
-            if node.name == 'switch':
+            if node.name == "switch":
                 waiting_on = self.on_switch(memo, node)
                 if waiting_on is None:
                     continue
@@ -120,10 +117,9 @@ class ExprEvaluator(object):
                     #      dictionary all of the nodes are stored in the memo
                     #      so all keys are preserved until the entire outer
                     #      function returns
-                    evaluator = self.__class__(rval,
-                                               self.deep_copy_inputs,
-                                               self.max_program_len,
-                                               self.memo_gc)
+                    evaluator = self.__class__(
+                        rval, self.deep_copy_inputs, self.max_program_len, self.memo_gc
+                    )
                     foo = evaluator(memo)
                     self.set_in_memo(memo, node, foo)
                 else:
@@ -175,10 +171,9 @@ class ExprEvaluator(object):
             try:
                 int(switch_i)
             except:
-                raise TypeError('switch argument was', switch_i)
+                raise TypeError("switch argument was", switch_i)
             if switch_i != int(switch_i) or switch_i < 0:
-                raise ValueError('switch pos must be positive int',
-                                 switch_i)
+                raise ValueError("switch pos must be positive int", switch_i)
             rval_var = node.pos_args[switch_i + 1]
             if rval_var in memo:
                 self.set_in_memo(memo, node, memo[rval_var])
@@ -191,8 +186,7 @@ class ExprEvaluator(object):
     def on_node(self, memo, node):
         # -- Retrieve computed arguments of apply node
         args = _args = [memo[v] for v in node.pos_args]
-        kwargs = _kwargs = dict([(k, memo[v])
-                                 for (k, v) in node.named_args])
+        kwargs = _kwargs = dict([(k, memo[v]) for (k, v) in node.named_args])
 
         if self.memo_gc:
             # -- Ensure no computed argument has been (accidentally) freed for
@@ -222,31 +216,27 @@ class SuggestAlgo(ExprEvaluator):
     delegate that to an `on_node_hyperparameter` method. This method
     must be implemented by a derived class.
     """
+
     def __init__(self, domain, trials, seed):
         ExprEvaluator.__init__(self, domain.s_idxs_vals)
         self.domain = domain
         self.trials = trials
-        self.label_by_node = dict([
-            (n, l) for l, n in list(self.domain.vh.vals_by_label().items())])
+        self.label_by_node = dict(
+            [(n, l) for l, n in list(self.domain.vh.vals_by_label().items())]
+        )
         self._seed = seed
         self.rng = np.random.RandomState(seed)
 
     def __call__(self, new_id):
         self.rng.seed(self._seed + new_id)
         memo = self.eval_nodes(
-            memo={
-                self.domain.s_new_ids: [new_id],
-                self.domain.s_rng: self.rng,
-            })
+            memo={self.domain.s_new_ids: [new_id], self.domain.s_rng: self.rng}
+        )
         idxs, vals = memo[self.expr]
         new_result = self.domain.new_result()
-        new_misc = dict(
-            tid=new_id,
-            cmd=self.domain.cmd,
-            workdir=self.domain.workdir)
+        new_misc = dict(tid=new_id, cmd=self.domain.cmd, workdir=self.domain.workdir)
         miscs_update_idxs_vals([new_misc], idxs, vals)
-        rval = self.trials.new_trial_docs(
-            [new_id], [None], [new_result], [new_misc])
+        rval = self.trials.new_trial_docs([new_id], [None], [new_result], [new_misc])
         return rval
 
     def on_node(self, memo, node):
@@ -260,11 +250,10 @@ class SuggestAlgo(ExprEvaluator):
         new_ids = list(new_ids)
         self.rng.seed([self._seed] + new_ids)
         memo = self.eval_nodes(
-            memo={
-                self.domain.s_new_ids: new_ids,
-                self.domain.s_rng: self.rng,
-            })
+            memo={self.domain.s_new_ids: new_ids, self.domain.s_rng: self.rng}
+        )
         idxs, vals = memo[self.expr]
         return idxs, vals
+
 
 # -- flake-8 abhors blank line EOF

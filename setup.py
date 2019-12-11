@@ -35,7 +35,9 @@ if debug:
 
 
 def find_scripts():
-    return [s for s in setuptools.findall('scripts/') if os.path.splitext(s)[1] != '.pyc']
+    return [
+        s for s in setuptools.findall("scripts/") if os.path.splitext(s)[1] != ".pyc"
+    ]
 
 
 def package_to_path(package):
@@ -46,7 +48,7 @@ def package_to_path(package):
 
     No idea if this works on windows
     """
-    return package.replace('.', '/')
+    return package.replace(".", "/")
 
 
 def find_subdirectories(package):
@@ -68,9 +70,9 @@ def subdir_findall(dir, subdir):
     This is similar to (and uses) setuptools.findall
     However, the paths returned are in the form needed for package_data
     """
-    strip_n = len(dir.split('/'))
-    path = '/'.join((dir, subdir))
-    return ['/'.join(s.split('/')[strip_n:]) for s in setuptools.findall(path)]
+    strip_n = len(dir.split("/"))
+    path = "/".join((dir, subdir))
+    return ["/".join(s.split("/")[strip_n:]) for s in setuptools.findall(path)]
 
 
 def find_package_data(packages):
@@ -87,10 +89,10 @@ def find_package_data(packages):
     for package in packages:
         package_data[package] = []
         for subdir in find_subdirectories(package):
-            if '.'.join((package, subdir)) in packages:  # skip submodules
+            if ".".join((package, subdir)) in packages:  # skip submodules
                 logging.debug("skipping submodule %s/%s" % (package, subdir))
                 continue
-            if skip_tests and (subdir == 'tests'):  # skip tests
+            if skip_tests and (subdir == "tests"):  # skip tests
                 logging.debug("skipping tests %s/%s" % (package, subdir))
                 continue
             package_data[package] += subdir_findall(package_to_path(package), subdir)
@@ -113,45 +115,51 @@ if package_data is None:
 
 setuptools.setup(
     name=package_name,
-    version='0.2.1',
+    version="0.2.2",
     packages=packages,
-    entry_points={
-        'console_scripts': [
-            'hyperopt-mongo-worker=hyperopt.mongoexp:main'
-        ],
-    },
-    url='http://hyperopt.github.com/hyperopt/',
-    author='James Bergstra',
-    author_email='james.bergstra@gmail.com',
-    description='Distributed Asynchronous Hyperparameter Optimization',
-    long_description='',
+    entry_points={"console_scripts": ["hyperopt-mongo-worker=hyperopt.mongoexp:main"]},
+    url="http://hyperopt.github.com/hyperopt/",
+    author="James Bergstra",
+    author_email="james.bergstra@gmail.com",
+    description="Distributed Asynchronous Hyperparameter Optimization",
+    long_description="",
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Education',
-        'Intended Audience :: Science/Research',
-        'Intended Audience :: Developers',
-        'Environment :: Console',
-        'License :: OSI Approved :: BSD License',
-        'Operating System :: MacOS :: MacOS X',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX',
-        'Operating System :: Unix',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 3',
-        'Topic :: Scientific/Engineering',
-        'Topic :: Software Development',
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Education",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
+        "Environment :: Console",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX",
+        "Operating System :: Unix",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Software Development",
     ],
-    platforms=['Linux', 'OS-X', 'Windows'],
-    license='BSD',
-    keywords='Bayesian optimization hyperparameter model selection',
+    platforms=["Linux", "OS-X", "Windows"],
+    license="BSD",
+    keywords="Bayesian optimization hyperparameter model selection",
     package_data=package_data,
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'six', 'networkx==2.2', 'future', 'tqdm', 'cloudpickle', 'bson'],
+    install_requires=[
+        "numpy",
+        "scipy",
+        "six",
+        "networkx==2.2",
+        "future",
+        "tqdm",
+        "cloudpickle",
+    ],
     extras_require={
-        'SparkTrials':'pyspark', 
-        'MongoTrials': 'pymongo',
-        'ATPE': ['lightgbm', 'scikit-learn']},
-    tests_require=['nose'],
-    zip_safe=False
+        "SparkTrials": "pyspark",
+        "MongoTrials": "pymongo",
+        "ATPE": ["lightgbm", "scikit-learn"],
+        "dev": ["black", "pre-commit"]
+    },
+    tests_require=["nose"],
+    zip_safe=False,
 )

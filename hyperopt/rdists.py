@@ -18,30 +18,26 @@ class loguniform_gen(rv_continuous):
     """
 
     def __init__(self, low=0, high=1):
-        rv_continuous.__init__(self,
-                               a=np.exp(low),
-                               b=np.exp(high))
+        rv_continuous.__init__(self, a=np.exp(low), b=np.exp(high))
         self._low = low
         self._high = high
 
     def _rvs(self):
-        rval = np.exp(mtrand.uniform(
-            self._low,
-            self._high,
-            self._size))
+        rval = np.exp(mtrand.uniform(self._low, self._high, self._size))
         return rval
 
     def _pdf(self, x):
         return old_div(1.0, (x * (self._high - self._low)))
 
     def _logpdf(self, x):
-        return - np.log(x) - np.log(self._high - self._low)
+        return -np.log(x) - np.log(self._high - self._low)
 
     def _cdf(self, x):
         return old_div((np.log(x) - self._low), (self._high - self._low))
 
 
 from scipy.stats._continuous_distns import lognorm_gen as scipy_lognorm_gen
+
 
 class lognorm_gen(scipy_lognorm_gen):
     def __init__(self, mu, sigma):
@@ -51,9 +47,9 @@ class lognorm_gen(scipy_lognorm_gen):
 
         # I still don't understand what scipy stats objects are
         # doing re: this stuff
-        del self.__dict__['_parse_args']
-        del self.__dict__['_parse_args_stats']
-        del self.__dict__['_parse_args_rvs']
+        del self.__dict__["_parse_args"]
+        del self.__dict__["_parse_args_stats"]
+        del self.__dict__["_parse_args_rvs"]
 
     def _parse_args(self, *args, **kwds):
         assert not args, args
@@ -105,12 +101,12 @@ class quniform_gen(object):
             xs = [qlow]
             ps = [1.0]
         else:
-            lowmass = 1 - (old_div((low - qlow + .5 * q), q))
+            lowmass = 1 - (old_div((low - qlow + 0.5 * q), q))
             assert 0 <= lowmass <= 1.0, (lowmass, low, qlow, q)
-            highmass = old_div((high - qhigh + .5 * q), q)
+            highmass = old_div((high - qhigh + 0.5 * q), q)
             assert 0 <= highmass <= 1.0, (highmass, high, qhigh, q)
             # -- xs: qlow to qhigh inclusive
-            xs = np.arange(qlow, qhigh + .5 * q, q)
+            xs = np.arange(qlow, qhigh + 0.5 * q, q)
             ps = np.ones(len(xs))
             ps[0] = lowmass
             ps[-1] = highmass
@@ -140,6 +136,7 @@ class qloguniform_gen(quniform_gen):
     """ Stats for Y = q * round(e^X / q) where X ~ U(low, high).
 
     """
+
     # -- not inheriting from scipy.stats.rv_discrete
     #    because I don't understand the design of those rv classes
 
@@ -154,8 +151,9 @@ class qloguniform_gen(quniform_gen):
         lu = loguniform_gen(low=low, high=high)
 
         cut_low = np.exp(low)  # -- lowest possible pre-round value
-        cut_high = min(qlow + .5 * q,  # -- highest value that would ...
-                       ehigh)         # -- round to qlow
+        cut_high = min(
+            qlow + 0.5 * q, ehigh  # -- highest value that would ...
+        )  # -- round to qlow
         xs = [qlow]
         ps = [lu.cdf(cut_high)]
         ii = 0
@@ -218,7 +216,7 @@ class qnormal_gen(object):
         lbound = x_in_domain - self.q * 0.5
         # -- reflect intervals right of mu to other side
         #    for more accurate calculation
-        flip = (lbound > self.mu)
+        flip = lbound > self.mu
         tmp = lbound[flip].copy()
         lbound[flip] = self.mu - (ubound[flip] - self.mu)
         ubound[flip] = self.mu - (tmp - self.mu)
@@ -226,7 +224,7 @@ class qnormal_gen(object):
         assert np.all(ubound > lbound)
         a = self._norm_logcdf(ubound)
         b = self._norm_logcdf(lbound)
-        rval[in_domain] = a + np.log1p(- np.exp(b - a))
+        rval[in_domain] = a + np.log1p(-np.exp(b - a))
         if isinstance(x, np.ndarray):
             return rval
         else:
@@ -249,8 +247,10 @@ class qlognormal_gen(object):
         self._norm_cdf = scipy.stats.norm(loc=mu, scale=sigma).cdf
 
     def in_domain(self, x):
-        return np.logical_and((x >= 0),
-                              np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q))
+        return np.logical_and(
+            (x >= 0),
+            np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q),
+        )
 
     def pmf(self, x):
         x1 = np.atleast_1d(x)
@@ -259,7 +259,8 @@ class qlognormal_gen(object):
         rval = np.zeros_like(x1, dtype=np.float)
         rval_in_domain = self._norm_cdf(np.log(x1_in_domain + 0.5 * self.q))
         rval_in_domain[x1_in_domain != 0] -= self._norm_cdf(
-            np.log(x1_in_domain[x1_in_domain != 0] - 0.5 * self.q))
+            np.log(x1_in_domain[x1_in_domain != 0] - 0.5 * self.q)
+        )
         rval[in_domain] = rval_in_domain
         if isinstance(x, np.ndarray):
             return rval
@@ -284,10 +285,11 @@ class qlognormal_gen(object):
 
 def safe_int_cast(obj):
     if isinstance(obj, np.ndarray):
-        return obj.astype('int')
+        return obj.astype("int")
     elif isinstance(obj, list):
         return [int(i) for i in obj]
     else:
         return int(obj)
+
 
 # -- non-empty last line for flake8

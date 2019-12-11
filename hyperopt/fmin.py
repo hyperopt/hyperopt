@@ -9,14 +9,16 @@ import logging
 import os
 import sys
 import time
-import timeit
+from timeit import default_timer as timer
 from tqdm import tqdm
 
 import numpy as np
 
+from hyperopt.base import validate_timeout
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
+from . import progress
 from .std_out_err_redirect_tqdm import std_out_err_redirect_tqdm
 
 standard_library.install_aliases()
@@ -26,7 +28,10 @@ logger = logging.getLogger(__name__)
 try:
     import cloudpickle as pickler
 except Exception as e:
-    logger.info('Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.')
+    logger.info(
+        'Failed to load cloudpickle, try installing cloudpickle via "pip install '
+        'cloudpickle" for enhanced pickling support.'
+    )
     import six.moves.cPickle as pickler
 
 
@@ -34,22 +39,24 @@ def generate_trial(tid, space):
     variables = space.keys()
     idxs = {v: [tid] for v in variables}
     vals = {k: [v] for k, v in space.items()}
-    return {'state': base.JOB_STATE_NEW,
-            'tid': tid,
-            'spec': None,
-            'result': {'status': 'new'},
-            'misc': {'tid': tid,
-                     'cmd': ('domain_attachment',
-                             'FMinIter_Domain'),
-                     'workdir': None,
-                     'idxs': idxs,
-                     'vals': vals},
-            'exp_key': None,
-            'owner': None,
-            'version': 0,
-            'book_time': None,
-            'refresh_time': None,
-            }
+    return {
+        "state": base.JOB_STATE_NEW,
+        "tid": tid,
+        "spec": None,
+        "result": {"status": "new"},
+        "misc": {
+            "tid": tid,
+            "cmd": ("domain_attachment", "FMinIter_Domain"),
+            "workdir": None,
+            "idxs": idxs,
+            "vals": vals,
+        },
+        "exp_key": None,
+        "owner": None,
+        "version": 0,
+        "book_time": None,
+        "refresh_time": None,
+    }
 
 
 def generate_trials_to_calculate(points):
@@ -90,7 +97,7 @@ def partial(fn, **kwargs):
     fmin_pass_expr_memo_ctrl
     """
     rval = functools.partial(fn, **kwargs)
-    if hasattr(fn, 'fmin_pass_expr_memo_ctrl'):
+    if hasattr(fn, "fmin_pass_expr_memo_ctrl"):
         rval.fmin_pass_expr_memo_ctrl = fn.fmin_pass_expr_memo_ctrl
     return rval
 
@@ -98,21 +105,33 @@ def partial(fn, **kwargs):
 class FMinIter(object):
     """Object for conducting search experiments.
     """
+
     catch_eval_exceptions = False
     pickle_protocol = -1
 
-    def __init__(self, algo, domain, trials, rstate, asynchronous=None,
-                 max_queue_len=1,
-                 poll_interval_secs=1.0,
-                 max_evals=sys.maxsize,
-                 max_time=np.inf,
-                 verbose=0,
-                 show_progressbar=True
-                 ):
+    def __init__(
+        self,
+        algo,
+        domain,
+        trials,
+        rstate,
+        asynchronous=None,
+        max_queue_len=1,
+        poll_interval_secs=1.0,
+        max_evals=sys.maxsize,
+        timeout=None,
+        verbose=False,
+        show_progressbar=True,
+    ):
         self.algo = algo
         self.domain = domain
         self.trials = trials
-        self.show_progressbar = show_progressbar
+        if not show_progressbar or not verbose:
+            self.progress_callback = progress.no_progress_callback
+        elif show_progressbar is True:
+            self.progress_callback = progress.default_callback
+        else:
+            self.progress_callback = show_progressbar
         if asynchronous is None:
             self.asynchronous = trials.asynchronous
         else:
@@ -120,34 +139,35 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
-        self.max_time = max_time
+        self.timeout = timeout
         self.start_time = timeit.default_timer()
         self.rstate = rstate
+        self.verbose = verbose
 
         if self.asynchronous:
-            if 'FMinIter_Domain' in trials.attachments:
-                logger.warn('over-writing old domain trials attachment')
+            if "FMinIter_Domain" in trials.attachments:
+                logger.warning("over-writing old domain trials attachment")
             msg = pickler.dumps(domain)
             # -- sanity check for unpickling
             pickler.loads(msg)
-            trials.attachments['FMinIter_Domain'] = msg
+            trials.attachments["FMinIter_Domain"] = msg
 
     def serial_evaluate(self, N=-1):
         for trial in self.trials._dynamic_trials:
-            if trial['state'] == base.JOB_STATE_NEW:
-                trial['state'] = base.JOB_STATE_RUNNING
+            if trial["state"] == base.JOB_STATE_NEW:
+                trial["state"] = base.JOB_STATE_RUNNING
                 now = coarse_utcnow()
-                trial['book_time'] = now
-                trial['refresh_time'] = now
-                spec = base.spec_from_misc(trial['misc'])
+                trial["book_time"] = now
+                trial["refresh_time"] = now
+                spec = base.spec_from_misc(trial["misc"])
                 ctrl = base.Ctrl(self.trials, current_trial=trial)
                 try:
                     result = self.domain.evaluate(spec, ctrl)
                 except Exception as e:
-                    logger.info('job exception: %s' % str(e))
-                    trial['state'] = base.JOB_STATE_ERROR
-                    trial['misc']['error'] = (str(type(e)), str(e))
-                    trial['refresh_time'] = coarse_utcnow()
+                    logger.error("job exception: %s" % str(e))
+                    trial["state"] = base.JOB_STATE_ERROR
+                    trial["misc"]["error"] = (str(type(e)), str(e))
+                    trial["refresh_time"] = coarse_utcnow()
                     if not self.catch_eval_exceptions:
                         # -- JOB_STATE_ERROR means this trial
                         #    will be removed from self.trials.trials
@@ -155,9 +175,9 @@ class FMinIter(object):
                         self.trials.refresh()
                         raise
                 else:
-                    trial['state'] = base.JOB_STATE_DONE
-                    trial['result'] = result
-                    trial['refresh_time'] = coarse_utcnow()
+                    trial["state"] = base.JOB_STATE_DONE
+                    trial["result"] = result
+                    trial["refresh_time"] = coarse_utcnow()
                 N -= 1
                 if N == 0:
                     break
@@ -183,8 +203,8 @@ class FMinIter(object):
 
             qlen = get_queue_len()
             while qlen > 0:
-                if not already_printed:
-                    logger.info('Waiting for %d jobs to finish ...' % qlen)
+                if not already_printed and self.verbose:
+                    logger.info("Waiting for %d jobs to finish ..." % qlen)
                     already_printed = True
                 time.sleep(self.poll_interval_secs)
                 qlen = get_queue_len()
@@ -205,66 +225,86 @@ class FMinIter(object):
         def get_queue_len():
             return self.trials.count_by_state_unsynced(base.JOB_STATE_NEW)
 
+        def get_n_done():
+            return self.trials.count_by_state_unsynced(base.JOB_STATE_DONE)
+
+        def get_n_unfinished():
+            unfinished_states = [base.JOB_STATE_NEW, base.JOB_STATE_RUNNING]
+            return self.trials.count_by_state_unsynced(unfinished_states)
+
         stopped = False
-        qlen = get_queue_len()
-        with std_out_err_redirect_tqdm() as orig_stdout:
-            with tqdm(total=N+qlen, file=orig_stdout, postfix='best loss: ?',
-                      disable=not self.show_progressbar, dynamic_ncols=True,
-                      ) as pbar:
-                while n_queued < N and (timeit.default_timer() - self.start_time) < self.max_time:
-                    qlen = get_queue_len()
-                    while qlen < self.max_queue_len and n_queued < N and \
-                            not self.is_cancelled and \
-                            (timeit.default_timer() - self.start_time) < self.max_time:
-                        n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
-                        new_ids = trials.new_trial_ids(n_to_enqueue)
+        initial_n_done = get_n_done()
+        with self.progress_callback(
+            initial=initial_n_done, total=self.max_evals
+        ) as progress_ctx:
+
+            all_trials_complete = False
+            while (n_queued < N or (block_until_done and not all_trials_complete)) and \
+                    (self.timeout is None or (timer() - self.start_time) < self.timeout):
+                qlen = get_queue_len()
+                while (
+                    qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
+                ):
+                    n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
+                    new_ids = trials.new_trial_ids(n_to_enqueue)
+                    self.trials.refresh()
+                    new_trials = algo(
+                        new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
+                    )
+                    assert len(new_ids) >= len(new_trials)
+                    if len(new_trials):
+                        self.trials.insert_trial_docs(new_trials)
                         self.trials.refresh()
-                        if 0:
-                            for d in self.trials.trials:
-                                print('trial %i %s %s' % (d['tid'], d['state'],
-                                                          d['result'].get('status')))
-                        new_trials = algo(new_ids, self.domain, trials,
-                                          self.rstate.randint(2 ** 31 - 1))
-                        assert len(new_ids) >= len(new_trials)
-                        if len(new_trials):
-                            self.trials.insert_trial_docs(new_trials)
-                            self.trials.refresh()
-                            n_queued += len(new_trials)
-                            qlen = get_queue_len()
-                        else:
-                            stopped = True
-                            break
-
-                    if self.is_cancelled:
-                        break
-
-                    if self.asynchronous:
-                        # -- wait for workers to fill in the trials
-                        time.sleep(self.poll_interval_secs)
+                        n_queued += len(new_trials)
+                        qlen = get_queue_len()
                     else:
-                        # -- loop over trials and do the jobs directly
-                        self.serial_evaluate()
-
-                    try:
-                        best_loss = min([d['result']['loss'] for d in
-                                         self.trials.trials if
-                                         d['result']['status'] == 'ok'])
-                        pbar.postfix = 'best loss: ' + str(best_loss)
-                    except:
-                        pass
-                    pbar.update(qlen)
-
-                    if stopped:
+                        stopped = True
                         break
+
+                if self.is_cancelled:
+                    break
+
+                if self.asynchronous:
+                    # -- wait for workers to fill in the trials
+                    time.sleep(self.poll_interval_secs)
+                else:
+                    # -- loop over trials and do the jobs directly
+                    self.serial_evaluate()
+
+                self.trials.refresh()
+                try:
+                    best_loss = min(
+                        [
+                            d["result"]["loss"]
+                            for d in self.trials.trials
+                            if d["result"]["status"] == "ok"
+                        ]
+                    )
+                    progress_ctx.postfix = "best loss: " + str(best_loss)
+                except:
+                    pass
+
+                n_unfinished = get_n_unfinished()
+                if n_unfinished == 0:
+                    all_trials_complete = True
+
+                n_done = get_n_done()
+                n_done_this_iteration = n_done - initial_n_done
+                if n_done_this_iteration > 0:
+                    progress_ctx.update(n_done_this_iteration)
+                initial_n_done = n_done
+
+                if stopped:
+                    break
 
         if block_until_done:
             self.block_until_done()
             self.trials.refresh()
-            logger.info('Queue empty, exiting run.')
+            logger.info("Queue empty, exiting run.")
         else:
             qlen = get_queue_len()
             if qlen:
-                msg = 'Exiting run, not waiting for %d jobs.' % qlen
+                msg = "Exiting run, not waiting for %d jobs." % qlen
                 logger.info(msg)
 
     def __iter__(self):
@@ -283,15 +323,23 @@ class FMinIter(object):
         return self
 
 
-def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
-         allow_trials_fmin=True, pass_expr_memo_ctrl=None,
-         catch_eval_exceptions=False,
-         verbose=0,
-         return_argmin=True,
-         points_to_evaluate=None,
-         max_queue_len=1,
-         show_progressbar=True,
-         ):
+def fmin(
+    fn,
+    space,
+    algo,
+    max_evals,
+    timeout=None,
+    trials=None,
+    rstate=None,
+    allow_trials_fmin=True,
+    pass_expr_memo_ctrl=None,
+    catch_eval_exceptions=False,
+    verbose=True,
+    return_argmin=True,
+    points_to_evaluate=None,
+    max_queue_len=1,
+    show_progressbar=True,
+):
     """Minimize a function over a hyperparameter space.
 
     More realistically: *explore* a function over a hyperparameter space
@@ -330,8 +378,9 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
     max_evals : int
         Allow up to this many function evaluations before returning.
 
-    max_time : int
-        Limits search time by parametrized number of seconds (infinity is default).
+    timeout : int
+        Limits search time by parametrized number of seconds.
+        None is default, it means there is no time constraint in the search process.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -347,8 +396,9 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
         if the `HYPEROPT_FMIN_SEED` environment variable is set to a non-empty
         string, otherwise np.random is used in whatever state it is in.
 
-    verbose : int
-        Print out some information to stdout during search.
+    verbose : bool
+        Print out some information to stdout during search. If False, disable
+            progress bar irrespectively of show_progressbar argument
 
     allow_trials_fmin : bool, default True
         If the `trials` argument
@@ -378,8 +428,8 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool, default True
-        Show a progressbar.
+    show_progressbar : bool or context manager, default True (or False is verbose is False).
+        Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
     Returns
     -------
@@ -391,18 +441,21 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
         If there were no succesfull trails, it returns None.
     """
     if rstate is None:
-        env_rseed = os.environ.get('HYPEROPT_FMIN_SEED', '')
+        env_rseed = os.environ.get("HYPEROPT_FMIN_SEED", "")
         if env_rseed:
             rstate = np.random.RandomState(int(env_rseed))
         else:
             rstate = np.random.RandomState()
 
-    if allow_trials_fmin and hasattr(trials, 'fmin'):
+    validate_timeout(timeout)
+
+    if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
-            fn, space,
+            fn,
+            space,
             algo=algo,
             max_evals=max_evals,
-            max_time=max_time,
+            timeout=timeout,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
@@ -419,19 +472,26 @@ def fmin(fn, space, algo, max_evals, max_time=np.inf, trials=None, rstate=None,
             assert type(points_to_evaluate) == list
             trials = generate_trials_to_calculate(points_to_evaluate)
 
-    domain = base.Domain(fn, space,
-                         pass_expr_memo_ctrl=pass_expr_memo_ctrl)
+    domain = base.Domain(fn, space, pass_expr_memo_ctrl=pass_expr_memo_ctrl)
 
-    rval = FMinIter(algo, domain, trials, max_evals=max_evals, max_time=max_time,
-                    rstate=rstate,
-                    verbose=verbose,
-                    max_queue_len=max_queue_len,
-                    show_progressbar=show_progressbar)
+    rval = FMinIter(
+        algo,
+        domain,
+        trials,
+        max_evals=max_evals,
+        timeout=timeout,
+        rstate=rstate,
+        verbose=verbose,
+        max_queue_len=max_queue_len,
+        show_progressbar=show_progressbar,
+    )
     rval.catch_eval_exceptions = catch_eval_exceptions
     rval.exhaust()
     if return_argmin:
         if len(trials.trials) == 0:
-            raise Exception("There are no evaluation tasks, cannot return argmin of task losses.")
+            raise Exception(
+                "There are no evaluation tasks, cannot return argmin of task losses."
+            )
         return trials.argmin
     elif len(trials) > 0:
         # Only if there are some succesfull trail runs, return the best point in the evaluation space
@@ -453,11 +513,12 @@ def space_eval(space, hp_assignment):
     nodes = pyll.toposort(space)
     memo = {}
     for node in nodes:
-        if node.name == 'hyperopt_param':
-            label = node.arg['label'].eval()
+        if node.name == "hyperopt_param":
+            label = node.arg["label"].eval()
             if label in hp_assignment:
                 memo[node] = hp_assignment[label]
     rval = pyll.rec_eval(space, memo=memo)
     return rval
+
 
 # -- flake8 doesn't like blank last line

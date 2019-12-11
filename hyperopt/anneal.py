@@ -27,10 +27,7 @@ from .pyll.stochastic import (
     qloguniform,
 )
 from .base import miscs_to_idxs_vals
-from .algobase import (
-    SuggestAlgo,
-    ExprEvaluator,
-)
+from .algobase import SuggestAlgo, ExprEvaluator
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
@@ -97,9 +94,7 @@ class AnnealingAlgo(SuggestAlgo):
 
     """
 
-    def __init__(self, domain, trials, seed,
-                 avg_best_idx=2.0,
-                 shrink_coef=0.1):
+    def __init__(self, domain, trials, seed, avg_best_idx=2.0, shrink_coef=0.1):
         """
         Parameters
         ----------
@@ -117,11 +112,11 @@ class AnnealingAlgo(SuggestAlgo):
         doc_by_tid = {}
         for doc in trials.trials:
             # get either this docs own tid or the one that it's from
-            tid = doc['tid']
-            loss = domain.loss(doc['result'], doc['spec'])
+            tid = doc["tid"]
+            loss = domain.loss(doc["result"], doc["spec"])
             if loss is None:
                 # -- associate infinite loss to new/running/failed jobs
-                loss = float('inf')
+                loss = float("inf")
             else:
                 loss = float(loss)
             doc_by_tid[tid] = (doc, loss)
@@ -132,8 +127,9 @@ class AnnealingAlgo(SuggestAlgo):
         # node_tids: dict from hp label -> trial ids (tids) using that hyperparam
         # node_vals: dict from hp label -> values taken by that hyperparam
         self.node_tids, self.node_vals = miscs_to_idxs_vals(
-            [d['misc'] for (tid, (d, l)) in self.tid_docs_losses],
-            keys=list(domain.params.keys()))
+            [d["misc"] for (tid, (d, l)) in self.tid_docs_losses],
+            keys=list(domain.params.keys()),
+        )
         self.best_tids = []
 
     def shrinking(self, label):
@@ -169,7 +165,7 @@ class AnnealingAlgo(SuggestAlgo):
 
         # -- choose a new good seed point
         good_idx = self.rng.geometric(old_div(1.0, self.avg_best_idx), size=size) - 1
-        good_idx = np.clip(good_idx, 0, len(tids) - 1).astype('int32')
+        good_idx = np.clip(good_idx, 0, len(tids) - 1).astype("int32")
 
         picks = np.argsort(losses)[good_idx]
         picks_loss = np.asarray(losses)[picks]
@@ -215,21 +211,28 @@ class AnnealingAlgo(SuggestAlgo):
         n_observations = len(self.node_vals[label])
         if n_observations > 0:
             # -- Pick a previous trial on which to base the new sample
-            size = memo[node.arg['size']]
+            size = memo[node.arg["size"]]
             loss, tid, val = self.choose_ltv(label, size=size)
             try:
-                handler = getattr(self, 'hp_%s' % node.name)
+                handler = getattr(self, "hp_%s" % node.name)
             except AttributeError:
-                raise NotImplementedError('Annealing', node.name)
+                raise NotImplementedError("Annealing", node.name)
             return handler(memo, node, label, tid, val)
         else:
             # -- Draw the new sample from the prior
             return ExprEvaluator.on_node(self, memo, node)
 
-    def hp_uniform(self, memo, node, label, tid, val,
-                   log_scale=False,
-                   pass_q=False,
-                   uniform_like=uniform):
+    def hp_uniform(
+        self,
+        memo,
+        node,
+        label,
+        tid,
+        val,
+        log_scale=False,
+        pass_q=False,
+        uniform_like=uniform,
+    ):
         """
         Return a new value for a uniform hyperparameter.
 
@@ -253,10 +256,10 @@ class AnnealingAlgo(SuggestAlgo):
             midpt = np.log(val)
         else:
             midpt = val
-        high = memo[node.arg['high']]
-        low = memo[node.arg['low']]
+        high = memo[node.arg["high"]]
+        low = memo[node.arg["low"]]
         width = (high - low) * self.shrinking(label)
-        half = .5 * width
+        half = 0.5 * width
         min_midpt = low + half
         max_midpt = high - half
         clipped_midpt = np.clip(midpt, min_midpt, max_midpt)
@@ -278,43 +281,35 @@ class AnnealingAlgo(SuggestAlgo):
                 low=clipped_midpt - half,
                 high=clipped_midpt + half,
                 rng=self.rng,
-                q=memo[node.arg['q']],
-                size=memo[node.arg['size']])
+                q=memo[node.arg["q"]],
+                size=memo[node.arg["size"]],
+            )
         else:
             return uniform_like(
                 low=clipped_midpt - half,
                 high=clipped_midpt + half,
                 rng=self.rng,
-                size=memo[node.arg['size']])
+                size=memo[node.arg["size"]],
+            )
 
     def hp_quniform(self, *args, **kwargs):
-        return self.hp_uniform(
-            pass_q=True,
-            uniform_like=quniform,
-            *args,
-            **kwargs)
+        return self.hp_uniform(pass_q=True, uniform_like=quniform, *args, **kwargs)
 
     def hp_loguniform(self, *args, **kwargs):
         return self.hp_uniform(
-            log_scale=True,
-            pass_q=False,
-            uniform_like=loguniform,
-            *args,
-            **kwargs)
+            log_scale=True, pass_q=False, uniform_like=loguniform, *args, **kwargs
+        )
 
     def hp_qloguniform(self, *args, **kwargs):
         return self.hp_uniform(
-            log_scale=True,
-            pass_q=True,
-            uniform_like=qloguniform,
-            *args,
-            **kwargs)
+            log_scale=True, pass_q=True, uniform_like=qloguniform, *args, **kwargs
+        )
 
     def hp_randint(self, memo, node, label, tid, val):
         """
         Parameters: See `hp_uniform`
         """
-        upper = memo[node.arg['upper']]
+        upper = memo[node.arg["upper"]]
         val1 = np.atleast_1d(val)
         if val1.size:
             counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
@@ -323,19 +318,18 @@ class AnnealingAlgo(SuggestAlgo):
             prior = 1.0
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (old_div(1.0, upper))
-        rval = categorical(p=p, upper=upper, rng=self.rng,
-                           size=memo[node.arg['size']])
+        rval = categorical(p=p, upper=upper, rng=self.rng, size=memo[node.arg["size"]])
         return rval
 
     def hp_categorical(self, memo, node, label, tid, val):
         """
         Parameters: See `hp_uniform`
         """
-        size = memo[node.arg['size']]
+        size = memo[node.arg["size"]]
         if size == 0:
             return []
         val1 = np.atleast_1d(val)
-        p = p_orig = np.asarray(memo[node.arg['p']])
+        p = p_orig = np.asarray(memo[node.arg["p"]])
         if p.ndim == 2:
             if len(p) not in (1, len(val1)):
                 print(node)
@@ -345,7 +339,7 @@ class AnnealingAlgo(SuggestAlgo):
         else:
             assert p.ndim == 1
             p = p[np.newaxis, :]
-        upper = memo[node.arg['upper']]
+        upper = memo[node.arg["upper"]]
         if val1.size:
             counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
             prior = self.shrinking(label)
@@ -367,9 +361,10 @@ class AnnealingAlgo(SuggestAlgo):
         """
         return normal(
             mu=val,
-            sigma=memo[node.arg['sigma']] * self.shrinking(label),
+            sigma=memo[node.arg["sigma"]] * self.shrinking(label),
             rng=self.rng,
-            size=memo[node.arg['size']])
+            size=memo[node.arg["size"]],
+        )
 
     def hp_lognormal(self, memo, node, label, tid, val):
         """
@@ -377,9 +372,10 @@ class AnnealingAlgo(SuggestAlgo):
         """
         return lognormal(
             mu=np.log(val),
-            sigma=memo[node.arg['sigma']] * self.shrinking(label),
+            sigma=memo[node.arg["sigma"]] * self.shrinking(label),
             rng=self.rng,
-            size=memo[node.arg['size']])
+            size=memo[node.arg["size"]],
+        )
 
     def hp_qlognormal(self, memo, node, label, tid, val):
         """
@@ -388,10 +384,11 @@ class AnnealingAlgo(SuggestAlgo):
         return qlognormal(
             # -- prevent log(0) without messing up algo
             mu=np.log(1e-16 + val),
-            sigma=memo[node.arg['sigma']] * self.shrinking(label),
-            q=memo[node.arg['q']],
+            sigma=memo[node.arg["sigma"]] * self.shrinking(label),
+            q=memo[node.arg["q"]],
             rng=self.rng,
-            size=memo[node.arg['size']])
+            size=memo[node.arg["size"]],
+        )
 
     def hp_qnormal(self, memo, node, label, tid, val):
         """
@@ -399,18 +396,20 @@ class AnnealingAlgo(SuggestAlgo):
         """
         return qnormal(
             mu=val,
-            sigma=memo[node.arg['sigma']] * self.shrinking(label),
-            q=memo[node.arg['q']],
+            sigma=memo[node.arg["sigma"]] * self.shrinking(label),
+            q=memo[node.arg["q"]],
             rng=self.rng,
-            size=memo[node.arg['size']])
+            size=memo[node.arg["size"]],
+        )
 
 
 def suggest(new_ids, domain, trials, seed, *args, **kwargs):
-    new_id, = new_ids
+    (new_id,) = new_ids
     return AnnealingAlgo(domain, trials, seed, *args, **kwargs)(new_id)
 
 
 def suggest_batch(new_ids, domain, trials, seed, *args, **kwargs):
     return AnnealingAlgo(domain, trials, seed, *args, **kwargs).batch(new_ids)
+
 
 # -- flake-8 abhors blank line EOF
