@@ -379,9 +379,9 @@ def fmin(
     max_evals : int
         Allow up to this many function evaluations before returning.
 
-    timeout : int
+    timeout : None or int, default None
         Limits search time by parametrized number of seconds.
-        None is default, it means there is no time constraint in the search process.
+        If None, then the search process has no time constraint.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
