@@ -270,3 +270,23 @@ def test_timeout():
     end_time_5 = timer()
     assert (end_time_5 - start_time_5) < 6
     assert (end_time_5 - start_time_5) > 4.9
+
+
+def test_invalid_timeout():
+    fn = lambda x: [time.sleep(1), x][1]
+    space = hp.choice("x", range(20))
+
+    for wrong_timeout in [-1, True]:
+        expected_message = f"The timeout argument should be None or a positive value. Given value: {wrong_timeout}"
+        try:
+            fmin(
+                fn=fn,
+                space=space,
+                max_evals=10,
+                timeout=wrong_timeout,
+                algo=rand.suggest,
+                return_argmin=False,
+                rstate=np.random.RandomState(0),
+            )
+        except Exception as e:
+            assert str(e) == expected_message
