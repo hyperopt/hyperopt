@@ -277,7 +277,9 @@ def test_invalid_timeout():
     space = hp.choice("x", range(20))
 
     for wrong_timeout in [-1, True]:
-        expected_message = f"The timeout argument should be None or a positive value. Given value: {wrong_timeout}"
+        expected_message = "The timeout argument should be None or a positive value. Given value: {m}".format(
+            m=wrong_timeout
+        )
         try:
             fmin(
                 fn=fn,
