@@ -140,7 +140,7 @@ class FMinIter(object):
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
         self.timeout = timeout
-        self.start_time = timeit.default_timer()
+        self.start_time = timer()
         self.rstate = rstate
         self.verbose = verbose
 

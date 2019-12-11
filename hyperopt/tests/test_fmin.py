@@ -2,7 +2,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 import nose.tools
-import timeit
+from timeit import default_timer as timer
 import time
 
 from hyperopt import (
@@ -243,7 +243,7 @@ def test_timeout():
     fn = lambda x: [time.sleep(1), x][1]
     space = hp.choice('x', range(20))
 
-    start_time_1 = timeit.default_timer()
+    start_time_1 = timer()
     fmin(
         fn=fn,
         space=space,
@@ -253,11 +253,11 @@ def test_timeout():
         return_argmin=False,
         rstate=np.random.RandomState(0)
     )
-    end_time_1 = timeit.default_timer()
+    end_time_1 = timer()
     assert (end_time_1 - start_time_1) < 2
     assert (end_time_1 - start_time_1) > 0.9
 
-    start_time_5 = timeit.default_timer()
+    start_time_5 = timer()
     fmin(
         fn=fn,
         space=space,
@@ -267,6 +267,6 @@ def test_timeout():
         return_argmin=False,
         rstate=np.random.RandomState(0)
     )
-    end_time_5 = timeit.default_timer()
+    end_time_5 = timer()
     assert (end_time_5 - start_time_5) < 6
     assert (end_time_5 - start_time_5) > 4.9
