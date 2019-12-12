@@ -449,6 +449,50 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             )
             self.assert_task_succeeded(log_output, 0)
 
+    def test_timeout_without_job_cancellation_fmin_timeout(self):
+        timeout = 4
+        spark_trials = SparkTrials(parallelism=1)
+        spark_trials._spark_supports_job_cancelling = False
+
+        def fn(x):
+            time.sleep(0.5)
+            return x
+
+        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
+            fmin(
+                fn=fn,
+                space=hp.uniform("x", -1, 1),
+                algo=anneal.suggest,
+                max_evals=10,
+                timeout=timeout,
+                trials=spark_trials,
+                max_queue_len=1,
+                show_progressbar=False,
+                return_argmin=False,
+            )
+            log_output = output.getvalue().strip()
+
+            self.assertTrue(spark_trials._fmin_cancelled)
+            self.assertEqual(spark_trials._fmin_cancelled_reason, "fmin run timeout")
+            self.assertGreater(spark_trials.count_successful_trials(), 0)
+            self.assertGreater(spark_trials.count_cancelled_trials(), 0)
+            self.assertIn(
+                "fmin is cancelled, so new trials will not be launched",
+                log_output,
+                """ "fmin is cancelled, so new trials will not be launched" missing from log:
+                {log_output}""".format(
+                    log_output=log_output
+                ),
+            )
+            self.assertIn(
+                "SparkTrials will block",
+                log_output,
+                """ "SparkTrials will block" missing from log: {log_output}""".format(
+                    log_output=log_output
+                ),
+            )
+            self.assert_task_succeeded(log_output, 0)
+
     def test_timeout_with_job_cancellation(self):
         if not self.sparkSupportsJobCancelling():
             print(

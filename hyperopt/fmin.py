@@ -9,10 +9,12 @@ import logging
 import os
 import sys
 import time
+from timeit import default_timer as timer
 from tqdm import tqdm
 
 import numpy as np
 
+from hyperopt.base import validate_timeout
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
@@ -117,6 +119,7 @@ class FMinIter(object):
         max_queue_len=1,
         poll_interval_secs=1.0,
         max_evals=sys.maxsize,
+        timeout=None,
         verbose=False,
         show_progressbar=True,
     ):
@@ -136,6 +139,8 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.timeout = timeout
+        self.start_time = timer()
         self.rstate = rstate
         self.verbose = verbose
 
@@ -234,7 +239,9 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            while n_queued < N or (block_until_done and not all_trials_complete):
+            while (n_queued < N or (block_until_done and not all_trials_complete)) and (
+                self.timeout is None or (timer() - self.start_time) < self.timeout
+            ):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -322,6 +329,7 @@ def fmin(
     space,
     algo,
     max_evals,
+    timeout=None,
     trials=None,
     rstate=None,
     allow_trials_fmin=True,
@@ -370,6 +378,10 @@ def fmin(
 
     max_evals : int
         Allow up to this many function evaluations before returning.
+
+    timeout : None or int, default None
+        Limits search time by parametrized number of seconds.
+        If None, then the search process has no time constraint.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -436,12 +448,15 @@ def fmin(
         else:
             rstate = np.random.RandomState()
 
+    validate_timeout(timeout)
+
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
             fn,
             space,
             algo=algo,
             max_evals=max_evals,
+            timeout=timeout,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
@@ -465,6 +480,7 @@ def fmin(
         domain,
         trials,
         max_evals=max_evals,
+        timeout=timeout,
         rstate=rstate,
         verbose=verbose,
         max_queue_len=max_queue_len,

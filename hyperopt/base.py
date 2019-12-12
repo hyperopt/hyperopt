@@ -22,6 +22,8 @@ The design is that there are three components fitting together in this project:
 """
 from __future__ import print_function
 from __future__ import absolute_import
+
+import numbers
 from builtins import str
 from builtins import map
 from builtins import zip
@@ -224,6 +226,18 @@ def spec_from_misc(misc):
         else:
             raise NotImplementedError("multiple values", (k, v))
     return spec
+
+
+def validate_timeout(timeout):
+    if timeout is not None and (
+        not isinstance(timeout, numbers.Number)
+        or timeout <= 0
+        or isinstance(timeout, bool)
+    ):
+        raise Exception(
+            "The timeout argument should be None or a positive value. "
+            "Given value: {timeout}".format(timeout=timeout)
+        )
 
 
 class Trials(object):
@@ -619,6 +633,7 @@ class Trials(object):
         space,
         algo,
         max_evals,
+        timeout=None,
         max_queue_len=1,
         rstate=None,
         verbose=0,
@@ -655,6 +670,7 @@ class Trials(object):
             space,
             algo,
             max_evals,
+            timeout=timeout,
             trials=self,
             rstate=rstate,
             verbose=verbose,
