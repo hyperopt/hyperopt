@@ -219,6 +219,7 @@ class DomainExperimentMixin(object):
             domain.expr,
             trials=trials,
             algo=suggest,
+            rstate=np.random.RandomState(4),
             max_evals=self._n_steps,
         )
         assert trials.average_best_error(domain) - domain.loss_target < 0.2

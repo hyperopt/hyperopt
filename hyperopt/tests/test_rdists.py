@@ -74,6 +74,9 @@ class TestLogNormal(unittest.TestCase):
         check_pdf(lognorm_gen(mu=-4, sigma=2), (), "")
 
     def test_distribution_rvs(self):
+        import warnings
+
+        warnings.warn("test_distribution_rvs is being skipped!")
         return  # XXX
         alpha = 0.01
         loc = 0
