@@ -15,30 +15,12 @@ from hyperopt.rdists import (
 )
 from scipy import stats
 
-try:
-    from scipy.stats.tests.test_continuous_basic import (
-        check_cdf_logcdf,
-        check_pdf_logpdf,
-        check_pdf,
-        check_cdf_ppf,
-    )
-except ImportError:
-    # XXX skip-tests instead or fix the import error, why would it fail?
-
-    # -- This is failing because of a bug in the scipy.tests.test_continuous import.
-    # https://github.com/scipy/scipy/commit/c05c6b73a0cd16c4cc12a23e7ad72742dfeb42f1 will fix it with scipy 1.2.0
-
-    def check_cdf_logcdf(*args):
-        pass
-
-    def check_pdf_logpdf(*args):
-        pass
-
-    def check_pdf(*args):
-        pass
-
-    def check_cdf_ppf(*args):
-        pass
+from scipy.stats.tests.test_continuous_basic import (
+    check_cdf_logcdf,
+    check_pdf_logpdf,
+    check_pdf,
+    check_cdf_ppf,
+)
 
 
 class TestLogUniform(unittest.TestCase):
@@ -92,6 +74,9 @@ class TestLogNormal(unittest.TestCase):
         check_pdf(lognorm_gen(mu=-4, sigma=2), (), "")
 
     def test_distribution_rvs(self):
+        import warnings
+
+        warnings.warn("test_distribution_rvs is being skipped!")
         return  # XXX
         alpha = 0.01
         loc = 0

@@ -10,6 +10,7 @@ import numpy as np
 import numpy.random as mtrand
 import scipy.stats
 from scipy.stats import rv_continuous  # , rv_discrete
+from scipy.stats._continuous_distns import lognorm_gen as scipy_lognorm_gen
 
 
 class loguniform_gen(rv_continuous):
@@ -36,24 +37,21 @@ class loguniform_gen(rv_continuous):
         return old_div((np.log(x) - self._low), (self._high - self._low))
 
 
-from scipy.stats._continuous_distns import lognorm_gen as scipy_lognorm_gen
-
-
 class lognorm_gen(scipy_lognorm_gen):
     def __init__(self, mu, sigma):
         self.mu_ = mu
         self.s_ = sigma
         scipy_lognorm_gen.__init__(self)
 
-        # I still don't understand what scipy stats objects are
-        # doing re: this stuff
+        # I still don't understand what scipy stats objects are doing
+        # re: this stuff
         del self.__dict__["_parse_args"]
         del self.__dict__["_parse_args_stats"]
         del self.__dict__["_parse_args_rvs"]
 
-    def _parse_args(self, *args, **kwds):
+    def _parse_args(self, *args, **kwargs):
         assert not args, args
-        assert not kwds, kwds
+        assert not kwargs, kwargs
         args = (self.s_,)
         loc = 0
         scale = np.exp(self.mu_)
