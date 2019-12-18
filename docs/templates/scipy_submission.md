@@ -55,9 +55,9 @@ http://jmlr.csail.mit.edu/proceedings/papers/v28/bergstra13.pdf
 
 [3] Hyperopt: http://hyperopt.github.com/hyperopt
 
-[4] ... for Deep Belief Networks: https://github.com/jaberg/hyperopt-dbn
+[4] ... for Deep Belief Networks: https://github.com/hyperopt/hyperopt-nnet
 
-[5] ... for convolutional vision architectures: https://github.com/jaberg/hyperopt-convnet
+[5] ... for convolutional vision architectures: https://github.com/hyperopt/hyperopt-convnet
 
 [6] ... for scikit-learn classifiers: https://github.com/hyperopt/hyperopt-sklearn
 

@@ -31,7 +31,7 @@ best = fmin(fn=lambda x: x ** 2,
     space=hp.uniform('x', -10, 10),
     algo=tpe.suggest,
     max_evals=100)
-print best
+print(best)
 ```
 
 This protocol has the advantage of being extremely readable and quick to
@@ -99,7 +99,7 @@ best = fmin(objective,
     algo=tpe.suggest,
     max_evals=100)
 
-print best
+print(best)
 ```
 
 ## The Trials Object
@@ -131,7 +131,7 @@ best = fmin(objective,
     max_evals=100,
     trials=trials)
 
-print best
+print(best)
 ```
 
 In this case the call to fmin proceeds as before, but by passing in a trials object directly,
@@ -146,6 +146,39 @@ So for example:
 
 This trials object can be saved, passed on to the built-in plotting routines,
 or analyzed with your own custom code.
+Here is a simple example of one way to save and subsequently load a trials object.
+
+```python
+import pickle
+from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+
+def objective(x):
+    return {'loss': x ** 2, 'status': STATUS_OK }
+
+# Initialize an empty trials database
+trials = Trials()
+
+# Perform 100 evaluations on the search space
+best = fmin(objective,
+    space=hp.uniform('x', -10, 10),
+    algo=tpe.suggest,
+    trials=trials,
+    max_evals=100)
+
+# The trials database now contains 100 entries, it can be saved/reloaded with pickle or another method
+pickle.dump(trials, open("my_trials.pkl", "wb"))
+trials = pickle.load(open("my_trials.pkl", "rb"))
+
+# Perform an additional 100 evaluations
+# Note that max_evals is set to 200 because 100 entries already exist in the database
+best = fmin(objective,
+    space=hp.uniform('x', -10, 10),
+    algo=tpe.suggest,
+    trials=trials,
+    max_evals=200)
+
+print(best)
+```
 
 The *attachments* are handled by a special mechanism that makes it possible to use the same code
 for both `Trials` and `MongoTrials`.
@@ -180,5 +213,5 @@ The basic technique involves:
 It's normal if this doesn't make a lot of sense to you after this short tutorial,
 but I wanted to give some mention of what's possible with the current code base,
 and provide some terms to grep for in the hyperopt source, the unit test,
-and example projects, such as [hyperopt-convnet](https://github.com/jaberg/hyperopt-convnet).
+and example projects, such as [hyperopt-convnet](https://github.com/hyperopt/hyperopt-convnet).
 Email me or file a github issue if you'd like some help getting up to speed with this part of the code.

@@ -4,10 +4,10 @@ Links to software related to Hyperopt, and Bayesian Optimization in general.
 
 ## Software using Hyperopt
 
-* [hyperopt-sklearn](https://github.com/jaberg/hyperopt-sklearn) - using hyperopt to optimize across [sklearn](http://scikit-learn.org) estimators.
-* [hyperopt-convnet](https://github.com/jaberg/hyperopt-convnet) - optimize convolutional architectures for image classification
+* [hyperopt-sklearn](https://github.com/hyperopt/hyperopt-sklearn) - using hyperopt to optimize across [sklearn](http://scikit-learn.org) estimators.
+* [hyperopt-convnet](https://github.com/hyperopt/hyperopt-convnet) - optimize convolutional architectures for image classification
   * used in Bergstra, Yamins, and Cox in (ICML 2013).
-* [hyperopt-dbn](https://github.com/jaberg/hyperopt-dbn) - optimize Deep Belief Networks (Coming Soon)
+* [hyperopt-dbn](https://github.com/hyperopt/hyperopt-nnet) - optimize Deep Belief Networks (Coming Soon)
   * used in [Bergstra, Bardenet, Bengio, and Kegl (NIPS 2011)](http://www.eng.uwaterloo.ca/~jbergstr/files/pub/11_nips_hyperopt.pdf)
   * used in [Bergstra and Bengio (JMLR 2012)](http://www.jmlr.org/papers/volume13/bergstra12a/bergstra12a.pdf)
 * [hyperas](https://github.com/maxpumperla/hyperas) - hyperopt wrapper for [keras](https://keras.io)
