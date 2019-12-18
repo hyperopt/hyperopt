@@ -213,5 +213,5 @@ The basic technique involves:
 It's normal if this doesn't make a lot of sense to you after this short tutorial,
 but I wanted to give some mention of what's possible with the current code base,
 and provide some terms to grep for in the hyperopt source, the unit test,
-and example projects, such as [hyperopt-convnet](https://github.com/jaberg/hyperopt-convnet).
+and example projects, such as [hyperopt-convnet](https://github.com/hyperopt/hyperopt-convnet).
 Email me or file a github issue if you'd like some help getting up to speed with this part of the code.
