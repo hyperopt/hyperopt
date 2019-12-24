@@ -1066,16 +1066,8 @@ def _bincount_slow(x, weights=None, minlength=None):
 
 @scope.define_pure
 def bincount(x, weights=None, minlength=None):
-    if np_versions[0] == 1 and np_versions[1] < 6:
-        # -- np.bincount doesn't have minlength arg
-        return _bincount_slow(x, weights, minlength)
-    else:
-        if np.asarray(x).size:
-            return np.bincount(x, weights, minlength)
-        else:
-            # -- currently numpy rejects this case,
-            #    but it seems sensible enough to me.
-            return np.zeros(minlength, dtype="int")
+    y = np.asarray(x, dtype="int")
+    return np.bincount(y, weights, minlength)
 
 
 @scope.define_pure

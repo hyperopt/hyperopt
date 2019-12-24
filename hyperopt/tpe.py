@@ -576,6 +576,9 @@ def ap_randint_sampler(
 ):
     domain_size = low if high is None else high - low
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    import pdb
+
+    pdb.set_trace()
     counts = scope.bincount(obs, minlength=domain_size, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
