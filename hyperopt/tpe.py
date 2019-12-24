@@ -110,8 +110,9 @@ def normal_cdf(x, mu, sigma):
 
 
 @scope.define
-def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
-    verbose = 0
+def GMM1_lpdf(
+    samples, weights, mus, sigmas, low=None, high=None, q=None, verbose=False
+):
     samples, weights, mus, sigmas = list(
         map(np.asarray, (samples, weights, mus, sigmas))
     )
