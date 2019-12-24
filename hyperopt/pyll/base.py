@@ -1049,21 +1049,6 @@ def str_join(s, seq):
     return s.join(seq)
 
 
-def _bincount_slow(x, weights=None, minlength=None):
-    """backport of np.bincount post numpy 1.6
-    """
-    if weights is not None:
-        raise NotImplementedError()
-    if minlength is None:
-        rlen = np.max(x) + 1
-    else:
-        rlen = max(np.max(x) + 1, minlength)
-    rval = np.zeros(rlen, dtype="int")
-    for xi in np.asarray(x).flatten():
-        rval[xi] += 1
-    return rval
-
-
 @scope.define_pure
 def bincount(x, weights=None, minlength=None):
     y = np.asarray(x, dtype="int")
