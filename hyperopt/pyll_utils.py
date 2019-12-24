@@ -48,8 +48,7 @@ def hp_pchoice(label, p_options):
     p_options: list of (probability, option) pairs
     """
     p, options = list(zip(*p_options))
-    n_options = len(options)
-    ch = scope.hyperopt_param(label, scope.categorical(p, upper=n_options))
+    ch = scope.hyperopt_param(label, scope.categorical(p))
     return scope.switch(ch, *options)
 
 

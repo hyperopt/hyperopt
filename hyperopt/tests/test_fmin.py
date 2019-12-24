@@ -131,7 +131,6 @@ def test_set_fmin_rstate():
 def test_fmin_return_argmin():
     fn = lambda x: x
     space = hp.choice("x", [100, 5, 10])
-
     # With return_argmin=False it should return the
     # best parameter values
     best_parameter = fmin(

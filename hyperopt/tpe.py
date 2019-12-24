@@ -39,6 +39,7 @@ DEFAULT_LF = 25
 adaptive_parzen_samplers = {}
 
 
+# a decorator to register functions to the dict `adaptive_parzen_samplers`
 def adaptive_parzen_sampler(name):
     def wrapper(f):
         assert name not in adaptive_parzen_samplers
@@ -57,7 +58,7 @@ def adaptive_parzen_sampler(name):
 
 
 @scope.define
-def categorical_lpdf(sample, p, upper):
+def categorical_lpdf(sample, p):
     """
     """
     if sample.size:
@@ -459,10 +460,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=DEFAULT_
     assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
     srtd_weights /= srtd_weights.sum()
-    if 0:
-        print("WEIGHTS", srtd_weights)
-        print("MUS", srtd_mus)
-        print("SIGMA", sigma)
 
     return srtd_weights, srtd_mus, sigma
 
@@ -576,44 +573,33 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 
 
 @adaptive_parzen_sampler("randint")
-def ap_categorical_sampler(obs, prior_weight, upper, size=(), rng=None, LF=DEFAULT_LF):
+def ap_randint_sampler(obs, prior_weight, upper, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
     counts = scope.bincount(obs, minlength=upper, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     return scope.categorical(
-        old_div(pseudocounts, scope.sum(pseudocounts)), upper=upper, size=size, rng=rng
+        old_div(pseudocounts, scope.sum(pseudocounts)), size=size, rng=rng
     )
 
 
-# @adaptive_parzen_sampler('categorical')
-# def ap_categorical_sampler(obs, prior_weight, p, upper, size=(), rng=None,
-#                            LF=DEFAULT_LF):
-#     return scope.categorical(p, upper, size=size, rng
-#                              =rng)
-
-
 @scope.define
-def tpe_cat_pseudocounts(counts, upper, prior_weight, p, size):
+def tpe_cat_pseudocounts(counts, prior_weight, p, size):
     if size == 0 or np.prod(size) == 0:
         return []
     if p.ndim == 2:
         assert np.all(p == p[0])
         p = p[0]
-    pseudocounts = counts + upper * (prior_weight * p)
+    pseudocounts = counts + p.size * (prior_weight * p)
     return old_div(pseudocounts, np.sum(pseudocounts))
 
 
-# TODO: this seems to be a redefinition of the function
-# starting in line 573.
 @adaptive_parzen_sampler("categorical")
-def ap_categorical_sampler(
-    obs, prior_weight, p, upper=None, size=(), rng=None, LF=DEFAULT_LF
-):
+def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, minlength=upper, weights=weights)
-    pseudocounts = scope.tpe_cat_pseudocounts(counts, upper, prior_weight, p, size)
-    return scope.categorical(pseudocounts, upper=upper, size=size, rng=rng)
+    counts = scope.bincount(obs, weights=weights)
+    pseudocounts = scope.tpe_cat_pseudocounts(counts, prior_weight, p, size)
+    return scope.categorical(pseudocounts, size=size, rng=rng)
 
 
 #
@@ -638,9 +624,6 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF
 
     keep_idxs = set(l_idxs[l_order[:n_below]])
     below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
-
-    if 0:
-        print("DEBUG: thresh", l_vals[l_order[:n_below]])
 
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
@@ -695,10 +678,10 @@ def build_posterior(
                 aa = [memo[a] for a in node.pos_args]
                 fn = adaptive_parzen_samplers[node.name]
                 b_args = [obs_below, prior_weight] + aa
-                named_args = [[kw, memo[arg]] for (kw, arg) in node.named_args]
-                b_post = fn(*b_args, **dict(named_args))
+                named_args = {kw: memo[arg] for (kw, arg) in node.named_args}
+                b_post = fn(*b_args, **named_args)
                 a_args = [obs_above, prior_weight] + aa
-                a_post = fn(*a_args, **dict(named_args))
+                a_post = fn(*a_args, **named_args)
 
                 # fn is a function e.g ap_uniform_sampler, ap_normal_sampler, etc
                 # b_post and a_post are pyll.Apply objects that are
@@ -821,7 +804,7 @@ def tpe_transform(domain, prior_weight, gamma):
         s_prior_weight,
     )
 
-    return (s_prior_weight, observed, observed_loss, specs, idxs, vals)
+    return s_prior_weight, observed, observed_loss, specs, idxs, vals
 
 
 def suggest(
