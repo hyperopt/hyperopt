@@ -375,7 +375,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin thread exits normally",
                 log_output,
-                """Debug info "fmin thread exits normally" missing from log: {log_output}""".format(
+                """Debug info "fmin thread exits normally" missing from 
+                log: {log_output}""".format(
                     log_output=log_output
                 ),
             )
@@ -398,7 +399,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assert_task_failed(log_output, 0)
 
         spark_trials = SparkTrials(parallelism=4)
-        # Here return_argmin is True (by default) and an exception should be thrown:w
+        # Here return_argmin is True (by default) and an exception should be thrown
         with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
             fmin(
                 fn=fn_succeed_within_range,
@@ -489,8 +490,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                "SparkTrials will block missing from log: log_output".format(
-                    log_output
+                """ "SparkTrials will block" missing from log: {log_output}""".format(
+                    log_output=log_output
                 ),
             )
             self.assert_task_succeeded(log_output, 0)
@@ -625,8 +626,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertNotIn(
                 "spark.task.maxFailures",
                 log_output,
-                "spark.task.maxFailures warning should not appear in log:"
-                "{log_output}".format(log_output=log_output),
+                """ "spark.task.maxFailures" warning should not appear in log: 
+                {log_output}""".format(
+                    log_output=log_output
+                ),
             )
 
         # With slow trials, print warning.
@@ -648,8 +651,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertIn(
                     "spark.task.maxFailures",
                     log_output,
-                    "spark.task.maxFailures warning missing from log:"
-                    "{log_output}".format(log_output=log_output),
+                    """ "spark.task.maxFailures" warning missing from log: 
+                    {log_output}""".format(
+                        log_output=log_output
+                    ),
                 )
         finally:
             _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = (
