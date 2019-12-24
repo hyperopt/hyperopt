@@ -472,6 +472,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
+                rstate=np.random.RandomState(99),
             )
             log_output = output.getvalue().strip()
 
