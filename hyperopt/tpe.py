@@ -95,7 +95,6 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
             if low <= draw < high:
                 samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
-    # print 'SAMPLES', samples
     if q is None:
         return samples
     else:
@@ -253,7 +252,6 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
 
 
 def logsum_rows(x):
-    R, C = x.shape
     m = x.max(axis=1)
     return np.log(np.exp(x - m[:, None]).sum(axis=1)) + m
 
@@ -690,14 +688,14 @@ def build_posterior(
                 # b_post and a_post are pyll.Apply objects that are
                 # AST (Abstract Syntax Trees).  They create the distribution,
                 # (e.g. using adaptive_parzen_normal), and then
-                # call a function to sample randomly from that distibution
-                # (e.g. using scope.GMM1) which return
-                # those samples.
+                # call a function to sample randomly from that distribution
+                # (e.g. using scope.GMM1) which return those samples.
                 #
                 # However we are only interested in using the samples from b_post.
                 # This codes looks at the AST and grabs the function name that we used
-                # for sampling (e.g. scope.GMM1)   and modifies it, e.g. to "scope.GMM1_lpdf".
-                # It then calls this function, passing in the samples as the first parameter.a_args
+                # for sampling (e.g. scope.GMM1)   and modifies it, e.g. to
+                # "scope.GMM1_lpdf". It then calls this function, passing in the
+                # samples as the first parameter.a_args
                 #
                 # The result is that we are effectively calling, for example:
                 # below_llik = GMM1_lpdf( b_post, *adaptive_parzen_normal(obs_below, ...))
