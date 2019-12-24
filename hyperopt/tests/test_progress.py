@@ -1,8 +1,6 @@
-from future import standard_library
 import sys
-import io
 
-from hyperopt.progress import tqdm_progress_callback, no_progress_callback
+from hyperopt.progress import tqdm_progress_callback
 
 
 def test_tqdm_progress_callback_restores_stdout():

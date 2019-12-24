@@ -10,7 +10,6 @@ import os
 import sys
 import time
 from timeit import default_timer as timer
-from tqdm import tqdm
 
 import numpy as np
 
@@ -19,7 +18,6 @@ from . import pyll
 from .utils import coarse_utcnow
 from . import base
 from . import progress
-from .std_out_err_redirect_tqdm import std_out_err_redirect_tqdm
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)

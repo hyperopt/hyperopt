@@ -110,7 +110,7 @@ def randint(upper, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
-def categorical(p, upper=None, rng=None, size=()):
+def categorical(p, rng=None, size=()):
     """Draws i with probability p[i]"""
     if len(p) == 1 and isinstance(p[0], np.ndarray):
         p = p[0]

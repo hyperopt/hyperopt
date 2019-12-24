@@ -47,14 +47,13 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
         branin=0.7,
     )
 
-    LEN = dict(
+    iters_thresholds = dict(
         # -- running a long way out tests overflow/underflow
         #    to some extent
         quadratic1=1000,
         many_dists=200,
         # -- anneal is pretty bad at this kind of function
         distractor=150,
-        # q1_lognormal=100,
         branin=200,
     )
 
@@ -69,7 +68,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
         bandit = self.bandit
         assert bandit.name is not None
         algo = partial(anneal.suggest)
-        LEN = self.LEN.get(bandit.name, 50)
+        iters_thresholds = self.iters_thresholds.get(bandit.name, 50)
 
         trials = Trials()
         fmin(
@@ -77,43 +76,20 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
             space=self.bandit.expr,
             trials=trials,
             algo=algo,
-            max_evals=LEN,
+            max_evals=iters_thresholds,
+            rstate=np.random.RandomState(8),
         )
-        assert len(trials) == LEN
+        assert len(trials) == iters_thresholds
 
-        if 1:
-            rtrials = Trials()
-            fmin(
-                fn=passthrough,
-                space=self.bandit.expr,
-                trials=rtrials,
-                algo=rand.suggest,
-                max_evals=LEN,
-            )
-            print("RANDOM BEST 6:", list(sorted(rtrials.losses()))[:6])
+        rtrials = Trials()
+        fmin(
+            fn=passthrough,
+            space=self.bandit.expr,
+            trials=rtrials,
+            algo=rand.suggest,
+            max_evals=iters_thresholds,
+            rstate=np.random.RandomState(8),
+        )
 
-        if 0:
-            plt.subplot(2, 2, 1)
-            plt.scatter(list(range(LEN)), trials.losses())
-            plt.title("TPE losses")
-            plt.subplot(2, 2, 2)
-            plt.scatter(list(range(LEN)), ([s["x"] for s in trials.specs]))
-            plt.title("TPE x")
-            plt.subplot(2, 2, 3)
-            plt.title("RND losses")
-            plt.scatter(list(range(LEN)), rtrials.losses())
-            plt.subplot(2, 2, 4)
-            plt.title("RND x")
-            plt.scatter(list(range(LEN)), ([s["x"] for s in rtrials.specs]))
-            plt.show()
-        if 0:
-            plt.hist([t["x"] for t in self.experiment.trials], bins=20)
-
-        # print trials.losses()
-        print("ANNEAL BEST 6:", list(sorted(trials.losses()))[:6])
-        # logx = np.log([s['x'] for s in trials.specs])
-        # print 'TPE MEAN', np.mean(logx)
-        # print 'TPE STD ', np.std(logx)
         thresh = self.thresholds[bandit.name]
-        print("Thresh", thresh)
         assert min(trials.losses()) < thresh
