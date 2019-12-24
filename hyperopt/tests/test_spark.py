@@ -207,6 +207,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_evals=8,
                 return_argmin=False,
                 trials=spark_trials,
+                rstate=np.random.RandomState(99),
             )
             self.check_run_status(
                 spark_trials, output, num_total=8, num_success=7, num_failure=1
@@ -488,8 +489,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                """ "SparkTrials will block" missing from log: {log_output}""".format(
-                    log_output=log_output
+                "SparkTrials will block missing from log: log_output".format(
+                    log_output
                 ),
             )
             self.assert_task_succeeded(log_output, 0)
