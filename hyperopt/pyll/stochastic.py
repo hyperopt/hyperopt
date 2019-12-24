@@ -95,24 +95,12 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
-# def randint(low, upper=None, rng=None, size=()):
-def randint(upper, rng=None, size=()):
+def randint(low, high=None, rng=None, size=()):
     """
     See np.random.randint documentation. rng = random number generator, typically
         equals np.random.mtrand.RandomState object
     """
-    # this is tricky because numpy doesn't support
-    # upper being a list of len size[0]
-
-    if isinstance(upper, (list, tuple)):
-        if isinstance(size, int):
-            assert len(upper) == size
-            return np.asarray([rng.randint(uu) for uu in upper])
-        elif len(size) == 1:
-            assert len(upper) == size[0]
-            return np.asarray([rng.randint(uu) for uu in upper])
-    # return rng.randint(low, high, size)
-    return rng.randint(upper, size=size)
+    return rng.randint(low, high, size)
 
 
 @implicit_stochastic

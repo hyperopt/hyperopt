@@ -6,7 +6,7 @@ from past.builtins import basestring
 from builtins import object
 from functools import partial, wraps
 from .base import DuplicateLabel
-from .pyll.base import Apply, Literal
+from .pyll.base import Apply, Literal, MissingArgument
 from .pyll import scope
 from .pyll import as_apply
 
@@ -196,9 +196,18 @@ def _remove_allpaths(hps, conditions):
     """
     potential_conds = {}
     for k, v in list(hps.items()):
-        if v["node"].name in ("randint", "categorical"):
-            upper = v["node"].arg["upper"].obj
-            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(upper)])
+        if v["node"].name == "randint":
+            low = v["node"].arg["low"].obj
+            # if high is None, the domain is [0, low), else it is [low, high)
+            domain_size = (
+                v["node"].arg["high"].obj - low
+                if v["node"].arg["high"] != MissingArgument
+                else low
+            )
+            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(domain_size)])
+        elif v["node"].name == "categorical":
+            p = v["node"].arg["p"].obj
+            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(p.size)])
 
     for k, v in list(hps.items()):
         if len(v["conditions"]) > 1:

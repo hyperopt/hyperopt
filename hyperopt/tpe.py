@@ -573,9 +573,12 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 
 
 @adaptive_parzen_sampler("randint")
-def ap_randint_sampler(obs, prior_weight, upper, size=(), rng=None, LF=DEFAULT_LF):
+def ap_randint_sampler(
+    obs, prior_weight, low, high=None, size=(), rng=None, LF=DEFAULT_LF
+):
+    domain_size = low if high is None else high - low
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, minlength=upper, weights=weights)
+    counts = scope.bincount(obs, minlength=domain_size, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     return scope.categorical(

@@ -297,14 +297,17 @@ class AnnealingAlgo(SuggestAlgo):
         """
         Parameters: See `hp_uniform`
         """
-        upper = memo[node.arg["upper"]]
+        low = memo[node.arg["low"]]
+        high = memo.get(node.arg["high"])
+        # if high is None, the domain is [0, low), else it is [low, high)
+        domain_size = low if high is None else high - low
         val1 = np.atleast_1d(val)
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
+            counts = old_div(np.bincount(val1, minlength=domain_size), float(val1.size))
         else:
-            counts = np.zeros(upper)
+            counts = np.zeros(domain_size)
         prior = self.shrinking(label)
-        p = (1 - prior) * counts + prior * (old_div(1.0, upper))
+        p = (1 - prior) * counts + prior * (old_div(1.0, domain_size))
         rval = categorical(p=p, rng=self.rng, size=memo[node.arg["size"]])
         return rval
 
