@@ -5,6 +5,7 @@ import tempfile
 import time
 import shutil
 
+import numpy as np
 from six import StringIO
 
 from pyspark.sql import SparkSession
@@ -615,6 +616,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 algo=anneal.suggest,
                 max_evals=1,
                 trials=SparkTrials(),
+                rstate=np.random.RandomState(4),
             )
             log_output = output.getvalue().strip()
             self.assertNotIn(
