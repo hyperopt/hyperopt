@@ -497,8 +497,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
     def test_timeout_with_job_cancellation(self):
         if not self.sparkSupportsJobCancelling():
             print(
-                "Skipping timeout test since this Apache PySpark version does not support "
-                "cancelling jobs by job group ID."
+                "Skipping timeout test since this Apache PySpark version does not "
+                "support cancelling jobs by job group ID."
             )
             return
 
@@ -524,6 +524,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
+                rstate=np.random.RandomState(4),
             )
             log_output = output.getvalue().strip()
 
@@ -565,6 +566,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             max_queue_len=1,
             show_progressbar=False,
             return_argmin=True,
+            rstate=np.random.RandomState(4),
         )
 
         time.sleep(2)
@@ -622,9 +624,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertNotIn(
                 "spark.task.maxFailures",
                 log_output,
-                """ "spark.task.maxFailures" warning should not appear in log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                "spark.task.maxFailures warning should not appear in log:"
+                "{log_output}".format(log_output=log_output),
             )
 
         # With slow trials, print warning.
@@ -640,14 +641,14 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     algo=anneal.suggest,
                     max_evals=1,
                     trials=SparkTrials(),
+                    rstate=np.random.RandomState(4),
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
                     "spark.task.maxFailures",
                     log_output,
-                    """ "spark.task.maxFailures" warning missing from log: {log_output}""".format(
-                        log_output=log_output
-                    ),
+                    "spark.task.maxFailures warning missing from log:"
+                    "{log_output}".format(log_output=log_output),
                 )
         finally:
             _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = (
