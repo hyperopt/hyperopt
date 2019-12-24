@@ -636,7 +636,7 @@ class Trials(object):
         timeout=None,
         max_queue_len=1,
         rstate=None,
-        verbose=0,
+        verbose=False,
         pass_expr_memo_ctrl=None,
         catch_eval_exceptions=False,
         return_argmin=True,

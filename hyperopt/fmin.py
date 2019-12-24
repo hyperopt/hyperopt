@@ -485,7 +485,10 @@ def fmin(
         show_progressbar=show_progressbar,
     )
     rval.catch_eval_exceptions = catch_eval_exceptions
+
+    # next line is where the fmin is actually executed
     rval.exhaust()
+
     if return_argmin:
         if len(trials.trials) == 0:
             raise Exception(
@@ -493,7 +496,8 @@ def fmin(
             )
         return trials.argmin
     elif len(trials) > 0:
-        # Only if there are some succesfull trail runs, return the best point in the evaluation space
+        # Only if there are some succesfull trail runs, return the best point in
+        # the evaluation space
         return space_eval(space, trials.argmin)
     else:
         return None

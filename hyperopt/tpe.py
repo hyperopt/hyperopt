@@ -67,6 +67,17 @@ def categorical_lpdf(sample, p):
         return np.asarray([])
 
 
+@scope.define
+def randint_via_categorical_lpdf(sample, p, low=0):
+    """
+    """
+    if sample.size:
+        # import pdb; pdb.set_trace()
+        return np.log(np.asarray(p)[sample - low])
+    else:
+        return np.asarray([])
+
+
 # -- Bounded Gaussian Mixture Model (BGMM)
 
 
@@ -574,16 +585,23 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_randint_sampler(
     obs, prior_weight, low, high=None, size=(), rng=None, LF=DEFAULT_LF
 ):
-    domain_size = low if high is None else high - low
+    # randint can be seen as a categorical with high - low categories
+    # Here it is computed as categorical shifted to [low, high), with no offset if
+    # high not specified. In such a case, randint is a simple categorical with
+    # `low` categories
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
+    domain_size = low if high is None else high - low
     import pdb
 
     pdb.set_trace()
     counts = scope.bincount(obs, minlength=domain_size, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
-    return scope.categorical(
-        old_div(pseudocounts, scope.sum(pseudocounts)), size=size, rng=rng
+    return scope.randint_via_categorical(
+        old_div(pseudocounts, scope.sum(pseudocounts)),
+        low=0 if high is None else low,
+        size=size,
+        rng=rng,
     )
 
 
@@ -695,7 +713,7 @@ def build_posterior(
                 # (e.g. using scope.GMM1) which return those samples.
                 #
                 # However we are only interested in using the samples from b_post.
-                # This codes looks at the AST and grabs the function name that we used
+                # This code looks at the AST and grabs the function name that we used
                 # for sampling (e.g. scope.GMM1)   and modifies it, e.g. to
                 # "scope.GMM1_lpdf". It then calls this function, passing in the
                 # samples as the first parameter.a_args
@@ -716,9 +734,7 @@ def build_posterior(
                 # calculate the log likelihood of b_post under both distributions
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
-
-                # improvement = below_llik - above_llik
-                # new_node = scope.broadcast_best(b_post, improvement)
+                # compute new_node based on below & above log likelihood
                 new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, "obj"):
                 # -- keep same literals in the graph
