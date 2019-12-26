@@ -281,15 +281,7 @@ class FMinIter(object):
                 self.trials.refresh()
 
                 # update progress bar with the min loss among trials with status ok
-                try:
-                    best_loss = min(
-                        doc["result"]["loss"]
-                        for doc in self.trials.trials
-                        if doc["result"]["status"] == "ok"
-                    )
-                    progress_ctx.postfix = "best loss: " + str(best_loss)
-                except:
-                    pass
+                progress_ctx.postfix = "best loss: " + str(min(self.trials.losses()))
 
                 n_unfinished = get_n_unfinished()
                 if n_unfinished == 0:

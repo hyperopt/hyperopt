@@ -446,26 +446,25 @@ class Trials(object):
         docs = [self.assert_valid_trial(SONify(doc)) for doc in docs]
         return self._insert_trial_docs(docs)
 
-    def new_trial_ids(self, N):
+    def new_trial_ids(self, n):
         aa = len(self._ids)
-        rval = list(range(aa, aa + N))
+        rval = list(range(aa, aa + n))
         self._ids.update(rval)
         return rval
 
     def new_trial_docs(self, tids, specs, results, miscs):
         assert len(tids) == len(specs) == len(results) == len(miscs)
-        rval = []
+        trials_docs = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
-            doc = dict(
-                state=JOB_STATE_NEW, tid=tid, spec=spec, result=result, misc=misc
-            )
+            doc = {"state": JOB_STATE_NEW, "tid": tid, "spec": spec, "result": result}
+            doc["misc"] = misc
             doc["exp_key"] = self._exp_key
             doc["owner"] = None
             doc["version"] = 0
             doc["book_time"] = None
             doc["refresh_time"] = None
-            rval.append(doc)
-        return rval
+            trials_docs.append(doc)
+        return trials_docs
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
         assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))

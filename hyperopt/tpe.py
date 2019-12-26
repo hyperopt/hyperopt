@@ -672,7 +672,8 @@ def build_posterior(
 
     """
     assert all(
-        isinstance(arg, pyll.Apply) for arg in [obs_loss_idxs, obs_loss_vals, oloss_gamma]
+        isinstance(arg, pyll.Apply)
+        for arg in [obs_loss_idxs, obs_loss_vals, oloss_gamma]
     )
     assert set(prior_idxs.keys()) == set(prior_vals.keys())
 
@@ -857,23 +858,10 @@ def suggest(
     verbose=True,
 ):
     """
+    Given previous trials and the domain, explore the best expected new hp point
+    according to the TPE-EI algo
     TODO: consider changing the name of this function by e.g. explore (?)
-    Args:
-        new_ids:
-        domain:
-        trials:
-        seed:
-        prior_weight:
-        n_startup_jobs:
-        n_EI_candidates:
-        gamma:
-        verbose:
-
-    Returns:
-
     """
-
-    new_id = new_ids[0]
 
     t0 = time.time()
     # TODO: use tpe_transform to go from XXXX to XXXX
@@ -909,7 +897,7 @@ def suggest(
     #    so that linear_forgetting removes the oldest ones
     tid_docs = sorted(best_docs.items())
     losses = [best_docs_loss[tid] for tid, doc in tid_docs]
-    tids, docs = list(zip(*tid_docs)) if tid_docs else [], []
+    tids, docs = list(zip(*tid_docs)) if tid_docs else ([], [])
 
     if verbose:
         if docs:
@@ -925,15 +913,16 @@ def suggest(
         return rand.suggest(new_ids, domain, trials, seed)
 
     # Sample and compute log-probability.
+    first_new_id = new_ids[0]
     if tids:
         # -- the +2 co-ordinates with an assertion above
         #    to ensure that fake ids are used during sampling
         #    TODO: not sure what assertion this refers to...
-        fake_id_0 = max(max(tids), new_id) + 2
+        fake_id_0 = max(max(tids), first_new_id) + 2
     else:
         # -- weird - we're running the TPE algo from scratch
         assert n_startup_jobs <= 0
-        fake_id_0 = new_id + 2
+        fake_id_0 = first_new_id + 2
 
     fake_ids = list(range(fake_id_0, fake_id_0 + n_EI_candidates))
 
@@ -942,7 +931,7 @@ def suggest(
     memo = {domain.s_new_ids: fake_ids, domain.s_rng: np.random.RandomState(seed)}
 
     o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-        [d["misc"] for d in docs], keys=list(domain.params.keys())
+        [doc["misc"] for doc in docs], keys=list(domain.params.keys())
     )
     memo[observed["idxs"]] = o_idxs_d
     memo[observed["vals"]] = o_vals_d
@@ -950,24 +939,23 @@ def suggest(
     memo[observed_loss["idxs"]] = tids
     memo[observed_loss["vals"]] = losses
 
+    # evaluate `n_EI_candidates` pyll nodes
     idxs, vals = pyll.rec_eval(
         [opt_idxs, opt_vals], memo=memo, print_node_on_error=False
     )
 
     # -- retrieve the best of the samples and form the return tuple
-    # the build_posterior makes all specs the same
 
-    rval_specs = [None]  # -- specs are deprecated
+    rval_specs = [None]  # specs are deprecated since build_posterior makes all the same
     rval_results = [domain.new_result()]
-    rval_miscs = [{"tid": new_id, "cmd": domain.cmd, "workdir": domain.workdir}]
+    rval_miscs = [{"tid": first_new_id, "cmd": domain.cmd, "workdir": domain.workdir}]
 
     miscs_update_idxs_vals(
         rval_miscs,
         idxs,
         vals,
-        idxs_map={fake_ids[0]: new_id},
+        idxs_map={fake_ids[0]: first_new_id},
         assert_all_vals_used=False,
     )
-    rval_docs = trials.new_trial_docs([new_id], rval_specs, rval_results, rval_miscs)
-
-    return rval_docs
+    # return the doc for the best new trial
+    return trials.new_trial_docs([first_new_id], rval_specs, rval_results, rval_miscs)
