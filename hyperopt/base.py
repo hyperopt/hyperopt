@@ -203,8 +203,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
         if len(miscs) == 0:
             raise ValueError("cannot infer keys from empty miscs")
         keys = list(miscs[0]["idxs"].keys())
-    idxs = dict([(k, []) for k in keys])
-    vals = dict([(k, []) for k in keys])
+    idxs, vals = {k: [] for k in keys}, {k: [] for k in keys}
     for misc in miscs:
         for node_id in idxs:
             t_idxs = misc["idxs"][node_id]
