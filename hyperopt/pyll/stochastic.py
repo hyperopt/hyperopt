@@ -105,6 +105,19 @@ def randint(low, high=None, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
+def randint_via_categorical(p, rng=None, size=()):
+    """
+    See np.random.randint documentation.
+    rng = random number generator, typically equals np.random.mtrand.RandomState
+    low is not used here but required for tpe to pass it to *_lpdf
+    """
+    # ideally we would just use randint above, but to use priors
+    # this is a wrapper of categorical
+    return scope.categorical(p, rng, size)
+
+
+@implicit_stochastic
+@scope.define
 def categorical(p, rng=None, size=()):
     """Draws i with probability p[i]"""
     if len(p) == 1 and isinstance(p[0], np.ndarray):
@@ -141,48 +154,6 @@ def categorical(p, rng=None, size=()):
         rval = np.asarray(rval)
         rval.shape = size
         return rval
-    else:
-        raise NotImplementedError()
-
-
-@implicit_stochastic
-@scope.define
-def randint_via_categorical(p, low=0, rng=None, size=()):
-    """Draws i with probability p[i]"""
-    if len(p) == 1 and isinstance(p[0], np.ndarray):
-        p = p[0]
-    p = np.asarray(p)
-
-    if size == ():
-        size = (1,)
-    elif isinstance(size, (int, np.number)):
-        size = (size,)
-    else:
-        size = tuple(size)
-
-    if size == (0,):
-        return np.asarray([])
-    assert len(size)
-
-    if p.ndim == 0:
-        raise NotImplementedError()
-    elif p.ndim == 1:
-        n_draws = int(np.prod(size))
-        sample = rng.multinomial(n=1, pvals=p, size=int(n_draws))
-        assert sample.shape == size + (len(p),)
-        rval = np.dot(sample, np.arange(len(p)))
-        rval.shape = size
-        return rval + low
-    elif p.ndim == 2:
-        n_draws_, n_choices = p.shape
-        (n_draws,) = size
-        assert n_draws == n_draws_
-        rval = [
-            np.where(rng.multinomial(pvals=p[ii], n=1))[0][0] for ii in range(n_draws)
-        ]
-        rval = np.asarray(rval)
-        rval.shape = size
-        return rval + low
     else:
         raise NotImplementedError()
 

@@ -257,7 +257,6 @@ class FMinIter(object):
                     new_trials = algo(
                         new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
                     )
-                    # import pdb; pdb.set_trace()
                     assert len(new_ids) >= len(new_trials)
                     if len(new_trials):
                         self.trials.insert_trial_docs(new_trials)

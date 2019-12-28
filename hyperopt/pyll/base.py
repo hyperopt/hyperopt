@@ -1050,9 +1050,9 @@ def str_join(s, seq):
 
 
 @scope.define_pure
-def bincount(x, weights=None, minlength=None):
+def bincount(x, offset=0, weights=None, minlength=None):
     y = np.asarray(x, dtype="int")
-    return np.bincount(y, weights, minlength)
+    return np.bincount(y - offset, weights, minlength)
 
 
 @scope.define_pure

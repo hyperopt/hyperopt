@@ -129,8 +129,9 @@ class Hyperparameter:
                             self.hyperoptVariableName, math.log(min), math.log(max)
                         )
             if mode == "randint":
-                max = self.config.get("max", 1)
-                return hp.randint(self.hyperoptVariableName, max)
+                min = self.config.get("min")
+                max = self.config.get("max")
+                return hp.randint(self.hyperoptVariableName, min, max)
 
             if mode == "normal":
                 mean = self.config.get("mean", 0)
@@ -488,8 +489,10 @@ class Hyperparameter:
             return data
         elif domain.name == "randint":
             data = {"type": "number"}
-            max = domain.pos_args[0]._obj
-            data["max"] = max
+            low = domain.pos_args[0]._obj
+            high = domain.pos_args[1]._obj
+            data["min"] = 0 if high is None else low
+            data["max"] = high or low
             data["mode"] = "randint"
             return data
         else:
@@ -1123,7 +1126,8 @@ class ATPEOptimizer:
                 )
                 topResults = sortedResults[:topResultsN]
 
-            # Any secondary parameters have may be locked to either the current best value or any value within the result pool.
+            # Any secondary parameters have may be locked to either the current best
+            # value or any value within the result pool.
             for secondary in secondaryParameters:
                 if atpeParams["secondaryProbabilityMode"] == "fixed":
                     if random.uniform(0, 1) < atpeParams["secondaryFixedProbability"]:
@@ -1198,8 +1202,8 @@ class ATPEOptimizer:
                     else:
                         removedResults.append(result)
 
-        # If we are in initialization, or by some other fluke of random nature that we end up with no results after filtering,
-        # then just use all the results
+        # If we are in initialization, or by some other fluke of random nature that we
+        # end up with no results after filtering, then just use all the results
         if len(filteredResults) == 0:
             filteredResults = results
 
@@ -1588,8 +1592,9 @@ def suggest(new_ids, domain, trials, seed):
 
     results = optimizer.convertTrialsToResults(hyperparameterConfig, trials)
 
-    # If there is a loss value that is negative, then we must increment the values so they are all positive.
-    # This is because ATPE has been optimized only for positive loss value
+    # If there is a loss value that is negative, then we must increment the values so
+    # they are all positive. This is because ATPE has been optimized only for positive
+    # loss value
     if len(results) > 0:
         minVal = min(
             [result["loss"] for result in results if result["loss"] is not None]

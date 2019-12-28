@@ -171,8 +171,7 @@ def SONify(arg, memo=None):
 
 def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_map=None):
     """
-    Unpack the idxs-vals format into the list of dictionaries that is
-    `misc`.
+    Unpack the idxs-vals format into the list of dictionaries that is `misc`.
 
     idxs_map: a dictionary of id->id mappings so that the misc['idxs'] can
         contain different numbers than the idxs argument. XXX CLARIFY
@@ -184,8 +183,8 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_ma
 
     misc_by_id = dict([(m["tid"], m) for m in miscs])
     for m in miscs:
-        m["idxs"] = dict([(key, []) for key in idxs])
-        m["vals"] = dict([(key, []) for key in idxs])
+        m["idxs"] = {key: [] for key in idxs}
+        m["vals"] = {key: [] for key in idxs}
 
     for key in idxs:
         assert len(idxs[key]) == len(vals[key])
