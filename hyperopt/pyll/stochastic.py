@@ -107,12 +107,12 @@ def randint(low, high=None, rng=None, size=()):
 @scope.define
 def randint_via_categorical(p, rng=None, size=()):
     """
-    See np.random.randint documentation.
+    Only used in tpe because of the chaotic API based on names.
+    # ideally we would just use randint above, but to use priors this is a wrapper of
+    categorical
     rng = random number generator, typically equals np.random.mtrand.RandomState
-    low is not used here but required for tpe to pass it to *_lpdf
     """
-    # ideally we would just use randint above, but to use priors
-    # this is a wrapper of categorical
+
     return scope.categorical(p, rng, size)
 
 

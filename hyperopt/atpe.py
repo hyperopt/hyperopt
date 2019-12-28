@@ -1262,8 +1262,9 @@ class ATPEOptimizer:
                     * parameter.config["rounding"]
                 )
         elif parameter.config.get("mode", "uniform") == "randint":
+            min = parameter.config["min"]
             max = parameter.config["max"]
-            value = random.randint(0, max - 1)
+            value = random.randint(min, max)
 
         return value
 

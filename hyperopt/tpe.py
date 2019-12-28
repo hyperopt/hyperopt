@@ -604,14 +604,19 @@ def tpe_cat_pseudocounts(counts, prior_weight, p, size):
     if p.ndim == 2:
         assert np.all(p == p[0])
         p = p[0]
-    pseudocounts = counts + p.size * (prior_weight * p)
+    try:
+        pseudocounts = counts + p.size * (prior_weight * p)
+    except:
+        import pdb
+
+        pdb.set_trace()
     return old_div(pseudocounts, np.sum(pseudocounts))
 
 
 @adaptive_parzen_sampler("categorical")
 def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, weights=weights)
+    counts = scope.bincount(obs, minlength=scope.len(p), weights=weights)
     pseudocounts = scope.tpe_cat_pseudocounts(counts, prior_weight, p, size)
     return scope.categorical(pseudocounts, size=size, rng=rng)
 
@@ -753,8 +758,6 @@ def build_posterior(
                 new_node = node.clone_from_inputs(new_inputs)
             memo[node] = new_node
 
-    # TODO: finally compute the values to return:
-    #  - XXXXX...
     post_idxs = {nid: memo[idxs] for nid, idxs in prior_idxs.items()}
     post_vals = {nid: memo[vals] for nid, vals in prior_vals.items()}
     return post_idxs, post_vals
@@ -807,7 +810,8 @@ def build_posterior_wrapper(domain, prior_weight, gamma):
     Args:
         domain (hyperopt.base.Domain): contains info about the obj function and the hp
             space passed to fmin
-        prior_weight (float): ??
+        prior_weight (float): smoothing factor for counts, to avoid having 0 prob
+        # TODO: consider renaming or improving documentation for suggest
         gamma (float): the threshold to split between l(x) and g(x), see eq. 2 in
             https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf
 
@@ -850,6 +854,17 @@ def suggest(
     """
     Given previous trials and the domain, suggest the best expected hp point
     according to the TPE-EI algo
+
+
+    Args:
+        prior_weight(
+        n_startup_jobs:
+        n_EI_candidates:
+        gamma:
+        verbose:
+
+    Returns:
+
     """
 
     t0 = time.time()
