@@ -1,5 +1,8 @@
 """
-    Implements the ATPE algorithm. See https://www.electricbrain.io/blog/learning-to-optimize and https://www.electricbrain.io/blog/optimizing-optimization to learn more
+    Implements the ATPE algorithm. See
+    https://www.electricbrain.io/blog/learning-to-optimize
+    and
+    https://www.electricbrain.io/blog/optimizing-optimization to learn more
 """
 
 __authors__ = "Bradley Arsenault"
@@ -22,8 +25,6 @@ import hyperopt
 import datetime
 import json
 import copy
-from .base import miscs_update_idxs_vals
-from pprint import pprint
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507

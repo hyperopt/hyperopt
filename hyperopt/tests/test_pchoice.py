@@ -88,7 +88,8 @@ class TestPChoice(unittest.TestCase):
 
 class TestSimpleFMin(unittest.TestCase):
     # test that that a space with a pchoice in it is
-    # (a) accepted by various algos and
+    # (a) accepted for each algo (random, tpe, anneal)
+    # and
     # (b) handled correctly.
     #
 
@@ -100,53 +101,50 @@ class TestSimpleFMin(unittest.TestCase):
         return [1, 1, 1, 0][a]
 
     def test_random(self):
-        # test that that a space with a pchoice in it is
-        # (a) accepted by tpe.suggest and
-        # (b) handled correctly.
-        N = 150
+        max_evals = 150
         fmin(
             self.objective,
             space=self.space,
             trials=self.trials,
             algo=rand.suggest,
-            max_evals=N,
+            rstate=np.random.RandomState(4),
+            max_evals=max_evals,
         )
 
         a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
-        print(counts)
-        assert counts[3] > N * 0.35
-        assert counts[3] < N * 0.60
+        assert counts[3] > max_evals * 0.35
+        assert counts[3] < max_evals * 0.60
 
     def test_tpe(self):
-        N = 100
+        max_evals = 100
         fmin(
             self.objective,
             space=self.space,
             trials=self.trials,
             algo=partial(tpe.suggest, n_startup_jobs=10),
-            max_evals=N,
+            rstate=np.random.RandomState(4),
+            max_evals=max_evals,
         )
 
         a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
-        print(counts)
-        assert counts[3] > N * 0.6
+        assert counts[3] > max_evals * 0.6
 
     def test_anneal(self):
-        N = 100
+        max_evals = 100
         fmin(
             self.objective,
             space=self.space,
             trials=self.trials,
             algo=partial(anneal.suggest),
-            max_evals=N,
+            rstate=np.random.RandomState(4),
+            max_evals=max_evals,
         )
 
         a_vals = [t["misc"]["vals"]["a"][0] for t in self.trials.trials]
         counts = np.bincount(a_vals)
-        print(counts)
-        assert counts[3] > N * 0.6
+        assert counts[3] > max_evals * 0.6
 
 
 def test_bug1_rand():

@@ -6,8 +6,6 @@ from __future__ import print_function
 
 import pickle
 
-from past.builtins import xrange
-
 try:
     unicode = unicode
 except NameError:

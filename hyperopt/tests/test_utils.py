@@ -4,7 +4,6 @@ import numpy as np
 from nose.tools import raises, eq_
 import shutil
 import os
-from hyperopt import Trials
 from hyperopt.utils import fast_isin
 from hyperopt.utils import get_most_recent_inds
 from hyperopt.utils import temp_dir, working_dir, get_closest_dir, path_split_all
@@ -120,30 +119,28 @@ def test_path_split_all():
 
 
 def test_temp_dir_sentinel():
-    from os.path import join, isdir, exists, abspath
-
     basedir = "test_temp_dir_sentinel"
-    fn = join(basedir, "foo", "bar")
-    if exists(basedir):
+    fn = os.path.join(basedir, "foo", "bar")
+    if os.path.exists(basedir):
         print("Path %s exists, not running test_temp_dir_sentinel()" % basedir)
         return
     os.makedirs(basedir)
     eq_(get_closest_dir(fn)[0], basedir)
     eq_(get_closest_dir(fn)[1], "foo")
-    sentinel = join(basedir, "foo.inuse")
+    sentinel = os.path.join(basedir, "foo.inuse")
     try:
         with temp_dir(fn, erase_after=True, with_sentinel=True):
-            assert isdir(fn)
-            assert exists(sentinel)
+            assert os.path.isdir(fn)
+            assert os.path.exists(sentinel)
             # simulate work
-            open(join(fn, "dummy.txt"), "w").close()
+            open(os.path.join(fn, "dummy.txt"), "w").close()
         # work file should be deleted together with directory
-        assert not exists(fn)
-        assert not exists(join(basedir, "foo"))
+        assert not os.path.exists(fn)
+        assert not os.path.exists(os.path.join(basedir, "foo"))
         # basedir should still exist, though!
-        assert isdir(basedir)
+        assert os.path.isdir(basedir)
     finally:
-        if isdir(basedir):
+        if os.path.isdir(basedir):
             shutil.rmtree(basedir)
 
 

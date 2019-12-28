@@ -23,4 +23,4 @@ class TestRand(unittest.TestCase):
         self.assertEqual(list(vals["flip"]), [0, 1, 0, 0, 0, 0, 0, 1, 1, 0])
 
     # -- TODO: put in a test that guarantees that
-    #          stochastic nodes are sampled in a paricular order.
+    #          stochastic nodes are sampled in a particular order.

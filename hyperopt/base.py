@@ -44,7 +44,7 @@ try:
 except ImportError:
     have_bson = False
 
-from . import pyll, progress
+from . import pyll
 from .pyll.stochastic import recursive_set_rng_kwarg
 
 from .exceptions import (

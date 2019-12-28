@@ -264,18 +264,6 @@ class AnnealingAlgo(SuggestAlgo):
         max_midpt = high - half
         clipped_midpt = np.clip(midpt, min_midpt, max_midpt)
 
-        # if pass_q:
-        #    assert low <= val <= high, (low, val, high)
-        # else:
-        #    val = min(high, max(val, low))
-        # new_high = min(high, val + width / 2)
-        # if new_high == high:
-        #    new_low = new_high - width
-        # else:
-        #    new_low = max(low, val - width / 2)
-        #    if new_low == low:
-        #        new_high = min(high, new_low + width)
-        # assert low <= new_low <= new_high <= high
         if pass_q:
             return uniform_like(
                 low=clipped_midpt - half,
@@ -315,10 +303,9 @@ class AnnealingAlgo(SuggestAlgo):
             counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
         else:
             counts = np.zeros(upper)
-            prior = 1.0
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (old_div(1.0, upper))
-        rval = categorical(p=p, upper=upper, rng=self.rng, size=memo[node.arg["size"]])
+        rval = categorical(p=p, rng=self.rng, size=memo[node.arg["size"]])
         return rval
 
     def hp_categorical(self, memo, node, label, tid, val):
@@ -339,12 +326,11 @@ class AnnealingAlgo(SuggestAlgo):
         else:
             assert p.ndim == 1
             p = p[np.newaxis, :]
-        upper = memo[node.arg["upper"]]
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
+            counts = old_div(np.bincount(val1, minlength=p.size), float(val1.size))
             prior = self.shrinking(label)
         else:
-            counts = np.zeros(upper)
+            counts = np.zeros(p.size)
             prior = 1.0
         new_p = (1 - prior) * counts + prior * p
         assert new_p.ndim == 2

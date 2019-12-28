@@ -6,7 +6,7 @@ from past.builtins import basestring
 from builtins import object
 from functools import partial, wraps
 from .base import DuplicateLabel
-from .pyll.base import Apply, Literal
+from .pyll.base import Apply, Literal, MissingArgument
 from .pyll import scope
 from .pyll import as_apply
 
@@ -48,8 +48,7 @@ def hp_pchoice(label, p_options):
     p_options: list of (probability, option) pairs
     """
     p, options = list(zip(*p_options))
-    n_options = len(options)
-    ch = scope.hyperopt_param(label, scope.categorical(p, upper=n_options))
+    ch = scope.hyperopt_param(label, scope.categorical(p))
     return scope.switch(ch, *options)
 
 
@@ -197,9 +196,12 @@ def _remove_allpaths(hps, conditions):
     """
     potential_conds = {}
     for k, v in list(hps.items()):
-        if v["node"].name in ("randint", "categorical"):
+        if v["node"].name == "randint":
             upper = v["node"].arg["upper"].obj
             potential_conds[k] = frozenset([EQ(k, ii) for ii in range(upper)])
+        elif v["node"].name == "categorical":
+            p = v["node"].arg["p"].obj
+            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(p.size)])
 
     for k, v in list(hps.items()):
         if len(v["conditions"]) > 1:
@@ -219,6 +221,3 @@ def _remove_allpaths(hps, conditions):
                 if frozenset(conds) == potential_conds[depvar]:
                     v["conditions"] = set([conditions])
                     continue
-
-
-# -- eof
