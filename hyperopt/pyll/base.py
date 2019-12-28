@@ -1050,8 +1050,13 @@ def str_join(s, seq):
 
 
 @scope.define_pure
-def bincount(x, offset=0, weights=None, minlength=None):
+def bincount(x, offset=0, weights=None, minlength=None, p=None):
     y = np.asarray(x, dtype="int")
+    # hack for pchoice, p is passed as [ np.repeat(p, obs.size) ],
+    # so scope.len(p) gives incorrect #dimensions, need to get just the first one
+    if p is not None and p.ndim == 2:
+        assert np.all(p == p[0])
+        minlength = len(p[0])
     return np.bincount(y - offset, weights, minlength)
 
 

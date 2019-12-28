@@ -599,24 +599,22 @@ def ap_randint_sampler(
 
 @scope.define
 def tpe_cat_pseudocounts(counts, prior_weight, p, size):
-    if size == 0 or np.prod(size) == 0:
+    if np.prod(size) == 0:
         return []
     if p.ndim == 2:
         assert np.all(p == p[0])
         p = p[0]
-    try:
-        pseudocounts = counts + p.size * (prior_weight * p)
-    except:
-        import pdb
-
-        pdb.set_trace()
+    pseudocounts = counts + p.size * (prior_weight * p)
     return old_div(pseudocounts, np.sum(pseudocounts))
 
 
 @adaptive_parzen_sampler("categorical")
 def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, minlength=scope.len(p), weights=weights)
+    # in order to support pchoice here, we need to find the size of p,
+    # but p can have p.ndim == 2, so we pass p to bincount and unpack it
+    # (if required) there
+    counts = scope.bincount(obs, p=p, weights=weights)
     pseudocounts = scope.tpe_cat_pseudocounts(counts, prior_weight, p, size)
     return scope.categorical(pseudocounts, size=size, rng=rng)
 

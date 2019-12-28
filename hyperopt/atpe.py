@@ -490,7 +490,7 @@ class Hyperparameter:
         elif domain.name == "randint":
             data = {"type": "number"}
             low = domain.pos_args[0]._obj
-            high = domain.pos_args[1]._obj
+            high = domain.pos_args[1]._obj if len(domain.pos_args) > 1 else None
             data["min"] = 0 if high is None else low
             data["max"] = high or low
             data["mode"] = "randint"
