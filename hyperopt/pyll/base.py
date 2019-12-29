@@ -1049,33 +1049,15 @@ def str_join(s, seq):
     return s.join(seq)
 
 
-def _bincount_slow(x, weights=None, minlength=None):
-    """backport of np.bincount post numpy 1.6
-    """
-    if weights is not None:
-        raise NotImplementedError()
-    if minlength is None:
-        rlen = np.max(x) + 1
-    else:
-        rlen = max(np.max(x) + 1, minlength)
-    rval = np.zeros(rlen, dtype="int")
-    for xi in np.asarray(x).flatten():
-        rval[xi] += 1
-    return rval
-
-
 @scope.define_pure
-def bincount(x, weights=None, minlength=None):
-    if np_versions[0] == 1 and np_versions[1] < 6:
-        # -- np.bincount doesn't have minlength arg
-        return _bincount_slow(x, weights, minlength)
-    else:
-        if np.asarray(x).size:
-            return np.bincount(x, weights, minlength)
-        else:
-            # -- currently numpy rejects this case,
-            #    but it seems sensible enough to me.
-            return np.zeros(minlength, dtype="int")
+def bincount(x, weights=None, minlength=None, p=None):
+    y = np.asarray(x, dtype="int")
+    # hack for pchoice, p is passed as [ np.repeat(p, obs.size) ],
+    # so scope.len(p) gives incorrect #dimensions, need to get just the first one
+    if p is not None and p.ndim == 2:
+        assert np.all(p == p[0])
+        minlength = len(p[0])
+    return np.bincount(y, weights, minlength)
 
 
 @scope.define_pure

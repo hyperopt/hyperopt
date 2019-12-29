@@ -147,7 +147,7 @@ class TestSimpleFMin(unittest.TestCase):
         assert counts[3] > max_evals * 0.6
 
 
-def test_bug1_rand():
+def test_constant_fn_rand():
     space = hp.choice(
         "preprocess_choice",
         [
@@ -159,7 +159,7 @@ def test_bug1_rand():
     fmin(fn=lambda x: 1, space=space, algo=rand.suggest, max_evals=50)
 
 
-def test_bug1_tpe():
+def test_constant_fn_tpe():
     space = hp.choice(
         "preprocess_choice",
         [
@@ -168,10 +168,16 @@ def test_bug1_tpe():
             {"pthree": 7},
         ],
     )
-    fmin(fn=lambda x: 1, space=space, algo=tpe.suggest, max_evals=50)
+    fmin(
+        fn=lambda x: 1,
+        space=space,
+        algo=tpe.suggest,
+        max_evals=50,
+        rstate=np.random.RandomState(44),
+    )
 
 
-def test_bug1_anneal():
+def test_constant_fn_anneal():
     space = hp.choice(
         "preprocess_choice",
         [

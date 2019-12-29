@@ -212,6 +212,8 @@ class FMinIter(object):
 
     def run(self, N, block_until_done=True):
         """
+        Run `self.algo` iteratively (use existing `self.trials` to produce the new
+        ones), update, and repeat
         block_until_done  means that the process blocks until ALL jobs in
         trials are not in running or new state
 
@@ -245,8 +247,13 @@ class FMinIter(object):
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
                 ):
                     n_to_enqueue = min(self.max_queue_len - qlen, N - n_queued)
+                    # get ids for next trials to enqueue
                     new_ids = trials.new_trial_ids(n_to_enqueue)
                     self.trials.refresh()
+                    # Based on existing trials and the domain, use `algo` to probe in
+                    # new hp points. Save the results of those inspections into
+                    # `new_trials`. This is the core of `run`, all the rest is just
+                    # processes orchestration
                     new_trials = algo(
                         new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
                     )
@@ -271,17 +278,11 @@ class FMinIter(object):
                     self.serial_evaluate()
 
                 self.trials.refresh()
-                try:
-                    best_loss = min(
-                        [
-                            d["result"]["loss"]
-                            for d in self.trials.trials
-                            if d["result"]["status"] == "ok"
-                        ]
-                    )
-                    progress_ctx.postfix = "best loss: " + str(best_loss)
-                except:
-                    pass
+
+                # update progress bar with the min loss among trials with status ok
+                losses = [loss for loss in self.trials.losses() if loss is not None]
+                if losses:
+                    progress_ctx.postfix = "best loss: " + str(min(losses))
 
                 n_unfinished = get_n_unfinished()
                 if n_unfinished == 0:
@@ -485,7 +486,10 @@ def fmin(
         show_progressbar=show_progressbar,
     )
     rval.catch_eval_exceptions = catch_eval_exceptions
+
+    # next line is where the fmin is actually executed
     rval.exhaust()
+
     if return_argmin:
         if len(trials.trials) == 0:
             raise Exception(
@@ -493,7 +497,8 @@ def fmin(
             )
         return trials.argmin
     elif len(trials) > 0:
-        # Only if there are some succesfull trail runs, return the best point in the evaluation space
+        # Only if there are some successful trail runs, return the best point in
+        # the evaluation space
         return space_eval(space, trials.argmin)
     else:
         return None

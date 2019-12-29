@@ -63,8 +63,7 @@ def categorical_lpdf(sample, p):
     """
     if sample.size:
         return np.log(np.asarray(p)[sample])
-    else:
-        return np.asarray([])
+    return np.asarray([])
 
 
 # -- Bounded Gaussian Mixture Model (BGMM)
@@ -181,7 +180,7 @@ def GMM1_lpdf(
 @scope.define
 def lognormal_cdf(x, mu, sigma):
     # wikipedia claims cdf is
-    # .5 + .5 * erf( (log(x) - mu) / sqrt(2 * sigma^2))
+    # .5 + .5 erf( log(x) - mu / sqrt(2 sigma^2))
     #
     # the maximum is used to move negative values and 0 up to a point
     # where they do not cause nan or inf, but also don't contribute much
@@ -584,7 +583,7 @@ def ap_randint_sampler(obs, prior_weight, upper, size=(), rng=None, LF=DEFAULT_L
 
 @scope.define
 def tpe_cat_pseudocounts(counts, prior_weight, p, size):
-    if size == 0 or np.prod(size) == 0:
+    if np.prod(size) == 0:
         return []
     if p.ndim == 2:
         assert np.all(p == p[0])
@@ -596,7 +595,10 @@ def tpe_cat_pseudocounts(counts, prior_weight, p, size):
 @adaptive_parzen_sampler("categorical")
 def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, weights=weights)
+    # in general we would pass minlength=len(p). However, in order to support pchoice,
+    # we pass p to bincount. This is because for pchoice we have p.ndim == 2, so len(p)
+    # would pass an incorrect minlength parameter
+    counts = scope.bincount(obs, p=p, weights=weights)
     pseudocounts = scope.tpe_cat_pseudocounts(counts, prior_weight, p, size)
     return scope.categorical(pseudocounts, size=size, rng=rng)
 
@@ -607,9 +609,11 @@ def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_L
 
 
 @scope.define_info(o_len=2)
-def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF):
-    """Return the elements of o_vals that correspond to trials whose losses
-    were above gamma, or below gamma.
+def ap_split_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF):
+    """Split the elements of `o_vals` (observations values) into two groups: those for
+    trials whose losses (`l_vals`) were above gamma, and those below gamma. Note that
+    only unique elements are returned, so the total number of returned elements might
+    be lower than `len(o_vals)`
     """
     o_idxs, o_vals, l_idxs, l_vals = list(
         map(np.asarray, [o_idxs, o_vals, l_idxs, l_vals])
@@ -630,26 +634,41 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF
     return np.asarray(below), np.asarray(above)
 
 
+@scope.define
+def broadcast_best(samples, below_llik, above_llik):
+    if len(samples):
+        score = below_llik - above_llik
+        if len(samples) != len(score):
+            raise ValueError()
+        best = np.argmax(score)
+        return [samples[best]] * len(samples)
+    else:
+        return []
+
+
 def build_posterior(
     specs,
     prior_idxs,
     prior_vals,
     obs_idxs,
     obs_vals,
-    oloss_idxs,
-    oloss_vals,
+    obs_loss_idxs,
+    obs_loss_vals,
     oloss_gamma,
     prior_weight,
 ):
     """
     This method clones a posterior inference graph by iterating forward in
-    topological order, and replacing prior random-variables (prior_vals) with
-    new posterior distributions that make use of observations (obs_vals).
+    topological order, and replacing prior random-variables (prior_idxs, prior_vals)
+    with new posterior distributions (post_specs, post_idxs, post_vals) that make use
+    of observations (obs_idxs, obs_vals).
 
     """
     assert all(
-        isinstance(arg, pyll.Apply) for arg in [oloss_idxs, oloss_vals, oloss_gamma]
+        isinstance(arg, pyll.Apply)
+        for arg in [obs_loss_idxs, obs_loss_vals, oloss_gamma]
     )
+    assert set(prior_idxs.keys()) == set(prior_vals.keys())
 
     expr = pyll.as_apply([specs, prior_idxs, prior_vals])
     nodes = pyll.dfs(expr)
@@ -663,8 +682,8 @@ def build_posterior(
         # construct the leading args for each call to adaptive_parzen_sampler
         # which will permit the "adaptive parzen samplers" to adapt to the
         # correct samples.
-        obs_below, obs_above = scope.ap_filter_trials(
-            obs_idxs[nid], obs_vals[nid], oloss_idxs, oloss_vals, oloss_gamma
+        obs_below, obs_above = scope.ap_split_trials(
+            obs_idxs[nid], obs_vals[nid], obs_loss_idxs, obs_loss_vals, oloss_gamma
         )
         obs_memo[prior_vals[nid]] = [obs_below, obs_above]
     for node in nodes:
@@ -690,7 +709,7 @@ def build_posterior(
                 # (e.g. using scope.GMM1) which return those samples.
                 #
                 # However we are only interested in using the samples from b_post.
-                # This codes looks at the AST and grabs the function name that we used
+                # This code looks at the AST and grabs the function name that we used
                 # for sampling (e.g. scope.GMM1)   and modifies it, e.g. to
                 # "scope.GMM1_lpdf". It then calls this function, passing in the
                 # samples as the first parameter.a_args
@@ -701,19 +720,17 @@ def build_posterior(
 
                 assert a_post.name == b_post.name
                 fn_lpdf = getattr(scope, a_post.name + "_lpdf")
-                a_kwargs = dict(
-                    [(n, a) for n, a in a_post.named_args if n not in ("rng", "size")]
-                )
-                b_kwargs = dict(
-                    [(n, a) for n, a in b_post.named_args if n not in ("rng", "size")]
-                )
+                a_kwargs = {
+                    n: a for n, a in a_post.named_args if n not in ("rng", "size")
+                }
+                b_kwargs = {
+                    n: a for n, a in b_post.named_args if n not in ("rng", "size")
+                }
 
                 # calculate the log likelihood of b_post under both distributions
                 below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
                 above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
-
-                # improvement = below_llik - above_llik
-                # new_node = scope.broadcast_best(b_post, improvement)
+                # compute new_node based on below & above log likelihood
                 new_node = scope.broadcast_best(b_post, below_llik, above_llik)
             elif hasattr(node, "obj"):
                 # -- keep same literals in the graph
@@ -722,51 +739,38 @@ def build_posterior(
                 # -- this case is for all the other stuff in the graph
                 new_node = node.clone_from_inputs(new_inputs)
             memo[node] = new_node
-    post_specs = memo[specs]
-    post_idxs = dict([(nid, memo[idxs]) for nid, idxs in list(prior_idxs.items())])
-    post_vals = dict([(nid, memo[vals]) for nid, vals in list(prior_vals.items())])
-    assert set(post_idxs.keys()) == set(post_vals.keys())
-    assert set(post_idxs.keys()) == set(prior_idxs.keys())
-    return post_specs, post_idxs, post_vals
+
+    post_idxs = {nid: memo[idxs] for nid, idxs in prior_idxs.items()}
+    post_vals = {nid: memo[vals] for nid, vals in prior_vals.items()}
+    return post_idxs, post_vals
 
 
-@scope.define
-def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
-    """Add all of the  log-likelihoods together by id.
-
-    Example arguments:
-    full_idxs = [0, 1, ... N-1]
-    idxs_by_label = {'node_a': [1, 3], 'node_b': [3]}
-    llik_by_label = {'node_a': [0.1, -3.3], node_b: [1.0]}
-
-    This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
-    """
-    assert len(set(full_idxs)) == len(full_idxs)
-    full_idxs = list(full_idxs)
-    rval = np.zeros(len(full_idxs))
-    pos_of_tid = dict(list(zip(full_idxs, list(range(len(full_idxs))))))
-    assert set(idxs_by_label.keys()) == set(llik_by_label.keys())
-    for nid in idxs_by_label:
-        idxs = idxs_by_label[nid]
-        llik = llik_by_label[nid]
-        assert np.all(np.asarray(idxs) > 1)
-        assert len(set(idxs)) == len(idxs)
-        assert len(idxs) == len(llik)
-        for ii, ll in zip(idxs, llik):
-            rval[pos_of_tid[ii]] += ll
-    return rval
-
-
-@scope.define
-def broadcast_best(samples, below_llik, above_llik):
-    if len(samples):
-        score = below_llik - above_llik
-        if len(samples) != len(score):
-            raise ValueError()
-        best = np.argmax(score)
-        return [samples[best]] * len(samples)
-    else:
-        return []
+# TODO: is this used?
+# @scope.define
+# def idxs_prod(full_idxs, idxs_by_label, llik_by_label):
+#     """Add all of the  log-likelihoods together by id.
+#
+#     Example arguments:
+#     full_idxs = [0, 1, ... N-1]
+#     idxs_by_label = {'node_a': [1, 3], 'node_b': [3]}
+#     llik_by_label = {'node_a': [0.1, -3.3], node_b: [1.0]}
+#
+#     This would return N elements: [0, 0.1, 0, -2.3, 0, 0, ... ]
+#     """
+#     assert len(set(full_idxs)) == len(full_idxs)
+#     full_idxs = list(full_idxs)
+#     rval = np.zeros(len(full_idxs))
+#     pos_of_tid = dict(list(zip(full_idxs, list(range(len(full_idxs))))))
+#     assert set(idxs_by_label.keys()) == set(llik_by_label.keys())
+#     for nid in idxs_by_label:
+#         idxs = idxs_by_label[nid]
+#         llik = llik_by_label[nid]
+#         assert np.all(np.asarray(idxs) > 1)
+#         assert len(set(idxs)) == len(idxs)
+#         assert len(idxs) == len(llik)
+#         for ii, ll in zip(idxs, llik):
+#             rval[pos_of_tid[ii]] += ll
+#     return rval
 
 
 _default_prior_weight = 1.0
@@ -782,14 +786,23 @@ _default_n_startup_jobs = 20
 _default_linear_forgetting = DEFAULT_LF
 
 
-def tpe_transform(domain, prior_weight, gamma):
-    s_prior_weight = pyll.Literal(float(prior_weight))
+def build_posterior_wrapper(domain, prior_weight, gamma):
+    """
+    Calls build_posterior
+    Args:
+        domain (hyperopt.base.Domain): contains info about the obj function and the hp
+            space passed to fmin
+        prior_weight (float): smoothing factor for counts, to avoid having 0 prob
+        # TODO: consider renaming this param or improving documentation for suggest
+        gamma (float): the threshold to split between l(x) and g(x), see eq. 2 in
+            https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf
+    """
 
-    # -- these dummy values will be replaced in suggest1() and never used
-    observed = dict(idxs=pyll.Literal(), vals=pyll.Literal())
-    observed_loss = dict(idxs=pyll.Literal(), vals=pyll.Literal())
+    # -- these dummy values will be replaced in build_posterior() and never used
+    observed = {"idxs": pyll.Literal(), "vals": pyll.Literal()}
+    observed_loss = {"idxs": pyll.Literal(), "vals": pyll.Literal()}
 
-    specs, idxs, vals = build_posterior(
+    posterior = build_posterior(
         # -- vectorized clone of bandit template
         domain.vh.v_expr,
         # -- this dict and next represent prior dists
@@ -800,10 +813,10 @@ def tpe_transform(domain, prior_weight, gamma):
         observed_loss["idxs"],
         observed_loss["vals"],
         pyll.Literal(gamma),
-        s_prior_weight,
+        pyll.Literal(float(prior_weight)),
     )
 
-    return s_prior_weight, observed, observed_loss, specs, idxs, vals
+    return observed, observed_loss, posterior
 
 
 def suggest(
@@ -817,68 +830,67 @@ def suggest(
     gamma=_default_gamma,
     verbose=True,
 ):
-
-    new_id = new_ids[0]
+    """
+    Given previous trials and the domain, suggest the best expected hp point
+    according to the TPE-EI algo
+    """
 
     t0 = time.time()
-    (
-        s_prior_weight,
-        observed,
-        observed_loss,
-        specs,
-        opt_idxs,
-        opt_vals,
-    ) = tpe_transform(domain, prior_weight, gamma)
+    # use build_posterior_wrapper to create the pyll nodes
+    observed, observed_loss, posterior = build_posterior_wrapper(
+        domain, prior_weight, gamma
+    )
     tt = time.time() - t0
     if verbose:
-        logger.info("tpe_transform took %f seconds" % tt)
+        logger.info("build_posterior_wrapper took %f seconds" % tt)
 
+    # Loop over previous trials to collect best_docs and best_docs_loss
     best_docs = dict()
     best_docs_loss = dict()
     for doc in trials.trials:
-        # get either this docs own tid or the one that it's from
+
+        # get either these docs own tid or the one that it's from
         tid = doc["misc"].get("from_tid", doc["tid"])
-        loss = domain.loss(doc["result"], doc["spec"])
-        if loss is None:
-            # -- associate infinite loss to new/running/failed jobs
-            loss = float("inf")
-        else:
-            loss = float(loss)
+
+        # associate infinite loss to new/running/failed jobs
+        loss = doc["result"].get("loss")
+        loss = float("inf") if loss is None else float(loss)
+
+        # if set, update loss for this tid if it's higher than current loss
+        # otherwise, set it
         best_docs_loss.setdefault(tid, loss)
         if loss <= best_docs_loss[tid]:
             best_docs_loss[tid] = loss
             best_docs[tid] = doc
 
-    tid_docs = list(best_docs.items())
     # -- sort docs by order of suggestion
     #    so that linear_forgetting removes the oldest ones
-    tid_docs.sort()
-    losses = [best_docs_loss[k] for k, v in tid_docs]
-    tids = [k for k, v in tid_docs]
-    docs = [v for k, v in tid_docs]
+    tid_docs = sorted(best_docs.items())
+    losses = [best_docs_loss[tid] for tid, doc in tid_docs]
+    tids, docs = list(zip(*tid_docs)) if tid_docs else ([], [])
 
     if verbose:
         if docs:
-            logger.info(
-                "TPE using %i/%i trials with best loss %f"
-                % (len(docs), len(trials), min(best_docs_loss.values()))
-            )
+            s = "%i/%i trials with best loss %f" % (len(docs), len(trials), min(losses))
         else:
-            logger.info("TPE using 0 trials")
+            s = "0 trials"
+        logger.info("TPE using %s" % s)
 
     if len(docs) < n_startup_jobs:
         # N.B. THIS SEEDS THE RNG BASED ON THE new_id
         return rand.suggest(new_ids, domain, trials, seed)
 
-    #    Sample and compute log-probability.
+    # Sample and compute log-probability.
+    first_new_id = new_ids[0]
     if tids:
         # -- the +2 co-ordinates with an assertion above
         #    to ensure that fake ids are used during sampling
-        fake_id_0 = max(max(tids), new_id) + 2
+        #    TODO: not sure what assertion this refers to...
+        fake_id_0 = max(max(tids), first_new_id) + 2
     else:
         # -- weird - we're running the TPE algo from scratch
         assert n_startup_jobs <= 0
-        fake_id_0 = new_id + 2
+        fake_id_0 = first_new_id + 2
 
     fake_ids = list(range(fake_id_0, fake_id_0 + n_EI_candidates))
 
@@ -886,33 +898,31 @@ def suggest(
     #    they should take during the evaluation of the pyll program
     memo = {domain.s_new_ids: fake_ids, domain.s_rng: np.random.RandomState(seed)}
 
-    o_idxs_d, o_vals_d = miscs_to_idxs_vals(
-        [d["misc"] for d in docs], keys=list(domain.params.keys())
-    )
-    memo[observed["idxs"]] = o_idxs_d
-    memo[observed["vals"]] = o_vals_d
-
     memo[observed_loss["idxs"]] = tids
     memo[observed_loss["vals"]] = losses
 
-    idxs, vals = pyll.rec_eval(
-        [opt_idxs, opt_vals], memo=memo, print_node_on_error=False
+    observed_idxs_dict, observed_vals_dict = miscs_to_idxs_vals(
+        [doc["misc"] for doc in docs], keys=list(domain.params.keys())
     )
+    memo[observed["idxs"]] = observed_idxs_dict
+    memo[observed["vals"]] = observed_vals_dict
+
+    # evaluate `n_EI_candidates` pyll nodes in `posterior` using `memo`
+    # TODO: it seems to return idxs, vals, all the same. Is this correct?
+    idxs, vals = pyll.rec_eval(posterior, memo=memo, print_node_on_error=False)
 
     # -- retrieve the best of the samples and form the return tuple
-    # the build_posterior makes all specs the same
 
-    rval_specs = [None]  # -- specs are deprecated
+    rval_specs = [None]  # specs are deprecated since build_posterior makes all the same
     rval_results = [domain.new_result()]
-    rval_miscs = [dict(tid=new_id, cmd=domain.cmd, workdir=domain.workdir)]
+    rval_miscs = [{"tid": first_new_id, "cmd": domain.cmd, "workdir": domain.workdir}]
 
     miscs_update_idxs_vals(
         rval_miscs,
         idxs,
         vals,
-        idxs_map={fake_ids[0]: new_id},
+        idxs_map={fake_ids[0]: first_new_id},
         assert_all_vals_used=False,
     )
-    rval_docs = trials.new_trial_docs([new_id], rval_specs, rval_results, rval_miscs)
-
-    return rval_docs
+    # return the doc for the best new trial
+    return trials.new_trial_docs([first_new_id], rval_specs, rval_results, rval_miscs)
