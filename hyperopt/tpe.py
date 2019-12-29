@@ -938,7 +938,7 @@ def suggest(
     memo[observed["vals"]] = observed_vals_dict
 
     # evaluate `n_EI_candidates` pyll nodes in `posterior` using `memo`
-    #  TODO: it seems to return idxs, vals, all the same. Is this correct?
+    # TODO: it seems to return idxs, vals, all the same. Is this correct?
     idxs, vals = pyll.rec_eval(posterior, memo=memo, print_node_on_error=False)
 
     # hack to add offset again for randint params
