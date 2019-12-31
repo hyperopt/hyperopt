@@ -242,7 +242,7 @@ class FMinIter(object):
             all_trials_complete = False
             best_loss = -1
             quit_loss = 100-self.confidence
-            while (n_queued < N or (block_until_done and not all_trials_complete)) 
+            while (n_queued < N or (block_until_done and not all_trials_complete))
               and ( self.timeout is None or (timer() - self.start_time) < self.timeout )
               and (self.confidence is None or best_loss > quit_loss):
                 qlen = get_queue_len()
@@ -491,6 +491,7 @@ def fmin(
         trials,
         max_evals=max_evals,
         timeout=timeout,
+        confidence=confidence,
         rstate=rstate,
         verbose=verbose,
         max_queue_len=max_queue_len,

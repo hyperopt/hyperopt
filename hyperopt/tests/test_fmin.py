@@ -303,9 +303,11 @@ def test_confidence():
         algo=rand.suggest,
         trials=hypopt_trials,
         return_argmin=False,
+        #max_evals=100
     )
     best_loss = hypopt_trials.best_trial['result']['loss']
     assert (100-best_loss) > confidence_ratio
+    assert len(hypopt_trials) > 0
 
 
 def test_invalid_confidence():

@@ -242,7 +242,7 @@ def validate_timeout(timeout):
 def validate_confidence(confidence):
     if confidence is not None and (
         not isinstance(confidence, numbers.Number)
-        or confidence <= 0 or or confidence >= 100
+        or confidence <= 0 or confidence >= 100
         or isinstance(confidence, bool)
     ):
         raise Exception(
