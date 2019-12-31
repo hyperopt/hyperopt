@@ -238,6 +238,17 @@ def validate_timeout(timeout):
             "The timeout argument should be None or a positive value. "
             "Given value: {timeout}".format(timeout=timeout)
         )
+        
+def validate_confidence(confidence):
+    if confidence is not None and (
+        not isinstance(confidence, numbers.Number)
+        or confidence <= 0 or or confidence >= 100
+        or isinstance(confidence, bool)
+    ):
+        raise Exception(
+            "The confidence argument should be None or a positive value between 0-100. "
+            "Given value: {confidence}".format(confidence=confidence)
+        )
 
 
 class Trials(object):
@@ -634,6 +645,7 @@ class Trials(object):
         algo,
         max_evals,
         timeout=None,
+        confidence=None,
         max_queue_len=1,
         rstate=None,
         verbose=0,
@@ -671,6 +683,7 @@ class Trials(object):
             algo,
             max_evals,
             timeout=timeout,
+            confidence=confidence,
             trials=self,
             rstate=rstate,
             verbose=verbose,

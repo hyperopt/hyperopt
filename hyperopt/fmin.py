@@ -14,6 +14,7 @@ from timeit import default_timer as timer
 import numpy as np
 
 from hyperopt.base import validate_timeout
+from hyperopt.base import validate_confidence
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
@@ -118,6 +119,7 @@ class FMinIter(object):
         poll_interval_secs=1.0,
         max_evals=sys.maxsize,
         timeout=None,
+        confidence=None,
         verbose=False,
         show_progressbar=True,
     ):
@@ -138,6 +140,7 @@ class FMinIter(object):
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
         self.timeout = timeout
+        self.confidence = confidence
         self.start_time = timer()
         self.rstate = rstate
         self.verbose = verbose
@@ -237,9 +240,11 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            while (n_queued < N or (block_until_done and not all_trials_complete)) and (
-                self.timeout is None or (timer() - self.start_time) < self.timeout
-            ):
+            best_loss = -1
+            quit_loss = 100-self.confidence
+            while (n_queued < N or (block_until_done and not all_trials_complete)) 
+              and ( self.timeout is None or (timer() - self.start_time) < self.timeout )
+              and (self.confidence is None or best_loss > quit_loss):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -328,6 +333,7 @@ def fmin(
     algo,
     max_evals,
     timeout=None,
+    confidence=None,
     trials=None,
     rstate=None,
     allow_trials_fmin=True,
@@ -380,6 +386,10 @@ def fmin(
     timeout : None or int, default None
         Limits search time by parametrized number of seconds.
         If None, then the search process has no time constraint.
+
+    confidence : None or double, default None
+        Limits search time when minimal loss reduced to certain amount.
+        If None, then the search process has no best_loss constraint.
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -447,6 +457,7 @@ def fmin(
             rstate = np.random.RandomState()
 
     validate_timeout(timeout)
+    validate_confidence(confidence)
 
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
@@ -455,6 +466,7 @@ def fmin(
             algo=algo,
             max_evals=max_evals,
             timeout=timeout,
+            confidence=confidence,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,

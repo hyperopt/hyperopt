@@ -291,3 +291,40 @@ def test_invalid_timeout():
             )
         except Exception as e:
             assert str(e) == expected_message
+
+
+def test_confidence():
+    confidence_ratio=99.99
+    hypopt_trials = Trials()
+    best = fmin(
+        fn=lambda x: x ** 2,
+        space=hp.uniform('x', -10, 10),
+        confidence=confidence_ratio,
+        algo=rand.suggest,
+        trials=hypopt_trials,
+        return_argmin=False,
+    )
+    best_loss = hypopt_trials.best_trial['result']['loss']
+    assert (100-best_loss) > confidence_ratio
+
+
+def test_invalid_confidence():
+    fn = lambda x: [time.sleep(1), x][1]
+    space = hp.choice("x", range(20))
+
+    for wrong_confidence in [-1, True]:
+        expected_message = "The confidence argument should be None or a positive value between 0-100. Given value: {m}".format(
+            m=wrong_confidence
+        )
+        try:
+            fmin(
+                fn=fn,
+                space=space,
+                max_evals=10,
+                confidence=wrong_confidence,
+                algo=rand.suggest,
+                return_argmin=False,
+                rstate=np.random.RandomState(0),
+            )
+        except Exception as e:
+            assert str(e) == expected_message
