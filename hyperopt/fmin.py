@@ -331,7 +331,7 @@ def fmin(
     fn,
     space,
     algo,
-    max_evals,
+    max_evals=sys.maxsize,
     timeout=None,
     confidence=None,
     trials=None,
