@@ -293,37 +293,37 @@ def test_invalid_timeout():
             assert str(e) == expected_message
 
 
-def test_confidence():
-    confidence_ratio=99.99
+def test_loss_threshold():
+    loss_threshold=0.001
     hypopt_trials = Trials()
     best = fmin(
         fn=lambda x: x ** 2,
         space=hp.uniform('x', -10, 10),
-        confidence=confidence_ratio,
+        loss_threshold=loss_threshold,
         algo=rand.suggest,
         trials=hypopt_trials,
         return_argmin=False,
         #max_evals=100
     )
     best_loss = hypopt_trials.best_trial['result']['loss']
-    assert (100-best_loss) > confidence_ratio
+    assert best_loss < loss_threshold
     assert len(hypopt_trials) > 0
 
 
-def test_invalid_confidence():
+def test_invalid_loss_threshold():
     fn = lambda x: [time.sleep(1), x][1]
     space = hp.choice("x", range(20))
 
-    for wrong_confidence in [-1, True]:
-        expected_message = "The confidence argument should be None or a positive value between 0-100. Given value: {m}".format(
-            m=wrong_confidence
+    for wrong_loss_threshold in ["", True]:
+        expected_message = "The loss_threshold argument should be None or a numeric value. Given value: {m}".format(
+            m=wrong_loss_threshold
         )
         try:
             fmin(
                 fn=fn,
                 space=space,
                 max_evals=10,
-                confidence=wrong_confidence,
+                loss_threshold=wrong_loss_threshold,
                 algo=rand.suggest,
                 return_argmin=False,
                 rstate=np.random.RandomState(0),
