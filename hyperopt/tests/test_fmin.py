@@ -303,10 +303,10 @@ def test_loss_threshold():
         algo=rand.suggest,
         trials=hypopt_trials,
         return_argmin=False,
-        #max_evals=100
+        rstate=np.random.RandomState(0),
     )
     best_loss = hypopt_trials.best_trial['result']['loss']
-    assert best_loss < loss_threshold
+    assert best_loss =< loss_threshold
     assert len(hypopt_trials) > 0
 
 
@@ -314,7 +314,7 @@ def test_invalid_loss_threshold():
     fn = lambda x: [time.sleep(1), x][1]
     space = hp.choice("x", range(20))
 
-    for wrong_loss_threshold in ["", True]:
+    for wrong_loss_threshold in ["abc", True]:
         expected_message = "The loss_threshold argument should be None or a numeric value. Given value: {m}".format(
             m=wrong_loss_threshold
         )

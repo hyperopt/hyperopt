@@ -13,8 +13,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-from hyperopt.base import validate_timeout
-from hyperopt.base import validate_loss_threshold
+from hyperopt.base import validate_timeout, validate_loss_threshold
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
@@ -240,10 +239,12 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            best_loss = sys.maxsize
-            while ( ( n_queued < N or (block_until_done and not all_trials_complete) )
-              and   ( self.timeout is None or (timer() - self.start_time) < self.timeout )
-              and   ( self.loss_threshold is None or best_loss > self.loss_threshold) ):
+            best_loss = float("inf")
+            while ( 
+                    ( n_queued < N or (block_until_done and not all_trials_complete) )     # more run to Q     || ( block_flag & trials not done )
+              and   ( self.timeout is None or (timer() - self.start_time) < self.timeout ) # no timeout        || < current last time
+              and   ( self.loss_threshold is None or best_loss >= self.loss_threshold)     # no loss_threshold || < current best_loss
+                  ):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -388,7 +389,8 @@ def fmin(
 
     loss_threshold : None or double, default None
         Limits search time when minimal loss reduced to certain amount.
-        If None, then the search process has no best_loss constraint.
+        If None, then the search process has no constraint on the loss, 
+        and will stop based on other parameters, e.g. `max_evals`, `timeout`
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If

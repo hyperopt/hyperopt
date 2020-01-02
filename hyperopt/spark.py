@@ -6,8 +6,7 @@ import time
 import timeit
 
 from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout
-from hyperopt.base import validate_loss_threshold
+from hyperopt.base import validate_timeout, validate_loss_threshold
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 try:
@@ -218,9 +217,8 @@ class SparkTrials(Trials):
                 self.timeout = timeout
 
         if loss_threshold is not None:
-            if self.loss_threshold is None:
-                validate_loss_threshold(loss_threshold)
-                self.loss_threshold=loss_threshold
+            validate_loss_threshold(loss_threshold)
+            self.loss_threshold=loss_threshold
 
         assert (
             not pass_expr_memo_ctrl
