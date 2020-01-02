@@ -314,7 +314,7 @@ def test_invalid_loss_threshold():
     fn = lambda x: [time.sleep(1), x][1]
     space = hp.choice("x", range(20))
 
-    for wrong_loss_threshold in ["abc", True]:
+    for wrong_loss_threshold in ["a", True]:
         expected_message = "The loss_threshold argument should be None or a numeric value. Given value: {m}".format(
             m=wrong_loss_threshold
         )
