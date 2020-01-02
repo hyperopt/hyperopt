@@ -306,7 +306,7 @@ def test_loss_threshold():
         rstate=np.random.RandomState(0),
     )
     best_loss = hypopt_trials.best_trial['result']['loss']
-    assert best_loss =< loss_threshold
+    assert best_loss <= loss_threshold
     assert len(hypopt_trials) > 0
 
 
