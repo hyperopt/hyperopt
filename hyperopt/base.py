@@ -171,8 +171,7 @@ def SONify(arg, memo=None):
 
 def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_map=None):
     """
-    Unpack the idxs-vals format into the list of dictionaries that is
-    `misc`.
+    Unpack the idxs-vals format into the list of dictionaries that is `misc`.
 
     idxs_map: a dictionary of id->id mappings so that the misc['idxs'] can
         contain different numbers than the idxs argument. XXX CLARIFY
@@ -184,8 +183,8 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_ma
 
     misc_by_id = dict([(m["tid"], m) for m in miscs])
     for m in miscs:
-        m["idxs"] = dict([(key, []) for key in idxs])
-        m["vals"] = dict([(key, []) for key in idxs])
+        m["idxs"] = {key: [] for key in idxs}
+        m["vals"] = {key: [] for key in idxs}
 
     for key in idxs:
         assert len(idxs[key]) == len(vals[key])
@@ -203,8 +202,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
         if len(miscs) == 0:
             raise ValueError("cannot infer keys from empty miscs")
         keys = list(miscs[0]["idxs"].keys())
-    idxs = dict([(k, []) for k in keys])
-    vals = dict([(k, []) for k in keys])
+    idxs, vals = {k: [] for k in keys}, {k: [] for k in keys}
     for misc in miscs:
         for node_id in idxs:
             t_idxs = misc["idxs"][node_id]
@@ -447,26 +445,25 @@ class Trials(object):
         docs = [self.assert_valid_trial(SONify(doc)) for doc in docs]
         return self._insert_trial_docs(docs)
 
-    def new_trial_ids(self, N):
+    def new_trial_ids(self, n):
         aa = len(self._ids)
-        rval = list(range(aa, aa + N))
+        rval = list(range(aa, aa + n))
         self._ids.update(rval)
         return rval
 
     def new_trial_docs(self, tids, specs, results, miscs):
         assert len(tids) == len(specs) == len(results) == len(miscs)
-        rval = []
+        trials_docs = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
-            doc = dict(
-                state=JOB_STATE_NEW, tid=tid, spec=spec, result=result, misc=misc
-            )
+            doc = {"state": JOB_STATE_NEW, "tid": tid, "spec": spec, "result": result}
+            doc["misc"] = misc
             doc["exp_key"] = self._exp_key
             doc["owner"] = None
             doc["version"] = 0
             doc["book_time"] = None
             doc["refresh_time"] = None
-            rval.append(doc)
-        return rval
+            trials_docs.append(doc)
+        return trials_docs
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
         assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))
@@ -636,7 +633,7 @@ class Trials(object):
         timeout=None,
         max_queue_len=1,
         rstate=None,
-        verbose=0,
+        verbose=False,
         pass_expr_memo_ctrl=None,
         catch_eval_exceptions=False,
         return_argmin=True,

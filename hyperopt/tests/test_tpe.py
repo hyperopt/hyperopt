@@ -712,7 +712,7 @@ class TestOptQUniform(object):
 
         losses = trials.losses()
 
-        from hyperopt.tpe import ap_filter_trials
+        from hyperopt.tpe import ap_split_trials
         from hyperopt.tpe import adaptive_parzen_samplers
 
         qu = scope.quniform(1.01, 10, 1)
@@ -751,7 +751,7 @@ class TestOptQUniform(object):
             print("ROUND", ii)
             print("-" * 80)
             all_vals = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-            below, above = ap_filter_trials(
+            below, above = ap_split_trials(
                 idxs[:ii], vals[:ii], idxs[:ii], losses[:ii], gamma
             )
             below = below.astype("int")
