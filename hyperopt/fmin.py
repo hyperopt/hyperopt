@@ -241,9 +241,12 @@ class FMinIter(object):
             all_trials_complete = False
             best_loss = float("inf")
             while ( 
-                    ( n_queued < N or (block_until_done and not all_trials_complete) )     # more run to Q     || ( block_flag & trials not done )
-              and   ( self.timeout is None or (timer() - self.start_time) < self.timeout ) # no timeout        || < current last time
-              and   ( self.loss_threshold is None or best_loss >= self.loss_threshold)     # no loss_threshold || < current best_loss
+                    # more run to Q     || ( block_flag & trials not done )
+                    ( n_queued < N or (block_until_done and not all_trials_complete) )
+                    # no timeout        || < current last time
+              and   ( self.timeout is None or (timer() - self.start_time)<self.timeout )
+                    # no loss_threshold || < current best_loss
+              and   ( self.loss_threshold is None or best_loss >= self.loss_threshold )
                   ):
                 qlen = get_queue_len()
                 while (

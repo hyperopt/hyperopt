@@ -49,7 +49,12 @@ class SparkTrials(Trials):
     # Hard cap on the number of concurrent hyperopt tasks (Spark jobs) to run. Set at 128.
     MAX_CONCURRENT_JOBS_ALLOWED = 128
 
-    def __init__(self, parallelism=None, timeout=None, loss_threshold=None, spark_session=None):
+    def __init__(self, 
+            parallelism=None, 
+            timeout=None, 
+            loss_threshold=None, 
+            spark_session=None
+        ):
         """
         :param parallelism: Maximum number of parallel trials to run,
                             i.e., maximum number of concurrent Spark tasks.

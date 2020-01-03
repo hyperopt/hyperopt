@@ -315,9 +315,8 @@ def test_invalid_loss_threshold():
     space = hp.choice("x", range(20))
 
     for wrong_loss_threshold in ["a", True]:
-        expected_message = "The loss_threshold argument should be None or a numeric value. Given value: {m}".format(
-            m=wrong_loss_threshold
-        )
+        expected_message = "The loss_threshold argument should be None " \
+            "or a numeric value. Given value: {m}".format( m=wrong_loss_threshold )
         try:
             fmin(
                 fn=fn,
