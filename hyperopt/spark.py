@@ -6,7 +6,7 @@ import time
 import timeit
 
 from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout
+from hyperopt.base import validate_timeout, validate_loss_threshold
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 try:
@@ -49,7 +49,12 @@ class SparkTrials(Trials):
     # Hard cap on the number of concurrent hyperopt tasks (Spark jobs) to run. Set at 128.
     MAX_CONCURRENT_JOBS_ALLOWED = 128
 
-    def __init__(self, parallelism=None, timeout=None, spark_session=None):
+    def __init__(self, 
+            parallelism=None, 
+            timeout=None, 
+            loss_threshold=None, 
+            spark_session=None
+        ):
         """
         :param parallelism: Maximum number of parallel trials to run,
                             i.e., maximum number of concurrent Spark tasks.
@@ -73,6 +78,7 @@ class SparkTrials(Trials):
                 "is available in your environment.  E.g., try running 'import pyspark'"
             )
         validate_timeout(timeout)
+        validate_loss_threshold(loss_threshold)
         self._spark = (
             SparkSession.builder.getOrCreate()
             if spark_session is None
@@ -99,6 +105,7 @@ class SparkTrials(Trials):
             )
 
         self.timeout = timeout
+        self.loss_threshold = loss_threshold
         self._fmin_cancelled = False
         self._fmin_cancelled_reason = None
         self.refresh()
@@ -191,6 +198,7 @@ class SparkTrials(Trials):
         algo,
         max_evals,
         timeout,
+        loss_threshold,
         max_queue_len,
         rstate,
         verbose,
@@ -213,6 +221,10 @@ class SparkTrials(Trials):
                 validate_timeout(timeout)
                 self.timeout = timeout
 
+        if loss_threshold is not None:
+            validate_loss_threshold(loss_threshold)
+            self.loss_threshold=loss_threshold
+
         assert (
             not pass_expr_memo_ctrl
         ), "SparkTrials does not support `pass_expr_memo_ctrl`"
@@ -232,6 +244,7 @@ class SparkTrials(Trials):
                 algo,
                 max_evals,
                 timeout=timeout,
+                loss_threshold=loss_threshold,
                 max_queue_len=max_queue_len,
                 trials=self,
                 allow_trials_fmin=False,  # -- prevent recursion

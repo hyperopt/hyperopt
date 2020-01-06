@@ -13,7 +13,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-from hyperopt.base import validate_timeout
+from hyperopt.base import validate_timeout, validate_loss_threshold
 from . import pyll
 from .utils import coarse_utcnow
 from . import base
@@ -118,6 +118,7 @@ class FMinIter(object):
         poll_interval_secs=1.0,
         max_evals=sys.maxsize,
         timeout=None,
+        loss_threshold=None,
         verbose=False,
         show_progressbar=True,
     ):
@@ -138,6 +139,7 @@ class FMinIter(object):
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
         self.timeout = timeout
+        self.loss_threshold = loss_threshold
         self.start_time = timer()
         self.rstate = rstate
         self.verbose = verbose
@@ -239,9 +241,15 @@ class FMinIter(object):
         ) as progress_ctx:
 
             all_trials_complete = False
-            while (n_queued < N or (block_until_done and not all_trials_complete)) and (
-                self.timeout is None or (timer() - self.start_time) < self.timeout
-            ):
+            best_loss = float("inf")
+            while ( 
+                    # more run to Q     || ( block_flag & trials not done )
+                    ( n_queued < N or (block_until_done and not all_trials_complete) )
+                    # no timeout        || < current last time
+              and   ( self.timeout is None or (timer() - self.start_time)<self.timeout )
+                    # no loss_threshold || < current best_loss
+              and   ( self.loss_threshold is None or best_loss >= self.loss_threshold )
+                  ):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -327,8 +335,9 @@ def fmin(
     fn,
     space,
     algo,
-    max_evals,
+    max_evals=sys.maxsize,
     timeout=None,
+    loss_threshold=None,
     trials=None,
     rstate=None,
     allow_trials_fmin=True,
@@ -381,6 +390,11 @@ def fmin(
     timeout : None or int, default None
         Limits search time by parametrized number of seconds.
         If None, then the search process has no time constraint.
+
+    loss_threshold : None or double, default None
+        Limits search time when minimal loss reduced to certain amount.
+        If None, then the search process has no constraint on the loss, 
+        and will stop based on other parameters, e.g. `max_evals`, `timeout`
 
     trials : None or base.Trials (or subclass)
         Storage for completed, ongoing, and scheduled evaluation points.  If
@@ -448,6 +462,7 @@ def fmin(
             rstate = np.random.RandomState()
 
     validate_timeout(timeout)
+    validate_loss_threshold(loss_threshold)
 
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
@@ -456,6 +471,7 @@ def fmin(
             algo=algo,
             max_evals=max_evals,
             timeout=timeout,
+            loss_threshold=loss_threshold,
             max_queue_len=max_queue_len,
             rstate=rstate,
             pass_expr_memo_ctrl=pass_expr_memo_ctrl,
@@ -480,6 +496,7 @@ def fmin(
         trials,
         max_evals=max_evals,
         timeout=timeout,
+        loss_threshold=loss_threshold,
         rstate=rstate,
         verbose=verbose,
         max_queue_len=max_queue_len,
