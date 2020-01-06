@@ -68,9 +68,6 @@ def categorical_lpdf(sample, p):
 
 @scope.define
 def randint_via_categorical_lpdf(sample, p):
-    """
-    """
-    # TODO: remove low if not necessary here and randint
     if sample.size:
         return np.log(np.asarray(p)[sample])
     return np.asarray([])
