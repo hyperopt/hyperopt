@@ -236,6 +236,16 @@ def validate_timeout(timeout):
             "The timeout argument should be None or a positive value. "
             "Given value: {timeout}".format(timeout=timeout)
         )
+        
+def validate_loss_threshold(loss_threshold):
+    if loss_threshold is not None and (
+        not isinstance(loss_threshold, numbers.Number)
+        or isinstance(loss_threshold, bool)
+    ):
+        raise Exception(
+            "The loss_threshold argument should be None or a numeric value. "
+            "Given value: {loss_threshold}".format(loss_threshold=loss_threshold)
+        )
 
 
 class Trials(object):
@@ -631,6 +641,7 @@ class Trials(object):
         algo,
         max_evals,
         timeout=None,
+        loss_threshold=None,
         max_queue_len=1,
         rstate=None,
         verbose=False,
@@ -668,6 +679,7 @@ class Trials(object):
             algo,
             max_evals,
             timeout=timeout,
+            loss_threshold=loss_threshold,
             trials=self,
             rstate=rstate,
             verbose=verbose,
