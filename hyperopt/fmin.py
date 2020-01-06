@@ -290,7 +290,8 @@ class FMinIter(object):
                 # update progress bar with the min loss among trials with status ok
                 losses = [loss for loss in self.trials.losses() if loss is not None]
                 if losses:
-                    progress_ctx.postfix = "best loss: " + str(min(losses))
+                    best_loss = min(losses)
+                    progress_ctx.postfix = "best loss: " + str(best_loss)
 
                 n_unfinished = get_n_unfinished()
                 if n_unfinished == 0:

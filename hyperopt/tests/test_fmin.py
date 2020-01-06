@@ -303,7 +303,6 @@ def test_loss_threshold():
         algo=rand.suggest,
         trials=hypopt_trials,
         rstate=np.random.RandomState(0),
-        verbose=True,
     )
     best_loss = hypopt_trials.best_trial["result"]["loss"]
     assert best_loss <= loss_threshold
