@@ -5,6 +5,7 @@ import tempfile
 import time
 import shutil
 
+import numpy as np
 from six import StringIO
 
 from pyspark.sql import SparkSession
@@ -206,6 +207,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_evals=8,
                 return_argmin=False,
                 trials=spark_trials,
+                rstate=np.random.RandomState(99),
             )
             self.check_run_status(
                 spark_trials, output, num_total=8, num_success=7, num_failure=1
@@ -373,7 +375,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin thread exits normally",
                 log_output,
-                """Debug info "fmin thread exits normally" missing from log: {log_output}""".format(
+                """Debug info "fmin thread exits normally" missing from 
+                log: {log_output}""".format(
                     log_output=log_output
                 ),
             )
@@ -396,7 +399,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assert_task_failed(log_output, 0)
 
         spark_trials = SparkTrials(parallelism=4)
-        # Here return_argmin is True (by default) and an exception should be thrown:w
+        # Here return_argmin is True (by default) and an exception should be thrown
         with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
             fmin(
                 fn=fn_succeed_within_range,
@@ -469,6 +472,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
+                rstate=np.random.RandomState(99),
             )
             log_output = output.getvalue().strip()
 
@@ -496,8 +500,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
     def test_timeout_with_job_cancellation(self):
         if not self.sparkSupportsJobCancelling():
             print(
-                "Skipping timeout test since this Apache PySpark version does not support "
-                "cancelling jobs by job group ID."
+                "Skipping timeout test since this Apache PySpark version does not "
+                "support cancelling jobs by job group ID."
             )
             return
 
@@ -523,6 +527,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
+                rstate=np.random.RandomState(4),
             )
             log_output = output.getvalue().strip()
 
@@ -564,6 +569,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             max_queue_len=1,
             show_progressbar=False,
             return_argmin=True,
+            rstate=np.random.RandomState(4),
         )
 
         time.sleep(2)
@@ -615,12 +621,14 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 algo=anneal.suggest,
                 max_evals=1,
                 trials=SparkTrials(),
+                rstate=np.random.RandomState(4),
             )
             log_output = output.getvalue().strip()
             self.assertNotIn(
                 "spark.task.maxFailures",
                 log_output,
-                """ "spark.task.maxFailures" warning should not appear in log: {log_output}""".format(
+                """ "spark.task.maxFailures" warning should not appear in log: 
+                {log_output}""".format(
                     log_output=log_output
                 ),
             )
@@ -638,12 +646,14 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     algo=anneal.suggest,
                     max_evals=1,
                     trials=SparkTrials(),
+                    rstate=np.random.RandomState(4),
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
                     "spark.task.maxFailures",
                     log_output,
-                    """ "spark.task.maxFailures" warning missing from log: {log_output}""".format(
+                    """ "spark.task.maxFailures" warning missing from log: 
+                    {log_output}""".format(
                         log_output=log_output
                     ),
                 )
