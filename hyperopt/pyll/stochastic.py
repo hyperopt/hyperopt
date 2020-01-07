@@ -95,17 +95,25 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 
 @implicit_stochastic
 @scope.define
-def randint(upper, rng=None, size=()):
-    # this is tricky because numpy doesn't support
-    # upper being a list of len size[0]
-    if isinstance(upper, (list, tuple)):
-        if isinstance(size, int):
-            assert len(upper) == size
-            return np.asarray([rng.randint(uu) for uu in upper])
-        elif len(size) == 1:
-            assert len(upper) == size[0]
-            return np.asarray([rng.randint(uu) for uu in upper])
-    return rng.randint(upper, size=size)
+def randint(low, high=None, rng=None, size=()):
+    """
+    See np.random.randint documentation.
+    rng = random number generator, typically equals np.random.mtrand.RandomState
+    """
+    return rng.randint(low, high, size)
+
+
+@implicit_stochastic
+@scope.define
+def randint_via_categorical(p, rng=None, size=()):
+    """
+    Only used in tpe because of the chaotic API based on names.
+    # ideally we would just use randint above, but to use priors this is a wrapper of
+    categorical
+    rng = random number generator, typically equals np.random.mtrand.RandomState
+    """
+
+    return scope.categorical(p, rng, size)
 
 
 @implicit_stochastic

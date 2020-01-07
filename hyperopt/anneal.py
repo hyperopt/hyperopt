@@ -1,3 +1,4 @@
+# TODO: add this to documentation
 """
 Annealing algorithm for hyperopt
 
@@ -15,6 +16,8 @@ from builtins import zip
 from past.utils import old_div
 import logging
 import numpy as np
+
+from hyperopt.pyll.base import bincount
 from .pyll.stochastic import (
     categorical,
     normal,
@@ -297,15 +300,21 @@ class AnnealingAlgo(SuggestAlgo):
         """
         Parameters: See `hp_uniform`
         """
-        upper = memo[node.arg["upper"]]
+        low = memo[node.arg["low"]]
+        high = memo.get(node.arg["high"])
+        # if high is None, the domain is [0, low), else it is [low, high)
+        domain_size = low if high is None else high - low
+        offset = 0 if high is None else low
         val1 = np.atleast_1d(val)
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=upper), float(val1.size))
+            counts = old_div(
+                bincount(val1, offset=offset, minlength=domain_size), float(val1.size)
+            )
         else:
-            counts = np.zeros(upper)
+            counts = np.zeros(domain_size)
         prior = self.shrinking(label)
-        p = (1 - prior) * counts + prior * (old_div(1.0, upper))
-        rval = categorical(p=p, rng=self.rng, size=memo[node.arg["size"]])
+        p = (1 - prior) * counts + prior * (old_div(1.0, domain_size))
+        rval = categorical(p=p, rng=self.rng, size=memo[node.arg["size"]]) + offset
         return rval
 
     def hp_categorical(self, memo, node, label, tid, val):

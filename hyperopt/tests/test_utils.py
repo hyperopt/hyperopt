@@ -119,28 +119,30 @@ def test_path_split_all():
 
 
 def test_temp_dir_sentinel():
+    from os.path import join, isdir, exists
+
     basedir = "test_temp_dir_sentinel"
-    fn = os.path.join(basedir, "foo", "bar")
-    if os.path.exists(basedir):
+    fn = join(basedir, "foo", "bar")
+    if exists(basedir):
         print("Path %s exists, not running test_temp_dir_sentinel()" % basedir)
         return
     os.makedirs(basedir)
     eq_(get_closest_dir(fn)[0], basedir)
     eq_(get_closest_dir(fn)[1], "foo")
-    sentinel = os.path.join(basedir, "foo.inuse")
+    sentinel = join(basedir, "foo.inuse")
     try:
         with temp_dir(fn, erase_after=True, with_sentinel=True):
-            assert os.path.isdir(fn)
-            assert os.path.exists(sentinel)
+            assert isdir(fn)
+            assert exists(sentinel)
             # simulate work
-            open(os.path.join(fn, "dummy.txt"), "w").close()
+            open(join(fn, "dummy.txt"), "w").close()
         # work file should be deleted together with directory
-        assert not os.path.exists(fn)
-        assert not os.path.exists(os.path.join(basedir, "foo"))
+        assert not exists(fn)
+        assert not exists(join(basedir, "foo"))
         # basedir should still exist, though!
-        assert os.path.isdir(basedir)
+        assert isdir(basedir)
     finally:
-        if os.path.isdir(basedir):
+        if isdir(basedir):
             shutil.rmtree(basedir)
 
 

@@ -66,6 +66,13 @@ def categorical_lpdf(sample, p):
     return np.asarray([])
 
 
+@scope.define
+def randint_via_categorical_lpdf(sample, p):
+    if sample.size:
+        return np.log(np.asarray(p)[sample])
+    return np.asarray([])
+
+
 # -- Bounded Gaussian Mixture Model (BGMM)
 
 
@@ -109,9 +116,8 @@ def normal_cdf(x, mu, sigma):
 
 
 @scope.define
-def GMM1_lpdf(
-    samples, weights, mus, sigmas, low=None, high=None, q=None, verbose=False
-):
+def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
+    verbose = 0
     samples, weights, mus, sigmas = list(
         map(np.asarray, (samples, weights, mus, sigmas))
     )
@@ -571,14 +577,21 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 
 
 @adaptive_parzen_sampler("randint")
-def ap_randint_sampler(obs, prior_weight, upper, size=(), rng=None, LF=DEFAULT_LF):
+def ap_randint_sampler(
+    obs, prior_weight, low, high=None, size=(), rng=None, LF=DEFAULT_LF
+):
+    # randint can be seen as a categorical with high - low categories
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    counts = scope.bincount(obs, minlength=upper, weights=weights)
+    # if high is None, then low represents high and there is no offset
+    domain_size = low if high is None else high - low
+    offset = pyll.Literal(0) if high is None else low
+    counts = scope.bincount(obs, offset=offset, minlength=domain_size, weights=weights)
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
-    return scope.categorical(
+    random_variable = scope.randint_via_categorical(
         old_div(pseudocounts, scope.sum(pseudocounts)), size=size, rng=rng
     )
+    return random_variable
 
 
 @scope.define
@@ -595,9 +608,9 @@ def tpe_cat_pseudocounts(counts, prior_weight, p, size):
 @adaptive_parzen_sampler("categorical")
 def ap_categorical_sampler(obs, prior_weight, p, size=(), rng=None, LF=DEFAULT_LF):
     weights = scope.linear_forgetting_weights(scope.len(obs), LF=LF)
-    # in general we would pass minlength=len(p). However, in order to support pchoice,
-    # we pass p to bincount. This is because for pchoice we have p.ndim == 2, so len(p)
-    # would pass an incorrect minlength parameter
+    # in order to support pchoice here, we need to find the size of p,
+    # but p can have p.ndim == 2, so we pass p to bincount and unpack it
+    # (if required) there
     counts = scope.bincount(obs, p=p, weights=weights)
     pseudocounts = scope.tpe_cat_pseudocounts(counts, prior_weight, p, size)
     return scope.categorical(pseudocounts, size=size, rng=rng)
@@ -793,9 +806,12 @@ def build_posterior_wrapper(domain, prior_weight, gamma):
         domain (hyperopt.base.Domain): contains info about the obj function and the hp
             space passed to fmin
         prior_weight (float): smoothing factor for counts, to avoid having 0 prob
-        # TODO: consider renaming this param or improving documentation for suggest
+        # TODO: consider renaming or improving documentation for suggest
         gamma (float): the threshold to split between l(x) and g(x), see eq. 2 in
             https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf
+
+    Returns:
+
     """
 
     # -- these dummy values will be replaced in build_posterior() and never used
@@ -833,6 +849,17 @@ def suggest(
     """
     Given previous trials and the domain, suggest the best expected hp point
     according to the TPE-EI algo
+
+
+    Args:
+        prior_weight(
+        n_startup_jobs:
+        n_EI_candidates:
+        gamma:
+        verbose:
+
+    Returns:
+
     """
 
     t0 = time.time()
@@ -910,6 +937,12 @@ def suggest(
     # evaluate `n_EI_candidates` pyll nodes in `posterior` using `memo`
     # TODO: it seems to return idxs, vals, all the same. Is this correct?
     idxs, vals = pyll.rec_eval(posterior, memo=memo, print_node_on_error=False)
+
+    # hack to add offset again for randint params
+    for label, param in domain.params.items():
+        if param.name == "randint" and len(param.pos_args) == 2:
+            offset = param.pos_args[0].obj
+            vals[label] = [val + offset for val in vals[label]]
 
     # -- retrieve the best of the samples and form the return tuple
 

@@ -161,6 +161,7 @@ def gauss_wave2():
 def many_dists():
     a = hp.choice("a", [0, 1, 2])
     b = hp.randint("b", 10)
+    bb = hp.randint("bb", 12, 25)
     c = hp.uniform("c", 4, 7)
     d = hp.loguniform("d", -2, 0)
     e = hp.quniform("e", 0, 10, 3)
@@ -170,7 +171,7 @@ def many_dists():
     i = hp.qnormal("i", 0, 10, 2)
     j = hp.qlognormal("j", 0, 2, 1)
     k = hp.pchoice("k", [(0.1, 0), (0.9, 1)])
-    z = a + b + c + d + e + f + g + h + i + j + k
+    z = a + b + bb + c + d + e + f + g + h + i + j + k
     return {"loss": scope.float(scope.log(1e-12 + z ** 2)), "status": base.STATUS_OK}
 
 

@@ -129,8 +129,9 @@ class Hyperparameter:
                             self.hyperoptVariableName, math.log(min), math.log(max)
                         )
             if mode == "randint":
-                max = self.config.get("max", 1)
-                return hp.randint(self.hyperoptVariableName, max)
+                min = self.config.get("min")
+                max = self.config.get("max")
+                return hp.randint(self.hyperoptVariableName, min, max)
 
             if mode == "normal":
                 mean = self.config.get("mean", 0)
@@ -488,8 +489,10 @@ class Hyperparameter:
             return data
         elif domain.name == "randint":
             data = {"type": "number"}
-            max = domain.pos_args[0]._obj
-            data["max"] = max
+            low = domain.pos_args[0]._obj
+            high = domain.pos_args[1]._obj if len(domain.pos_args) > 1 else None
+            data["min"] = 0 if high is None else low
+            data["max"] = high or low
             data["mode"] = "randint"
             return data
         else:
@@ -1259,8 +1262,9 @@ class ATPEOptimizer:
                     * parameter.config["rounding"]
                 )
         elif parameter.config.get("mode", "uniform") == "randint":
+            min = parameter.config["min"]
             max = parameter.config["max"]
-            value = random.randint(0, max - 1)
+            value = random.randint(min, max)
 
         return value
 

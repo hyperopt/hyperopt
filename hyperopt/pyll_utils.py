@@ -197,8 +197,14 @@ def _remove_allpaths(hps, conditions):
     potential_conds = {}
     for k, v in list(hps.items()):
         if v["node"].name == "randint":
-            upper = v["node"].arg["upper"].obj
-            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(upper)])
+            low = v["node"].arg["low"].obj
+            # if high is None, the domain is [0, low), else it is [low, high)
+            domain_size = (
+                v["node"].arg["high"].obj - low
+                if v["node"].arg["high"] != MissingArgument
+                else low
+            )
+            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(domain_size)])
         elif v["node"].name == "categorical":
             p = v["node"].arg["p"].obj
             potential_conds[k] = frozenset([EQ(k, ii) for ii in range(p.size)])
@@ -221,3 +227,6 @@ def _remove_allpaths(hps, conditions):
                 if frozenset(conds) == potential_conds[depvar]:
                     v["conditions"] = set([conditions])
                     continue
+
+
+# -- eof

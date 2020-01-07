@@ -242,14 +242,14 @@ class FMinIter(object):
 
             all_trials_complete = False
             best_loss = float("inf")
-            while ( 
-                    # more run to Q     || ( block_flag & trials not done )
-                    ( n_queued < N or (block_until_done and not all_trials_complete) )
-                    # no timeout        || < current last time
-              and   ( self.timeout is None or (timer() - self.start_time)<self.timeout )
-                    # no loss_threshold || < current best_loss
-              and   ( self.loss_threshold is None or best_loss >= self.loss_threshold )
-                  ):
+            while (
+                # more run to Q     || ( block_flag & trials not done )
+                (n_queued < N or (block_until_done and not all_trials_complete))
+                # no timeout        || < current last time
+                and (self.timeout is None or (timer() - self.start_time) < self.timeout)
+                # no loss_threshold || < current best_loss
+                and (self.loss_threshold is None or best_loss >= self.loss_threshold)
+            ):
                 qlen = get_queue_len()
                 while (
                     qlen < self.max_queue_len and n_queued < N and not self.is_cancelled
@@ -290,7 +290,8 @@ class FMinIter(object):
                 # update progress bar with the min loss among trials with status ok
                 losses = [loss for loss in self.trials.losses() if loss is not None]
                 if losses:
-                    progress_ctx.postfix = "best loss: " + str(min(losses))
+                    best_loss = min(losses)
+                    progress_ctx.postfix = "best loss: " + str(best_loss)
 
                 n_unfinished = get_n_unfinished()
                 if n_unfinished == 0:
