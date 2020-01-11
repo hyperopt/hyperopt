@@ -306,7 +306,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             )
             self.assertEqual(
                 parallelism,
-                max_num_concurrent_tasks,
+                max_num_concurrent_tasks + 1,
                 "Failed to limit parallelism ({p}) to max_num_concurrent_tasks"
                 " ({e})".format(p=parallelism, e=max_num_concurrent_tasks),
             )
