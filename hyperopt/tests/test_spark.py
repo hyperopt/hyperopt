@@ -292,9 +292,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 ),
             )
             self.assertIn(
-                "max_num_concurrent_tasks ({c})".format(c=max_num_concurrent_tasks),
+                "max number of concurrent tasks ({c})".format(c=max_num_concurrent_tasks),
                 log_output,
-                """max_num_concurrent_tasks value missing from log: {log_output}""".format(
+                """max number of concurrent tasks value missing from log: {log_output}""".format(
                     log_output=log_output
                 ),
             )
@@ -319,9 +319,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 ),
             )
             self.assertIn(
-                "max_num_concurrent_tasks ({c})".format(c=max_num_concurrent_tasks),
+                "max number of concurrent tasks ({c})".format(c=max_num_concurrent_tasks),
                 log_output,
-                """max_num_concurrent_tasks value missing from log: {log_output}""".format(
+                """max number of concurrent tasks value missing from log: {log_output}""".format(
                     log_output=log_output
                 ),
             )
