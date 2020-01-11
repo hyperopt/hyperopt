@@ -126,7 +126,7 @@ class SparkTrials(Trials):
         elif parallelism <= 0:
             logger.warning(
                 "User-specified parallelism was invalid value ({p}), so parallelism "
-                "will be set to max_num_concurrent_tasks ({c}).".format(
+                "will be set to max number of concurrent tasks ({c}).".format(
                     p=parallelism, c=max_num_concurrent_tasks
                 )
             )
