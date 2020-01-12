@@ -1224,6 +1224,13 @@ def as_mongo_str(s):
         return "mongo://%s" % s
 
 
+def number_of_jobs_in_db (options):
+    mj = MongoJobs.new_from_connection_str(
+        as_mongo_str(options.mongo) + '/jobs')
+    final_num = mj.jobs.find().count()
+    return final_num
+
+
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
     if options.last_job_timeout is not None:
@@ -1254,6 +1261,12 @@ def main_worker_helper(options, args):
             return
 
         while N and cons_errs < int(options.max_consecutive_failures):
+            if options.max_jobs_in_db is not None and options.max_jobs_in_db != sys.maxsize:
+                num_jobs_db = number_of_jobs_in_db(options)
+                if int(num_jobs_db) >= int(options.max_jobs_in_db):
+                    logger.info("Exiting because there are " + str(num_jobs_db)
+                                + " jobs in the database, but the limit is " + str(options.max_jobs_in_db))
+                    return
             try:
                 if options.use_subprocesses:
                     # recursive Popen, dropping N from the argv
@@ -1403,6 +1416,12 @@ def main_worker():
         default=True,
         action="store_false",
         help="do not use sub-processes for each objective evaluation, the objective function will run in the same python process (useful to keep in memory large data across objective evals) but you have to pay attention to memory leaks (default: False)",
+    )
+    parser.add_option(
+        "--max-jobs-in-db",
+        dest="max_jobs_in_db",
+        default=sys.maxsize,
+        help="max jobs in db (default: " + str(sys.maxsize) + ")"
     )
 
     (options, args) = parser.parse_args()
