@@ -465,13 +465,8 @@ class Trials(object):
         assert len(tids) == len(specs) == len(results) == len(miscs)
         trials_docs = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
-            doc = {"state": JOB_STATE_NEW, "tid": tid, "spec": spec, "result": result}
-            doc["misc"] = misc
-            doc["exp_key"] = self._exp_key
-            doc["owner"] = None
-            doc["version"] = 0
-            doc["book_time"] = None
-            doc["refresh_time"] = None
+            doc = {"state": JOB_STATE_NEW, "tid": tid, "spec": spec, "result": result, "misc": misc,
+                   "exp_key": self._exp_key, "owner": None, "version": 0, "book_time": None, "refresh_time": None}
             trials_docs.append(doc)
         return trials_docs
 
