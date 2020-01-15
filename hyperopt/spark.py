@@ -4,7 +4,6 @@ import copy
 import threading
 import time
 import timeit
-import warnings
 
 from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
@@ -126,14 +125,14 @@ class SparkTrials(Trials):
         #
         if requested_parallelism is None or requested_parallelism <= 0:
             parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
-            warnings.warn(
+            logger.warning(
                 "Because user-specified parallelism was None or was negative value, "
                 "parallelism will be set to default parallelism ({d}), which equals to "
                 "max(spark_default_parallelism, max_num_concurrent_tasks)), "
                 "this feature is deprecated, and in next released version, "
                 "user must specify parallelism explicitly, because default parallelism is not "
                 "stable when the cluster can auto-scale or spark executor registration comes late."
-                .format(d=parallelism), DeprecationWarning
+                .format(d=parallelism)
             )
         else:
             parallelism = requested_parallelism
