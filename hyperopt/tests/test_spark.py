@@ -291,7 +291,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     )
                     log_output = output.getvalue().strip()
                     self.assertIn(
-                        "Because user-specified parallelism was None or was non-negative value, "
+                        "Because user-specified parallelism was None or was negative value, "
                         "parallelism will be set to default parallelism ({d})"
                         .format(d=default_parallelism),
                         log_output,

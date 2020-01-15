@@ -59,10 +59,10 @@ class SparkTrials(Trials):
         """
         :param parallelism: Maximum number of parallel trials to run,
                             i.e., maximum number of concurrent Spark tasks.
-                            If set to None or and invalid value, this will be set to the number of
-                            executors in your Spark cluster.
+                            If set to None or negative value, this will be set to
+                            max(spark_default_parallelism, spark_max_num_concurrent_tasks)).
                             Hard cap at `MAX_CONCURRENT_JOBS_ALLOWED`.
-                            Default: None (= number of Spark executors).
+                            Default: None.
         :param timeout: Maximum time (in seconds) which fmin is allowed to take.
                         If this timeout is hit, then fmin will cancel running and proposed trials.
                         It will retain all completed trial runs and return the best result found
@@ -120,14 +120,14 @@ class SparkTrials(Trials):
             spark_default_parallelism,
             max_num_concurrent_tasks):
         """
-        Given the user-set value of parallelism, return the value SparkTrials will actually use.
+        Given the requested parallelism, return the value SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
         #
         if requested_parallelism is None or requested_parallelism <= 0:
             parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
             warnings.warn(
-                "Because user-specified parallelism was None or was non-negative value, "
+                "Because user-specified parallelism was None or was negative value, "
                 "parallelism will be set to default parallelism ({d}), which equals to "
                 "max(spark_default_parallelism, max_num_concurrent_tasks)), "
                 "this feature is deprecated, and in next released version, "
