@@ -289,7 +289,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
-                    "invalid value (-1)",
+                    "non-negative value (-1)",
                     log_output,
                     """Invalid parallelism value -1 missing from log: {log_output}""".format(
                         log_output=log_output
