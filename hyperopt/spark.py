@@ -123,33 +123,22 @@ class SparkTrials(Trials):
         Given the user-set value of parallelism, return the value SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
-        parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
+        #
         if requested_parallelism is None or requested_parallelism <= 0:
-            if requested_parallelism <= 0:
-                logger.warning(
-                    "User-specified parallelism was non-negative value ({p}), so parallelism "
-                    "will be set to default parallelism ({d}, which equals to "
-                    "max(spark_default_parallelism, max_num_concurrent_tasks)).".format(
-                        p=requested_parallelism, d=parallelism
-                    )
-                )
+            parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
             warnings.warn(
-                "The default parallelism ({d} which equals to max(spark_default_parallelism, "
-                "max_num_concurrent_tasks)) is deprecated, and in next released version, "
+                "Because user-specified parallelism was None or was non-negative value, "
+                "parallelism will be set to default parallelism ({d}), which equals to "
+                "max(spark_default_parallelism, max_num_concurrent_tasks)), "
+                "this feature is deprecated, and in next released version, "
                 "user must specify parallelism explicitly, because default parallelism is not "
                 "stable when the cluster can auto-scale or spark executor registration comes late."
                 .format(d=parallelism), DeprecationWarning
             )
-        elif requested_parallelism > max_num_concurrent_tasks:
-            logger.warning(
-                "User-specified parallelism ({p}) is greater than the max number of concurrent "
-                "tasks ({c}) this cluster can run now. If dynamic allocation is enabled for the "
-                "cluster, you might see more executors allocated.".format(
-                    p=requested_parallelism, c=max_num_concurrent_tasks
-                )
-            )
+        else:
             parallelism = requested_parallelism
 
+        # Add hard cap of parallelism
         if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
                 "Parallelism ({p}) is being decreased to the hard cap of "
@@ -158,6 +147,17 @@ class SparkTrials(Trials):
                 )
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
+
+        # When parallelism is larger than max_num_concurrent_tasks, it will trigger
+        # dynamic allocation when possible. So add a logging here to notify user.
+        if parallelism > max_num_concurrent_tasks:
+            logger.warning(
+                "Parallelism ({p}) is greater than the max number of concurrent "
+                "tasks ({c}) this cluster can run now. If dynamic allocation is enabled for the "
+                "cluster, you might see more executors allocated.".format(
+                    p=requested_parallelism, c=max_num_concurrent_tasks
+                )
+            )
         return parallelism
 
     def count_successful_trials(self):
