@@ -296,9 +296,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     ),
                 )
                 self.assertIn(
-                    "max number of concurrent tasks ({c})".format(c=max_num_concurrent_tasks),
+                    "be set to default parallelism ({c},".format(c=max_num_concurrent_tasks),
                     log_output,
-                    """max number of concurrent tasks value missing from log: {log_output}"""
+                    """set to default parallelism missing from log: {log_output}"""
                     .format(log_output=log_output),
                 )
 
@@ -323,9 +323,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     .format(p=max_num_concurrent_tasks + 1, log_output=log_output),
                 )
                 self.assertIn(
-                    "max number of concurrent tasks ({c})".format(c=max_num_concurrent_tasks),
+                    "be set to default parallelism ({c},".format(c=max_num_concurrent_tasks),
                     log_output,
-                    """max number of concurrent tasks value missing from log: {log_output}"""
+                    """set to default parallelism missing from log: {log_output}"""
                     .format(log_output=log_output),
                 )
 
