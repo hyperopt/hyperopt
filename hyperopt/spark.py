@@ -4,6 +4,7 @@ import copy
 import threading
 import time
 import timeit
+import warnings
 
 from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
@@ -91,8 +92,11 @@ class SparkTrials(Trials):
         )
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark_context._jsc.sc().maxNumConcurrentTasks()
+        spark_default_parallelism = self._spark_context.defaultParallelism
         self.parallelism = self._decide_parallelism(
-            max_num_concurrent_tasks, parallelism
+            requested_parallelism=parallelism,
+            spark_default_parallelism=spark_default_parallelism,
+            max_num_concurrent_tasks=max_num_concurrent_tasks
         )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
@@ -111,32 +115,38 @@ class SparkTrials(Trials):
         self.refresh()
 
     @staticmethod
-    def _decide_parallelism(max_num_concurrent_tasks, parallelism):
+    def _decide_parallelism(
+            requested_parallelism,
+            spark_default_parallelism,
+            max_num_concurrent_tasks):
         """
         Given the user-set value of parallelism, return the value SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
-        if max_num_concurrent_tasks == 0:
-            raise Exception(
-                "There are no available spark executors.  "
-                "Add workers to your Spark cluster to use SparkTrials."
-            )
-        if parallelism is None:
-            parallelism = max_num_concurrent_tasks
-        elif parallelism <= 0:
-            logger.warning(
-                "User-specified parallelism was invalid value ({p}), so parallelism "
-                "will be set to max number of concurrent tasks ({c}).".format(
-                    p=parallelism, c=max_num_concurrent_tasks
+        default_parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
+        if requested_parallelism is None or requested_parallelism <= 0:
+            if requested_parallelism <= 0:
+                logger.warning(
+                    "User-specified parallelism was non-negative value ({p}), so parallelism "
+                    "will be set to default parallelism ({d}, which equals to "
+                    "max(spark_default_parallelism, max_num_concurrent_tasks)).".format(
+                        p=requested_parallelism, d=default_parallelism
+                    )
                 )
+            warnings.warn(
+                "The default parallelism ({d} which equals to max(spark_default_parallelism, "
+                "max_num_concurrent_tasks)) is deprecated, and in next released version, "
+                "user must specify parallelism explicitly, because default parallelism is not "
+                "stable when the cluster can auto-scale or spark executor registration comes late."
+                .format(d=default_parallelism), DeprecationWarning
             )
-            parallelism = max_num_concurrent_tasks
-        elif parallelism > max_num_concurrent_tasks:
+            parallelism = default_parallelism
+        elif requested_parallelism > max_num_concurrent_tasks:
             logger.warning(
                 "User-specified parallelism ({p}) is greater than the max number of concurrent "
                 "tasks ({c}) this cluster can run now. If dynamic allocation is enabled for the "
                 "cluster, you might see more executors allocated.".format(
-                    p=parallelism, c=max_num_concurrent_tasks
+                    p=requested_parallelism, c=max_num_concurrent_tasks
                 )
             )
         if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
