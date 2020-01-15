@@ -124,8 +124,6 @@ class SparkTrials(Trials):
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
         default_parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
-        if default_parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
-            default_parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
         if requested_parallelism is None or requested_parallelism <= 0:
             if requested_parallelism <= 0:
                 logger.warning(
@@ -151,7 +149,9 @@ class SparkTrials(Trials):
                     p=requested_parallelism, c=max_num_concurrent_tasks
                 )
             )
-        if requested_parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
+            parallelism = requested_parallelism
+
+        if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
                 "Parallelism ({p}) is being decreased to the hard cap of "
                 "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
