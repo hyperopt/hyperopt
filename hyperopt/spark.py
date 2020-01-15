@@ -123,14 +123,14 @@ class SparkTrials(Trials):
         Given the user-set value of parallelism, return the value SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
-        default_parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
+        parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
         if requested_parallelism is None or requested_parallelism <= 0:
             if requested_parallelism <= 0:
                 logger.warning(
                     "User-specified parallelism was non-negative value ({p}), so parallelism "
                     "will be set to default parallelism ({d}, which equals to "
                     "max(spark_default_parallelism, max_num_concurrent_tasks)).".format(
-                        p=requested_parallelism, d=default_parallelism
+                        p=requested_parallelism, d=parallelism
                     )
                 )
             warnings.warn(
@@ -138,9 +138,8 @@ class SparkTrials(Trials):
                 "max_num_concurrent_tasks)) is deprecated, and in next released version, "
                 "user must specify parallelism explicitly, because default parallelism is not "
                 "stable when the cluster can auto-scale or spark executor registration comes late."
-                .format(d=default_parallelism), DeprecationWarning
+                .format(d=parallelism), DeprecationWarning
             )
-            parallelism = default_parallelism
         elif requested_parallelism > max_num_concurrent_tasks:
             logger.warning(
                 "User-specified parallelism ({p}) is greater than the max number of concurrent "
