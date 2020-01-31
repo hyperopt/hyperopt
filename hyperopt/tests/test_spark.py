@@ -274,7 +274,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         )
 
         for spark_default_parallelism, max_num_concurrent_tasks in [(2, 4), (2, 0)]:
-            default_parallelism = max(spark_default_parallelism, max_num_concurrent_tasks)
+            default_parallelism = max(
+                spark_default_parallelism, max_num_concurrent_tasks
+            )
 
             # Test requested_parallelism is None or negative values.
             for requested_parallelism in [None, -1]:
@@ -282,7 +284,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     parallelism = SparkTrials._decide_parallelism(
                         requested_parallelism=requested_parallelism,
                         spark_default_parallelism=spark_default_parallelism,
-                        max_num_concurrent_tasks=max_num_concurrent_tasks)
+                        max_num_concurrent_tasks=max_num_concurrent_tasks,
+                    )
                     self.assertEqual(
                         parallelism,
                         default_parallelism,
@@ -292,11 +295,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     log_output = output.getvalue().strip()
                     self.assertIn(
                         "Because the requested parallelism was None or a non-positive value, "
-                        "parallelism will be set to ({d})"
-                        .format(d=default_parallelism),
+                        "parallelism will be set to ({d})".format(
+                            d=default_parallelism
+                        ),
                         log_output,
-                        """set to default parallelism missing from log: {log_output}"""
-                        .format(log_output=log_output),
+                        """set to default parallelism missing from log: {log_output}""".format(
+                            log_output=log_output
+                        ),
                     )
 
             # Test requested_parallelism which will trigger spark executor dynamic allocation.
@@ -304,20 +309,24 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 parallelism = SparkTrials._decide_parallelism(
                     requested_parallelism=max_num_concurrent_tasks + 1,
                     spark_default_parallelism=spark_default_parallelism,
-                    max_num_concurrent_tasks=max_num_concurrent_tasks
+                    max_num_concurrent_tasks=max_num_concurrent_tasks,
                 )
                 self.assertEqual(
                     parallelism,
                     max_num_concurrent_tasks + 1,
-                    "Expect parallelism to be ({e}) but get ({p})"
-                    .format(p=parallelism, e=max_num_concurrent_tasks + 1),
+                    "Expect parallelism to be ({e}) but get ({p})".format(
+                        p=parallelism, e=max_num_concurrent_tasks + 1
+                    ),
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
-                    "Parallelism ({p}) is greater".format(p=max_num_concurrent_tasks + 1),
+                    "Parallelism ({p}) is greater".format(
+                        p=max_num_concurrent_tasks + 1
+                    ),
                     log_output,
-                    """Parallelism ({p}) missing from log: {log_output}"""
-                    .format(p=max_num_concurrent_tasks + 1, log_output=log_output),
+                    """Parallelism ({p}) missing from log: {log_output}""".format(
+                        p=max_num_concurrent_tasks + 1, log_output=log_output
+                    ),
                 )
 
             # Test requested_parallelism exceeds hard cap
@@ -330,8 +339,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     parallelism,
                     SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED,
-                    "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})"
-                    .format(p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED),
+                    "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})".format(
+                        p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
+                    ),
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
@@ -339,8 +349,9 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                         c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
                     ),
                     log_output,
-                    """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}"""
-                    .format(log_output=log_output),
+                    """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""".format(
+                        log_output=log_output
+                    ),
                 )
 
     def test_all_successful_trials(self):
