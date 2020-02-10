@@ -49,19 +49,18 @@ class SparkTrials(Trials):
     # Hard cap on the number of concurrent hyperopt tasks (Spark jobs) to run. Set at 128.
     MAX_CONCURRENT_JOBS_ALLOWED = 128
 
-    def __init__(self, 
-            parallelism=None, 
-            timeout=None, 
-            loss_threshold=None, 
-            spark_session=None
-        ):
+    def __init__(
+        self, parallelism=None, timeout=None, loss_threshold=None, spark_session=None
+    ):
         """
         :param parallelism: Maximum number of parallel trials to run,
                             i.e., maximum number of concurrent Spark tasks.
-                            If set to None or and invalid value, this will be set to the number of
-                            executors in your Spark cluster.
-                            Hard cap at `MAX_CONCURRENT_JOBS_ALLOWED`.
-                            Default: None (= number of Spark executors).
+                            The actual parallelism is subject to available Spark task slots at
+                            runtime.
+                            If set to None (default) or a non-positive value, this will be set to
+                            Spark's default parallelism, or the current total of Spark task slots,
+                            or `1`, whichever is greater.
+                            We cap the value at `MAX_CONCURRENT_JOBS_ALLOWED=128`.
         :param timeout: Maximum time (in seconds) which fmin is allowed to take.
                         If this timeout is hit, then fmin will cancel running and proposed trials.
                         It will retain all completed trial runs and return the best result found
@@ -91,8 +90,11 @@ class SparkTrials(Trials):
         )
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark_context._jsc.sc().maxNumConcurrentTasks()
+        spark_default_parallelism = self._spark_context.defaultParallelism
         self.parallelism = self._decide_parallelism(
-            max_num_concurrent_tasks, parallelism
+            requested_parallelism=parallelism,
+            spark_default_parallelism=spark_default_parallelism,
+            max_num_concurrent_tasks=max_num_concurrent_tasks,
         )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
@@ -111,43 +113,50 @@ class SparkTrials(Trials):
         self.refresh()
 
     @staticmethod
-    def _decide_parallelism(max_num_concurrent_tasks, parallelism):
+    def _decide_parallelism(
+        requested_parallelism, spark_default_parallelism, max_num_concurrent_tasks
+    ):
         """
-        Given the user-set value of parallelism, return the value SparkTrials will actually use.
+        Given the requested parallelism, return the max parallelism SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
         """
         if max_num_concurrent_tasks == 0:
-            raise Exception(
-                "There are no available spark executors.  "
-                "Add workers to your Spark cluster to use SparkTrials."
-            )
-        if parallelism is None:
-            parallelism = max_num_concurrent_tasks
-        elif parallelism <= 0:
             logger.warning(
-                "User-specified parallelism was invalid value ({p}), so parallelism "
-                "will be set to max_num_concurrent_tasks ({c}).".format(
-                    p=parallelism, c=max_num_concurrent_tasks
+                "The cluster has no executors currently. "
+                "The trials won't start until some new executors register."
+            )
+
+        if requested_parallelism is None or requested_parallelism <= 0:
+            parallelism = max(spark_default_parallelism, max_num_concurrent_tasks, 1)
+            logger.warning(
+                "Because the requested parallelism was None or a non-positive value, "
+                "parallelism will be set to ({d}), which is Spark's default parallelism ({s}), "
+                "or the current total of Spark task slots ({t}), or 1, whichever is greater. "
+                "We recommend setting parallelism explicitly to a positive value because "
+                "the total of Spark task slots is subject to cluster sizing.".format(
+                    d=parallelism,
+                    s=spark_default_parallelism,
+                    t=max_num_concurrent_tasks,
                 )
             )
-            parallelism = max_num_concurrent_tasks
-        elif parallelism > max_num_concurrent_tasks:
-            logger.warning(
-                "User-specified parallelism ({p}) is greater than "
-                "max_num_concurrent_tasks ({c}), so parallelism will be set to "
-                "max_num_concurrent_tasks.".format(
-                    p=parallelism, c=max_num_concurrent_tasks
-                )
-            )
-            parallelism = max_num_concurrent_tasks
+        else:
+            parallelism = requested_parallelism
+
         if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
-                "Parallelism ({p}) is being decreased to the hard cap of "
-                "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
+                "Parallelism ({p}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c}).".format(
                     p=parallelism, c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
                 )
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
+
+        if parallelism > max_num_concurrent_tasks:
+            logger.warning(
+                "Parallelism ({p}) is greater than the current total of Spark task slots ({c}). "
+                "If dynamic allocation is enabled, you might see more executors allocated.".format(
+                    p=requested_parallelism, c=max_num_concurrent_tasks
+                )
+            )
         return parallelism
 
     def count_successful_trials(self):
@@ -223,7 +232,7 @@ class SparkTrials(Trials):
 
         if loss_threshold is not None:
             validate_loss_threshold(loss_threshold)
-            self.loss_threshold=loss_threshold
+            self.loss_threshold = loss_threshold
 
         assert (
             not pass_expr_memo_ctrl
