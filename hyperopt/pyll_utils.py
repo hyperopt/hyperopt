@@ -25,6 +25,25 @@ def validate_label(f):
     return wrapper
 
 
+def validate_distribution_range(f):
+    @wraps(f)
+    def wrapper(label, *args, **kwargs):
+        min_val = (
+            args[0] if len(args) > 0 else (kwargs["low"] if "low" in kwargs else None)
+        )
+        max_val = (
+            args[1] if len(args) > 1 else (kwargs["high"] if "high" in kwargs else None)
+        )
+        if min_val and max_val and not min_val < max_val:
+            raise ValueError(
+                "low should be less than high: %s is not smaller than %s"
+                % (min_val, max_val)
+            )
+        return f(label, *args, **kwargs)
+
+    return wrapper
+
+
 #
 # Hyperparameter Types
 #
@@ -64,6 +83,7 @@ def hp_randint(label, *args, **kwargs):
 
 
 @validate_label
+@validate_distribution_range
 def hp_uniform(label, *args, **kwargs):
     return scope.float(scope.hyperopt_param(label, scope.uniform(*args, **kwargs)))
 
@@ -75,16 +95,19 @@ def hp_uniformint(label, *args, **kwargs):
 
 
 @validate_label
+@validate_distribution_range
 def hp_quniform(label, *args, **kwargs):
     return scope.float(scope.hyperopt_param(label, scope.quniform(*args, **kwargs)))
 
 
 @validate_label
+@validate_distribution_range
 def hp_loguniform(label, *args, **kwargs):
     return scope.float(scope.hyperopt_param(label, scope.loguniform(*args, **kwargs)))
 
 
 @validate_label
+@validate_distribution_range
 def hp_qloguniform(label, *args, **kwargs):
     return scope.float(scope.hyperopt_param(label, scope.qloguniform(*args, **kwargs)))
 

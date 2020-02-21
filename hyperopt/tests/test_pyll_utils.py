@@ -1,9 +1,11 @@
 from __future__ import print_function
 from builtins import map
+from hyperopt import pyll_utils
 from hyperopt.pyll_utils import EQ
 from hyperopt.pyll_utils import expr_to_config
 from hyperopt import hp
 from hyperopt.pyll import as_apply
+import unittest
 
 
 def test_expr_to_config():
@@ -80,3 +82,41 @@ def test_remove_allpaths_int():
     zconds = hps["z"]["conditions"]
     assert aconds == set([(True,)]), aconds
     assert zconds == set([(True,)]), zconds
+
+
+@pyll_utils.validate_distribution_range
+def stub_pyll_fn(label, low, high):
+    """
+    Stub function to test distribution range validation fn
+    """
+    pass
+
+
+class TestValidateDistributionRange(unittest.TestCase):
+    """
+    We can't test low being set via kwarg while high is set via arg because
+    that's not a validate fn call
+    """
+
+    def test_raises_error_for_low_arg_high_arg(self):
+        self.assertRaises(ValueError, stub_pyll_fn, "stub", 1, 1)
+
+    def test_raises_error_for_low_arg_high_kwarg(self):
+        self.assertRaises(ValueError, stub_pyll_fn, "stub", 1, high=1)
+
+    def test_raises_error_for_low_kwarg_high_kwarg(self):
+        self.assertRaises(ValueError, stub_pyll_fn, "stub", low=1, high=1)
+
+
+class TestDistributionsWithRangeValidateBoundries(unittest.TestCase):
+    def test_hp_uniform_raises_error_when_range_is_zero(self):
+        self.assertRaises(ValueError, hp.uniform, "stub", 10, 10)
+
+    def test_hp_quniform_raises_error_when_range_is_zero(self):
+        self.assertRaises(ValueError, hp.quniform, "stub", 10, 10, 1)
+
+    def test_hp_loguniform_raises_error_when_range_is_zero(self):
+        self.assertRaises(ValueError, hp.loguniform, "stub", 10, 10, 1)
+
+    def test_hp_qloguniform_raises_error_when_range_is_zero(self):
+        self.assertRaises(ValueError, hp.qloguniform, "stub", 10, 10, 1)
