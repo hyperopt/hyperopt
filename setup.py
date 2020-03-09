@@ -149,7 +149,7 @@ setuptools.setup(
         "numpy",
         "scipy",
         "six",
-        "networkx==2.2",
+        "networkx>=2.2",
         "future",
         "tqdm",
         "cloudpickle",
