@@ -49,16 +49,29 @@ print(space_eval(space, best))
 # -> ('case 2', 0.01420615366247227}
 ```
 
+## Contributing 
+
+### Setup
 If you're a developer, clone this repository and install from source:
 
 ```bash
 git clone https://github.com/hyperopt/hyperopt.git
-cd hyperopt && python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+cd hyperopt
+
+# Create a virtual env (python 3.x) to contain the dependencies and activate it
+python3 -m venv venv
+source venv/bin/activate
+
+python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 ```
 
-Note that dev dependencies require `black`, using python 3.6+ under the hood.
+Note that dev dependencies require python 3.6+.
 
-We recommend to use `black` to format your code before submitting a PR. You can use it 
+### Running tests
+The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `py.test`.
+
+### Formatting 
+We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR. You can use it 
 with a pre-commit hook as follows:
 
 ```
