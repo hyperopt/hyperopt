@@ -206,7 +206,6 @@ def test_bincount():
         assert list(counts) == [0, 0, 0, 4, 3, 3, 0]
 
     try:
-        test_f(base._bincount_slow)
         test_f(base.bincount)
     except TypeError as e:
         if "function takes at most 2 arguments" in str(e):
