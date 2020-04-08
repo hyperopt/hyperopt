@@ -1283,8 +1283,7 @@ def main_worker_helper(options, args):
                         proc.pid, signal.CTRL_C_EVENT if is_windows else signal.SIGTERM
                     )
                     return proc.wait()
-                else:
-                    return 0
+                return 0
 
             except WaitQuit:
                 # -- sending SIGUSR1 to a looping process will cause it to
@@ -1292,8 +1291,7 @@ def main_worker_helper(options, args):
                 # normally.
                 if proc:
                     return proc.wait()
-                else:
-                    return 0
+                return 0
 
             if retcode != 0:
                 cons_errs += 1
