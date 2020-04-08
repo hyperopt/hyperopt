@@ -235,8 +235,7 @@ class IPYAsync(object):
         if self.asynchronous.successful():
             val = self.asynchronous.get()
             return self.domain.evaluate_async2(val, self.ctrl)
-        else:
-            return self.rv
+        return self.rv
 
     pass
 
