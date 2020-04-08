@@ -734,10 +734,7 @@ class MongoTrials(Trials):
 
         """
         exp_key = self._exp_key
-        if exp_key != None:
-            query = {"exp_key": exp_key}
-        else:
-            query = {}
+        query = {"exp_key": exp_key} if exp_key != None else {}
         t0 = time.time()
         query["state"] = {"$ne": JOB_STATE_ERROR}
         if tids is not None:
