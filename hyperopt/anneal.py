@@ -255,10 +255,7 @@ class AnnealingAlgo(SuggestAlgo):
         Returns: a list with one value in it: the suggested value for this
         hyperparameter
         """
-        if log_scale:
-            midpt = np.log(val)
-        else:
-            midpt = val
+        midpt = np.log(val) if log_scale else val
         high = memo[node.arg["high"]]
         low = memo[node.arg["low"]]
         width = (high - low) * self.shrinking(label)
@@ -347,8 +344,7 @@ class AnnealingAlgo(SuggestAlgo):
         if p_orig.ndim == 1:
             assert len(rval) == 1
             return rval[0]
-        else:
-            return rval
+        return rval
 
     def hp_normal(self, memo, node, label, tid, val):
         """

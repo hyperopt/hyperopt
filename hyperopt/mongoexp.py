@@ -734,10 +734,7 @@ class MongoTrials(Trials):
 
         """
         exp_key = self._exp_key
-        if exp_key != None:
-            query = {"exp_key": exp_key}
-        else:
-            query = {}
+        query = {"exp_key": exp_key} if exp_key != None else {}
         t0 = time.time()
         query["state"] = {"$ne": JOB_STATE_ERROR}
         if tids is not None:
@@ -870,10 +867,7 @@ class MongoTrials(Trials):
         return rval
 
     def delete_all(self, cond=None):
-        if cond is None:
-            cond = {}
-        else:
-            cond = dict(cond)
+        cond = {} if cond is None else dict(cond)
 
         if self._exp_key:
             cond["exp_key"] = self._exp_key
@@ -1198,8 +1192,7 @@ def exec_import(cmd_module, cmd):
 def as_mongo_str(s):
     if s.startswith("mongo://"):
         return s
-    else:
-        return "mongo://%s" % s
+    return "mongo://%s" % s
 
 
 def number_of_jobs_in_db (options):
@@ -1290,8 +1283,7 @@ def main_worker_helper(options, args):
                         proc.pid, signal.CTRL_C_EVENT if is_windows else signal.SIGTERM
                     )
                     return proc.wait()
-                else:
-                    return 0
+                return 0
 
             except WaitQuit:
                 # -- sending SIGUSR1 to a looping process will cause it to
@@ -1299,8 +1291,7 @@ def main_worker_helper(options, args):
                 # normally.
                 if proc:
                     return proc.wait()
-                else:
-                    return 0
+                return 0
 
             if retcode != 0:
                 cons_errs += 1

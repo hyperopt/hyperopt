@@ -144,31 +144,30 @@ class IPythonTrials(Trials):
                 new_trials = algo(new_ids, domain, self, rstate.randint(2 ** 31 - 1))
                 if len(new_trials) == 0:
                     break
-                else:
-                    assert len(idles) >= len(new_trials)
-                    for eid, new_trial in zip(idles, new_trials):
-                        now = coarse_utcnow()
-                        new_trial["book_time"] = now
-                        new_trial["refresh_time"] = now
-                        (tid,) = self.insert_trial_docs([new_trial])
-                        promise = call_domain(
-                            domain,
-                            spec_from_misc(new_trial["misc"]),
-                            Ctrl(self, current_trial=new_trial),
-                            new_trial,
-                            self._clientlbv,
-                            eid,
-                            tid,
-                        )
+                assert len(idles) >= len(new_trials)
+                for eid, new_trial in zip(idles, new_trials):
+                    now = coarse_utcnow()
+                    new_trial["book_time"] = now
+                    new_trial["refresh_time"] = now
+                    (tid,) = self.insert_trial_docs([new_trial])
+                    promise = call_domain(
+                        domain,
+                        spec_from_misc(new_trial["misc"]),
+                        Ctrl(self, current_trial=new_trial),
+                        new_trial,
+                        self._clientlbv,
+                        eid,
+                        tid,
+                    )
 
-                        # -- XXX bypassing checks because 'ar'
-                        # is not ok for SONify... but should check
-                        # for all else being SONify
+                    # -- XXX bypassing checks because 'ar'
+                    # is not ok for SONify... but should check
+                    # for all else being SONify
 
-                        tt = self._dynamic_trials[-1]
-                        assert tt["tid"] == tid
-                        self.job_map[eid] = (promise, tt)
-                        tt["state"] = JOB_STATE_RUNNING
+                    tt = self._dynamic_trials[-1]
+                    assert tt["tid"] == tid
+                    self.job_map[eid] = (promise, tt)
+                    tt["state"] = JOB_STATE_RUNNING
 
         if wait:
             if verbose:
@@ -236,8 +235,7 @@ class IPYAsync(object):
         if self.asynchronous.successful():
             val = self.asynchronous.get()
             return self.domain.evaluate_async2(val, self.ctrl)
-        else:
-            return self.rv
+        return self.rv
 
     pass
 
