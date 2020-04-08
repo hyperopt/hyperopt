@@ -1192,8 +1192,7 @@ def exec_import(cmd_module, cmd):
 def as_mongo_str(s):
     if s.startswith("mongo://"):
         return s
-    else:
-        return "mongo://%s" % s
+    return "mongo://%s" % s
 
 
 def number_of_jobs_in_db (options):
