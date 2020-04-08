@@ -867,10 +867,7 @@ class MongoTrials(Trials):
         return rval
 
     def delete_all(self, cond=None):
-        if cond is None:
-            cond = {}
-        else:
-            cond = dict(cond)
+        cond = {} if cond is None else dict(cond)
 
         if self._exp_key:
             cond["exp_key"] = self._exp_key
