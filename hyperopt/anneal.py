@@ -344,8 +344,7 @@ class AnnealingAlgo(SuggestAlgo):
         if p_orig.ndim == 1:
             assert len(rval) == 1
             return rval[0]
-        else:
-            return rval
+        return rval
 
     def hp_normal(self, memo, node, label, tid, val):
         """
