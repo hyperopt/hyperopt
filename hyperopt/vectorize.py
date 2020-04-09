@@ -64,10 +64,8 @@ def idxs_map(idxs, cmd, *args, **kwargs):
 
     args_imap = []
     for idxs_j, vals_j in args:
-        if len(idxs_j):
-            args_imap.append(dict(list(zip(idxs_j, vals_j))))
-        else:
-            args_imap.append({})
+        elem = dict(list(zip(idxs_j, vals_j))) if len(idxs_j) else {}
+        args_imap.append(elem)
 
     kwargs_imap = {}
     for kw, (idxs_j, vals_j) in list(kwargs.items()):
