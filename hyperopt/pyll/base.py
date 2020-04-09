@@ -292,10 +292,9 @@ class Apply(object):
     def inputs(self):
         # -- this function gets called a lot and it's not 100% safe to cache
         #    so the if/else is a small optimization
+        rval = self.pos_args
         if self.named_args:
-            rval = self.pos_args + [v for (k, v) in self.named_args]
-        else:
-            rval = self.pos_args
+            rval += [v for (k, v) in self.named_args]
         return rval
 
     @property
