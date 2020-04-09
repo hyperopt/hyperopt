@@ -208,10 +208,7 @@ def replace_repeat_stochastic(expr, return_memo=False):
             if expr is orig:
                 expr = vnode
             memo[orig] = vnode
-    if return_memo:
-        return expr, memo
-    else:
-        return expr
+    return (expr, memo) if return_memo else expr
 
 
 class VectorizeHelper(object):
