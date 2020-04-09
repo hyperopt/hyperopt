@@ -143,10 +143,7 @@ class SymbolTable(object):
         return self._define(f, o_len, pure)
 
     def undefine(self, f):
-        if isinstance(f, six.string_types):
-            name = f
-        else:
-            name = f.__name__
+        name = f if isinstance(f, six.string_types) else f.__name__
         del self._impls[name]
         delattr(self, name)
 
