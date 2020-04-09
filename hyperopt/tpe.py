@@ -93,7 +93,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
         low = float(low) if low is not None else -float("Inf")
         high = float(high) if high is not None else float("Inf")
         if low >= high:
-            raise ValueError("low >= high", (low, high))
+            raise ValueError("'Low' cannot be greater than or equal to 'high'", (low, high))
         samples = []
         while len(samples) < n_samples:
             active = np.argmax(rng.multinomial(1, weights))
