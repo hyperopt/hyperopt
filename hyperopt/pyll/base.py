@@ -803,10 +803,7 @@ def rec_eval(
     node = as_apply(expr)
     topnode = node
 
-    if memo is None:
-        memo = {}
-    else:
-        memo = dict(memo)
+    memo = {} if memo is None else dict(memo)
 
     # -- hack for speed
     #    since the inputs are constant during rec_eval
