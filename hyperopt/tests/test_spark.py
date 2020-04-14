@@ -627,32 +627,3 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     log_output=log_output
                 ),
             )
-
-        # With slow trials, print warning.
-        ORIG_LONG_TRIAL_DEFINITION_SECONDS = (
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS
-        )
-        try:
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = 0
-            with patch_logger("hyperopt-spark", logging.DEBUG) as output:
-                fmin(
-                    fn=fn_succeed_within_range,
-                    space=hp.uniform("x", -1, 1),
-                    algo=anneal.suggest,
-                    max_evals=1,
-                    trials=SparkTrials(),
-                    rstate=np.random.RandomState(4),
-                )
-                log_output = output.getvalue().strip()
-                self.assertIn(
-                    "spark.task.maxFailures",
-                    log_output,
-                    """ "spark.task.maxFailures" warning missing from log: 
-                    {log_output}""".format(
-                        log_output=log_output
-                    ),
-                )
-        finally:
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = (
-                ORIG_LONG_TRIAL_DEFINITION_SECONDS
-            )

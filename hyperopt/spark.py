@@ -292,9 +292,6 @@ class _SparkFMinState:
     Each trial's thread runs 1 Spark job with 1 task.
     """
 
-    # definition of a long-running trial, configurable here for testing purposes
-    _LONG_TRIAL_DEFINITION_SECONDS = 60
-
     def __init__(self, spark, eval_function, space, trials):
         self.spark = spark
         self.eval_function = eval_function
@@ -375,15 +372,6 @@ class _SparkFMinState:
     def launch_dispatcher(self):
         def run_dispatcher():
             start_time = timeit.default_timer()
-            last_time_trials_finished = start_time
-
-            spark_task_maxFailures = int(
-                self.spark.conf.get("spark.task.maxFailures", "4")
-            )
-            # When tasks take a long time, it can be bad to have Spark retry failed tasks.
-            # This flag lets us message the user once about this issue if we find that tasks
-            # are taking a long time to finish.
-            can_warn_about_maxFailures = spark_task_maxFailures > 1
 
             while not self._fmin_done:
                 new_tasks = self._poll_new_tasks()
@@ -393,8 +381,6 @@ class _SparkFMinState:
 
                 cur_time = timeit.default_timer()
                 elapsed_time = cur_time - start_time
-                if len(new_tasks) > 0:
-                    last_time_trials_finished = cur_time
 
                 # In the future, timeout checking logic could be moved to `fmin`.
                 # For now, timeouts are specific to SparkTrials.
@@ -413,21 +399,6 @@ class _SparkFMinState:
                         "fmin cancelled because of "
                         + self.trials._fmin_cancelled_reason
                     )
-
-                if (
-                    can_warn_about_maxFailures
-                    and cur_time - last_time_trials_finished
-                    > _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS
-                ):
-                    logger.warning(
-                        "SparkTrials found that the Spark conf 'spark.task.maxFailures' is set to "
-                        "{maxFailures}, which will make trials re-run automatically if they fail. "
-                        "If failures can occur from bad hyperparameter settings, or if trials are "
-                        "very long-running, then retries may not be a good idea. "
-                        "Consider setting `spark.conf.set('spark.task.maxFailures', '1')` to "
-                        "prevent retries.".format(maxFailures=spark_task_maxFailures)
-                    )
-                    can_warn_about_maxFailures = False
 
                 time.sleep(1)
 
@@ -465,17 +436,57 @@ class _SparkFMinState:
         trial["refresh_time"] = coarse_utcnow()
 
     def _run_trial_async(self, trial):
+
+        def finish_trial_run(result_or_e):
+            if not isinstance(result_or_e, BaseException):
+                self._finish_trial_run(
+                    is_success=True,
+                    is_cancelled=self.trials._fmin_cancelled,
+                    trial=trial,
+                    data=result_or_e,
+                )
+                logger.debug(
+                    "trial {tid} task thread exits normally and writes results "
+                    "back correctly.".format(tid=trial["tid"])
+                )
+            else:
+                self._finish_trial_run(
+                    is_success=False,
+                    is_cancelled=self.trials._fmin_cancelled,
+                    trial=trial,
+                    data=result_or_e,
+                )
+                logger.debug(
+                    "trial {tid} task thread catches an exception and writes the "
+                    "info back correctly.".format(tid=trial["tid"])
+                )
+
         def run_task_thread():
             local_eval_function, local_space = self.eval_function, self.space
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
+                # definition of a long-running trial, configurable here for testing purposes
+                _LONG_TRIAL_DEFINITION_SECONDS = 60
+
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
-                result = domain.evaluate(params, ctrl=None, attach_attachments=False)
-                yield result
 
+                start_time = timeit.default_timer()
+                end_time = start_time + _LONG_TRIAL_DEFINITION_SECONDS
+
+                try:
+                    result = domain.evaluate(params, ctrl=None, attach_attachments=False)
+                    yield result
+                except BaseException as e:
+                    current_time = timeit.default_timer()
+                    if current_time > end_time:
+                        # When we identify a long running task, we catch the exception to prevent Spark
+                        # from retrying failed tasks.
+                        yield e
+                    else:
+                        raise e
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
@@ -485,9 +496,7 @@ class _SparkFMinState:
                         self._job_group_id,
                         self._job_desc,
                         self._job_interrupt_on_cancel,
-                    )[
-                        0
-                    ]
+                    )[0]
                 else:
                     result = worker_rdd.mapPartitions(run_task_on_executor).collect()[0]
             except BaseException as e:
@@ -497,27 +506,9 @@ class _SparkFMinState:
                 #
                 # If cancelled flag is set, it represent we need to cancel all running tasks,
                 # Otherwise it represent the task failed.
-                self._finish_trial_run(
-                    is_success=False,
-                    is_cancelled=self.trials._fmin_cancelled,
-                    trial=trial,
-                    data=e,
-                )
-                logger.debug(
-                    "trial {tid} task thread catches an exception and writes the "
-                    "info back correctly.".format(tid=trial["tid"])
-                )
+                finish_trial_run(e)
             else:
-                self._finish_trial_run(
-                    is_success=True,
-                    is_cancelled=self.trials._fmin_cancelled,
-                    trial=trial,
-                    data=result,
-                )
-                logger.debug(
-                    "trial {tid} task thread exits normally and writes results "
-                    "back correctly.".format(tid=trial["tid"])
-                )
+                finish_trial_run(result)
 
         task_thread = threading.Thread(target=run_task_thread)
         task_thread.setDaemon(True)
