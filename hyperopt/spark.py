@@ -490,7 +490,7 @@ class _SparkFMinState:
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
-                    result = worker_rdd.mapPartitions(
+                    result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
                     ).collectWithJobGroup(
                         self._job_group_id,
@@ -498,7 +498,7 @@ class _SparkFMinState:
                         self._job_interrupt_on_cancel,
                     )[0]
                 else:
-                    result = worker_rdd.mapPartitions(run_task_on_executor).collect()[0]
+                    result_or_e = worker_rdd.mapPartitions(run_task_on_executor).collect()[0]
             except BaseException as e:
                 # I recommend to catch all exceptions here, it can make the program more robust.
                 # There're several possible reasons lead to raising exception here.
@@ -508,7 +508,7 @@ class _SparkFMinState:
                 # Otherwise it represent the task failed.
                 finish_trial_run(e)
             else:
-                finish_trial_run(result)
+                finish_trial_run(result_or_e)
 
         task_thread = threading.Thread(target=run_task_thread)
         task_thread.setDaemon(True)
