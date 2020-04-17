@@ -1,18 +1,17 @@
 import contextlib
 import logging
-import unittest
+import os
+import shutil
 import tempfile
 import time
-import shutil
-from unittest.mock import Mock
+import timeit
+import unittest
 
 import numpy as np
+from pyspark.sql import SparkSession
 from six import StringIO
 
-from pyspark.sql import SparkSession
-
-from hyperopt import anneal, base, fmin, hp
-from hyperopt import SparkTrials
+from hyperopt import SparkTrials, anneal, base, fmin, hp
 
 from .test_fmin import test_quadratic1_tpe
 
@@ -608,22 +607,27 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             hyperopt.spark._have_spark = orig_have_spark
 
     def test_no_retry_for_long_tasks(self):
-        mock_fail = Mock(return_value=123, side_effect=Exception("Failed!"))
+        NUM_TRIALS = 2
+        output_dir = tempfile.mkdtemp()
 
-        spark_trials = SparkTrials(parallelism=2, timeout=40)
+        def fn(_):
+            with open(os.path.join(output_dir, str(timeit.default_timer())), "w") as f:
+                f.write("1")
+            raise Exception("Failed!")
+
+        spark_trials = SparkTrials(parallelism=2)
         try:
             fmin(
-                fn=mock_fail,
-                space=hp.uniform("x", -0.25, 5),
+                fn=fn,
+                space=hp.uniform("x", 0, 1),
                 algo=anneal.suggest,
-                max_evals=2,
+                max_evals=NUM_TRIALS,
                 trials=spark_trials,
-                max_queue_len=1,
                 show_progressbar=False,
-                return_argmin=True,
-                rstate=np.random.RandomState(4),
+                return_argmin=False,
             )
-        except BaseException:
-            self.assertTrue(False)
+        except BaseException as e:
+            self.assertEqual("There are no evaluation tasks, cannot return argmin of task losses.", str(e))
 
-        self.assertEqual(4, mock_fail.call_count)
+        call_count = len(os.listdir(output_dir))
+        self.assertEqual(NUM_TRIALS, call_count)
