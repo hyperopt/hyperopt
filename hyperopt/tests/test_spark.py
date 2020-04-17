@@ -223,7 +223,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     ),
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
-                err_message = trial["misc"]["error"][1]
+                err_message = trial["misc"]["error"][0]
                 self.assertIn(
                     "RuntimeError",
                     err_message,
