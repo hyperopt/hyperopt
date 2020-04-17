@@ -466,27 +466,16 @@ class _SparkFMinState:
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
-                # definition of a long-running trial, configurable here for testing purposes
-                _LONG_TRIAL_DEFINITION_SECONDS = 60
-
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
-
-                start_time = timeit.default_timer()
-                end_time = start_time + _LONG_TRIAL_DEFINITION_SECONDS
 
                 try:
                     result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                     yield result
                 except BaseException as e:
-                    current_time = timeit.default_timer()
-                    if current_time > end_time:
-                        # When we identify a long running task, we catch the exception to prevent Spark
-                        # from retrying failed tasks.
-                        yield e
-                    else:
-                        raise e
+                    yield e
+
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
@@ -508,6 +497,7 @@ class _SparkFMinState:
                 # Otherwise it represent the task failed.
                 finish_trial_run(e)
             else:
+                # The execptions captured in run_task_on_executor would be returned in the result_or_e
                 finish_trial_run(result_or_e)
 
         task_thread = threading.Thread(target=run_task_thread)

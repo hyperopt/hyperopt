@@ -4,6 +4,7 @@ import unittest
 import tempfile
 import time
 import shutil
+from unittest.mock import Mock
 
 import numpy as np
 from six import StringIO
@@ -14,7 +15,6 @@ from hyperopt import anneal, base, fmin, hp
 from hyperopt import SparkTrials
 
 from .test_fmin import test_quadratic1_tpe
-from ..spark import _SparkFMinState
 
 
 @contextlib.contextmanager
@@ -607,23 +607,23 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         finally:
             hyperopt.spark._have_spark = orig_have_spark
 
-    def test_task_maxFailures_warning(self):
-        # With quick trials, do not print warning.
-        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
+    def test_no_retry_for_long_tasks(self):
+        mock_fail = Mock(return_value=123, side_effect=Exception("Failed!"))
+
+        spark_trials = SparkTrials(parallelism=2, timeout=40)
+        try:
             fmin(
-                fn=fn_succeed_within_range,
-                space=hp.uniform("x", -1, 1),
+                fn=mock_fail,
+                space=hp.uniform("x", -0.25, 5),
                 algo=anneal.suggest,
-                max_evals=1,
-                trials=SparkTrials(),
+                max_evals=2,
+                trials=spark_trials,
+                max_queue_len=1,
+                show_progressbar=False,
+                return_argmin=True,
                 rstate=np.random.RandomState(4),
             )
-            log_output = output.getvalue().strip()
-            self.assertNotIn(
-                "spark.task.maxFailures",
-                log_output,
-                """ "spark.task.maxFailures" warning should not appear in log: 
-                {log_output}""".format(
-                    log_output=log_output
-                ),
-            )
+        except BaseException:
+            self.assertTrue(False)
+
+        self.assertEqual(4, mock_fail.call_count)
