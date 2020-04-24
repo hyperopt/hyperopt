@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="hyperopt",
-    version="0.2.3",
+    version="0.2.4",
     packages=setuptools.find_packages(include=["hyperopt*"]),
     entry_points={"console_scripts": ["hyperopt-mongo-worker=hyperopt.mongoexp:main"]},
     url="http://hyperopt.github.com/hyperopt/",
