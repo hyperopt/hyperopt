@@ -1,20 +1,19 @@
 import contextlib
 import logging
-import unittest
+import os
+import shutil
 import tempfile
 import time
-import shutil
+import timeit
+import unittest
 
 import numpy as np
+from pyspark.sql import SparkSession
 from six import StringIO
 
-from pyspark.sql import SparkSession
-
-from hyperopt import anneal, base, fmin, hp
-from hyperopt import SparkTrials
+from hyperopt import SparkTrials, anneal, base, fmin, hp
 
 from .test_fmin import test_quadratic1_tpe
-from ..spark import _SparkFMinState
 
 
 @contextlib.contextmanager
@@ -224,7 +223,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     ),
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
-                err_message = trial["misc"]["error"][1]
+                err_message = trial["misc"]["error"][0]
                 self.assertIn(
                     "RuntimeError",
                     err_message,
@@ -607,52 +606,28 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         finally:
             hyperopt.spark._have_spark = orig_have_spark
 
-    def test_task_maxFailures_warning(self):
-        # With quick trials, do not print warning.
-        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
-            fmin(
-                fn=fn_succeed_within_range,
-                space=hp.uniform("x", -1, 1),
-                algo=anneal.suggest,
-                max_evals=1,
-                trials=SparkTrials(),
-                rstate=np.random.RandomState(4),
-            )
-            log_output = output.getvalue().strip()
-            self.assertNotIn(
-                "spark.task.maxFailures",
-                log_output,
-                """ "spark.task.maxFailures" warning should not appear in log: 
-                {log_output}""".format(
-                    log_output=log_output
-                ),
-            )
+    def test_no_retry_for_long_tasks(self):
+        NUM_TRIALS = 2
+        output_dir = tempfile.mkdtemp()
 
-        # With slow trials, print warning.
-        ORIG_LONG_TRIAL_DEFINITION_SECONDS = (
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS
-        )
+        def fn(_):
+            with open(os.path.join(output_dir, str(timeit.default_timer())), "w") as f:
+                f.write("1")
+            raise Exception("Failed!")
+
+        spark_trials = SparkTrials(parallelism=2)
         try:
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = 0
-            with patch_logger("hyperopt-spark", logging.DEBUG) as output:
-                fmin(
-                    fn=fn_succeed_within_range,
-                    space=hp.uniform("x", -1, 1),
-                    algo=anneal.suggest,
-                    max_evals=1,
-                    trials=SparkTrials(),
-                    rstate=np.random.RandomState(4),
-                )
-                log_output = output.getvalue().strip()
-                self.assertIn(
-                    "spark.task.maxFailures",
-                    log_output,
-                    """ "spark.task.maxFailures" warning missing from log: 
-                    {log_output}""".format(
-                        log_output=log_output
-                    ),
-                )
-        finally:
-            _SparkFMinState._LONG_TRIAL_DEFINITION_SECONDS = (
-                ORIG_LONG_TRIAL_DEFINITION_SECONDS
+            fmin(
+                fn=fn,
+                space=hp.uniform("x", 0, 1),
+                algo=anneal.suggest,
+                max_evals=NUM_TRIALS,
+                trials=spark_trials,
+                show_progressbar=False,
+                return_argmin=False,
             )
+        except BaseException as e:
+            self.assertEqual("There are no evaluation tasks, cannot return argmin of task losses.", str(e))
+
+        call_count = len(os.listdir(output_dir))
+        self.assertEqual(NUM_TRIALS, call_count)
