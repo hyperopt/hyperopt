@@ -121,6 +121,7 @@ class FMinIter(object):
         loss_threshold=None,
         verbose=False,
         show_progressbar=True,
+        early_stop=None
     ):
         self.algo = algo
         self.domain = domain
@@ -138,6 +139,8 @@ class FMinIter(object):
         self.poll_interval_secs = poll_interval_secs
         self.max_queue_len = max_queue_len
         self.max_evals = max_evals
+        self.early_stop = early_stop
+        self.early_stop_args = []
         self.timeout = timeout
         self.loss_threshold = loss_threshold
         self.start_time = timer()
@@ -266,6 +269,7 @@ class FMinIter(object):
                         new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
                     )
                     assert len(new_ids) >= len(new_trials)
+
                     if len(new_trials):
                         self.trials.insert_trial_docs(new_trials)
                         self.trials.refresh()
@@ -286,7 +290,12 @@ class FMinIter(object):
                     self.serial_evaluate()
 
                 self.trials.refresh()
-
+                if self.early_stop:
+                    stop, kwargs = self.early_stop(self.trials, *self.early_stop_args)
+                    self.early_stop_args = kwargs
+                    if stop:
+                        logger.info("Early stop triggered. Stopping iterations as condition is reach.")
+                        stopped = True
                 # update progress bar with the min loss among trials with status ok
                 losses = [loss for loss in self.trials.losses() if loss is not None]
                 if losses:
@@ -321,6 +330,11 @@ class FMinIter(object):
 
     def __next__(self):
         self.run(1, block_until_done=self.asynchronous)
+        if self.early_stop:
+            stop, kwargs = self.early_stop(self.trials, *self.early_stop_args)
+            self.early_stop_args = kwargs
+            if stop:
+                raise StopIteration()
         if len(self.trials) >= self.max_evals:
             raise StopIteration()
         return self.trials
@@ -349,6 +363,7 @@ def fmin(
     points_to_evaluate=None,
     max_queue_len=1,
     show_progressbar=True,
+    early_stop=None,
 ):
     """Minimize a function over a hyperparameter space.
 
@@ -446,6 +461,11 @@ def fmin(
     show_progressbar : bool or context manager, default True (or False is verbose is False).
         Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
+    early_stop: callable ((result, **args) -> (Boolean, **args)).
+        Called after every run with the result of the run and the values returned by the function previously.
+        Stop the search if the function return true.
+        Default None.
+
     Returns
     -------
 
@@ -480,6 +500,7 @@ def fmin(
             catch_eval_exceptions=catch_eval_exceptions,
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
+            early_stop=early_stop,
         )
 
     if trials is None:
@@ -502,6 +523,7 @@ def fmin(
         verbose=verbose,
         max_queue_len=max_queue_len,
         show_progressbar=show_progressbar,
+        early_stop=early_stop,
     )
     rval.catch_eval_exceptions = catch_eval_exceptions
 
