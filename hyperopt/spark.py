@@ -215,7 +215,7 @@ class SparkTrials(Trials):
         catch_eval_exceptions,
         return_argmin,
         show_progressbar,
-        early_stop,
+        early_stop_fn,
     ):
         """
         This should not be called directly but is called via :func:`hyperopt.fmin`
@@ -265,6 +265,7 @@ class SparkTrials(Trials):
                 return_argmin=return_argmin,
                 points_to_evaluate=None,  # not support
                 show_progressbar=show_progressbar,
+                early_stop_fn=early_stop_fn,
             )
         except BaseException as e:
             logger.debug("fmin thread exits with an exception raised.")
