@@ -346,7 +346,7 @@ def test_early_stop():
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop=stop
+        early_stop_fn=stop
     )
 
     assert len(trials) == 100
@@ -359,7 +359,7 @@ def test_early_stop_no_progress_loss():
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop=no_progress_loss(10)
+        early_stop_fn=no_progress_loss(10)
     )
 
     assert len(trials) == 10

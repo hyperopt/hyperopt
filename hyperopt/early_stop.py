@@ -1,5 +1,4 @@
 import logging
-import math
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ def no_progress_loss(iteration_stop_count=20, percent_increase=0.0):
     """
     def stop_fn(trials, best_loss=None, iteration_no_progress=0):
         new_loss = trials.trials[len(trials.trials)-1]['result']['loss']
-        if best_loss == None:
+        if best_loss is None:
             return False, [new_loss, iteration_no_progress+1]
         best_loss_threshold = best_loss - abs(best_loss * (percent_increase/100.0))
         if new_loss < best_loss_threshold:

@@ -215,6 +215,7 @@ class SparkTrials(Trials):
         catch_eval_exceptions,
         return_argmin,
         show_progressbar,
+        early_stop,
     ):
         """
         This should not be called directly but is called via :func:`hyperopt.fmin`
