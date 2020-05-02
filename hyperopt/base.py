@@ -236,7 +236,8 @@ def validate_timeout(timeout):
             "The timeout argument should be None or a positive value. "
             "Given value: {timeout}".format(timeout=timeout)
         )
-        
+
+
 def validate_loss_threshold(loss_threshold):
     if loss_threshold is not None and (
         not isinstance(loss_threshold, numbers.Number)
@@ -465,8 +466,18 @@ class Trials(object):
         assert len(tids) == len(specs) == len(results) == len(miscs)
         trials_docs = []
         for tid, spec, result, misc in zip(tids, specs, results, miscs):
-            doc = {"state": JOB_STATE_NEW, "tid": tid, "spec": spec, "result": result, "misc": misc,
-                   "exp_key": self._exp_key, "owner": None, "version": 0, "book_time": None, "refresh_time": None}
+            doc = {
+                "state": JOB_STATE_NEW,
+                "tid": tid,
+                "spec": spec,
+                "result": result,
+                "misc": misc,
+                "exp_key": self._exp_key,
+                "owner": None,
+                "version": 0,
+                "book_time": None,
+                "refresh_time": None,
+            }
             trials_docs.append(doc)
         return trials_docs
 
@@ -614,7 +625,7 @@ class Trials(object):
         losses = [float(t["result"]["loss"]) for t in candidates]
         if len(losses) == 0:
             return None
-        best = np.argmin(losses)
+        best = np.nanargmin(losses)
         return candidates[best]
 
     @property
