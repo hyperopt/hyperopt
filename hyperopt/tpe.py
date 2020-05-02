@@ -898,7 +898,11 @@ def suggest(
 
     if verbose:
         if docs:
-            s = "%i/%i trials with best loss %f" % (len(docs), len(trials), min(losses))
+            s = "%i/%i trials with best loss %f" % (
+                len(docs),
+                len(trials),
+                np.nanmin(losses),
+            )
         else:
             s = "0 trials"
         logger.info("TPE using %s" % s)
