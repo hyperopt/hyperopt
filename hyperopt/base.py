@@ -655,6 +655,7 @@ class Trials(object):
         catch_eval_exceptions=False,
         return_argmin=True,
         show_progressbar=True,
+        early_stop_fn=None,
     ):
         """Minimize a function over a hyperparameter space.
 
@@ -695,6 +696,7 @@ class Trials(object):
             catch_eval_exceptions=catch_eval_exceptions,
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
+            early_stop_fn=early_stop_fn,
         )
 
 
