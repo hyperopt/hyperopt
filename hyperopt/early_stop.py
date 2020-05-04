@@ -14,7 +14,7 @@ def no_progress_loss(iteration_stop_count=20, percent_increase=0.0):
     percent_increase: float
         allow this percentage of variation within iteration_stop_count.
         Early stop will be triggered if the data didn't change for more than this number
-        during iteration_stop_count rounds
+        after iteration_stop_count rounds
     """
     def stop_fn(trials, best_loss=None, iteration_no_progress=0):
         new_loss = trials.trials[len(trials.trials)-1]['result']['loss']
