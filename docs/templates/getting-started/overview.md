@@ -22,7 +22,7 @@ Parallel search is possible when replacing the `Trials` database with
 a `MongoTrials` one;
 there is another wiki page on the subject of [using mongodb for parallel search](Parallelizing-Evaluations-During-Search-via-MongoDB).
 
-Choosing the search algorithm is as simple as passing `algo=hyperopt.tpe.suggest` instead of `algo=hyperopt.random.suggest`.
+Choosing the search algorithm is as simple as passing `algo=hyperopt.tpe.suggest` instead of `algo=hyperopt.rand.suggest`.
 The search algorithms are actually callable objects, whose constructors
 accept configuration arguments, but that's about all there is to say about the
 mechanics of choosing a search algorithm.
