@@ -121,7 +121,7 @@ class FMinIter(object):
         loss_threshold=None,
         verbose=False,
         show_progressbar=True,
-        early_stop_fn=None
+        early_stop_fn=None,
     ):
         self.algo = algo
         self.domain = domain
@@ -291,10 +291,14 @@ class FMinIter(object):
 
                 self.trials.refresh()
                 if self.early_stop_fn is not None:
-                    stop, kwargs = self.early_stop_fn(self.trials, *self.early_stop_args)
+                    stop, kwargs = self.early_stop_fn(
+                        self.trials, *self.early_stop_args
+                    )
                     self.early_stop_args = kwargs
                     if stop:
-                        logger.info("Early stop triggered. Stopping iterations as condition is reach.")
+                        logger.info(
+                            "Early stop triggered. Stopping iterations as condition is reach."
+                        )
                         stopped = True
                 # update progress bar with the min loss among trials with status ok
                 losses = [
