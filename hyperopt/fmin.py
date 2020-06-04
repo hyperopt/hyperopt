@@ -544,12 +544,11 @@ def fmin(
                 "There are no evaluation tasks, cannot return argmin of task losses."
             )
         return trials.argmin
-    elif len(trials) > 0:
+    if len(trials) > 0:
         # Only if there are some successful trail runs, return the best point in
         # the evaluation space
         return space_eval(space, trials.argmin)
-    else:
-        return None
+    return None
 
 
 def space_eval(space, hp_assignment):
