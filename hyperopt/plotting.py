@@ -206,8 +206,9 @@ def main_plot_1D_attachment(
 
     plt.title(attachment_name)
 
-    min_loss = min(l for l in trials.losses() if l is not None)
-    max_loss = max(l for l in trials.losses() if l is not None)
+    lst = [l for l in trials.losses() if l is not None]
+    min_loss = min(lst)
+    max_loss = max(lst)
 
     if num_trails is None:
         plotted_trials = trials
