@@ -118,7 +118,7 @@ class AnnealingAlgo(SuggestAlgo):
             tid = doc["tid"]
             loss = domain.loss(doc["result"], doc["spec"])
             # -- associate infinite loss to new/running/failed jobs
-            loss = float("inf") if loss is None else float(loss)
+            loss = float("inf" if loss is None else loss)
             doc_by_tid[tid] = (doc, loss)
         self.tid_docs_losses = sorted(doc_by_tid.items())
         self.tids = np.asarray([t for (t, (d, l)) in self.tid_docs_losses])
