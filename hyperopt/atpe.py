@@ -60,11 +60,8 @@ class Hyperparameter:
             lockedValues = {}
 
         if "anyOf" in self.config or "oneOf" in self.config:
-            data = []
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
 
             subSpaces = [
                 Hyperparameter(
@@ -196,10 +193,8 @@ class Hyperparameter:
         name = self.root
         if "anyOf" in self.config or "oneOf" in self.config:
             parameters = []
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
 
             for index, param in enumerate(data):
                 subParameters = Hyperparameter(
@@ -223,10 +218,8 @@ class Hyperparameter:
 
     def getLog10Cardinality(self):
         if "anyOf" in self.config or "oneOf" in self.config:
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
 
             log10_cardinality = Hyperparameter(
                 data[0], self, self.root + ".0"
@@ -298,10 +291,8 @@ class Hyperparameter:
         flatValues = {}
 
         if "anyOf" in self.config or "oneOf" in self.config:
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
 
             subParameterIndex = flatParams[self.resultVariableName + ".$index"]
             flatValues[self.name] = subParameterIndex
@@ -347,10 +338,8 @@ class Hyperparameter:
 
     def convertToStructuredValues(self, flatValues):
         if "anyOf" in self.config or "oneOf" in self.config:
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
 
             subParameterIndex = flatValues[self.name]
             subParam = Hyperparameter(
