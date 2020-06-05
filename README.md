@@ -8,7 +8,7 @@
 
 [![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)  [![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
 
-Hyperopt is a Python library for serial and parallel optimization over awkward
+[Hyperopt](https://github.com/hyperopt/hyperopt) is a Python library for serial and parallel optimization over awkward
 search spaces, which may include real-valued, discrete, and conditional
 dimensions.
 
@@ -55,38 +55,43 @@ print(space_eval(space, best))
 If you're a developer, clone this repository and install from source:
 
 ```bash
-git clone https://github.com/hyperopt/hyperopt.git
-cd hyperopt
+$ git clone https://github.com/hyperopt/hyperopt.git
+$ cd hyperopt
 
 # Create a virtual env (python 3.x) to contain the dependencies and activate it
-python3 -m venv venv
+$ python3 -m venv venv
 source venv/bin/activate
 
-python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+$ python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 ```
 
 Note that dev dependencies require python 3.6+.
 
 ### Running tests
-The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `py.test`.
+The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
 
 ### Formatting 
 We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR. You can use it 
 with a pre-commit hook as follows:
 
-```
-pre-commit install
+```bash
+$ pip install pre-commit
+$ pre-commit install
 ```
 
 Then, once you commit ensure that git hooks are activated (Pycharm for example has the 
 option to omit them). This will run black automatically on all files you modified, 
 failing if there are any files requiring to be blacked.
 
+```bash
+$ black {source_file_or_directory}
+```
+
 ## Algorithms
 
 Currently three algorithms are implemented in hyperopt:
 
-- Random Search
+- [Random Search](http://www.jmlr.org/papers/v13/bergstra12a.html?source=post_page---------------------------)
 - [Tree of Parzen Estimators (TPE)](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf)
 - [Adaptive TPE](https://www.electricbrain.io/blog/learning-to-optimize)
 
