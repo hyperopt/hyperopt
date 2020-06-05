@@ -17,7 +17,7 @@ dimensions.
 Install hyperopt from PyPI
 
 ```bash
-pip install hyperopt
+$ pip install hyperopt
 ```
 
 to run your first example
@@ -60,7 +60,7 @@ $ cd hyperopt
 
 # Create a virtual env (python 3.x) to contain the dependencies and activate it
 $ python3 -m venv venv
-source venv/bin/activate
+$ source venv/bin/activate
 
 $ python setup.py develop &&  pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 ```
@@ -109,6 +109,14 @@ All algorithms can be parallelized in two ways, using:
 - [Basic tutorial](https://github.com/hyperopt/hyperopt/wiki/FMin)
 - [Installation notes](https://github.com/hyperopt/hyperopt/wiki/Installation-Notes)
 - [Using mongodb](https://github.com/hyperopt/hyperopt/wiki/Parallelizing-Evaluations-During-Search-via-MongoDB)
+
+## Related Projects
+
+* [hyperopt-sklearn](https://github.com/hyperopt/hyperopt-sklearn)
+* [hyperopt-nnet](https://github.com/hyperopt/hyperopt-nnet)
+* [hyperas](https://github.com/maxpumperla/hyperas)
+* [hyperopt-convent](https://github.com/hyperopt/hyperopt-convnet)
+* [hyperopt-gpsmbo](https://github.com/hyperopt/hyperopt-gpsmbo/blob/master/hp_gpsmbo/hpsuggest.py)
 
 ## Examples
 
