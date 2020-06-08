@@ -56,6 +56,7 @@ coverage.xml
 
 # IDE
 .idea/
+.ipynb_checkpoints/
 
 # MacOS
 .DS_Store
