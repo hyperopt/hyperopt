@@ -160,10 +160,9 @@ class Hyperparameter:
 
         if "anyOf" in self.config or "oneOf" in self.config:
             keys = set()
-            if "anyOf" in self.config:
-                data = self.config["anyOf"]
-            else:
-                data = self.config["oneOf"]
+            v = "anyOf" if "anyOf" in self.config else "oneOf"
+            data = self.config[v]
+
 
             for index, param in enumerate(data):
                 subKeys = Hyperparameter(
