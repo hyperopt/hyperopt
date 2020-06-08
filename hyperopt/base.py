@@ -545,14 +545,12 @@ class Trials(object):
     def losses(self, bandit=None):
         if bandit is None:
             return [r.get("loss") for r in self.results]
-        else:
-            return list(map(bandit.loss, self.results, self.specs))
+        return list(map(bandit.loss, self.results, self.specs))
 
     def statuses(self, bandit=None):
         if bandit is None:
             return [r.get("status") for r in self.results]
-        else:
-            return list(map(bandit.status, self.results, self.specs))
+        return list(map(bandit.status, self.results, self.specs))
 
     def average_best_error(self, bandit=None):
         """Return the average best error of the experiment
