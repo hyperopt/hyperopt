@@ -80,25 +80,25 @@ def idxs_map(idxs, cmd, *args, **kwargs):
         try:
             args_nn = [arg_imap[ii] for arg_imap in args_imap]
         except:
-            ERR("args_nn %s" % cmd)
-            ERR("ii %s" % ii)
-            ERR("arg_imap %s" % str(args_imap))
-            ERR("args_imap %s" % str(args_imap))
+            ERR("args_nn {}".format(cmd))
+            ERR("ii {}".format(ii))
+            ERR("arg_imap {}".format(str(args_imap)))
+            ERR("args_imap {}".format(str(args_imap)))
             raise
         try:
             kwargs_nn = dict(
                 [(kw, arg_imap[ii]) for kw, arg_imap in list(kwargs_imap.items())]
             )
         except:
-            ERR("args_nn %s" % cmd)
-            ERR("ii %s" % ii)
-            ERR("kw %s" % kw)
-            ERR("arg_imap %s" % str(args_imap))
+            ERR("args_nn {}".format(cmd))
+            ERR("ii {}".format(ii))
+            ERR("kw {}".format(kw))
+            ERR("arg_imap {}".format(str(args_imap)))
             raise
         try:
             rval_nn = f(*args_nn, **kwargs_nn)
         except:
-            ERR("error calling impl of %s" % cmd)
+            ERR("error calling impl of {}".format(cmd))
             raise
         rval.append(rval_nn)
     return rval
