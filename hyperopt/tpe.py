@@ -383,14 +383,13 @@ def linear_forgetting_weights(N, LF):
     assert LF > 0
     if N == 0:
         return np.asarray([])
-    elif N < LF:
+    if N < LF:
         return np.ones(N)
-    else:
-        ramp = np.linspace(old_div(1.0, N), 1.0, num=N - LF)
-        flat = np.ones(LF)
-        weights = np.concatenate([ramp, flat], axis=0)
-        assert weights.shape == (N,), (weights.shape, N)
-        return weights
+    ramp = np.linspace(old_div(1.0, N), 1.0, num=N - LF)
+    flat = np.ones(LF)
+    weights = np.concatenate([ramp, flat], axis=0)
+    assert weights.shape == (N,), (weights.shape, N)
+    return weights
 
 
 # XXX: make TPE do a post-inference pass over the pyll graph and insert
