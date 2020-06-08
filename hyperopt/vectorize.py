@@ -189,11 +189,10 @@ def replace_repeat_stochastic(expr, return_memo=False):
                 else:
                     if arg.pos_args[0] is idxs:
                         return arg_vals
-                    else:
-                        # -- arg.pos_args[0] is a superset of idxs
-                        #    TODO: slice out correct elements using
-                        #    idxs_take, but more importantly - test this case.
-                        raise NotImplementedError()
+                    # -- arg.pos_args[0] is a superset of idxs
+                    #    TODO: slice out correct elements using
+                    #    idxs_take, but more importantly - test this case.
+                    raise NotImplementedError()
 
             new_pos_args = [foo(arg) for arg in orig.pos_args[2:]]
             new_named_args = [[aname, foo(arg)] for aname, arg in orig.named_args]
@@ -210,8 +209,7 @@ def replace_repeat_stochastic(expr, return_memo=False):
             memo[orig] = vnode
     if return_memo:
         return expr, memo
-    else:
-        return expr
+    return expr
 
 
 class VectorizeHelper(object):
