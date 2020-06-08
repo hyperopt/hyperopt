@@ -68,8 +68,7 @@ def qtable_pmf(x, q, qlow, xs, ps):
     rval[oks] = np.asarray(ps)[ix[oks]]
     if isinstance(x, np.ndarray):
         return rval.reshape(x.shape)
-    else:
-        return float(rval)
+    return float(rval)
 
 
 def qtable_logpmf(x, q, qlow, xs, ps):
@@ -80,8 +79,7 @@ def qtable_logpmf(x, q, qlow, xs, ps):
     rval[p != 0] = np.log(p[p != 0])
     if isinstance(x, np.ndarray):
         return rval
-    else:
-        return float(rval)
+    return float(rval)
 
 
 class quniform_gen(object):
@@ -225,8 +223,7 @@ class qnormal_gen(object):
         rval[in_domain] = a + np.log1p(-np.exp(b - a))
         if isinstance(x, np.ndarray):
             return rval
-        else:
-            return float(rval)
+        return float(rval)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
@@ -262,8 +259,7 @@ class qlognormal_gen(object):
         rval[in_domain] = rval_in_domain
         if isinstance(x, np.ndarray):
             return rval
-        else:
-            return float(rval)
+        return float(rval)
 
     def logpmf(self, x):
         pmf = self.pmf(np.atleast_1d(x))
@@ -272,8 +268,7 @@ class qlognormal_gen(object):
         pmf[pmf > 0] = np.log(pmf[pmf > 0])
         if isinstance(x, np.ndarray):
             return pmf
-        else:
-            return float(pmf)
+        return float(pmf)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
@@ -284,10 +279,9 @@ class qlognormal_gen(object):
 def safe_int_cast(obj):
     if isinstance(obj, np.ndarray):
         return obj.astype("int")
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [int(i) for i in obj]
-    else:
-        return int(obj)
+    return int(obj)
 
 
 # -- non-empty last line for flake8
