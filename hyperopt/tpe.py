@@ -117,6 +117,7 @@ def normal_cdf(x, mu, sigma):
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
+    print_verbose = lambda s, x: print("GMM1_lpdf:{}".format(s), x)
     verbose = 0
     samples, weights, mus, sigmas = list(
         map(np.asarray, (samples, weights, mus, sigmas))
@@ -134,7 +135,6 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if verbose:
-        print_verbose = lambda s, x: print("GMM1_lpdf:{}".format(s), x)
         print_verbose('samples', set(samples))
         print_verbose('weights', weights)
         print_verbose('mus', mus)
@@ -175,7 +175,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         rval = np.log(prob) - np.log(p_accept)
 
     if verbose:
-        print("GMM1_lpdf:rval:", dict(list(zip(samples, rval))))
+        print_verbose("rval:", dict(list(zip(samples, rval))))
 
     rval.shape = _samples.shape
     return rval
