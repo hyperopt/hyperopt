@@ -103,8 +103,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     samples = np.reshape(np.asarray(samples), size)
     if q is None:
         return samples
-    else:
-        return np.round(old_div(samples, q)) * q
+    return np.round(old_div(samples, q)) * q
 
 
 @scope.define
