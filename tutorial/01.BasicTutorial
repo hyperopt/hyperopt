@@ -1,0 +1,178 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 01. Basic Tutorial"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "In Basic Tutorial, you can learn the following things:\n",
+    "\n",
+    "* Define Search Space\n",
+    "* Optimize Objective Function\n",
+    "\n",
+    "This tutorial describes how to optimize Hyperparameters using HyperOpt without having a mathematical understanding of any algorithm implemented in HyperOpt."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Import HyperOpt Library\n",
+    "from hyperopt import tpe, hp, fmin"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Declares a purpose function to optimize. In this tutorial, we will optimize a simple function called `objective`, which is a simple quadratic function.\n",
+    "\n",
+    "$$ y = (x-3)^2 + 2 $$"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "objective = lambda x: (x-3)**2 + 2"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now, let's visualize this objective function."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "import matplotlib.pyplot as plt\n",
+    "import numpy as np\n",
+    "\n",
+    "x = np.linspace(-10, 10, 100)\n",
+    "y = objective(x)\n",
+    "\n",
+    "fig = plt.figure()\n",
+    "plt.plot(x, y)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We are trying to optimize the `objective` by changing the HyperParameter $x$. That's why we will declare a search space for $x$. The functions related to the search space are implemented in `hyperopt.hp`. The list is as follows.\n",
+    "\n",
+    "* `hp.randint(label, upper)`\n",
+    "* `hp.uniform(label, low, high)`\n",
+    "* `hp.loguniform(label, low, high)`    \n",
+    "* `hp.normal(label, mu, sigma)`\n",
+    "* `hp.lognormal(label, mu, sigma)`\n",
+    "* `hp.quniform(label, low, high, q)`\n",
+    "* `hp.qloguniform(label, low, high, q)`\n",
+    "* `hp.qnormal(label, mu, sigma, q)`\n",
+    "* `hp.qlognormal(label, mu, sigma, q)`\n",
+    "* `hp.choice(label, list)`\n",
+    "\n",
+    "We will use the most basic `hp.uniform` in this tutorial.\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Define the search space of x between -10 and 10.\n",
+    "space = hp.uniform('x', -10, 10)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now, there's only one last step left. So far, we have defined a function of purpose, and we have defined a search space for $x$. Now we can search through the search space $x$ and find the value of $x$ that can optimize the `objective`. HyperOpt performs it using `fmin`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "100%|██████████| 1000/1000 [00:04<00:00, 228.56trial/s, best loss: 2.000001036046408]\n",
+      "{'x': 3.0010178636491283}\n"
+     ]
+    }
+   ],
+   "source": [
+    "best = fmin(\n",
+    "    fn=objective, # Objective Function to optimize\n",
+    "    space=space, # Hyperparameter's Search Space\n",
+    "    algo=tpe.suggest, # Optimization algorithm (representative TPE)\n",
+    "    max_evals=1000 # Number of optimization attempts\n",
+    ")\n",
+    "print(best)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The optimal x value found by HyperOpt is approximately 3.0. This is very close to a solution of $y=(x-3)^2+2$."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
