@@ -31,7 +31,7 @@ Since `SparkTrials` fits and evaluates each model on one Spark worker, it is lim
 `SparkTrials` may be configured via 3 arguments, all of which are optional:
 
 **`parallelism`**
-The maximum number of trials to evaluate concurrently. Greater parallelism allows scale-out testing of more hyperparameter settings. Defaults to the number of Spark executors.
+The maximum number of trials to evaluate concurrently. Greater parallelism allows scale-out testing of more hyperparameter settings. Defaults to Spark `SparkContext.defaultParallelism`.
 
 * Trade-offs: The `parallelism` parameter can be set in conjunction with the `max_evals` parameter in `fmin()`. Hyperopt will test `max_evals` total settings for your hyperparameters, in batches of size `parallelism`.  If `parallelism = max_evals`, then Hyperopt will do Random Search: it will select all hyperparameter settings to test independently and then evaluate them in parallel.  If `parallelism = 1`, then Hyperopt can make full use of adaptive algorithms like Tree of Parzen Estimators (TPE) which iteratively explore the hyperparameter space: each new hyperparameter setting tested will be chosen based on previous results.  Setting `parallelism` in between `1` and `max_evals` allows you to trade off scalability (getting results faster) and adaptiveness (sometimes getting better models).
 * Limits: There is currently a hard cap on parallelism of 128. `SparkTrials` will also check the cluster’s configuration to see how many concurrent tasks Spark will allow; if parallelism exceeds this maximum, `SparkTrials` will reduce parallelism to this maximum.
