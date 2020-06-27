@@ -1,8 +1,16 @@
+import io
+import re
+
 import setuptools
+
+with io.open('hyperopt/__init__.py', 'rt', encoding='utf8') as f:
+    version = re.search(r'__version__ = \"(.*?)\"', f.read()).group(1)
+    if version is None:
+        raise ImportError('Could not find __version__ in hyperopt/__init__.py')
 
 setuptools.setup(
     name="hyperopt",
-    version="0.2.4",
+    version=version,
     packages=setuptools.find_packages(include=["hyperopt*"]),
     entry_points={"console_scripts": ["hyperopt-mongo-worker=hyperopt.mongoexp:main"]},
     url="http://hyperopt.github.com/hyperopt/",
