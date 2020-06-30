@@ -1,4 +1,4 @@
-from __future__ import print_function
+ecfrom __future__ import print_function
 
 import copy
 import threading
@@ -479,7 +479,7 @@ class _SparkFMinState:
                 except BaseException as e:
                     error_string = traceback.format_exc()
                     logger.error(error_string)
-                    yield type(e)(error_string)
+                    yield e.with_traceback(e.__traceback__)
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
