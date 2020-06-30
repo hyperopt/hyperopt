@@ -468,6 +468,7 @@ class _SparkFMinState:
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
+                import traceback
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
@@ -476,7 +477,9 @@ class _SparkFMinState:
                     result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                     yield result
                 except BaseException as e:
-                    yield e
+                    error_string = traceback.format_exc()
+                    logger.error(error_string)
+                    yield e(error_string)
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
