@@ -15,8 +15,8 @@ dev_addr: '0.0.0.0:8000'
 nav:
 - Home: index.md
 - Tutorials:
-  - 01. Basic Tutorial: tutorials/01-basic-tutorial.md
-  - 02. Mutiple Parameter Tutorial: tutorials/02-multiple-parameter-tutorial.md
+  - 01. Basic Tutorial: tutorials/01.BasicTutorial.md
+  - 02. Mutiple Parameter Tutorial: tutorials/02.MultipleParameterTutorial.md
 - Getting started:
   - Getting started with Hyperopt: getting-started/overview.md
   - Minimizing functions: getting-started/minimizing_functions.md
