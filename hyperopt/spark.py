@@ -477,9 +477,10 @@ class _SparkFMinState:
                     result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                     yield result
                 except BaseException as e:
-                    error_string = traceback.format_exc()
+                    tb = e.__traceback__
+                    error_string = traceback.format_exception(type(e), e, tb)
                     logger.error(error_string)
-                    yield e.with_traceback(e.__traceback__)
+                    yield type(e)(error_string)
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
