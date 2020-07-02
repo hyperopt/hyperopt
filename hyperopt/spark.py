@@ -364,9 +364,9 @@ class _SparkFMinState:
             )
             self._write_result_back(trial, result=data)
         else:
-            logger.debug(
+            logger.error(
                 "trial task {tid} failed, exception is {e}".format(
-                    tid=trial["tid"], e=str(data)
+                    tid=trial["tid"], e="".join(data._tb_str)
                 )
             )
             self._write_exception_back(trial, e=data)
@@ -427,8 +427,9 @@ class _SparkFMinState:
 
     @staticmethod
     def _write_exception_back(trial, e):
+        error_message = "".join(e._tb_str)
         trial["state"] = base.JOB_STATE_ERROR
-        trial["misc"]["error"] = (str(type(e)), str(e))
+        trial["misc"]["error"] = (str(type(e)), error_message)
         trial["refresh_time"] = coarse_utcnow()
 
     @staticmethod
@@ -480,7 +481,8 @@ class _SparkFMinState:
                     tb = e.__traceback__
                     error_string = traceback.format_exception(type(e), e, tb)
                     logger.error(error_string)
-                    yield type(e)(error_string)
+                    e._tb_str = error_string
+                    yield e
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
