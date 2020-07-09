@@ -128,7 +128,6 @@ def main(cmd, fn_pos=1):
     except IndexError:
         logger.error("Module name required (XXX: print Usage)")
         return 1
-
     fn = utils.load_tokens(sys.argv[fn_pos].split(".") + [runner])
     sys.exit(fn(sys.argv[fn_pos + 1 :]))
 
