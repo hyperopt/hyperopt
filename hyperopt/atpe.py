@@ -1528,7 +1528,7 @@ class ATPEOptimizer:
 
             for param in Hyperparameter(hyperparameterSpace).getFlatParameters():
                 value = result[param.name]
-                if value is not "" and value is not None:
+                if value not in ("", None):
                     if "enum" in param.config:
                         value = param.config["enum"].index(value)
 
