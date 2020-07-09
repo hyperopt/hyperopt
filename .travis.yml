@@ -1,5 +1,5 @@
 os: linux
-dist: xenial
+dist: trusty
 
 language: python
 
@@ -33,6 +33,7 @@ jobs:
     - python: 3.8
       env:
         - IPYTHON=ipython[all]
+        - NUMPY_VERSION=1.19.0
 
 services:
   - mongodb
