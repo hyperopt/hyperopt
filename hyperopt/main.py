@@ -129,8 +129,7 @@ def main(cmd, fn_pos=1):
         logger.error("Module name required (XXX: print Usage)")
         return 1
 
-    # TODO: datasets is not imported at this point
-    fn = datasets.main.load_tokens(sys.argv[fn_pos].split(".") + [runner])
+    fn = utils.load_tokens(sys.argv[fn_pos].split(".") + [runner])
     sys.exit(fn(sys.argv[fn_pos + 1 :]))
 
 
