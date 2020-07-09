@@ -28,9 +28,12 @@ jobs:
       env:
         - IPYTHON=ipython[all]
     #- python: 3.7
+    #  dist: xenial
     #  env:
     #    - IPYTHON=ipython[all]
+    #    - NUMPY_VERSION=1.19.0
     - python: 3.8
+      dist: xenial
       env:
         - IPYTHON=ipython[all]
         - NUMPY_VERSION=1.19.0
@@ -55,7 +58,9 @@ install:
   - pip install .[MongoTrials]
   - pip install .[SparkTrials]
   - pip install .[ATPE]
-  - pip install pytest>=3.6 pytest-cov pep8 pytest-pep8 wrapt
+  - pip install pytest>=3.6
+  - pip install pytest-cov pep8 pytest-pep8
+  - pip install wrapt
 script:
   - ./run_tests.sh
 after_success:
