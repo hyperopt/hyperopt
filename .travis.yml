@@ -1,5 +1,5 @@
 os: linux
-dist: xenial
+dist: trusty
 language: python
 
 cache:
@@ -26,17 +26,22 @@ jobs:
     - python: 3.6
       env:
         - IPYTHON=ipython[all]
-    - python: 3.7
+    - python: 3.6
+      dist: xenial
       env:
         - IPYTHON=ipython[all]
+    #- python: 3.7
+    #  dist: xenial
+    #  env:
+    #    - IPYTHON=ipython[all]
+    #    - NUMPY_VERSION=1.14.6
+    #- python: 3.8
+    #  dist: xenial
+    #  env:
+    #    - IPYTHON=ipython[all]
     #    - NUMPY_VERSION=1.19.0
-    - python: 3.8
-      env:
-        - IPYTHON=ipython[all]
-        - NUMPY_VERSION=1.19.0
   allow_failures:
-    - python: 3.7
-    - python: 3.8
+    - dist: xenial
 
 services:
   - mongodb
@@ -59,8 +64,7 @@ install:
   - pip install .[SparkTrials]
   - pip install .[ATPE]
   - pip install pytest>=3.6
-  - pip install pytest-cov pep8 pytest-pep8
-  - pip install wrapt
+  - pip install pytest-cov pep8 pytest-pep8 wrapt
 script:
   - ./run_tests.sh
 after_success:
