@@ -37,6 +37,8 @@ jobs:
       env:
         - IPYTHON=ipython[all]
         - NUMPY_VERSION=1.19.0
+  allow_failures:
+    - dist: xenial
 
 services:
   - mongodb
