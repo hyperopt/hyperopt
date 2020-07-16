@@ -3,10 +3,10 @@ import re
 
 import setuptools
 
-with io.open('hyperopt/__init__.py', 'rt', encoding='utf8') as f:
-    version = re.search(r'__version__ = \"(.*?)\"', f.read()).group(1)
+with io.open("hyperopt/__init__.py", "rt", encoding="utf8") as f:
+    version = re.search(r"__version__ = \"(.*?)\"", f.read()).group(1)
     if version is None:
-        raise ImportError('Could not find __version__ in hyperopt/__init__.py')
+        raise ImportError("Could not find __version__ in hyperopt/__init__.py")
 
 setuptools.setup(
     name="hyperopt",
@@ -51,7 +51,7 @@ setuptools.setup(
     extras_require={
         "SparkTrials": "pyspark",
         "MongoTrials": "pymongo",
-        "ATPE": ["lightgbm", "scikit-learn"],
+        "ATPE": ["lightgbm", "scikit-learn==0.22.2"],
         "dev": ["black", "pre-commit", "nose", "pytest"],
     },
     tests_require=["nose", "pytest"],
