@@ -66,7 +66,7 @@ $ git clone https://github.com/hyperopt/hyperopt.git
 $ cd hyperopt
 ```
 
-# Create a virtual env (python 3.x) to contain the dependencies and activate it
+# 4. Create a virtual env (python 3.x) to contain the dependencies and activate it
 on Windows:  
 `$ python -m venv venv`  
 or Linux/Unix  
@@ -78,9 +78,9 @@ $ python setup.py develop &&pip install -e
 '.[MongoTrials, SparkTrials, ATPE, dev]'`
 ```
 
-Add the upstream remote. This saves a reference to the main hyperopt
-repository, which you can use to keep your repository synchronized with
-the latest changes:
+5. Add the upstream remote. This saves a reference to the main hyperopt
+   repository, which you can use to keep your repository synchronized
+   with the latest changes:
 
 `$ git remote add upstream https://github.com/hyperopt/hyperopt.git`
 
@@ -88,19 +88,19 @@ You should now have a working installation of hyperopt, and your git
 repository properly configured. The next steps now describe the process
 of modifying code and submitting a PR:
 
-Synchronize your master branch with the upstream master branch:
+6. Synchronize your master branch with the upstream master branch:
 
 `$ git checkout master $ git pull upstream master`
 
-Create a feature branch to hold your development changes:
+7. Create a feature branch to hold your development changes:
 
 `$ git checkout -b my_feature`
 
 and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!
 
-Develop the feature on your feature branch on your computer, using Git
-to do the version control. When you’re done editing, add changed files
-using git add and then git commit:
+8. Develop the feature on your feature branch on your computer, using
+   Git to do the version control. When you’re done editing, add changed
+   files using git add and then git commit:
 ```bash
 $ git add modified_files
 $ git commit
@@ -112,23 +112,26 @@ Note that dev dependencies require python 3.6+.
 The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
 
 ### Formatting 
-We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR. You can use it 
-with a pre-commit hook as follows:
+9. We recommend to use [Black](https://github.com/psf/black) to format
+   your code before submitting a PR. You can use it with a pre-commit
+   hook as follows:
 
 ```bash
 $ pip install pre-commit
 $ pre-commit install
 ```
 
-Then, once you commit ensure that git hooks are activated (Pycharm for example has the 
-option to omit them). This will run black automatically on all files you modified, 
-failing if there are any files requiring to be blacked.
+10. Then, once you commit ensure that git hooks are activated (Pycharm
+    for example has the option to omit them). This will run black
+    automatically on all files you modified, failing if there are any
+    files requiring to be blacked.
 
 ```bash
 $ black {source_file_or_directory}
 ```
 
-to record your changes in Git, then push the changes to your GitHub account with:
+11. to record your changes in Git, then push the changes to your GitHub
+    account with:
 
 `$ git push -u origin my_feature`
 
