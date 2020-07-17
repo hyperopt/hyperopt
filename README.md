@@ -74,7 +74,7 @@ or Linux/Unix
 
 ```bash
 $ source venv/bin/activate
-$ python setup.py develop &&pip install -e
+$ python setup.py develop &&  pip install -e
 '.[MongoTrials, SparkTrials, ATPE, dev]'`
 ```
 
