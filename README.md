@@ -92,7 +92,10 @@ of modifying code and submitting a PR:
 
 6. Synchronize your master branch with the upstream master branch:
 
-`$ git checkout master $ git pull upstream master`
+```bash
+$ git checkout master
+$ git pull upstream master
+```
 
 7. Create a feature branch to hold your development changes:
 
@@ -108,12 +111,7 @@ $ git add modified_files
 $ git commit "my first hyperopt commit"
 ```
 
-Note that dev dependencies require python 3.6+.
-
-### Running tests
-The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
-
-### Formatting 
+### Formatting
 9. We recommend to use [Black](https://github.com/psf/black) to format
    your code before submitting a PR. You can use it with a pre-commit
    hook as follows:
@@ -126,16 +124,23 @@ $ pre-commit install
 10. Then, once you commit ensure that git hooks are activated (Pycharm
     for example has the option to omit them). This will run black
     automatically on all files you modified, failing if there are any
-    files requiring to be blacked.
+    files requiring to be blacked. In case black does not run execute
+    the followng:
 
 ```bash
 $ black {source_file_or_directory}
 ```
 
-11. to record your changes in Git, then push the changes to your GitHub
+1.  Record your changes in Git, then push the changes to your GitHub
     account with:
 
 `$ git push -u origin my_feature`
+
+Note that dev dependencies require python 3.6+.
+
+### Running tests
+The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
+
 
 ## Algorithms
 
