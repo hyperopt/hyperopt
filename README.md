@@ -16,7 +16,7 @@ dimensions.
 
 Install hyperopt from PyPI
 
-```python
+```bash
 $ pip install hyperopt
 ```
 
@@ -51,7 +51,7 @@ print(space_eval(space, best))
 
 ## Contributing 
 
-### Setup
+### Setup (based on [this](https://scikit-learn.org/stable/developers/contributing.html#contributing-code))
 If you're a developer and wish to contribute, please follow these steps:
 1. Create an account on GitHub if you do not already have one.
 2. Fork the project repository: click on the ‘Fork’ button near the top
@@ -62,19 +62,21 @@ If you're a developer and wish to contribute, please follow these steps:
    local disk:
 
 ```bash
-$ git clone https://github.com/hyperopt/hyperopt.git
+$ git clone https://github.com/<github username>/hyperopt.git
 $ cd hyperopt
 ```
 
-# 4. Create a virtual env (python 3.x) to contain the dependencies and activate it
-on Windows:  
+### 4. Create a virtual env (python 3.x) to contain the dependencies and activate it
+on Windows using virtualenv:  
 `$ python -m venv venv`  
+or with conda  
+`$ conda create --name hyperopt`  
 or Linux/Unix  
 `$ python3 -m venv venv`
 
 ```bash
 $ source venv/bin/activate
-$ python setup.py develop &&  pip install -e
+$ python setup.py &&  pip install -e
 '.[MongoTrials, SparkTrials, ATPE, dev]'`
 ```
 
@@ -103,7 +105,7 @@ and start making changes. Always use a feature branch. It’s good practice to n
    files using git add and then git commit:
 ```bash
 $ git add modified_files
-$ git commit
+$ git commit "my first hyperopt commit"
 ```
 
 Note that dev dependencies require python 3.6+.
