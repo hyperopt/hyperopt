@@ -81,13 +81,7 @@ $ cd hyperopt
    `$ conda activate my_env`
 
 6. Install dependencies for extras (you'll need these to run pytest):
-```bash
-$ python setup.py develop
-$ pip install -e .[MongoTrials]
-$ pip install -e .[SparkTrials]
-$ pip install -e .[ATPE]
-$ pip install -e .[dev]
-```
+`$ pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'`
 
 7. Add the upstream remote. This saves a reference to the main hyperopt
     repository, which you can use to keep your repository synchronized
