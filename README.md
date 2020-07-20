@@ -53,11 +53,14 @@ print(space_eval(space, best))
 
 ### Setup (based on [this](https://scikit-learn.org/stable/developers/contributing.html#contributing-code))
 If you're a developer and wish to contribute, please follow these steps:
+
 1. Create an account on GitHub if you do not already have one.
+
 2. Fork the project repository: click on the ‘Fork’ button near the top
    of the page. This creates a copy of the code under your account on
    the GitHub user account. For more details on how to fork a repository
    see [this guide](https://help.github.com/articles/fork-a-repo/).
+
 3. Clone your fork of the hyperopt repo from your GitHub account to your
    local disk:
 
@@ -67,18 +70,25 @@ $ cd hyperopt
 ```
 
 ### 4. Create a virtual env (python 3.x) to contain the dependencies and activate it
-on Windows using virtualenv:  
-`$ python -m venv venv`  
-or with conda  
-`$ conda create --name hyperopt`  
-or Linux/Unix  
-`$ python3 -m venv venv`
+Create virtualenv with:  
+`$ python -m venv my_env` or `$ python3 -m venv my_env`  
+or with conda:  
+`$ conda create -n my_env python=3`
 
+Activate on Linux/Unix:  
+`$ source my_env/bin/activate`  
+or with conda:  
+`$ conda activate my_env`
+
+then install:
 ```bash
-$ source venv/bin/activate
-$ python setup.py &&  pip install -e
-'.[MongoTrials, SparkTrials, ATPE, dev]'`
+$ python setup.py develop
+$ pip install -e .[MongoTrials]
+$ pip install -e .[SparkTrials]
+$ pip install -e .[ATPE]
+$ pip install -e .[dev]
 ```
+
 
 5. Add the upstream remote. This saves a reference to the main hyperopt
    repository, which you can use to keep your repository synchronized
@@ -103,36 +113,34 @@ $ git pull upstream master
 
 and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!
 
-8. Develop the feature on your feature branch on your computer, using
-   Git to do the version control. When you’re done editing, add changed
-   files using git add and then git commit:
-```bash
-$ git add modified_files
-$ git commit "my first hyperopt commit"
-```
 
 ### Formatting
-9. We recommend to use [Black](https://github.com/psf/black) to format
-   your code before submitting a PR. You can use it with a pre-commit
-   hook as follows:
+8. We recommend to use [Black](https://github.com/psf/black) to format
+   your code before submitting a PR which is installed automatically in
+   step 4.
 
-```bash
-$ pip install pre-commit
-$ pre-commit install
-```
-
-10. Then, once you commit ensure that git hooks are activated (Pycharm
+9. Then, once you commit ensure that git hooks are activated (Pycharm
     for example has the option to omit them). This will run black
     automatically on all files you modified, failing if there are any
-    files requiring to be blacked. In case black does not run execute
-    the followng:
+    files requiring to be blacked. In case black does not run execute the
+    followng:
 
 ```bash
 $ black {source_file_or_directory}
 ```
 
-1.  Record your changes in Git, then push the changes to your GitHub
-    account with:
+10. Develop the feature on your feature branch on your computer, using
+    Git to do the version control. When you’re done editing, add changed
+    files using git add and then git commit:
+
+```bash
+$ git add modified_files
+$ git commit -m "my first hyperopt commit"
+```
+
+
+11.  Record your changes in Git, then push the changes to your GitHub
+     account with:
 
 `$ git push -u origin my_feature`
 
