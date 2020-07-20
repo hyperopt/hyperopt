@@ -56,91 +56,80 @@ If you're a developer and wish to contribute, please follow these steps:
 
 1. Create an account on GitHub if you do not already have one.
 
-2. Fork the project repository: click on the ‘Fork’ button near the top
-   of the page. This creates a copy of the code under your account on
-   the GitHub user account. For more details on how to fork a repository
-   see [this guide](https://help.github.com/articles/fork-a-repo/).
+2. Fork the project repository: click on the ‘Fork’ button near the top of the page. This creates a copy of the code under your account on the GitHub user account. For more details on how to fork a repository see [this guide](https://help.github.com/articles/fork-a-repo/).
 
-3. Clone your fork of the hyperopt repo from your GitHub account to your
-   local disk:
+3. Clone your fork of the hyperopt repo from your GitHub account to your local disk:
 
-```bash
-$ git clone https://github.com/<github username>/hyperopt.git
-$ cd hyperopt
-```
+   ```bash
+   $ git clone https://github.com/<github username>/hyperopt.git
+   $ cd hyperopt
+   ```
 
-### Create a virtual env (python 3.x) to contain the dependencies and activate it
-4. Create virtualenv with:  
-   `$ python -m venv my_env` or `$ python3 -m venv my_env`  
+### Setup a python 3.x environment for dependencies
+4. Create environment with:  
+   `$ python3 -m venv my_env` or `$ python -m venv my_env`
    or with conda:  
    `$ conda create -n my_env python=3`
 
-5. Activate on Linux/Unix:  
+5. Activate the environment:  
    `$ source my_env/bin/activate`  
    or with conda:  
    `$ conda activate my_env`
 
 6. Install dependencies for extras (you'll need these to run pytest):
-`$ pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'`
+   Linux/UNIX:
+   `$ pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'`
 
-7. Add the upstream remote. This saves a reference to the main hyperopt
-    repository, which you can use to keep your repository synchronized
-    with the latest changes:
+   or Windows:
+   ```cmd
+   pip install -e .[MongoTrials]
+   pip install -e .[SparkTrials]
+   pip install -e .[ATPE]
+   pip install -e .[dev]
+   ```
 
-`$ git remote add upstream https://github.com/hyperopt/hyperopt.git`
+7. Add the upstream remote. This saves a reference to the main hyperopt repository, which you can use to keep your repository synchronized with the latest changes:
 
-You should now have a working installation of hyperopt, and your git
-repository properly configured. The next steps now describe the process
-of modifying code and submitting a PR:
+    `$ git remote add upstream https://github.com/hyperopt/hyperopt.git`
+
+    You should now have a working installation of hyperopt, and your git repository properly configured. The next steps now describe the process of modifying code and submitting a PR:
 
 8. Synchronize your master branch with the upstream master branch:
 
-```bash
-$ git checkout master
-$ git pull upstream master
-```
+    ```bash
+    $ git checkout master
+    $ git pull upstream master
+    ```
 
 9. Create a feature branch to hold your development changes:
 
-`$ git checkout -b my_feature`
+    `$ git checkout -b my_feature`
 
-and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!
+    and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!
 
 
 ### Formatting
-10. We recommend to use [Black](https://github.com/psf/black) to format
-     your code before submitting a PR which is installed automatically
-     in step 4.
+10. We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR which is installed automatically in step 4.
 
-11. Then, once you commit ensure that git hooks are activated (Pycharm
-    for example has the option to omit them). This will run black
-    automatically on all files you modified, failing if there are any
-    files requiring to be blacked. In case black does not run execute
-    the followng:
+11. Then, once you commit ensure that git hooks are activated (Pycharm for example has the option to omit them). This will run black automatically on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the followng:
 
-```bash
-$ black {source_file_or_directory}
-```
+    ```bash
+    $ black {source_file_or_directory}
+    ```
 
-12. Develop the feature on your feature branch on your computer, using
-    Git to do the version control. When you’re done editing, add changed
-    files using git add and then git commit:
+12. Develop the feature on your feature branch on your computer, using Git to do the version control. When you’re done editing, add changed files using git add and then git commit:
 
-```bash
-$ git add modified_files
-$ git commit -m "my first hyperopt commit"
-```
+    ```bash
+    $ git add modified_files
+    $ git commit -m "my first hyperopt commit"
+    ```
 
 ### Running tests
-13. The tests for this project use
-    [PyTest](https://docs.pytest.org/en/latest/) and can be run by
-    calling `pytest`.
+13. The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
 
+14. Record your changes in Git, then push the changes to your GitHub account with:
 
-14.    Record your changes in Git, then push the changes to your GitHub
-       account with:
-
-`$ git push -u origin my_feature`
+    `$ git push -u origin my_feature`
 
 Note that dev dependencies require python 3.6+.
 
