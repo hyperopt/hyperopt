@@ -69,18 +69,18 @@ $ git clone https://github.com/<github username>/hyperopt.git
 $ cd hyperopt
 ```
 
-### 4. Create a virtual env (python 3.x) to contain the dependencies and activate it
-Create virtualenv with:  
-`$ python -m venv my_env` or `$ python3 -m venv my_env`  
-or with conda:  
-`$ conda create -n my_env python=3`
+### Create a virtual env (python 3.x) to contain the dependencies and activate it
+4. Create virtualenv with:  
+   `$ python -m venv my_env` or `$ python3 -m venv my_env`  
+   or with conda:  
+   `$ conda create -n my_env python=3`
 
-Activate on Linux/Unix:  
-`$ source my_env/bin/activate`  
-or with conda:  
-`$ conda activate my_env`
+5. Activate on Linux/Unix:  
+   `$ source my_env/bin/activate`  
+   or with conda:  
+   `$ conda activate my_env`
 
-then install:
+6. Install dependencies for extras (you'll need these to run pytest):
 ```bash
 $ python setup.py develop
 $ pip install -e .[MongoTrials]
@@ -89,10 +89,9 @@ $ pip install -e .[ATPE]
 $ pip install -e .[dev]
 ```
 
-
-5. Add the upstream remote. This saves a reference to the main hyperopt
-   repository, which you can use to keep your repository synchronized
-   with the latest changes:
+7. Add the upstream remote. This saves a reference to the main hyperopt
+    repository, which you can use to keep your repository synchronized
+    with the latest changes:
 
 `$ git remote add upstream https://github.com/hyperopt/hyperopt.git`
 
@@ -100,14 +99,14 @@ You should now have a working installation of hyperopt, and your git
 repository properly configured. The next steps now describe the process
 of modifying code and submitting a PR:
 
-6. Synchronize your master branch with the upstream master branch:
+8. Synchronize your master branch with the upstream master branch:
 
 ```bash
 $ git checkout master
 $ git pull upstream master
 ```
 
-7. Create a feature branch to hold your development changes:
+9. Create a feature branch to hold your development changes:
 
 `$ git checkout -b my_feature`
 
@@ -115,21 +114,21 @@ and start making changes. Always use a feature branch. It’s good practice to n
 
 
 ### Formatting
-8. We recommend to use [Black](https://github.com/psf/black) to format
-   your code before submitting a PR which is installed automatically in
-   step 4.
+10. We recommend to use [Black](https://github.com/psf/black) to format
+     your code before submitting a PR which is installed automatically
+     in step 4.
 
-9. Then, once you commit ensure that git hooks are activated (Pycharm
+11. Then, once you commit ensure that git hooks are activated (Pycharm
     for example has the option to omit them). This will run black
     automatically on all files you modified, failing if there are any
-    files requiring to be blacked. In case black does not run execute the
-    followng:
+    files requiring to be blacked. In case black does not run execute
+    the followng:
 
 ```bash
 $ black {source_file_or_directory}
 ```
 
-10. Develop the feature on your feature branch on your computer, using
+12. Develop the feature on your feature branch on your computer, using
     Git to do the version control. When you’re done editing, add changed
     files using git add and then git commit:
 
@@ -138,16 +137,18 @@ $ git add modified_files
 $ git commit -m "my first hyperopt commit"
 ```
 
+### Running tests
+13. The tests for this project use
+    [PyTest](https://docs.pytest.org/en/latest/) and can be run by
+    calling `pytest`.
 
-11.  Record your changes in Git, then push the changes to your GitHub
-     account with:
+
+14.    Record your changes in Git, then push the changes to your GitHub
+       account with:
 
 `$ git push -u origin my_feature`
 
 Note that dev dependencies require python 3.6+.
-
-### Running tests
-The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
 
 
 ## Algorithms
