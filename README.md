@@ -1,6 +1,10 @@
 
 # Hyperopt: Distributed Hyperparameter Optimization
 
+<p align="center">
+<img src="https://i.postimg.cc/TPmffWrp/hyperopt-new.png" />
+</p>
+
 
 [![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)  [![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
 
