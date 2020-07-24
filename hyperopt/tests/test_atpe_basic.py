@@ -25,7 +25,8 @@ class TestATPE(unittest.TestCase):
         # minimize the objective over the space
         from hyperopt import fmin, atpe, space_eval
 
-        best = fmin(objective, space, algo=atpe.suggest, max_evals=10)
+        # Max evals should be greater than 10, as the first 10 runs are only the initialization rounds
+        best = fmin(objective, space, algo=atpe.suggest, max_evals=20)
 
         print(best)
         # -> {'a': 1, 'c2': 0.01420615366247227}
