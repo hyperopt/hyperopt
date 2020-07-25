@@ -9,6 +9,7 @@ from hyperopt.pyll import as_apply
 from hyperopt.pyll.stochastic import sample
 import unittest
 import numpy as np
+import pytest
 
 
 def test_expr_to_config():
@@ -94,19 +95,18 @@ def stub_pyll_fn(label, low, high):
     pass
 
 
-class TestUniformintArguments(unittest.TestCase):
-    def test_uniformint_positional_arguments(self):
-        space = hp.uniformint("z", 0, 10)
-        rng = np.random.RandomState(123)
-        values = [sample(space, rng=rng) for _ in range(10)]
-        self.assertEqual(values, [7, 3, 2, 6, 7, 4, 10, 7, 5, 4])
-
-
-    def test_uniformint_keyword_arguments(self):
-        space = hp.uniformint(label="z", low=0, high=10)
-        rng = np.random.RandomState(123)
-        values = [sample(space, rng=rng) for _ in range(10)]
-        self.assertEqual(values, [7, 3, 2, 6, 7, 4, 10, 7, 5, 4])
+@pytest.mark.parametrize('arguments', [
+    ["z", 0, 10],
+    {"label": "z", "low": 0, "high": 10}
+])
+def test_uniformint_positional_arguments(arguments):
+    if type(arguments) is list:
+        space = hp.uniformint(*arguments)
+    if type(arguments) is dict:
+        space = hp.uniformint(**arguments)
+    rng = np.random.RandomState(123)
+    values = [sample(space, rng=rng) for _ in range(10)]
+    assert values == [7, 3, 2, 6, 7, 4, 10, 7, 5, 4]
 
 
 class TestValidateDistributionRange(unittest.TestCase):
