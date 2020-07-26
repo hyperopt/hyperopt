@@ -76,7 +76,7 @@ fi
 echo "============= Running the tests in: $target ============="
 if [[ "$use_spark" = true ]]; then
 $PYSPARK_DRIVER_PYTHON \
--m "pytest" -v
+-m "pytest" -v $target
 else
 python \
 -m "pytest" -v --ignore-glob "*test_spark.py" $target
