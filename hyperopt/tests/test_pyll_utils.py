@@ -104,9 +104,9 @@ def test_uniformint_arguments(arguments):
     Test whether uniformint can accept both positional and keyword arguments.
     Related to PR #704.
     """
-    if type(arguments) is list:
+    if isinstance(arguments, list):
         space = hp.uniformint(*arguments)
-    if type(arguments) is dict:
+    if isinstance(arguments, dict):
         space = hp.uniformint(**arguments)
     rng = np.random.RandomState(123)
     values = [sample(space, rng=rng) for _ in range(10)]
