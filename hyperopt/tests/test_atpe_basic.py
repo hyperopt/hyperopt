@@ -1,19 +1,17 @@
 from __future__ import absolute_import
-import unittest
+from hyperopt import hp, fmin, atpe, space_eval
 
 
-class TestATPE(unittest.TestCase):
+class TestATPE:
     def test_run_basic_search(self):
         def objective(args):
             case, val = args
-            if case == "case 1":
+            if case == "case 2":
                 return val
             else:
                 return val ** 2
 
         # define a search space
-        from hyperopt import hp
-
         space = hp.choice(
             "a",
             [
@@ -23,12 +21,9 @@ class TestATPE(unittest.TestCase):
         )
 
         # minimize the objective over the space
-        from hyperopt import fmin, atpe, space_eval
-
-        # Max evals should be greater than 10, as the first 10 runs are only the initialization rounds
+        # NOTE: Max evals should be greater than 10, as the first 10 runs are only the initialization rounds
         best = fmin(objective, space, algo=atpe.suggest, max_evals=20)
 
-        print(best)
-        # -> {'a': 1, 'c2': 0.01420615366247227}
-        print(space_eval(space, best))
-        # -> ('case 2', 0.01420615366247227}
+        # Assert that case 2 was the best choice
+        assert best["a"] == 1
+        assert space_eval(space, best)[0] == "case 2"
