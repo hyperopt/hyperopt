@@ -1,33 +1,38 @@
 from __future__ import absolute_import
-import unittest
+import random
+import numpy as np
+from hyperopt import hp, fmin, atpe, space_eval
+
+random.seed(1)
+np.random.seed(1)
 
 
-class TestATPE(unittest.TestCase):
-    def test_run_basic_search(self):
-        def objective(args):
-            case, val = args
-            if case == "case 1":
-                return val
-            else:
-                return val ** 2
+def test_run_basic_search():
+    def objective(args):
+        case, val = args
+        if case == "case 1":
+            return val
+        else:
+            return val ** 2
 
-        # define a search space
-        from hyperopt import hp
+    # define a search space
+    space = hp.choice(
+        "a",
+        [
+            ("case 1", 1 + hp.lognormal("c1", 0, 1)),
+            ("case 2", hp.uniform("c2", -10, 10)),
+        ],
+    )
 
-        space = hp.choice(
-            "a",
-            [
-                ("case 1", 1 + hp.lognormal("c1", 0, 1)),
-                ("case 2", hp.uniform("c2", -10, 10)),
-            ],
-        )
+    # minimize the objective over the space
+    # NOTE: Max evals should be greater than 10, as the first 10 runs are only the initialization rounds
+    best = fmin(
+        objective,
+        space,
+        algo=atpe.suggest,
+        max_evals=20,
+        rstate=np.random.RandomState(1),
+    )
 
-        # minimize the objective over the space
-        from hyperopt import fmin, atpe, space_eval
-
-        best = fmin(objective, space, algo=atpe.suggest, max_evals=10)
-
-        print(best)
-        # -> {'a': 1, 'c2': 0.01420615366247227}
-        print(space_eval(space, best))
-        # -> ('case 2', 0.01420615366247227}
+    assert best["a"] == 1
+    assert space_eval(space, best)[0] == "case 2"

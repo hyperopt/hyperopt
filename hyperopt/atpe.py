@@ -163,7 +163,6 @@ class Hyperparameter:
             v = "anyOf" if "anyOf" in self.config else "oneOf"
             data = self.config[v]
 
-
             for index, param in enumerate(data):
                 subKeys = Hyperparameter(
                     param, self, name + "." + str(index)
@@ -670,6 +669,7 @@ class ATPEOptimizer:
             self.featureScalingModels[key].var_ = numpy.array(
                 scalingModelData[key]["variances"]
             )
+            self.featureScalingModels[key].n_features_in_ = 1
 
         self.parameterModels = {}
         self.parameterModelConfigurations = {}
