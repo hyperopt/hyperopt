@@ -53,19 +53,18 @@ def get_function_signature(function, method=True):
         args = args[: -len(defaults)]
     else:
         kwargs = []
-    st = "%s.%s(" % (clean_module_name(function.__module__), function.__name__)
+    st = ["%s.%s(" % (clean_module_name(function.__module__), function.__name__)]
 
     for a in args:
-        st += str(a) + ", "
+        st.append(str(a))
     for a, v in kwargs:
         if isinstance(v, str):
-            v = "'" + v + "'"
-        st += str(a) + "=" + str(v) + ", "
+            v = "'{}'".format(v)
+        st.append("{}={}".format(a, v))
+    st = ', '.join(st)
     if kwargs or args:
-        signature = st[:-2] + ")"
-    else:
-        signature = st + ")"
-    return signature
+        return st[:-2] + ")"
+    return st + ")"
 
 
 def get_class_signature(cls):
