@@ -73,6 +73,10 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
 * `hp.uniform(label, low, high)`
   * Returns a value uniformly between `low` and `high`.
   * When optimizing, this variable is constrained to a two-sided interval.
+  
+* `hp.uniformint(label, low, high)`
+  * Returns an integer uniformly between `low` and `high`.
+  * When optimizing, this variable is constrained to a two-sided interval.
 
 * `hp.quniform(label, low, high, q)`
   * Returns a value like round(uniform(low, high) / q) * q
