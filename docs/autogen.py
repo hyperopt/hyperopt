@@ -53,7 +53,7 @@ def get_function_signature(function, method=True):
         args = args[: -len(defaults)]
     else:
         kwargs = []
-    st = ["%s.%s(" % (clean_module_name(function.__module__), function.__name__)]
+    st = ["{}.{}(".format(clean_module_name(function.__module__), function.__name__)]
 
     for a in args:
         st.append(str(a))
@@ -61,7 +61,7 @@ def get_function_signature(function, method=True):
         if isinstance(v, str):
             v = "'{}'".format(v)
         st.append("{}={}".format(a, v))
-    st = ', '.join(st) + ")"
+    return ', '.join(st) + ")"
 
 
 def get_class_signature(cls):
