@@ -58,7 +58,7 @@ def get_function_signature(function, method=True):
     for arg in args:
         signature.append(str(arg))
     for arg, value in kwargs:
-        if isinstance(v, str):
+        if isinstance(value, str):
             value = "'{}'".format(value)
         signature.append("{}={}".format(arg, value))
     return ', '.join(signature) + ")"
