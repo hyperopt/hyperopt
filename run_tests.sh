@@ -67,36 +67,17 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Run test suites
 
-if [ -f "$1" ]; then
-noseOptionsArr="$1"
+if [ -f "$1" ] || [ -d "$1" ]; then
+target="$1"
 else
-if [ -d "$1" ]; then
-targetDir=$1
-else
-targetDir=$DIR/hyperopt/tests
-fi
-# add all python files in the test dir recursively
-echo "============= Searching for tests in: $targetDir ============="
-noseOptionsArr="$(find "$targetDir" -type f | grep "\.py" | grep -v "\.pyc" | grep -v "\.py~" | grep -v "__init__.py")"
+target=$DIR/hyperopt/tests
 fi
 
-for noseOptions in $noseOptionsArr
-do
-if [[ ("$use_spark" = false) && ($noseOptions == *test_spark.py) ]] ; then
-continue
-fi
-echo "============= Running the tests in: $noseOptions ============="
+echo "============= Running the tests in: $target ============="
 if [[ "$use_spark" = true ]]; then
 $PYSPARK_DRIVER_PYTHON \
--m "nose" \
---nologcapture \
--v --exe "$noseOptions"
+-m "pytest" -v $target
 else
 python \
--m "nose" \
---nologcapture \
--v --exe "$noseOptions"
+-m "pytest" -v --ignore-glob "*test_spark.py" $target
 fi
-done
-
-# nosetests

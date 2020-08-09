@@ -1,15 +1,18 @@
 from __future__ import print_function
 from builtins import map
+
 from hyperopt import pyll_utils
 from hyperopt.pyll_utils import EQ
 from hyperopt.pyll_utils import expr_to_config
 from hyperopt import hp
 from hyperopt.pyll import as_apply
+from hyperopt.pyll.stochastic import sample
 import unittest
+import numpy as np
+import pytest
 
 
 def test_expr_to_config():
-
     z = hp.randint("z", 10)
     a = hp.choice(
         "a",
@@ -90,6 +93,24 @@ def stub_pyll_fn(label, low, high):
     Stub function to test distribution range validation fn
     """
     pass
+
+
+@pytest.mark.parametrize('arguments', [
+    ["z", 0, 10],
+    {"label": "z", "low": 0, "high": 10}
+])
+def test_uniformint_arguments(arguments):
+    """
+    Test whether uniformint can accept both positional and keyword arguments.
+    Related to PR #704.
+    """
+    if isinstance(arguments, list):
+        space = hp.uniformint(*arguments)
+    if isinstance(arguments, dict):
+        space = hp.uniformint(**arguments)
+    rng = np.random.RandomState(123)
+    values = [sample(space, rng=rng) for _ in range(10)]
+    assert values == [7, 3, 2, 6, 7, 4, 10, 7, 5, 4]
 
 
 class TestValidateDistributionRange(unittest.TestCase):
