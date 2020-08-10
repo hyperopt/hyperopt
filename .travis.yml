@@ -50,6 +50,7 @@ install:
   - pip install pytest>=3.6
   - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
+  - pip install black
 script:
   - black --check .
   - ./run_tests.sh
