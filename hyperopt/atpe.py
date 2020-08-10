@@ -28,6 +28,8 @@ import copy
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
+
+
 @contextmanager
 def ClosedNamedTempFile(contents):
     try:
@@ -261,7 +263,8 @@ class Hyperparameter:
                     )
                 )
             else:
-                return math.log10(20)  # Default of 20 for fully uniform numbers.
+                # Default of 20 for fully uniform numbers.
+                return math.log10(20)
 
     def convertToFlatValues(self, params):
         flatParams = {}

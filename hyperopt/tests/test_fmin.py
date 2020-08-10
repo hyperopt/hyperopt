@@ -131,7 +131,9 @@ def test_set_fmin_rstate():
 
 
 def test_fmin_return_argmin():
-    fn = lambda x: x
+    def fn(x):
+        return x
+
     space = hp.choice("x", [100, 5, 10])
     # With return_argmin=False it should return the
     # best parameter values
@@ -241,7 +243,9 @@ class TestGenerateTrialsToCalculate(unittest.TestCase):
 
 
 def test_timeout():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     start_time_1 = timer()
@@ -274,7 +278,9 @@ def test_timeout():
 
 
 def test_invalid_timeout():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     for wrong_timeout in [-1, True]:
@@ -312,7 +318,9 @@ def test_loss_threshold():
 
 
 def test_invalid_loss_threshold():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     for wrong_loss_threshold in ["a", True]:
