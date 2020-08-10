@@ -95,10 +95,9 @@ def stub_pyll_fn(label, low, high):
     pass
 
 
-@pytest.mark.parametrize('arguments', [
-    ["z", 0, 10],
-    {"label": "z", "low": 0, "high": 10}
-])
+@pytest.mark.parametrize(
+    "arguments", [["z", 0, 10], {"label": "z", "low": 0, "high": 10}]
+)
 def test_uniformint_arguments(arguments):
     """
     Test whether uniformint can accept both positional and keyword arguments.

@@ -627,7 +627,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 return_argmin=False,
             )
         except BaseException as e:
-            self.assertEqual("There are no evaluation tasks, cannot return argmin of task losses.", str(e))
+            self.assertEqual(
+                "There are no evaluation tasks, cannot return argmin of task losses.",
+                str(e),
+            )
 
         call_count = len(os.listdir(output_dir))
         self.assertEqual(NUM_TRIALS, call_count)

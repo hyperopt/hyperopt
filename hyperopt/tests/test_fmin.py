@@ -333,33 +333,35 @@ def test_invalid_loss_threshold():
         except Exception as e:
             assert str(e) == expected_message
 
+
 def test_early_stop():
     trials = Trials()
 
-    #basic stop after 100 trials
+    # basic stop after 100 trials
     def stop(trial, count=0):
-        return count+1 >= 100, [count+1]
+        return count + 1 >= 100, [count + 1]
 
     fmin(
-        fn = lambda x: x,
+        fn=lambda x: x,
         space=hp.uniform("x", -5, 5),
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop_fn=stop
+        early_stop_fn=stop,
     )
 
     assert len(trials) == 100
 
+
 def test_early_stop_no_progress_loss():
-    trials = generate_trials_to_calculate([{'x': -100}])
+    trials = generate_trials_to_calculate([{"x": -100}])
     fmin(
-        fn = lambda x: x,
+        fn=lambda x: x,
         space=hp.uniform("x", -5, 5),
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop_fn=no_progress_loss(10)
+        early_stop_fn=no_progress_loss(10),
     )
 
     assert len(trials) == 10

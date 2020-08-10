@@ -134,13 +134,13 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if verbose:
-        print_verbose('samples', set(samples))
-        print_verbose('weights', weights)
-        print_verbose('mus', mus)
-        print_verbose('sigmas', sigmas)
-        print_verbose('low', low)
-        print_verbose('high', high)
-        print_verbose('q', q)
+        print_verbose("samples", set(samples))
+        print_verbose("weights", weights)
+        print_verbose("mus", mus)
+        print_verbose("sigmas", sigmas)
+        print_verbose("low", low)
+        print_verbose("high", high)
+        print_verbose("q", q)
 
     if low is None and high is None:
         p_accept = 1
