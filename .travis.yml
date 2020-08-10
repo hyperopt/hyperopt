@@ -51,7 +51,7 @@ install:
   - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
 script:
-  - ./black --check
+  - black --check .
   - ./run_tests.sh
 after_success:
   - coveralls
