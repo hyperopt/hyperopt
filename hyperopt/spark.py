@@ -4,6 +4,7 @@ import copy
 import threading
 import time
 import timeit
+import traceback
 
 from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
@@ -471,7 +472,6 @@ class _SparkFMinState:
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
-                import traceback
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
