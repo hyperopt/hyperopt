@@ -4,6 +4,7 @@ import copy
 import threading
 import time
 import timeit
+import traceback
 
 from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
@@ -339,6 +340,10 @@ class _SparkFMinState:
         trial["refresh_time"] = now
         logger.debug("trial task {tid} started".format(tid=trial["tid"]))
 
+    @staticmethod
+    def _get_traceback(err):
+        return err.__dict__.get("_tb_str")
+
     def _finish_trial_run(self, is_success, is_cancelled, trial, data):
         """
         Call this method when a trial evaluation finishes. It will save results to the
@@ -364,9 +369,9 @@ class _SparkFMinState:
             )
             self._write_result_back(trial, result=data)
         else:
-            logger.debug(
-                "trial task {tid} failed, exception is {e}".format(
-                    tid=trial["tid"], e=str(data)
+            logger.error(
+                "trial task {tid} failed, exception is {e}.\n {tb}".format(
+                    tid=trial["tid"], e=str(data), tb=self._get_traceback(data)
                 )
             )
             self._write_exception_back(trial, e=data)
@@ -425,10 +430,9 @@ class _SparkFMinState:
         trial["result"] = result
         trial["refresh_time"] = coarse_utcnow()
 
-    @staticmethod
-    def _write_exception_back(trial, e):
+    def _write_exception_back(self, trial, e):
         trial["state"] = base.JOB_STATE_ERROR
-        trial["misc"]["error"] = (str(type(e)), str(e))
+        trial["misc"]["error"] = (str(type(e)), self._get_traceback(e))
         trial["refresh_time"] = coarse_utcnow()
 
     @staticmethod
@@ -476,6 +480,11 @@ class _SparkFMinState:
                     result = domain.evaluate(params, ctrl=None, attach_attachments=False)
                     yield result
                 except BaseException as e:
+                    # Because the traceback is not pickable, we need format it and pass it back
+                    # to driver
+                    _traceback_string = traceback.format_exc()
+                    logger.error(_traceback_string)
+                    e._tb_str = _traceback_string
                     yield e
 
             try:

@@ -223,11 +223,16 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     ),
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
-                err_message = trial["misc"]["error"][0]
+                err_message = trial["misc"]["error"][1]
                 self.assertIn(
                     "RuntimeError",
                     err_message,
                     "Missing {e} in {r}.".format(e="RuntimeError", r=err_message),
+                )
+                self.assertIn(
+                    "Traceback (most recent call last)",
+                    err_message,
+                    "Missing {e} in {r}.".format(e="Traceback", r=err_message),
                 )
 
         num_success = spark_trials.count_by_state_unsynced(base.JOB_STATE_DONE)
