@@ -116,7 +116,9 @@ def normal_cdf(x, mu, sigma):
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
-    print_verbose = lambda s, x: print("GMM1_lpdf:{}".format(s), x)
+    def print_verbose(s, x):
+        return print("GMM1_lpdf:{}".format(s), x)
+
     verbose = 0
     samples, weights, mus, sigmas = list(
         map(np.asarray, (samples, weights, mus, sigmas))
@@ -134,13 +136,13 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if verbose:
-        print_verbose('samples', set(samples))
-        print_verbose('weights', weights)
-        print_verbose('mus', mus)
-        print_verbose('sigmas', sigmas)
-        print_verbose('low', low)
-        print_verbose('high', high)
-        print_verbose('q', q)
+        print_verbose("samples", set(samples))
+        print_verbose("weights", weights)
+        print_verbose("mus", mus)
+        print_verbose("sigmas", sigmas)
+        print_verbose("low", low)
+        print_verbose("high", high)
+        print_verbose("q", q)
 
     if low is None and high is None:
         p_accept = 1
@@ -949,7 +951,8 @@ def suggest(
 
     # -- retrieve the best of the samples and form the return tuple
 
-    rval_specs = [None]  # specs are deprecated since build_posterior makes all the same
+    # specs are deprecated since build_posterior makes all the same
+    rval_specs = [None]
     rval_results = [domain.new_result()]
     rval_miscs = [{"tid": first_new_id, "cmd": domain.cmd, "workdir": domain.workdir}]
 

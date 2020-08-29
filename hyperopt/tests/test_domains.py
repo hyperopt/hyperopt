@@ -108,7 +108,8 @@ def distractor():
     """
 
     x = hp.uniform("x", -15, 15)
-    f1 = old_div(1.0, (1.0 + scope.exp(-x)))  # climbs rightward from 0.0 to 1.0
+    # climbs rightward from 0.0 to 1.0
+    f1 = old_div(1.0, (1.0 + scope.exp(-x)))
     f2 = 2 * scope.exp(-((x + 10) ** 2))  # bump with height 2 at (x=-10)
     return {"loss": -f1 - f2, "status": base.STATUS_OK}
 

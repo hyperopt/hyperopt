@@ -442,7 +442,6 @@ class _SparkFMinState:
         trial["refresh_time"] = coarse_utcnow()
 
     def _run_trial_async(self, trial):
-
         def finish_trial_run(result_or_e):
             if not isinstance(result_or_e, BaseException):
                 self._finish_trial_run(
@@ -477,7 +476,9 @@ class _SparkFMinState:
                 )
 
                 try:
-                    result = domain.evaluate(params, ctrl=None, attach_attachments=False)
+                    result = domain.evaluate(
+                        params, ctrl=None, attach_attachments=False
+                    )
                     yield result
                 except BaseException as e:
                     # Because the traceback is not pickable, we need format it and pass it back
@@ -496,9 +497,13 @@ class _SparkFMinState:
                         self._job_group_id,
                         self._job_desc,
                         self._job_interrupt_on_cancel,
-                    )[0]
+                    )[
+                        0
+                    ]
                 else:
-                    result_or_e = worker_rdd.mapPartitions(run_task_on_executor).collect()[0]
+                    result_or_e = worker_rdd.mapPartitions(
+                        run_task_on_executor
+                    ).collect()[0]
             except BaseException as e:
                 # I recommend to catch all exceptions here, it can make the program more robust.
                 # There're several possible reasons lead to raising exception here.

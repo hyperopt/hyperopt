@@ -120,7 +120,8 @@ class TestGMM1(unittest.TestCase):
         assert np.var(samples) < 0.0001, np.var(samples)
 
     def test_lpdf_scalar_one_component(self):
-        llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])  # x  # weights  # mu  # sigma
+        # x  # weights  # mu  # sigma
+        llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])
         assert llval.shape == ()
         assert np.allclose(llval, np.log(old_div(1.0, np.sqrt(2 * np.pi * 2.0 ** 2))))
 
