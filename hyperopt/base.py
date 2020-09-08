@@ -279,11 +279,11 @@ class Trials(object):
       a 'loss' key as well with a floating-point value.  Other special keys in
       this sub-dictionary may be used by optimization algorithms  (see them
       for details). Other keys in this sub-dictionary can be used by the
-      evaluation function to store miscelaneous diagnostics and debugging
+      evaluation function to store miscellaneous diagnostics and debugging
       information.
 
     * **misc**: despite generic name, this is currently where the trial's
-      hyperparameter assigments are stored. This sub-dictionary has two
+      hyperparameter assignments are stored. This sub-dictionary has two
       elements: `'idxs'` and `'vals'`. The `vals` dictionary is
       a sub-sub-dictionary mapping each hyperparameter to either `[]` (if the
       hyperparameter is inactive in this trial), or `[<val>]` (if the
