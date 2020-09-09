@@ -482,7 +482,7 @@ class Trials(object):
         return trials_docs
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
-        assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))
+        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
         rval = []
         for tid, spec, result, misc, source in zip(
             tids, specs, results, miscs, sources
