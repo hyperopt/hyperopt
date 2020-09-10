@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from timeit import default_timer as timer
+import pickle
 
 import numpy as np
 
@@ -372,6 +373,7 @@ def fmin(
     max_queue_len=1,
     show_progressbar=True,
     early_stop_fn=None,
+    pickle_return=None,
 ):
     """Minimize a function over a hyperparameter space.
 
@@ -469,10 +471,13 @@ def fmin(
     show_progressbar : bool or context manager, default True (or False is verbose is False).
         Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
-    early_stop_fn: callable ((result, *args) -> (Boolean, *args)).
+    early_stop_fn : callable ((result, *args) -> (Boolean, *args)).
         Called after every run with the result of the run and the values returned by the function previously.
         Stop the search if the function return true.
         Default None.
+
+    pickle_return : str, default None
+        Specifies prefix of .pkl file to save returned argmin dictionary.
 
     Returns
     -------
@@ -543,6 +548,9 @@ def fmin(
             raise Exception(
                 "There are no evaluation tasks, cannot return argmin of task losses."
             )
+        if pickle_return is not None:
+            with open(pickle_return + '.pkl', 'wb') as out_file:
+                pickle.dump(trials.argmin, out_file)
         return trials.argmin
     if len(trials) > 0:
         # Only if there are some successful trail runs, return the best point in
