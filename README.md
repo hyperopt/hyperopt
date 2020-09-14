@@ -179,9 +179,9 @@ See [projects using hyperopt](https://github.com/hyperopt/hyperopt/wiki/Hyperopt
 
 ## Cite
 
-If you use this software for research, plase cite the following paper:
+If you use this software for research, plase cite the paper (http://proceedings.mlr.press/v28/bergstra13.pdf) as follows:
 
-Bergstra, J., Yamins, D., Cox, D. D. (2013) Making a Science of Model Search: Hyperparameter Optimization in Hundreds of Dimensions for Vision Architectures. To appear in Proc. of the 30th International Conference on Machine Learning (ICML 2013).
+Bergstra, J., Yamins, D., Cox, D. D. (2013) Making a Science of Model Search: Hyperparameter Optimization in Hundreds of Dimensions for Vision Architectures. TProc. of the 30th International Conference on Machine Learning (ICML 2013), June 2013, pp. I-115 to I-23.
 
 ## Thanks
 
