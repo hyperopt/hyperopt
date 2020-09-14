@@ -549,7 +549,7 @@ def fmin(
                 "There are no evaluation tasks, cannot return argmin of task losses."
             )
         if pickle_return is not None:
-            with open(pickle_return + '.pkl', 'wb') as out_file:
+            with open(str(pickle_return) + '.pkl', 'wb') as out:file:
                 pickle.dump(trials.argmin, out_file)
         return trials.argmin
     if len(trials) > 0:
