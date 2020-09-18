@@ -1,12 +1,10 @@
-
 1. Update the version number in hyperopt/__init__.py
-2. python setup.py sdist
-3. git tag -s <version> # TODO: determine annotated vs. signed [1]
-4. git push origin <version>
-5. python setup.py sdist upload
+2. Remove old wheels: sudo rm -rf dist/*
+3. Build wheels for current version: sudo python3 setup.py sdist bdist_wheel
+4. git tag -s <version> # TODO: determine annotated vs. signed [1]
+5. git push origin <version>
+6. Upload to PyPI with twine: twine upload dist/*
 7. announce to hyperopt-announce (maybe also scikit-learn?)
 
 # [1] Yaroslav Halchenko posted in issue #122 about signed vs. annotated tags
 # being good for releases. TODO, decide which to use and how, etc.
-
-
