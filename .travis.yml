@@ -17,15 +17,12 @@ env:
     - NUMPY_VERSION=1.14.3
 matrix:
   include:
-    - python: 2.7
-      env:
-        - IPYTHON="ipython[all]==5.4.1"
-    - python: 3.5
+    - python: 3.7
       env:
         - IPYTHON=ipython[all]
-    - python: 3.6
-      env:
-        - IPYTHON=ipython[all]
+    - python: 3.8
+        env:
+          - IPYTHON=ipython[all]
 
 services:
   - mongodb
