@@ -122,6 +122,7 @@ class FMinIter(object):
         verbose=False,
         show_progressbar=True,
         early_stop_fn=None,
+        trials_save_file="",
     ):
         self.algo = algo
         self.domain = domain
@@ -141,6 +142,7 @@ class FMinIter(object):
         self.max_evals = max_evals
         self.early_stop_fn = early_stop_fn
         self.early_stop_args = []
+        self.trials_save_file = trials_save_file
         self.timeout = timeout
         self.loss_threshold = loss_threshold
         self.start_time = timer()
@@ -290,6 +292,8 @@ class FMinIter(object):
                     self.serial_evaluate()
 
                 self.trials.refresh()
+                if self.trials_save_file != "":
+                    pickler.dump(self.trials, open(self.trials_save_file, "wb"))
                 if self.early_stop_fn is not None:
                     stop, kwargs = self.early_stop_fn(
                         self.trials, *self.early_stop_args
@@ -372,6 +376,7 @@ def fmin(
     max_queue_len=1,
     show_progressbar=True,
     early_stop_fn=None,
+    trials_save_file="",
 ):
     """Minimize a function over a hyperparameter space.
 
@@ -474,6 +479,11 @@ def fmin(
         Stop the search if the function return true.
         Default None.
 
+    trials_save_file: str, default ""
+        Optional file name to save the trials object to every iteration.
+        If specified and the file already exists, will load from this file when
+        trials=None instead of creating a new base.Trials object
+
     Returns
     -------
 
@@ -509,10 +519,13 @@ def fmin(
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
             early_stop_fn=early_stop_fn,
+            trials_save_file=trials_save_file,
         )
 
     if trials is None:
-        if points_to_evaluate is None:
+        if os.path.exists(trials_save_file):
+            trials = pickler.load(open(trials_save_file, "rb"))
+        elif points_to_evaluate is None:
             trials = base.Trials()
         else:
             assert type(points_to_evaluate) == list
@@ -532,6 +545,7 @@ def fmin(
         max_queue_len=max_queue_len,
         show_progressbar=show_progressbar,
         early_stop_fn=early_stop_fn,
+        trials_save_file=trials_save_file,
     )
     rval.catch_eval_exceptions = catch_eval_exceptions
 
