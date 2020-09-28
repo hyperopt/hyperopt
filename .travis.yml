@@ -10,10 +10,6 @@ env:
   global:
     - HYPEROPT_FMIN_SEED=3
     - SPARK_VERSION=3.0.1
-    - SPARK_BUILD="spark-${SPARK_VERSION}-bin-hadoop2.7"
-    - SPARK_BUILD_URL="https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_BUILD}.tgz"
-    - SPARK_HOME=$HOME/.cache/spark-versions/${SPARK_BUILD}
-    - RUN_ONLY_LIGHT_TESTS=True
 matrix:
   include:
     - python: 2.7
@@ -40,9 +36,6 @@ before_script:
   - sleep 15 # mongo takes time to start
   - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
 
-before_install:
-  - ./download_spark_dependencies.sh
-
 install:
   - sudo apt-get remove ipython
   - pip install --upgrade pip
@@ -56,7 +49,8 @@ install:
   - pip install pytest>=3.6
   - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
+  - pip install pyspark==$SPARK_VERSION
 script:
-  - ./run_tests.sh
+  - pytest
 after_success:
   - coveralls
