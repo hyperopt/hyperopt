@@ -31,7 +31,7 @@ install:
   - pip install --upgrade wheel
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
-  - pip install .[MongoTrials, SparkTrials, ATPE, dev]
+  - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
   - pip install nose
   - pip install wrapt
   - pip install pyspark==$SPARK_VERSION
