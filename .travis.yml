@@ -10,10 +10,6 @@ env:
   global:
     - HYPEROPT_FMIN_SEED=3
     - SPARK_VERSION=3.0.1
-    - SPARK_BUILD="spark-${SPARK_VERSION}-bin-hadoop2.7"
-    - SPARK_BUILD_URL="https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_BUILD}.tgz"
-    - SPARK_HOME=$HOME/.cache/spark-versions/${SPARK_BUILD}
-    - RUN_ONLY_LIGHT_TESTS=True
     - NUMPY_VERSION=1.18.1
     - IPYTHON=ipython[all]
 matrix:
@@ -35,11 +31,8 @@ install:
   - pip install --upgrade wheel
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
-  - pip install .[MongoTrials]
-  - pip install .[SparkTrials]
-  - pip install .[ATPE]
-  - pip install pytest>=3.6
-  - pip install pytest-cov pep8 pytest-pep8
+  - pip install .[MongoTrials, SparkTrials, ATPE, dev]
+  - pip install nose
   - pip install wrapt
   - pip install pyspark==$SPARK_VERSION
 script:
