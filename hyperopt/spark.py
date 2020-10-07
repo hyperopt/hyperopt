@@ -217,6 +217,7 @@ class SparkTrials(Trials):
         return_argmin,
         show_progressbar,
         early_stop_fn,
+        trials_save_file="",
     ):
         """
         This should not be called directly but is called via :func:`hyperopt.fmin`
@@ -260,13 +261,14 @@ class SparkTrials(Trials):
                 trials=self,
                 allow_trials_fmin=False,  # -- prevent recursion
                 rstate=rstate,
-                pass_expr_memo_ctrl=None,  # not support
+                pass_expr_memo_ctrl=None,  # not supported
                 catch_eval_exceptions=catch_eval_exceptions,
                 verbose=verbose,
                 return_argmin=return_argmin,
-                points_to_evaluate=None,  # not support
+                points_to_evaluate=None,  # not supported
                 show_progressbar=show_progressbar,
                 early_stop_fn=early_stop_fn,
+                trials_save_file="",  # not supported
             )
         except BaseException as e:
             logger.debug("fmin thread exits with an exception raised.")
