@@ -1,4 +1,4 @@
-dist: trusty
+dist: bionic
 
 language: python
 
@@ -9,20 +9,17 @@ cache:
 env:
   global:
     - HYPEROPT_FMIN_SEED=3
-    - SPARK_VERSION=2.4.4
+    - SPARK_VERSION=3.0.1
     - SPARK_BUILD="spark-${SPARK_VERSION}-bin-hadoop2.7"
     - SPARK_BUILD_URL="https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_BUILD}.tgz"
     - SPARK_HOME=$HOME/.cache/spark-versions/${SPARK_BUILD}
     - RUN_ONLY_LIGHT_TESTS=True
-    - NUMPY_VERSION=1.14.3
+    - NUMPY_VERSION=1.18.1
+    - IPYTHON=ipython[all]
 matrix:
   include:
     - python: 3.7
-      env:
-        - IPYTHON=ipython[all]
     - python: 3.8
-        env:
-          - IPYTHON=ipython[all]
 
 services:
   - mongodb
@@ -30,9 +27,6 @@ services:
 before_script:
   - sleep 15 # mongo takes time to start
   - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
-
-before_install:
-  - ./download_spark_dependencies.sh
 
 install:
   - sudo apt-get remove ipython
@@ -47,7 +41,8 @@ install:
   - pip install pytest>=3.6
   - pip install pytest-cov pep8 pytest-pep8
   - pip install wrapt
+  - pip install pyspark==$SPARK_VERSION
 script:
-  - ./run_tests.sh
+  - pytest
 after_success:
   - coveralls

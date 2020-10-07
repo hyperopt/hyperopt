@@ -14,7 +14,7 @@ The way to use hyperopt is to describe:
 * the search algorithm to use
 
 This (most basic) tutorial will walk through how to write functions and search spaces,
-using the default `Trials` database, and the dummy `random` search algorithm.
+using the default `Trials` database, and the dummy `rand` (random) search algorithm.
 Section (1) is about the different calling conventions for communication between an objective function and hyperopt.
 Section (2) is about describing search spaces.
 

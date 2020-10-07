@@ -654,6 +654,7 @@ class Trials(object):
         return_argmin=True,
         show_progressbar=True,
         early_stop_fn=None,
+        trials_save_file="",
     ):
         """Minimize a function over a hyperparameter space.
 
@@ -695,6 +696,7 @@ class Trials(object):
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
             early_stop_fn=early_stop_fn,
+            trials_save_file=trials_save_file,
         )
 
 
