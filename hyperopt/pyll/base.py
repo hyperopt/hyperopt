@@ -34,8 +34,7 @@ class PyllImportError(ImportError):
 
 
 class MissingArgument(object):
-    """Object to represent a missing argument to a function application
-    """
+    """Object to represent a missing argument to a function application"""
 
 
 class SymbolTable(object):
@@ -127,8 +126,7 @@ class SymbolTable(object):
         return f
 
     def define(self, f, o_len=None, pure=False):
-        """Decorator for adding python functions to self
-        """
+        """Decorator for adding python functions to self"""
         name = f.__name__
         if hasattr(self, name):
             raise ValueError("Cannot override existing symbol", name)
@@ -183,8 +181,7 @@ class SymbolTable(object):
 
 
 class SymbolTableEntry(object):
-    """A functools.partial-like class for adding symbol table entries.
-    """
+    """A functools.partial-like class for adding symbol table entries."""
 
     def __init__(self, symbol_table, apply_name, o_len, pure):
         self.symbol_table = symbol_table
@@ -202,8 +199,7 @@ scope = SymbolTable()
 
 
 def as_apply(obj):
-    """Smart way of turning object into an Apply
-    """
+    """Smart way of turning object into an Apply"""
     if isinstance(obj, Apply):
         rval = obj
     elif isinstance(obj, tuple):
@@ -626,7 +622,7 @@ p4 = Literal(UndefinedValue)
 
 @scope.define
 def call(fn, args=(), kwargs={}):
-    """ call fn with given args and kwargs.
+    """call fn with given args and kwargs.
 
     This is used to represent Apply.__call__
     """

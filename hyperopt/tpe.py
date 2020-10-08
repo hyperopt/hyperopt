@@ -59,8 +59,6 @@ def adaptive_parzen_sampler(name):
 
 @scope.define
 def categorical_lpdf(sample, p):
-    """
-    """
     if sample.size:
         return np.log(np.asarray(p)[sample])
     return np.asarray([])

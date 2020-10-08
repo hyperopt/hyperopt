@@ -51,7 +51,7 @@ def validate_distribution_range(f):
 
 @scope.define
 def hyperopt_param(label, obj):
-    """ A graph node primarily for annotating - VectorizeHelper looks out
+    """A graph node primarily for annotating - VectorizeHelper looks out
     for these guys, and optimizes subgraphs of the form:
 
         hyperopt_param(<stochastic_expression>(...))

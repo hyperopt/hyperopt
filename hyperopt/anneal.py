@@ -144,8 +144,7 @@ class AnnealingAlgo(SuggestAlgo):
         return old_div(1.0, (1.0 + T * self.shrink_coef))
 
     def choose_ltv(self, label, size):
-        """Returns (loss, tid, val) of best/runner-up trial
-        """
+        """Returns (loss, tid, val) of best/runner-up trial"""
         tids = self.node_tids[label]
         vals = self.node_vals[label]
         losses = [self.tid_losses_dct[tid] for tid in tids]

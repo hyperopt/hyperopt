@@ -102,8 +102,7 @@ def partial(fn, **kwargs):
 
 
 class FMinIter(object):
-    """Object for conducting search experiments.
-    """
+    """Object for conducting search experiments."""
 
     catch_eval_exceptions = False
     pickle_protocol = -1
@@ -423,7 +422,7 @@ def fmin(
 
     loss_threshold : None or double, default None
         Limits search time when minimal loss reduced to certain amount.
-        If None, then the search process has no constraint on the loss, 
+        If None, then the search process has no constraint on the loss,
         and will stop based on other parameters, e.g. `max_evals`, `timeout`
 
     trials : None or base.Trials (or subclass)
