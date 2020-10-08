@@ -10,24 +10,12 @@ env:
   global:
     - HYPEROPT_FMIN_SEED=3
     - SPARK_VERSION=3.0.1
+    - NUMPY_VERSION=1.18.1
+    - IPYTHON=ipython[all]
 matrix:
   include:
-    - python: 2.7
-      env:
-        - IPYTHON="ipython[all]==5.4.1"
-        - NUMPY_VERSION=1.14.3
-    - python: 3.5
-      env:
-        - IPYTHON=ipython[all]
-        - NUMPY_VERSION=1.14.3
-    - python: 3.6
-      env:
-        - IPYTHON=ipython[all]
-        - NUMPY_VERSION=1.14.3
     - python: 3.7
-      env:
-        - IPYTHON=ipython[all]
-        - NUMPY_VERSION=1.18.1
+    - python: 3.8
 
 services:
   - mongodb
@@ -43,11 +31,8 @@ install:
   - pip install --upgrade wheel
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
-  - pip install .[MongoTrials]
-  - pip install .[SparkTrials]
-  - pip install .[ATPE]
-  - pip install pytest>=3.6
-  - pip install pytest-cov pep8 pytest-pep8
+  - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+  - pip install nose
   - pip install wrapt
   - pip install pyspark==$SPARK_VERSION
 script:
