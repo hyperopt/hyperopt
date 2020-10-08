@@ -12,10 +12,6 @@ env:
     - SPARK_VERSION=3.0.1
     - NUMPY_VERSION=1.18.1
     - IPYTHON=ipython[all]
-matrix:
-  include:
-    - python: 3.7
-    - python: 3.8
 
 services:
   - mongodb
@@ -26,16 +22,27 @@ before_script:
 
 install:
   - sudo apt-get remove ipython
-  - pip install --upgrade pip
-  - pip install --upgrade setuptools
-  - pip install --upgrade wheel
+  - pip install --upgrade pip setuptools wheel
   - pip install $IPYTHON
   - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
   - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
   - pip install nose
-  - pip install wrapt
   - pip install pyspark==$SPARK_VERSION
-script:
-  - pytest
+
+jobs:
+  include:
+    - stage: "lint"
+      name: "Run Linter (black)"
+      python: 3.8
+      script: black .
+    - stage: "test python 3.7"
+      name: "Run tests on python 3.7"
+      script: pytest
+      python: 3.7
+    - stage: "test python 3.8"
+      name: "Run tests on python 3.8"
+      script: pytest
+      python: 3.8
+
 after_success:
   - coveralls
