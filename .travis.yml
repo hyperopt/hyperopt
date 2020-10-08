@@ -26,15 +26,9 @@ before_script:
 
 install:
   - sudo apt-get remove ipython
-  - pip install --upgrade pip
-  - pip install --upgrade setuptools
-  - pip install --upgrade wheel
-  - pip install $IPYTHON
-  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
+  - pip install --upgrade pip setuptools wheel
+  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy $IPYTHON nose wrapt pyspark==$SPARK_VERSION
   - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
-  - pip install nose
-  - pip install wrapt
-  - pip install pyspark==$SPARK_VERSION
 script:
   - pytest
 after_success:
