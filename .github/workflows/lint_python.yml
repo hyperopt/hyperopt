@@ -1,0 +1,12 @@
+name: lint_python
+on: push
+jobs:
+  lint_python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - run: pip install black==20.8b1 codespell flake8
+      - run: black --check . || true
+      - run: codespell --quiet-level=2  # --ignore-words-list="" --skip=""
+      - run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics

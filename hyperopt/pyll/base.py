@@ -364,7 +364,7 @@ class Apply(object):
         if extra_args_ok:
             # XXX: THIS IS NOT BEING TESTED AND IS OBVIOUSLY BROKEN
             # TODO: 'args' does not even exist at this point
-            binding[args_param].extend(args[code.co_argcount :])
+            binding[args_param].extend(args[code.co_argcount :])  # noqa: F821
 
         # -- bind keyword arguments
         for aname, aval in self.named_args:
@@ -729,8 +729,8 @@ def clone_merge(expr, memo=None, merge_literals=False):
     #    XXX node.arg does not always work (builtins, weird co_flags)
     node_args = [(node.pos_args, node.named_args) for node in nodes]
     try:
-        del node
-    except:
+        del node  # noqa: F821
+    except NameError:
         pass
     for ii, node_ii in enumerate(nodes):
         if node_ii in memo:
