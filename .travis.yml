@@ -26,8 +26,8 @@ before_script:
 
 install:
   - sudo apt-get remove ipython
-  - pip install --upgrade pip setuptools wheel pytest
-  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy $IPYTHON nose wrapt pyspark==$SPARK_VERSION
+  - pip install --upgrade pip setuptools wheel coveralls pytest
+  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy $IPYTHON wrapt pyspark==$SPARK_VERSION
   - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
 script:
   - pytest
