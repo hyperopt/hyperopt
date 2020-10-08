@@ -181,8 +181,7 @@ class DomainSwapError(Exception):
 
 
 class ReserveTimeout(Exception):
-    """No job was reserved in the alotted time
-    """
+    """No job was reserved in the alotted time"""
 
 
 def read_pw():
@@ -717,7 +716,7 @@ class MongoTrials(Trials):
         return rval
 
     def refresh_tids(self, tids):
-        """ Sync documents with `['tid']` in the list of `tids` from the
+        """Sync documents with `['tid']` in the list of `tids` from the
         database (not *to* the database).
 
         Local trial documents whose tid is not in `tids` are not

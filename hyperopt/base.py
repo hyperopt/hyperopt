@@ -433,8 +433,7 @@ class Trials(object):
         return trial
 
     def _insert_trial_docs(self, docs):
-        """insert with no error checking
-        """
+        """insert with no error checking"""
         rval = [doc["tid"] for doc in docs]
         self._dynamic_trials.extend(docs)
         return rval
@@ -451,8 +450,7 @@ class Trials(object):
         # a real DB the steps should be separated.
 
     def insert_trial_docs(self, docs):
-        """ trials - something like is returned by self.new_trial_docs()
-        """
+        """trials - something like is returned by self.new_trial_docs()"""
         docs = [self.assert_valid_trial(SONify(doc)) for doc in docs]
         return self._insert_trial_docs(docs)
 
@@ -701,8 +699,7 @@ class Trials(object):
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
-    """Construct a Trials base class instance from a list of trials documents
-    """
+    """Construct a Trials base class instance from a list of trials documents"""
     rval = Trials(**kwargs)
     if validate:
         rval.insert_trial_docs(docs)
@@ -713,8 +710,7 @@ def trials_from_docs(docs, validate=True, **kwargs):
 
 
 class Ctrl(object):
-    """Control object for interruptible, checkpoint-able evaluation
-    """
+    """Control object for interruptible, checkpoint-able evaluation"""
 
     info = logger.info
     warn = logger.warning
@@ -770,9 +766,7 @@ class Ctrl(object):
 
 
 class Domain(object):
-    """Picklable representation of search space and evaluation function.
-
-    """
+    """Picklable representation of search space and evaluation function."""
 
     rec_eval_print_node_on_error = False
 
@@ -986,8 +980,7 @@ class Domain(object):
         return "Domain{%s}" % str(self.fn)
 
     def loss(self, result, config=None):
-        """Extract the scalar-valued loss from a result document
-        """
+        """Extract the scalar-valued loss from a result document"""
         return result.get("loss", None)
 
     def loss_variance(self, result, config=None):
@@ -1009,8 +1002,7 @@ class Domain(object):
         raise NotImplementedError()
 
     def status(self, result, config=None):
-        """Extract the job status from a result document
-        """
+        """Extract the job status from a result document"""
         return result["status"]
 
     def new_result(self):

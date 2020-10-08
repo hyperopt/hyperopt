@@ -43,8 +43,7 @@ def domain_constructor(**b_kwargs):
 
 @domain_constructor()
 def coin_flip():
-    """ Possibly the simplest possible Bandit implementation
-    """
+    """Possibly the simplest possible Bandit implementation"""
     return {"loss": hp.choice("flip", [0.0, 1.0]), "status": base.STATUS_OK}
 
 
