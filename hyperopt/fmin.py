@@ -13,6 +13,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 
+from hyperopt import tpe
 from hyperopt.base import validate_timeout, validate_loss_threshold
 from . import pyll
 from .utils import coarse_utcnow
@@ -361,8 +362,8 @@ class FMinIter(object):
 def fmin(
     fn,
     space,
-    algo,
-    max_evals=sys.maxsize,
+    algo=None,
+    max_evals=None,
     timeout=None,
     loss_threshold=None,
     trials=None,
@@ -493,6 +494,13 @@ def fmin(
         were succesfull trails. This object shares the same structure as the space passed.
         If there were no succesfull trails, it returns None.
     """
+    if algo is None:
+        algo = tpe.suggest
+        logger.warning("TPE is being used as the default algorithm.")
+
+    if max_evals is None:
+        max_evals = sys.maxsize
+
     if rstate is None:
         env_rseed = os.environ.get("HYPEROPT_FMIN_SEED", "")
         if env_rseed:
