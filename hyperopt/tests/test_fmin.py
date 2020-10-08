@@ -148,7 +148,7 @@ def test_fmin_return_argmin():
     assert best_parameter == 5
 
     # With return_argmin=True it should return the
-    # optimal point in ths sample space
+    # optimal point in the sample space
     best_args = fmin(
         fn=fn,
         space=space,

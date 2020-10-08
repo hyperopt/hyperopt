@@ -857,7 +857,7 @@ class ATPEOptimizer:
                     ):
                         value[atpeParamValueIndex] = max(
                             value[atpeParamValueIndex], maxVal * 0.15
-                        )  # We still allow the non reccomended modes to get chosen 15% of the time
+                        )  # We still allow the non recommended modes to get chosen 15% of the time
 
                     # Make a random weighted choice based on the normalized probabilities
                     probabilities = value / numpy.sum(value)

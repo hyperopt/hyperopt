@@ -85,7 +85,7 @@ Ctrl.checkpoint does several things:
 * optionally updates the result subdocument
 
 The main_worker routine calls Ctrl.checkpoint(rval) once after the
-bandit.evalute function has returned before setting the state to 2 or 3 to
+bandit.evaluate function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
@@ -181,7 +181,7 @@ class DomainSwapError(Exception):
 
 
 class ReserveTimeout(Exception):
-    """No job was reserved in the alotted time"""
+    """No job was reserved in the allotted time"""
 
 
 def read_pw():

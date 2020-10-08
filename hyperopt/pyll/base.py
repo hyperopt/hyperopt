@@ -209,7 +209,7 @@ def as_apply(obj):
     elif isinstance(obj, dict):
         items = list(obj.items())
         # -- should be fine to allow numbers and simple things
-        #    but think about if it's ok to allow Applys
+        #    but think about if it's ok to allow Apply objects
         #    it messes up sorting at the very least.
         items.sort()
         if all(isinstance(k, six.string_types) for k in obj):
@@ -241,7 +241,7 @@ class Apply(object):
         self.pos_args = list(pos_args)
         self.named_args = [[kw, arg] for (kw, arg) in named_args]
         # -- o_len is attached this early to support tuple unpacking and
-        #    list coersion.
+        #    list coercion.
         self.o_len = o_len
         self.pure = pure
         # -- define_params lets us cope with stuff that may be in the
@@ -513,7 +513,7 @@ class Apply(object):
         if self.o_len is not None and isinstance(idx, int):
             if idx >= self.o_len:
                 #  -- this IndexError is essential for supporting
-                #     tuple-unpacking syntax or list coersion of self.
+                #     tuple-unpacking syntax or list coercion of self.
                 raise IndexError()
         return scope.getitem(self, idx)
 
