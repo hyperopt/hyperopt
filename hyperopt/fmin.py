@@ -490,8 +490,8 @@ def fmin(
     argmin : dictionary
         If return_argmin is True returns `trials.argmin` which is a dictionary.  Otherwise
         this function  returns the result of `hyperopt.space_eval(space, trails.argmin)` if there
-        were successfull trails. This object shares the same structure as the space passed.
-        If there were no successfull trails, it returns None.
+        were successful trails. This object shares the same structure as the space passed.
+        If there were no successful trails, it returns None.
     """
     if algo is None:
         algo = tpe.suggest
