@@ -424,7 +424,7 @@ class Trials(object):
                 # TODO: save the trial object somewhere to inspect, fix, re-insert
                 #       so that precious data is not simply deallocated and lost.
                 print("-" * 80)
-                print("CANT ENCODE")
+                print("CAN'T ENCODE")
                 print("-" * 80)
                 raise
         if trial["exp_key"] != self._exp_key:
@@ -786,7 +786,7 @@ class Domain(object):
         loss_target=None,
     ):
         """
-        Paramaters
+        Parameters
         ----------
 
         fn : callable

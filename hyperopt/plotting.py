@@ -194,10 +194,10 @@ def main_plot_1D_attachment(
     :param do_show: If the plot should be shown after creating it.
     :param colorize_by_loss: If the lines represening the trial data should be shaded by loss.
     :param max_darkness: The maximumg shading darkness (between 0 and 1). Implies colorize_by_loss=True
-    :param num_trails: The number of trials to plot the attachment for. If none, all trials with a coresponding
+    :param num_trails: The number of trials to plot the attachment for. If none, all trials with a corresponding
     attachment are taken. If set to any integer value, the trials are sorted by loss and trials are selected in regular
     intervals for plotting. This ensures, that all possible outcomes are equally represented.
-    :param preprocessing_fn: A preprocessing funciton to be appleid to the attachment before plotting.
+    :param preprocessing_fn: A preprocessing function to be appleid to the attachment before plotting.
     :param line_width: The width of the lines to be plotted.
     :return: None
     """

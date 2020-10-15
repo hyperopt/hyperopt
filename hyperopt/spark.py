@@ -515,7 +515,7 @@ class _SparkFMinState:
                 # Otherwise it represent the task failed.
                 finish_trial_run(e)
             else:
-                # The execptions captured in run_task_on_executor would be returned in the result_or_e
+                # The exceptions captured in run_task_on_executor would be returned in the result_or_e
                 finish_trial_run(result_or_e)
 
         task_thread = threading.Thread(target=run_task_thread)

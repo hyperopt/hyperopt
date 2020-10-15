@@ -913,7 +913,7 @@ def suggest(
     # Sample and compute log-probability.
     first_new_id = new_ids[0]
     if tids:
-        # -- the +2 co-ordinates with an assertion above
+        # -- the +2 coordinates with an assertion above
         #    to ensure that fake ids are used during sampling
         #    TODO: not sure what assertion this refers to...
         fake_id_0 = max(max(tids), first_new_id) + 2

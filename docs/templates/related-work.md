@@ -18,4 +18,4 @@ Links to software related to Hyperopt, and Bayesian Optimization in general.
 * [Spearmint](http://www.cs.toronto.edu/~jasper/software.html) - Gaussian-process SMBO in Python.
 * [BayesOpt](http://rmcantin.bitbucket.org/html/) - Bayesian optimization toolbox
 
-Should other software be listed here? File a github isue to add it.
+Should other software be listed here? File a github issue to add it.
