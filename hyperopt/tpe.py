@@ -115,7 +115,7 @@ def normal_cdf(x, mu, sigma):
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     def print_verbose(s, x):
-        return print("GMM1_lpdf:{}".format(s), x)
+        return print(f"GMM1_lpdf:{s}", x)
 
     verbose = 0
     samples, weights, mus, sigmas = list(

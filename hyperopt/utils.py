@@ -57,8 +57,8 @@ def import_tokens(tokens):
         # XXX: try using getattr, and then merge with load_tokens
         try:
             logger.info("importing %s" % modname)
-            exec("import {}".format(modname))
-            exec("rval = {}".format(modname))
+            exec(f"import {modname}")
+            exec(f"rval = {modname}")
         except ImportError as e:
             logger.info("failed to import %s" % modname)
             logger.info("reason: %s" % str(e))

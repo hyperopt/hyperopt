@@ -234,7 +234,7 @@ def validate_timeout(timeout):
     ):
         raise Exception(
             "The timeout argument should be None or a positive value. "
-            "Given value: {timeout}".format(timeout=timeout)
+            f"Given value: {timeout}"
         )
 
 
@@ -245,7 +245,7 @@ def validate_loss_threshold(loss_threshold):
     ):
         raise Exception(
             "The loss_threshold argument should be None or a numeric value. "
-            "Given value: {loss_threshold}".format(loss_threshold=loss_threshold)
+            f"Given value: {loss_threshold}"
         )
 
 
