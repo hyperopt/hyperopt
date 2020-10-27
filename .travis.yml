@@ -1,4 +1,6 @@
-dist: bionic
+os: linux
+
+dist: focal
 
 language: python
 
@@ -31,18 +33,19 @@ install:
 
 jobs:
   include:
-    - stage: "lint"
-      name: "Run Linter (black)"
-      python: 3.8
+    - name: "Run Linter (black)"
+      python: 3.9
       script: black .
-    - stage: "test python 3.7"
-      name: "Run tests on python 3.7"
-      script: pytest
+    - name: "Run tests on python 3.7"
       python: 3.7
-    - stage: "test python 3.8"
-      name: "Run tests on python 3.8"
-      script: pytest
+    - name: "Run tests on python 3.8"
       python: 3.8
+    - name: "Run tests on python 3.9"
+      python: 3.9
+  allow_failures:
+    - name: "Run tests on python 3.9"
+
+script: pytest
 
 after_success:
   - coveralls
