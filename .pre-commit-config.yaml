@@ -4,3 +4,5 @@ repos:
     hooks:
     - id: black
       args: [--check]
+    - id: pyupgrade
+      args: [--py37-plus]
