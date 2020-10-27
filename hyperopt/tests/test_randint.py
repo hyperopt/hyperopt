@@ -1,7 +1,4 @@
-from __future__ import print_function
-
 import unittest
-from builtins import range
 from functools import partial
 
 import numpy as np

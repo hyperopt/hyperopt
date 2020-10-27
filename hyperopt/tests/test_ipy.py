@@ -8,7 +8,6 @@ To start the engines in hyperopt/hyperopt/tests/
 
 
 """
-from __future__ import print_function
 import sys
 from nose import SkipTest
 
@@ -27,7 +26,7 @@ import hyperopt
 def test0():
     try:
         client = Client(debug=True)
-    except IOError:
+    except OSError:
         raise SkipTest()
 
     client[:].use_cloudpickle()
@@ -60,7 +59,7 @@ def test0():
 def test_fmin_fn():
     try:
         client = Client()
-    except IOError:
+    except OSError:
         raise SkipTest()
 
     client[:].use_cloudpickle()

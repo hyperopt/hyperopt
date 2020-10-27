@@ -1,4 +1,3 @@
-from __future__ import division
 from hyperopt.pyll import base
 from hyperopt.pyll.base import (
     Literal,

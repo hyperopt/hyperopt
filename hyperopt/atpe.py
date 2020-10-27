@@ -986,7 +986,7 @@ class ATPEOptimizer:
                     [0.5] * len(parameters),
                 )  # Put all parameters as primary
 
-            if len(set(result["loss"] for result in results)) < 5:
+            if len({result["loss"] for result in results}) < 5:
                 return (
                     parameters,
                     [],
@@ -1009,11 +1009,11 @@ class ATPEOptimizer:
             for parameter in numberParameters:
                 if (
                     len(
-                        set(
+                        {
                             result[parameter.name]
                             for result in results
                             if result[parameter.name] is not None
-                        )
+                        }
                     )
                     < 2
                 ):
@@ -1324,14 +1324,14 @@ class ATPEOptimizer:
             if parameter.config["type"] == "number":
                 if (
                     len(
-                        set(
+                        {
                             getValue(result, parameter)
                             for result in results
                             if (
                                 getValue(result, parameter) is not None
                                 and result["loss"] is not None
                             )
-                        )
+                        }
                     )
                     < 2
                 ):

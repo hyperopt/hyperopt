@@ -2,7 +2,6 @@
 Functions to visualize an Experiment.
 
 """
-from __future__ import print_function
 
 import pickle
 

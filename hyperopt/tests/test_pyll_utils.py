@@ -1,6 +1,3 @@
-from __future__ import print_function
-from builtins import map
-
 from hyperopt import pyll_utils
 from hyperopt.pyll_utils import EQ
 from hyperopt.pyll_utils import expr_to_config
@@ -56,13 +53,13 @@ def test_expr_to_config():
     assert hps["e"]["node"].name == "loguniform"
     assert hps["z"]["node"].name == "randint"
 
-    assert set([(True, EQ("a", 0))]) == set([(True, EQ("a", 0))])
-    assert hps["a"]["conditions"] == set([(True,)])
-    assert hps["b"]["conditions"] == set([(True, EQ("a", 0))]), hps["b"]["conditions"]
-    assert hps["c"]["conditions"] == set([(True, EQ("a", 1), EQ("d", 0))])
-    assert hps["d"]["conditions"] == set([(True, EQ("a", 1))])
-    assert hps["e"]["conditions"] == set([(True, EQ("a", 1), EQ("d", 1))])
-    assert hps["z"]["conditions"] == set([(True,), (True, EQ("a", 0))])
+    assert {(True, EQ("a", 0))} == {(True, EQ("a", 0))}
+    assert hps["a"]["conditions"] == {(True,)}
+    assert hps["b"]["conditions"] == {(True, EQ("a", 0))}, hps["b"]["conditions"]
+    assert hps["c"]["conditions"] == {(True, EQ("a", 1), EQ("d", 0))}
+    assert hps["d"]["conditions"] == {(True, EQ("a", 1))}
+    assert hps["e"]["conditions"] == {(True, EQ("a", 1), EQ("d", 1))}
+    assert hps["z"]["conditions"] == {(True,), (True, EQ("a", 0))}
 
 
 def test_remove_allpaths():
@@ -72,8 +69,8 @@ def test_remove_allpaths():
     expr_to_config(a, (True,), hps)
     aconds = hps["a"]["conditions"]
     zconds = hps["z"]["conditions"]
-    assert aconds == set([(True,)]), aconds
-    assert zconds == set([(True,)]), zconds
+    assert aconds == {(True,)}, aconds
+    assert zconds == {(True,)}, zconds
 
 
 def test_remove_allpaths_int():
@@ -83,8 +80,8 @@ def test_remove_allpaths_int():
     expr_to_config(a, (True,), hps)
     aconds = hps["a"]["conditions"]
     zconds = hps["z"]["conditions"]
-    assert aconds == set([(True,)]), aconds
-    assert zconds == set([(True,)]), zconds
+    assert aconds == {(True,)}, aconds
+    assert zconds == {(True,)}, zconds
 
 
 @pyll_utils.validate_distribution_range

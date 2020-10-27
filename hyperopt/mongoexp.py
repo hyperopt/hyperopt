@@ -89,8 +89,6 @@ bandit.evaluate function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
 from future import standard_library
 import copy
 
@@ -132,8 +130,6 @@ from .utils import get_most_recent_inds
 from .utils import json_call
 from .utils import working_dir, temp_dir
 import six
-from six.moves import map
-from six.moves import range
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
@@ -306,7 +302,7 @@ def connection_from_string(s):
     return connection, tunnel, connection[db], connection[db][collection]
 
 
-class MongoJobs(object):
+class MongoJobs:
     """
     # Interface to a Jobs database structured like this
     #
@@ -474,9 +470,7 @@ class MongoJobs(object):
                     try:
                         self.gfs.delete(file_id)
                     except gridfs.errors.NoFile:
-                        logger.error(
-                            "failed to remove attachment %s:%s" % (name, file_id)
-                        )
+                        logger.error(f"failed to remove attachment {name}:{file_id}")
                 self.jobs.remove(d)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
@@ -581,7 +575,7 @@ class MongoJobs(object):
 
     def attachment_names(self, doc):
         def as_str(name_id):
-            assert isinstance(name_id[0], six.string_types), name_id
+            assert isinstance(name_id[0], str), name_id
             return str(name_id[0])
 
         return list(map(as_str, doc.get("_attachments", [])))
@@ -605,7 +599,7 @@ class MongoJobs(object):
         name_matches = [a for a in attachments if a[0] == name]
 
         # the filename is set to something so that fs.list() will display the file
-        new_file_id = self.gfs.put(blob, filename="%s_%s" % (doc["_id"], name))
+        new_file_id = self.gfs.put(blob, filename="{}_{}".format(doc["_id"], name))
         logger.info(
             "stored blob of %i bytes with id=%s and filename %s_%s"
             % (len(blob), str(new_file_id), doc["_id"], name)
@@ -916,7 +910,7 @@ class MongoTrials(Trials):
         """
 
         # don't offer more here than in MongoCtrl
-        class Attachments(object):
+        class Attachments:
             def __contains__(self, name):
                 return name in self.handle.attachment_names(doc=trial)
 
@@ -965,7 +959,7 @@ class MongoTrials(Trials):
         if self._exp_key:
             query["exp_key"] = self._exp_key
 
-        class Attachments(object):
+        class Attachments:
             def __iter__(_self):
                 if query:
                     # -- gfs.list does not accept query kwargs
@@ -998,7 +992,7 @@ class MongoTrials(Trials):
         return Attachments()
 
 
-class MongoWorker(object):
+class MongoWorker:
     poll_interval = 3.0  # -- seconds
     workdir = None
 
@@ -1184,7 +1178,7 @@ class MongoCtrl(Ctrl):
 
 def exec_import(cmd_module, cmd):
     worker_fn = None
-    exec("import %s; worker_fn = %s" % (cmd_module, cmd))
+    exec(f"import {cmd_module}; worker_fn = {cmd}")
     return worker_fn
 
 

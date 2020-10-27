@@ -2,9 +2,6 @@
 Extra distributions to complement scipy.stats
 
 """
-from __future__ import division
-from builtins import map
-from builtins import object
 from past.utils import old_div
 import numpy as np
 import numpy.random as mtrand
@@ -80,7 +77,7 @@ def qtable_logpmf(x, q, qlow, xs, ps):
     return float(rval)
 
 
-class quniform_gen(object):
+class quniform_gen:
     # -- not inheriting from scipy.stats.rv_discrete
     #    because I don't understand the design of those rv classes
     """Stats for Y = q * round(X / q) where X ~ U(low, high)."""
@@ -180,7 +177,7 @@ class qloguniform_gen(quniform_gen):
         return rval
 
 
-class qnormal_gen(object):
+class qnormal_gen:
     """Stats for Y = q * round(X / q) where X ~ N(mu, sigma)"""
 
     def __init__(self, mu, sigma, q):
@@ -224,7 +221,7 @@ class qnormal_gen(object):
         return rval
 
 
-class qlognormal_gen(object):
+class qlognormal_gen:
     """Stats for Y = q * round(exp(X) / q) where X ~ N(mu, sigma)"""
 
     def __init__(self, mu, sigma, q):

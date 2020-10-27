@@ -9,10 +9,6 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import zip
 from past.utils import old_div
 import logging
 import numpy as np

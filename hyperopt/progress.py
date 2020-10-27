@@ -4,8 +4,6 @@ Progress is reported using context managers.
 A progress context manager takes an `initial` and a `total` argument
 and should yield an object with an `update(n)` method.
 """
-from __future__ import print_function
-from __future__ import absolute_import
 
 import contextlib
 

@@ -20,16 +20,9 @@ The design is that there are three components fitting together in this project:
          appropriate thread-aware Ctrl subclass should go with it.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
 
 import numbers
-from builtins import str
-from builtins import map
-from builtins import zip
-from builtins import range
 from past.builtins import basestring
-from builtins import object
 import logging
 import datetime
 import sys
@@ -145,9 +138,7 @@ def SONify(arg, memo=None):
         elif isinstance(arg, (list, tuple)):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
-            rval = dict(
-                [(SONify(k, memo), SONify(v, memo)) for k, v in list(arg.items())]
-            )
+            rval = {SONify(k, memo): SONify(v, memo) for k, v in list(arg.items())}
         elif isinstance(arg, (basestring, float, int, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
@@ -181,7 +172,7 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_ma
 
     assert set(idxs.keys()) == set(vals.keys())
 
-    misc_by_id = dict([(m["tid"], m) for m in miscs])
+    misc_by_id = {m["tid"]: m for m in miscs}
     for m in miscs:
         m["idxs"] = {key: [] for key in idxs}
         m["vals"] = {key: [] for key in idxs}
@@ -249,7 +240,7 @@ def validate_loss_threshold(loss_threshold):
         )
 
 
-class Trials(object):
+class Trials:
     """Database interface supporting data-driven model-based optimization.
 
     The model-based optimization algorithms used by hyperopt's fmin function
@@ -314,7 +305,7 @@ class Trials(object):
         return rval
 
     def aname(self, trial, name):
-        return "ATTACH::%s::%s" % (trial["tid"], name)
+        return "ATTACH::{}::{}".format(trial["tid"], name)
 
     def trial_attachments(self, trial):
         """
@@ -325,7 +316,7 @@ class Trials(object):
         """
 
         # don't offer more here than in MongoCtrl
-        class Attachments(object):
+        class Attachments:
             def __contains__(_self, name):
                 return self.aname(trial, name) in self.attachments
 
@@ -709,7 +700,7 @@ def trials_from_docs(docs, validate=True, **kwargs):
     return rval
 
 
-class Ctrl(object):
+class Ctrl:
     """Control object for interruptible, checkpoint-able evaluation"""
 
     info = logger.info
@@ -765,7 +756,7 @@ class Ctrl(object):
         return self.trials.insert_trial_docs(new_trials)
 
 
-class Domain(object):
+class Domain:
     """Picklable representation of search space and evaluation function."""
 
     rec_eval_print_node_on_error = False

@@ -1,7 +1,6 @@
 """
 Random search - presented as hyperopt.fmin_random
 """
-from __future__ import absolute_import
 import logging
 import numpy as np
 
