@@ -1,9 +1,3 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import str
-from builtins import zip
-from builtins import range
-from builtins import object
 import sys
 
 import numpy as np
@@ -86,9 +80,7 @@ def idxs_map(idxs, cmd, *args, **kwargs):
             ERR("args_imap %s" % str(args_imap))
             raise
         try:
-            kwargs_nn = dict(
-                [(kw, arg_imap[ii]) for kw, arg_imap in list(kwargs_imap.items())]
-            )
+            kwargs_nn = {kw: arg_imap[ii] for kw, arg_imap in list(kwargs_imap.items())}
         except:
             ERR("args_nn %s" % cmd)
             ERR("ii %s" % ii)
@@ -212,7 +204,7 @@ def replace_repeat_stochastic(expr, return_memo=False):
     return expr
 
 
-class VectorizeHelper(object):
+class VectorizeHelper:
     """
     Convert a pyll expression representing a single trial into a pyll
     expression representing multiple trials.
@@ -432,14 +424,10 @@ class VectorizeHelper(object):
         return wanted_vals
 
     def idxs_by_label(self):
-        return dict(
-            [(name, self.idxs_memo[node]) for name, node in list(self.params.items())]
-        )
+        return {name: self.idxs_memo[node] for name, node in list(self.params.items())}
 
     def vals_by_label(self):
-        return dict(
-            [
-                (name, self.take_memo[node][0].pos_args[1])
-                for name, node in list(self.params.items())
-            ]
-        )
+        return {
+            name: self.take_memo[node][0].pos_args[1]
+            for name, node in list(self.params.items())
+        }

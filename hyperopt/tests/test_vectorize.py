@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import zip
 import numpy as np
 
 from hyperopt.pyll import as_apply, scope, rec_eval, clone, dfs

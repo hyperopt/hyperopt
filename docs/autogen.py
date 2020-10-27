@@ -1,20 +1,11 @@
-# -*- coding: utf-8 -*-
 # This file has been taken from Keras' `docs` module found here:
 # https://github.com/keras-team/keras/blob/master/docs/autogen.py
 #
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import re
 import inspect
 import os
 import shutil
-
-import sys
-
-if sys.version[0] == "2":
-    reload(sys)
-    sys.setdefaultencoding("utf8")
 
 
 EXCLUDE = {}
@@ -53,7 +44,7 @@ def get_function_signature(function, method=True):
         args = args[: -len(defaults)]
     else:
         kwargs = []
-    st = "%s.%s(" % (clean_module_name(function.__module__), function.__name__)
+    st = "{}.{}(".format(clean_module_name(function.__module__), function.__name__)
 
     for a in args:
         st += str(a) + ", "
@@ -280,7 +271,7 @@ def render_function(function, method=True):
 def read_page_data(page_data, type):
     assert type in ["classes", "functions", "methods"]
     data = page_data.get(type, [])
-    for module in page_data.get("all_module_{}".format(type), []):
+    for module in page_data.get(f"all_module_{type}", []):
         module_data = []
         for name in dir(module):
             if name[0] == "_" or name in EXCLUDE:

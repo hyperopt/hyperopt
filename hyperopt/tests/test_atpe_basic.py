@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import random
 import numpy as np
 from hyperopt import hp, fmin, atpe, space_eval

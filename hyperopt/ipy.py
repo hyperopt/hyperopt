@@ -4,11 +4,6 @@ on
 Author: James Bergstra <james.bergstra@gmail.com>
 Licensed: MIT
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import zip
-from builtins import str
-from builtins import object
 from time import sleep, time
 
 import numpy as np
@@ -218,7 +213,7 @@ class IPythonTrials(Trials):
 
 # Monkey patching to allow the apply_async call and response to
 # be handled on behalf of the domain.
-class IPYAsync(object):
+class IPYAsync:
     def __init__(self, asynchronous, domain, rv, eid, tid, ctrl):
         self.asynchronous = asynchronous
         self.domain = domain

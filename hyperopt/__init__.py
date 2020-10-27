@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from .base import STATUS_STRINGS
 from .base import STATUS_NEW
 from .base import STATUS_RUNNING

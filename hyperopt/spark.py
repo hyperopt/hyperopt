@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import copy
 import threading
 import time
@@ -71,7 +69,7 @@ class SparkTrials(Trials):
                               the entry point for various facilities provided by Spark. For more
                               information, visit the documentation for PySpark.
         """
-        super(SparkTrials, self).__init__(exp_key=None, refresh=False)
+        super().__init__(exp_key=None, refresh=False)
         if not _have_spark:
             raise Exception(
                 "SparkTrials cannot import pyspark classes.  Make sure that PySpark "
@@ -194,7 +192,7 @@ class SparkTrials(Trials):
         """
         Reset the Trials to init state
         """
-        super(SparkTrials, self).delete_all()
+        super().delete_all()
         self._fmin_cancelled = False
         self._fmin_cancelled_reason = None
 

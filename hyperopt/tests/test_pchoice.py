@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import range
 from functools import partial
 import numpy as np
 import unittest

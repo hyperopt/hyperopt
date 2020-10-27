@@ -1,6 +1,5 @@
 """
 """
-from builtins import str
 
 
 class BadSearchSpace(Exception):

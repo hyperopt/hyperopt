@@ -3,8 +3,6 @@ Use graphviz's dot language to express the relationship between hyperparamters
 in a search space.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
 from future import standard_library
 
 import io
@@ -47,7 +45,7 @@ def dot_hyperparameters(expr):
         print('"%s" [ shape=ellipse];' % a, file=rval)
 
     def edge(a, b):
-        text = '"%s" -> "%s";' % (a, b)
+        text = f'"{a}" -> "{b}";'
         if text not in edges:
             print(text, file=rval)
             edges.add(text)
@@ -65,12 +63,12 @@ def dot_hyperparameters(expr):
                 cond_node(parent_label)
                 edge(parent_label, hp)
                 for cond in and_conds:
-                    sub_parent_label = "%s%s%s" % (cond.name, cond.op, cond.val)
+                    sub_parent_label = f"{cond.name}{cond.op}{cond.val}"
                     cond_node(sub_parent_label)
                     edge(cond.name, sub_parent_label)
                     edge(sub_parent_label, parent_label)
             elif len(and_conds) == 1:
-                parent_label = "%s%s%s" % (
+                parent_label = "{}{}{}".format(
                     and_conds[0].name,
                     and_conds[0].op,
                     and_conds[0].val,

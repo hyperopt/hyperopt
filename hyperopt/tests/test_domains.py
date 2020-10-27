@@ -1,5 +1,3 @@
-from __future__ import division
-from builtins import object
 from past.utils import old_div
 import unittest
 
@@ -209,7 +207,7 @@ def branin():
     return {"loss": loss, "loss_variance": 0, "status": base.STATUS_OK}
 
 
-class DomainExperimentMixin(object):
+class DomainExperimentMixin:
     def test_basic(self):
         domain = self._domain_cls()
         # print 'domain params', domain.params, domain
@@ -247,7 +245,7 @@ many_distsTester = DomainExperimentMixin.make(many_dists)
 braninTester = DomainExperimentMixin.make(branin)
 
 
-class CasePerDomain(object):
+class CasePerDomain:
     # -- this is a mixin
     # -- Override self.work to execute a test for each kind of self.bandit
 
@@ -284,7 +282,7 @@ class CasePerDomain(object):
         self.work()
 
 
-class NonCategoricalCasePerDomain(object):
+class NonCategoricalCasePerDomain:
     # -- this is a mixin
     # -- Override self.work to execute a test for each kind of self.bandit
 

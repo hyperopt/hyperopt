@@ -1,6 +1,3 @@
-from __future__ import print_function
-from builtins import range
-from builtins import object
 import copy
 import unittest
 import numpy as np
@@ -69,7 +66,7 @@ def create_fake_trial(tid, loss=None, status=STATUS_OK, state=JOB_STATE_DONE):
     )
 
 
-class Suggest_API(object):
+class Suggest_API:
     """
     Run some generic sanity-checks of a suggest algorithm to make sure that
     it respects the semantics expected by e.g. fmin.

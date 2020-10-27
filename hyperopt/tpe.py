@@ -1,13 +1,6 @@
 """
 Graphical model (GM)-based optimization algorithm using Theano
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import str
-from builtins import map
-from builtins import zip
-from builtins import range
 from past.utils import old_div
 import logging
 import time
@@ -115,7 +108,7 @@ def normal_cdf(x, mu, sigma):
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     def print_verbose(s, x):
-        return print("GMM1_lpdf:{}".format(s), x)
+        return print(f"GMM1_lpdf:{s}", x)
 
     verbose = 0
     samples, weights, mus, sigmas = list(

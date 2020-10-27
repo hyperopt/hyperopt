@@ -8,7 +8,7 @@ import sys
 from tqdm import tqdm
 
 
-class DummyTqdmFile(object):
+class DummyTqdmFile:
     """Dummy file-like that will write to tqdm."""
 
     file = None
