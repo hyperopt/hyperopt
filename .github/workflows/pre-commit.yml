@@ -1,10 +1,7 @@
 # https://pre-commit.com
 # This GitHub Action assumes that the repo contains a valid .pre-commit-config.yaml file.
 name: pre-commit
-on:
-  pull_request:
-  push:
-    branches: [master]
+on: [pull_request, push]
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
