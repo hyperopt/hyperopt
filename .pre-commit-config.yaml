@@ -4,5 +4,8 @@ repos:
     hooks:
     - id: black
       args: [--check]
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v2.7.3
+    hooks:
     - id: pyupgrade
       args: [--py37-plus]
