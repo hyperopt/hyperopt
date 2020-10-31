@@ -1,9 +1,4 @@
-from __future__ import absolute_import
-from builtins import str
-from builtins import zip
-from builtins import range
 from past.builtins import basestring
-from builtins import object
 from functools import partial, wraps
 from .base import DuplicateLabel
 from .pyll.base import Apply, Literal, MissingArgument
@@ -51,7 +46,7 @@ def validate_distribution_range(f):
 
 @scope.define
 def hyperopt_param(label, obj):
-    """ A graph node primarily for annotating - VectorizeHelper looks out
+    """A graph node primarily for annotating - VectorizeHelper looks out
     for these guys, and optimizes subgraphs of the form:
 
         hyperopt_param(<stochastic_expression>(...))
@@ -90,7 +85,7 @@ def hp_uniform(label, *args, **kwargs):
 
 @validate_label
 def hp_uniformint(label, *args, **kwargs):
-    args += (1.0,)
+    kwargs["q"] = 1.0
     return scope.int(hp_quniform(label, *args, **kwargs))
 
 
@@ -137,14 +132,14 @@ def hp_qlognormal(label, *args, **kwargs):
 #
 
 
-class Cond(object):
+class Cond:
     def __init__(self, name, val, op):
         self.op = op
         self.name = name
         self.val = val
 
     def __str__(self):
-        return "Cond{%s %s %s}" % (self.name, self.op, self.val)
+        return f"Cond{{{self.name} {self.op} {self.val}}}"
 
     def __eq__(self, other):
         return self.op == other.op and self.name == other.name and self.val == other.val
@@ -180,7 +175,7 @@ def _expr_to_config(expr, conditions, hps):
         else:
             hps[label] = {
                 "node": expr.arg["obj"],
-                "conditions": set((conditions,)),
+                "conditions": {conditions},
                 "label": label,
             }
     else:
@@ -237,7 +232,7 @@ def _remove_allpaths(hps, conditions):
             all_conds = [[c for c in cond if c is not True] for cond in v["conditions"]]
             all_conds = [cond for cond in all_conds if len(cond) >= 1]
             if len(all_conds) == 0:
-                v["conditions"] = set([conditions])
+                v["conditions"] = {conditions}
                 continue
 
             depvar = all_conds[0][0].name
@@ -248,7 +243,7 @@ def _remove_allpaths(hps, conditions):
             if all_one_var:
                 conds = [cond[0] for cond in all_conds]
                 if frozenset(conds) == potential_conds[depvar]:
-                    v["conditions"] = set([conditions])
+                    v["conditions"] = {conditions}
                     continue
 
 

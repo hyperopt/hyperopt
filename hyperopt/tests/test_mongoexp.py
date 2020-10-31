@@ -1,5 +1,3 @@
-from __future__ import print_function
-from __future__ import absolute_import
 import six.moves.cPickle as pickle
 import os
 import signal
@@ -25,9 +23,6 @@ from hyperopt.fmin import fmin
 from hyperopt import rand
 import hyperopt.tests.test_base
 from .test_domains import gauss_wave2
-from six.moves import map
-from six.moves import range
-from six.moves import zip
 
 
 def skiptest(f):
@@ -38,7 +33,7 @@ def skiptest(f):
     return wrapper
 
 
-class TempMongo(object):
+class TempMongo:
     """
     Context manager for tests requiring a live database.
 
@@ -53,7 +48,7 @@ class TempMongo(object):
         try:
             open(self.workdir)
             assert 0
-        except IOError:
+        except OSError:
             subprocess.call(["mkdir", "-p", "%s/db" % self.workdir])
             proc_args = [
                 "mongod",
@@ -102,7 +97,7 @@ class TempMongo(object):
 
     @staticmethod
     def connection_string(dbname):
-        return as_mongo_str("localhost:22334/{}/jobs".format(dbname))
+        return as_mongo_str(f"localhost:22334/{dbname}/jobs")
 
     @staticmethod
     def mongo_jobs(dbname):
@@ -248,13 +243,13 @@ def test_attachments(trials):
     assert "aname" not in trials.attachments
     trials.attachments["aname"] = blob
     assert "aname" in trials.attachments
-    assert trials.attachments[u"aname"] == blob
+    assert trials.attachments["aname"] == blob
     assert trials.attachments["aname"] == blob
 
     blob2 = b"zzz"
     trials.attachments["aname"] = blob2
     assert "aname" in trials.attachments
-    assert trials.attachments[u"aname"] == blob2
+    assert trials.attachments["aname"] == blob2
     assert trials.attachments["aname"] == blob2
 
     del trials.attachments["aname"]
@@ -396,7 +391,7 @@ class TestExperimentWithThreads(unittest.TestCase):
             )
 
 
-class FakeOptions(object):
+class FakeOptions:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 

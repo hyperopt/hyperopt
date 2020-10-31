@@ -1,5 +1,3 @@
-from __future__ import division
-from builtins import object
 from past.utils import old_div
 import unittest
 
@@ -43,8 +41,7 @@ def domain_constructor(**b_kwargs):
 
 @domain_constructor()
 def coin_flip():
-    """ Possibly the simplest possible Bandit implementation
-    """
+    """Possibly the simplest possible Bandit implementation"""
     return {"loss": hp.choice("flip", [0.0, 1.0]), "status": base.STATUS_OK}
 
 
@@ -108,7 +105,8 @@ def distractor():
     """
 
     x = hp.uniform("x", -15, 15)
-    f1 = old_div(1.0, (1.0 + scope.exp(-x)))  # climbs rightward from 0.0 to 1.0
+    # climbs rightward from 0.0 to 1.0
+    f1 = old_div(1.0, (1.0 + scope.exp(-x)))
     f2 = 2 * scope.exp(-((x + 10) ** 2))  # bump with height 2 at (x=-10)
     return {"loss": -f1 - f2, "status": base.STATUS_OK}
 
@@ -209,7 +207,7 @@ def branin():
     return {"loss": loss, "loss_variance": 0, "status": base.STATUS_OK}
 
 
-class DomainExperimentMixin(object):
+class DomainExperimentMixin:
     def test_basic(self):
         domain = self._domain_cls()
         # print 'domain params', domain.params, domain
@@ -247,7 +245,7 @@ many_distsTester = DomainExperimentMixin.make(many_dists)
 braninTester = DomainExperimentMixin.make(branin)
 
 
-class CasePerDomain(object):
+class CasePerDomain:
     # -- this is a mixin
     # -- Override self.work to execute a test for each kind of self.bandit
 
@@ -284,7 +282,7 @@ class CasePerDomain(object):
         self.work()
 
 
-class NonCategoricalCasePerDomain(object):
+class NonCategoricalCasePerDomain:
     # -- this is a mixin
     # -- Override self.work to execute a test for each kind of self.bandit
 

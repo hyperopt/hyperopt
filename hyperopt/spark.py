@@ -1,9 +1,8 @@
-from __future__ import print_function
-
 import copy
 import threading
 import time
 import timeit
+import traceback
 
 from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
@@ -70,7 +69,7 @@ class SparkTrials(Trials):
                               the entry point for various facilities provided by Spark. For more
                               information, visit the documentation for PySpark.
         """
-        super(SparkTrials, self).__init__(exp_key=None, refresh=False)
+        super().__init__(exp_key=None, refresh=False)
         if not _have_spark:
             raise Exception(
                 "SparkTrials cannot import pyspark classes.  Make sure that PySpark "
@@ -193,7 +192,7 @@ class SparkTrials(Trials):
         """
         Reset the Trials to init state
         """
-        super(SparkTrials, self).delete_all()
+        super().delete_all()
         self._fmin_cancelled = False
         self._fmin_cancelled_reason = None
 
@@ -216,6 +215,7 @@ class SparkTrials(Trials):
         return_argmin,
         show_progressbar,
         early_stop_fn,
+        trials_save_file="",
     ):
         """
         This should not be called directly but is called via :func:`hyperopt.fmin`
@@ -259,13 +259,14 @@ class SparkTrials(Trials):
                 trials=self,
                 allow_trials_fmin=False,  # -- prevent recursion
                 rstate=rstate,
-                pass_expr_memo_ctrl=None,  # not support
+                pass_expr_memo_ctrl=None,  # not supported
                 catch_eval_exceptions=catch_eval_exceptions,
                 verbose=verbose,
                 return_argmin=return_argmin,
-                points_to_evaluate=None,  # not support
+                points_to_evaluate=None,  # not supported
                 show_progressbar=show_progressbar,
                 early_stop_fn=early_stop_fn,
+                trials_save_file="",  # not supported
             )
         except BaseException as e:
             logger.debug("fmin thread exits with an exception raised.")
@@ -339,6 +340,10 @@ class _SparkFMinState:
         trial["refresh_time"] = now
         logger.debug("trial task {tid} started".format(tid=trial["tid"]))
 
+    @staticmethod
+    def _get_traceback(err):
+        return err.__dict__.get("_tb_str")
+
     def _finish_trial_run(self, is_success, is_cancelled, trial, data):
         """
         Call this method when a trial evaluation finishes. It will save results to the
@@ -364,9 +369,9 @@ class _SparkFMinState:
             )
             self._write_result_back(trial, result=data)
         else:
-            logger.debug(
-                "trial task {tid} failed, exception is {e}".format(
-                    tid=trial["tid"], e=str(data)
+            logger.error(
+                "trial task {tid} failed, exception is {e}.\n {tb}".format(
+                    tid=trial["tid"], e=str(data), tb=self._get_traceback(data)
                 )
             )
             self._write_exception_back(trial, e=data)
@@ -425,10 +430,9 @@ class _SparkFMinState:
         trial["result"] = result
         trial["refresh_time"] = coarse_utcnow()
 
-    @staticmethod
-    def _write_exception_back(trial, e):
+    def _write_exception_back(self, trial, e):
         trial["state"] = base.JOB_STATE_ERROR
-        trial["misc"]["error"] = (str(type(e)), str(e))
+        trial["misc"]["error"] = (str(type(e)), self._get_traceback(e))
         trial["refresh_time"] = coarse_utcnow()
 
     @staticmethod
@@ -438,7 +442,6 @@ class _SparkFMinState:
         trial["refresh_time"] = coarse_utcnow()
 
     def _run_trial_async(self, trial):
-
         def finish_trial_run(result_or_e):
             if not isinstance(result_or_e, BaseException):
                 self._finish_trial_run(
@@ -473,9 +476,16 @@ class _SparkFMinState:
                 )
 
                 try:
-                    result = domain.evaluate(params, ctrl=None, attach_attachments=False)
+                    result = domain.evaluate(
+                        params, ctrl=None, attach_attachments=False
+                    )
                     yield result
                 except BaseException as e:
+                    # Because the traceback is not pickable, we need format it and pass it back
+                    # to driver
+                    _traceback_string = traceback.format_exc()
+                    logger.error(_traceback_string)
+                    e._tb_str = _traceback_string
                     yield e
 
             try:
@@ -487,9 +497,13 @@ class _SparkFMinState:
                         self._job_group_id,
                         self._job_desc,
                         self._job_interrupt_on_cancel,
-                    )[0]
+                    )[
+                        0
+                    ]
                 else:
-                    result_or_e = worker_rdd.mapPartitions(run_task_on_executor).collect()[0]
+                    result_or_e = worker_rdd.mapPartitions(
+                        run_task_on_executor
+                    ).collect()[0]
             except BaseException as e:
                 # I recommend to catch all exceptions here, it can make the program more robust.
                 # There're several possible reasons lead to raising exception here.
@@ -499,7 +513,7 @@ class _SparkFMinState:
                 # Otherwise it represent the task failed.
                 finish_trial_run(e)
             else:
-                # The execptions captured in run_task_on_executor would be returned in the result_or_e
+                # The exceptions captured in run_task_on_executor would be returned in the result_or_e
                 finish_trial_run(result_or_e)
 
         task_thread = threading.Thread(target=run_task_thread)

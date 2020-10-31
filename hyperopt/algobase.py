@@ -1,7 +1,5 @@
 """ Support code for new-style search algorithms.
 """
-from __future__ import print_function
-from builtins import object
 import copy
 from collections import deque
 
@@ -15,7 +13,7 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
 
-class ExprEvaluator(object):
+class ExprEvaluator:
     def __init__(self, expr, deepcopy_inputs=False, max_program_len=None, memo_gc=True):
         """
         Parameters
@@ -186,7 +184,7 @@ class ExprEvaluator(object):
     def on_node(self, memo, node):
         # -- Retrieve computed arguments of apply node
         args = _args = [memo[v] for v in node.pos_args]
-        kwargs = _kwargs = dict([(k, memo[v]) for (k, v) in node.named_args])
+        kwargs = _kwargs = {k: memo[v] for (k, v) in node.named_args}
 
         if self.memo_gc:
             # -- Ensure no computed argument has been (accidentally) freed for
@@ -221,9 +219,9 @@ class SuggestAlgo(ExprEvaluator):
         ExprEvaluator.__init__(self, domain.s_idxs_vals)
         self.domain = domain
         self.trials = trials
-        self.label_by_node = dict(
-            [(n, l) for l, n in list(self.domain.vh.vals_by_label().items())]
-        )
+        self.label_by_node = {
+            n: l for l, n in list(self.domain.vh.vals_by_label().items())
+        }
         self._seed = seed
         self.rng = np.random.RandomState(seed)
 

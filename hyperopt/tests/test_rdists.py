@@ -1,5 +1,3 @@
-from __future__ import print_function
-from __future__ import division
 from past.utils import old_div
 from collections import defaultdict
 import unittest
@@ -50,7 +48,7 @@ class TestLogUniform(unittest.TestCase):
         if pval < alpha:
             npt.assert_(
                 pval > alpha,
-                "D = %f; pval = %f; alpha = %f; args=%s" % (D, pval, alpha, arg),
+                f"D = {D:f}; pval = {pval:f}; alpha = {alpha:f}; args={arg}",
             )
 
 
@@ -87,7 +85,7 @@ class TestLogNormal(unittest.TestCase):
         if pval < alpha:
             npt.assert_(
                 pval > alpha,
-                "D = %f; pval = %f; alpha = %f; args=%s" % (D, pval, alpha, arg),
+                f"D = {D:f}; pval = {pval:f}; alpha = {alpha:f}; args={arg}",
             )
 
 
@@ -103,7 +101,7 @@ def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
             print(("Error in sampling frequencies", ii))
             print("value\tpmf\tfreq")
             for jj in sorted(counts):
-                print(("%.2f\t%.3f\t%.4f" % (jj, dfn.pmf(jj), counts[jj])))
+                print("{:.2f}\t{:.3f}\t{:.4f}".format(jj, dfn.pmf(jj), counts[jj]))
             npt.assert_(t, "n = %i; pmf = %f; p = %f" % (n, dfn.pmf(ii), p))
 
 

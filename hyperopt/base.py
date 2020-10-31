@@ -20,16 +20,9 @@ The design is that there are three components fitting together in this project:
          appropriate thread-aware Ctrl subclass should go with it.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
 
 import numbers
-from builtins import str
-from builtins import map
-from builtins import zip
-from builtins import range
 from past.builtins import basestring
-from builtins import object
 import logging
 import datetime
 import sys
@@ -145,9 +138,7 @@ def SONify(arg, memo=None):
         elif isinstance(arg, (list, tuple)):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
-            rval = dict(
-                [(SONify(k, memo), SONify(v, memo)) for k, v in list(arg.items())]
-            )
+            rval = {SONify(k, memo): SONify(v, memo) for k, v in list(arg.items())}
         elif isinstance(arg, (basestring, float, int, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
@@ -181,7 +172,7 @@ def miscs_update_idxs_vals(miscs, idxs, vals, assert_all_vals_used=True, idxs_ma
 
     assert set(idxs.keys()) == set(vals.keys())
 
-    misc_by_id = dict([(m["tid"], m) for m in miscs])
+    misc_by_id = {m["tid"]: m for m in miscs}
     for m in miscs:
         m["idxs"] = {key: [] for key in idxs}
         m["vals"] = {key: [] for key in idxs}
@@ -234,7 +225,7 @@ def validate_timeout(timeout):
     ):
         raise Exception(
             "The timeout argument should be None or a positive value. "
-            "Given value: {timeout}".format(timeout=timeout)
+            f"Given value: {timeout}"
         )
 
 
@@ -245,11 +236,11 @@ def validate_loss_threshold(loss_threshold):
     ):
         raise Exception(
             "The loss_threshold argument should be None or a numeric value. "
-            "Given value: {loss_threshold}".format(loss_threshold=loss_threshold)
+            f"Given value: {loss_threshold}"
         )
 
 
-class Trials(object):
+class Trials:
     """Database interface supporting data-driven model-based optimization.
 
     The model-based optimization algorithms used by hyperopt's fmin function
@@ -279,11 +270,11 @@ class Trials(object):
       a 'loss' key as well with a floating-point value.  Other special keys in
       this sub-dictionary may be used by optimization algorithms  (see them
       for details). Other keys in this sub-dictionary can be used by the
-      evaluation function to store miscelaneous diagnostics and debugging
+      evaluation function to store miscellaneous diagnostics and debugging
       information.
 
     * **misc**: despite generic name, this is currently where the trial's
-      hyperparameter assigments are stored. This sub-dictionary has two
+      hyperparameter assignments are stored. This sub-dictionary has two
       elements: `'idxs'` and `'vals'`. The `vals` dictionary is
       a sub-sub-dictionary mapping each hyperparameter to either `[]` (if the
       hyperparameter is inactive in this trial), or `[<val>]` (if the
@@ -314,7 +305,7 @@ class Trials(object):
         return rval
 
     def aname(self, trial, name):
-        return "ATTACH::%s::%s" % (trial["tid"], name)
+        return "ATTACH::{}::{}".format(trial["tid"], name)
 
     def trial_attachments(self, trial):
         """
@@ -325,7 +316,7 @@ class Trials(object):
         """
 
         # don't offer more here than in MongoCtrl
-        class Attachments(object):
+        class Attachments:
             def __contains__(_self, name):
                 return self.aname(trial, name) in self.attachments
 
@@ -424,7 +415,7 @@ class Trials(object):
                 # TODO: save the trial object somewhere to inspect, fix, re-insert
                 #       so that precious data is not simply deallocated and lost.
                 print("-" * 80)
-                print("CANT ENCODE")
+                print("CAN'T ENCODE")
                 print("-" * 80)
                 raise
         if trial["exp_key"] != self._exp_key:
@@ -433,8 +424,7 @@ class Trials(object):
         return trial
 
     def _insert_trial_docs(self, docs):
-        """insert with no error checking
-        """
+        """insert with no error checking"""
         rval = [doc["tid"] for doc in docs]
         self._dynamic_trials.extend(docs)
         return rval
@@ -451,8 +441,7 @@ class Trials(object):
         # a real DB the steps should be separated.
 
     def insert_trial_docs(self, docs):
-        """ trials - something like is returned by self.new_trial_docs()
-        """
+        """trials - something like is returned by self.new_trial_docs()"""
         docs = [self.assert_valid_trial(SONify(doc)) for doc in docs]
         return self._insert_trial_docs(docs)
 
@@ -482,7 +471,7 @@ class Trials(object):
         return trials_docs
 
     def source_trial_docs(self, tids, specs, results, miscs, sources):
-        assert _all_same(list(map(len, [tids, specs, results, miscs, sources])))
+        assert len(tids) == len(specs) == len(results) == len(miscs) == len(sources)
         rval = []
         for tid, spec, result, misc, source in zip(
             tids, specs, results, miscs, sources
@@ -642,8 +631,8 @@ class Trials(object):
         self,
         fn,
         space,
-        algo,
-        max_evals,
+        algo=None,
+        max_evals=None,
         timeout=None,
         loss_threshold=None,
         max_queue_len=1,
@@ -654,6 +643,7 @@ class Trials(object):
         return_argmin=True,
         show_progressbar=True,
         early_stop_fn=None,
+        trials_save_file="",
     ):
         """Minimize a function over a hyperparameter space.
 
@@ -681,8 +671,8 @@ class Trials(object):
         return fmin(
             fn,
             space,
-            algo,
-            max_evals,
+            algo=algo,
+            max_evals=max_evals,
             timeout=timeout,
             loss_threshold=loss_threshold,
             trials=self,
@@ -695,12 +685,12 @@ class Trials(object):
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
             early_stop_fn=early_stop_fn,
+            trials_save_file=trials_save_file,
         )
 
 
 def trials_from_docs(docs, validate=True, **kwargs):
-    """Construct a Trials base class instance from a list of trials documents
-    """
+    """Construct a Trials base class instance from a list of trials documents"""
     rval = Trials(**kwargs)
     if validate:
         rval.insert_trial_docs(docs)
@@ -710,9 +700,8 @@ def trials_from_docs(docs, validate=True, **kwargs):
     return rval
 
 
-class Ctrl(object):
-    """Control object for interruptible, checkpoint-able evaluation
-    """
+class Ctrl:
+    """Control object for interruptible, checkpoint-able evaluation"""
 
     info = logger.info
     warn = logger.warning
@@ -767,10 +756,8 @@ class Ctrl(object):
         return self.trials.insert_trial_docs(new_trials)
 
 
-class Domain(object):
-    """Picklable representation of search space and evaluation function.
-
-    """
+class Domain:
+    """Picklable representation of search space and evaluation function."""
 
     rec_eval_print_node_on_error = False
 
@@ -790,7 +777,7 @@ class Domain(object):
         loss_target=None,
     ):
         """
-        Paramaters
+        Parameters
         ----------
 
         fn : callable
@@ -984,8 +971,7 @@ class Domain(object):
         return "Domain{%s}" % str(self.fn)
 
     def loss(self, result, config=None):
-        """Extract the scalar-valued loss from a result document
-        """
+        """Extract the scalar-valued loss from a result document"""
         return result.get("loss", None)
 
     def loss_variance(self, result, config=None):
@@ -1007,8 +993,7 @@ class Domain(object):
         raise NotImplementedError()
 
     def status(self, result, config=None):
-        """Extract the job status from a result document
-        """
+        """Extract the job status from a result document"""
         return result["status"]
 
     def new_result(self):

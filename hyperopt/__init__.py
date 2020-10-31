@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from .base import STATUS_STRINGS
 from .base import STATUS_NEW
 from .base import STATUS_RUNNING
@@ -40,4 +38,4 @@ from . import anneal
 # -- spark extension
 from .spark import SparkTrials
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"

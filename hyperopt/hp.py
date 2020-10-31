@@ -3,7 +3,6 @@ Support nicer user syntax:
     from hyperopt import hp
     hp.uniform('x', 0, 1)
 """
-from __future__ import absolute_import
 from .pyll_utils import hp_choice as choice
 from .pyll_utils import hp_randint as randint
 from .pyll_utils import hp_pchoice as pchoice

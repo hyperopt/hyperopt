@@ -2,9 +2,6 @@
 Extra distributions to complement scipy.stats
 
 """
-from __future__ import division
-from builtins import map
-from builtins import object
 from past.utils import old_div
 import numpy as np
 import numpy.random as mtrand
@@ -14,9 +11,7 @@ from scipy.stats._continuous_distns import lognorm_gen as scipy_lognorm_gen
 
 
 class loguniform_gen(rv_continuous):
-    """ Stats for Y = e^X where X ~ U(low, high).
-
-    """
+    """Stats for Y = e^X where X ~ U(low, high)."""
 
     def __init__(self, low=0, high=1):
         rv_continuous.__init__(self, a=np.exp(low), b=np.exp(high))
@@ -82,12 +77,10 @@ def qtable_logpmf(x, q, qlow, xs, ps):
     return float(rval)
 
 
-class quniform_gen(object):
+class quniform_gen:
     # -- not inheriting from scipy.stats.rv_discrete
     #    because I don't understand the design of those rv classes
-    """ Stats for Y = q * round(X / q) where X ~ U(low, high).
-
-    """
+    """Stats for Y = q * round(X / q) where X ~ U(low, high)."""
 
     def __init__(self, low, high, q):
         low, high = list(map(float, (low, high)))
@@ -129,9 +122,7 @@ class quniform_gen(object):
 
 
 class qloguniform_gen(quniform_gen):
-    """ Stats for Y = q * round(e^X / q) where X ~ U(low, high).
-
-    """
+    """Stats for Y = q * round(e^X / q) where X ~ U(low, high)."""
 
     # -- not inheriting from scipy.stats.rv_discrete
     #    because I don't understand the design of those rv classes
@@ -186,9 +177,8 @@ class qloguniform_gen(quniform_gen):
         return rval
 
 
-class qnormal_gen(object):
-    """Stats for Y = q * round(X / q) where X ~ N(mu, sigma)
-    """
+class qnormal_gen:
+    """Stats for Y = q * round(X / q) where X ~ N(mu, sigma)"""
 
     def __init__(self, mu, sigma, q):
         self.mu, self.sigma = list(map(float, (mu, sigma)))
@@ -231,9 +221,8 @@ class qnormal_gen(object):
         return rval
 
 
-class qlognormal_gen(object):
-    """Stats for Y = q * round(exp(X) / q) where X ~ N(mu, sigma)
-    """
+class qlognormal_gen:
+    """Stats for Y = q * round(exp(X) / q) where X ~ N(mu, sigma)"""
 
     def __init__(self, mu, sigma, q):
         self.mu, self.sigma = list(map(float, (mu, sigma)))
