@@ -3,7 +3,8 @@ import re
 
 import setuptools
 
-with open("hyperopt/__init__.py", "rt", encoding="utf8") as f:
+
+with open("hyperopt/__init__.py", encoding="utf8") as f:
     version = re.search(r"__version__ = \"(.*?)\"", f.read()).group(1)
     if version is None:
         raise ImportError("Could not find __version__ in hyperopt/__init__.py")
