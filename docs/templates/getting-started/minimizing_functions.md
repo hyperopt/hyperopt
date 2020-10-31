@@ -200,7 +200,7 @@ which behaves like a string-to-string dictionary.
 ## The `Ctrl` Object for Realtime Communication with MongoDB
 
 It is possible for `fmin()` to give your objective function a handle to the mongodb used by a parallel experiment. This mechanism makes it possible to update the database with partial results, and to communicate with other concurrent processes that are evaluating different points.
-Your objective function can even add new search points, just like `random.suggest`.
+Your objective function can even add new search points, just like `rand.suggest`.
 
 The basic technique involves:
 

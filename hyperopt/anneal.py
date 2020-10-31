@@ -9,10 +9,6 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import zip
 from past.utils import old_div
 import logging
 import numpy as np
@@ -144,8 +140,7 @@ class AnnealingAlgo(SuggestAlgo):
         return old_div(1.0, (1.0 + T * self.shrink_coef))
 
     def choose_ltv(self, label, size):
-        """Returns (loss, tid, val) of best/runner-up trial
-        """
+        """Returns (loss, tid, val) of best/runner-up trial"""
         tids = self.node_tids[label]
         vals = self.node_vals[label]
         losses = [self.tid_losses_dct[tid] for tid in tids]

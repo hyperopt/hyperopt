@@ -24,9 +24,9 @@ def foo_wrapper(n):
 Of course, to optimize the `n` argument to `foo` you also need to call hyperopt.fmin, and define the search space. I can only imagine that you will want to do this part in Python.
 
 ```python
-from hyperopt import fmin, hp, random
+from hyperopt import fmin, hp, rand
 
-best_n = fmin(foo_wrapper, hp.quniform('n', 1, 100, 1), algo=random.suggest)
+best_n = fmin(foo_wrapper, hp.quniform('n', 1, 100, 1), algo=rand.suggest)
 
 print best_n
 ```

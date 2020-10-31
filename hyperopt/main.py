@@ -3,7 +3,6 @@
 """
 Entry point for bin/* scripts
 """
-from __future__ import absolute_import
 from future import standard_library
 import logging
 import os
@@ -90,11 +89,11 @@ def main_search():
 
     try:
         if not options.load:
-            raise IOError()
+            raise OSError()
         handle = open(options.load, "rb")
         self = pickler.load(handle)
         handle.close()
-    except IOError:
+    except OSError:
         bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
         bandit_algo = utils.get_obj(
             bandit_algo_json, argfile=options.bandit_algo_argfile, args=(bandit,)

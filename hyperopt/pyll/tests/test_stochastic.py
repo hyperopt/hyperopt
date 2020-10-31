@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-from builtins import str
 from past.utils import old_div
 import numpy as np
 from hyperopt.pyll import scope, as_apply, rec_eval

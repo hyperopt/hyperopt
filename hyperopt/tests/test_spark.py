@@ -31,7 +31,7 @@ def patch_logger(name, level=logging.INFO):
         log.removeHandler(handler)
 
 
-class TestTempDir(object):
+class TestTempDir:
     @classmethod
     def make_tempdir(cls, dir="/tmp"):
         """
@@ -44,7 +44,7 @@ class TestTempDir(object):
         shutil.rmtree(cls.tempdir)
 
 
-class BaseSparkContext(object):
+class BaseSparkContext:
     """
     Mixin which sets up a SparkContext for tests
     """
@@ -55,7 +55,7 @@ class BaseSparkContext(object):
     def setup_spark(cls):
         cls._spark = (
             SparkSession.builder.master(
-                "local[{n}]".format(n=BaseSparkContext.NUM_SPARK_EXECUTORS)
+                f"local[{BaseSparkContext.NUM_SPARK_EXECUTORS}]"
             )
             .appName(cls.__name__)
             .getOrCreate()
@@ -172,7 +172,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
     def assert_task_succeeded(self, log_output, task):
         self.assertIn(
-            "trial {} task thread exits normally".format(task),
+            f"trial {task} task thread exits normally",
             log_output,
             """Debug info "trial {task} task thread exits normally" missing from log:
              {log_output}""".format(
@@ -182,7 +182,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
     def assert_task_failed(self, log_output, task):
         self.assertIn(
-            "trial {} task thread catches an exception".format(task),
+            f"trial {task} task thread catches an exception",
             log_output,
             """Debug info "trial {task} task thread catches an exception" missing from log:
              {log_output}""".format(
@@ -223,11 +223,16 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     ),
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
-                err_message = trial["misc"]["error"][0]
+                err_message = trial["misc"]["error"][1]
                 self.assertIn(
                     "RuntimeError",
                     err_message,
                     "Missing {e} in {r}.".format(e="RuntimeError", r=err_message),
+                )
+                self.assertIn(
+                    "Traceback (most recent call last)",
+                    err_message,
+                    "Missing {e} in {r}.".format(e="Traceback", r=err_message),
                 )
 
         num_success = spark_trials.count_by_state_unsynced(base.JOB_STATE_DONE)
@@ -627,7 +632,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 return_argmin=False,
             )
         except BaseException as e:
-            self.assertEqual("There are no evaluation tasks, cannot return argmin of task losses.", str(e))
+            self.assertEqual(
+                "There are no evaluation tasks, cannot return argmin of task losses.",
+                str(e),
+            )
 
         call_count = len(os.listdir(output_dir))
         self.assertEqual(NUM_TRIALS, call_count)

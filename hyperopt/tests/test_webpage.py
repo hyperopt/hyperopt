@@ -1,6 +1,3 @@
-from __future__ import print_function
-
-
 def test_landing_screen():
 
     # define an objective function

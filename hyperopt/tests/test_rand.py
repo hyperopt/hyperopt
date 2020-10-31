@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from builtins import range
 import unittest
 from hyperopt.base import Trials, trials_from_docs, miscs_to_idxs_vals
 from hyperopt import rand

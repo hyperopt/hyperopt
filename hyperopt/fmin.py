@@ -1,8 +1,4 @@
-from __future__ import print_function
-from __future__ import absolute_import
 from future import standard_library
-from builtins import str
-from builtins import object
 
 import functools
 import logging
@@ -13,6 +9,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 
+from hyperopt import tpe
 from hyperopt.base import validate_timeout, validate_loss_threshold
 from . import pyll
 from .utils import coarse_utcnow
@@ -100,9 +97,8 @@ def partial(fn, **kwargs):
     return rval
 
 
-class FMinIter(object):
-    """Object for conducting search experiments.
-    """
+class FMinIter:
+    """Object for conducting search experiments."""
 
     catch_eval_exceptions = False
     pickle_protocol = -1
@@ -122,6 +118,7 @@ class FMinIter(object):
         verbose=False,
         show_progressbar=True,
         early_stop_fn=None,
+        trials_save_file="",
     ):
         self.algo = algo
         self.domain = domain
@@ -141,6 +138,7 @@ class FMinIter(object):
         self.max_evals = max_evals
         self.early_stop_fn = early_stop_fn
         self.early_stop_args = []
+        self.trials_save_file = trials_save_file
         self.timeout = timeout
         self.loss_threshold = loss_threshold
         self.start_time = timer()
@@ -290,6 +288,8 @@ class FMinIter(object):
                     self.serial_evaluate()
 
                 self.trials.refresh()
+                if self.trials_save_file != "":
+                    pickler.dump(self.trials, open(self.trials_save_file, "wb"))
                 if self.early_stop_fn is not None:
                     stop, kwargs = self.early_stop_fn(
                         self.trials, *self.early_stop_args
@@ -357,8 +357,8 @@ class FMinIter(object):
 def fmin(
     fn,
     space,
-    algo,
-    max_evals=sys.maxsize,
+    algo=None,
+    max_evals=None,
     timeout=None,
     loss_threshold=None,
     trials=None,
@@ -372,6 +372,7 @@ def fmin(
     max_queue_len=1,
     show_progressbar=True,
     early_stop_fn=None,
+    trials_save_file="",
 ):
     """Minimize a function over a hyperparameter space.
 
@@ -417,7 +418,7 @@ def fmin(
 
     loss_threshold : None or double, default None
         Limits search time when minimal loss reduced to certain amount.
-        If None, then the search process has no constraint on the loss, 
+        If None, then the search process has no constraint on the loss,
         and will stop based on other parameters, e.g. `max_evals`, `timeout`
 
     trials : None or base.Trials (or subclass)
@@ -474,15 +475,27 @@ def fmin(
         Stop the search if the function return true.
         Default None.
 
+    trials_save_file: str, default ""
+        Optional file name to save the trials object to every iteration.
+        If specified and the file already exists, will load from this file when
+        trials=None instead of creating a new base.Trials object
+
     Returns
     -------
 
     argmin : dictionary
         If return_argmin is True returns `trials.argmin` which is a dictionary.  Otherwise
         this function  returns the result of `hyperopt.space_eval(space, trails.argmin)` if there
-        were succesfull trails. This object shares the same structure as the space passed.
-        If there were no succesfull trails, it returns None.
+        were successfull trails. This object shares the same structure as the space passed.
+        If there were no successfull trails, it returns None.
     """
+    if algo is None:
+        algo = tpe.suggest
+        logger.warning("TPE is being used as the default algorithm.")
+
+    if max_evals is None:
+        max_evals = sys.maxsize
+
     if rstate is None:
         env_rseed = os.environ.get("HYPEROPT_FMIN_SEED", "")
         if env_rseed:
@@ -509,10 +522,13 @@ def fmin(
             return_argmin=return_argmin,
             show_progressbar=show_progressbar,
             early_stop_fn=early_stop_fn,
+            trials_save_file=trials_save_file,
         )
 
     if trials is None:
-        if points_to_evaluate is None:
+        if os.path.exists(trials_save_file):
+            trials = pickler.load(open(trials_save_file, "rb"))
+        elif points_to_evaluate is None:
             trials = base.Trials()
         else:
             assert type(points_to_evaluate) == list
@@ -532,6 +548,7 @@ def fmin(
         max_queue_len=max_queue_len,
         show_progressbar=show_progressbar,
         early_stop_fn=early_stop_fn,
+        trials_save_file=trials_save_file,
     )
     rval.catch_eval_exceptions = catch_eval_exceptions
 

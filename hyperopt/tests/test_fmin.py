@@ -1,4 +1,3 @@
-from __future__ import print_function
 import unittest
 import numpy as np
 import nose.tools
@@ -131,7 +130,9 @@ def test_set_fmin_rstate():
 
 
 def test_fmin_return_argmin():
-    fn = lambda x: x
+    def fn(x):
+        return x
+
     space = hp.choice("x", [100, 5, 10])
     # With return_argmin=False it should return the
     # best parameter values
@@ -146,7 +147,7 @@ def test_fmin_return_argmin():
     assert best_parameter == 5
 
     # With return_argmin=True it should return the
-    # optimal point in ths sample space
+    # optimal point in the sample space
     best_args = fmin(
         fn=fn,
         space=space,
@@ -241,7 +242,9 @@ class TestGenerateTrialsToCalculate(unittest.TestCase):
 
 
 def test_timeout():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     start_time_1 = timer()
@@ -274,7 +277,9 @@ def test_timeout():
 
 
 def test_invalid_timeout():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     for wrong_timeout in [-1, True]:
@@ -312,7 +317,9 @@ def test_loss_threshold():
 
 
 def test_invalid_loss_threshold():
-    fn = lambda x: [time.sleep(1), x][1]
+    def fn(x):
+        return [time.sleep(1), x][1]
+
     space = hp.choice("x", range(20))
 
     for wrong_loss_threshold in ["a", True]:
@@ -333,33 +340,35 @@ def test_invalid_loss_threshold():
         except Exception as e:
             assert str(e) == expected_message
 
+
 def test_early_stop():
     trials = Trials()
 
-    #basic stop after 100 trials
+    # basic stop after 100 trials
     def stop(trial, count=0):
-        return count+1 >= 100, [count+1]
+        return count + 1 >= 100, [count + 1]
 
     fmin(
-        fn = lambda x: x,
+        fn=lambda x: x,
         space=hp.uniform("x", -5, 5),
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop_fn=stop
+        early_stop_fn=stop,
     )
 
     assert len(trials) == 100
 
+
 def test_early_stop_no_progress_loss():
-    trials = generate_trials_to_calculate([{'x': -100}])
+    trials = generate_trials_to_calculate([{"x": -100}])
     fmin(
-        fn = lambda x: x,
+        fn=lambda x: x,
         space=hp.uniform("x", -5, 5),
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
-        early_stop_fn=no_progress_loss(10)
+        early_stop_fn=no_progress_loss(10),
     )
 
     assert len(trials) == 10

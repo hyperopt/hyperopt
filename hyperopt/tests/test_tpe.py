@@ -1,10 +1,3 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import str
-from builtins import zip
-from builtins import range
-from builtins import object
 from past.utils import old_div
 from functools import partial
 import os
@@ -120,7 +113,8 @@ class TestGMM1(unittest.TestCase):
         assert np.var(samples) < 0.0001, np.var(samples)
 
     def test_lpdf_scalar_one_component(self):
-        llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])  # x  # weights  # mu  # sigma
+        # x  # weights  # mu  # sigma
+        llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])
         assert llval.shape == ()
         assert np.allclose(llval, np.log(old_div(1.0, np.sqrt(2 * np.pi * 2.0 ** 2))))
 
@@ -678,7 +672,7 @@ def opt_q_uniform(target):
     }
 
 
-class TestOptQUniform(object):
+class TestOptQUniform:
 
     show_steps = False
     show_vars = DO_SHOW
@@ -730,12 +724,8 @@ class TestOptQUniform(object):
         fn_lpdf = getattr(scope, a_post.name + "_lpdf")
         print(fn_lpdf)
         # calculate the llik of b_post under both distributions
-        a_kwargs = dict(
-            [(n, a) for n, a in a_post.named_args if n not in ("rng", "size")]
-        )
-        b_kwargs = dict(
-            [(n, a) for n, a in b_post.named_args if n not in ("rng", "size")]
-        )
+        a_kwargs = {n: a for n, a in a_post.named_args if n not in ("rng", "size")}
+        b_kwargs = {n: a for n, a in b_post.named_args if n not in ("rng", "size")}
         below_llik = fn_lpdf(*([b_post] + b_post.pos_args), **b_kwargs)
         above_llik = fn_lpdf(*([b_post] + a_post.pos_args), **a_kwargs)
         new_node = scope.broadcast_best(b_post, below_llik, above_llik)

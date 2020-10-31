@@ -2,8 +2,6 @@
 #
 # It provides types to build ASTs in a simple lambda-notation style
 #
-from __future__ import print_function
-from __future__ import absolute_import
 from future import standard_library
 import copy
 import logging
@@ -18,9 +16,6 @@ import networkx as nx
 import numpy as np
 import six
 from six import StringIO
-from six.moves import zip
-from six.moves import map
-from six.moves import range
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -33,12 +28,11 @@ class PyllImportError(ImportError):
     """A pyll symbol was not defined in the scope """
 
 
-class MissingArgument(object):
-    """Object to represent a missing argument to a function application
-    """
+class MissingArgument:
+    """Object to represent a missing argument to a function application"""
 
 
-class SymbolTable(object):
+class SymbolTable:
     """
     An object whose methods generally allocate Apply nodes.
 
@@ -127,8 +121,7 @@ class SymbolTable(object):
         return f
 
     def define(self, f, o_len=None, pure=False):
-        """Decorator for adding python functions to self
-        """
+        """Decorator for adding python functions to self"""
         name = f.__name__
         if hasattr(self, name):
             raise ValueError("Cannot override existing symbol", name)
@@ -143,7 +136,7 @@ class SymbolTable(object):
         return self._define(f, o_len, pure)
 
     def undefine(self, f):
-        if isinstance(f, six.string_types):
+        if isinstance(f, str):
             name = f
         else:
             name = f.__name__
@@ -182,9 +175,8 @@ class SymbolTable(object):
         _globals.update(self.inject(*args, **kwargs))
 
 
-class SymbolTableEntry(object):
-    """A functools.partial-like class for adding symbol table entries.
-    """
+class SymbolTableEntry:
+    """A functools.partial-like class for adding symbol table entries."""
 
     def __init__(self, symbol_table, apply_name, o_len, pure):
         self.symbol_table = symbol_table
@@ -202,8 +194,7 @@ scope = SymbolTable()
 
 
 def as_apply(obj):
-    """Smart way of turning object into an Apply
-    """
+    """Smart way of turning object into an Apply"""
     if isinstance(obj, Apply):
         rval = obj
     elif isinstance(obj, tuple):
@@ -213,10 +204,10 @@ def as_apply(obj):
     elif isinstance(obj, dict):
         items = list(obj.items())
         # -- should be fine to allow numbers and simple things
-        #    but think about if it's ok to allow Applys
+        #    but think about if it's ok to allow Apply objects
         #    it messes up sorting at the very least.
         items.sort()
-        if all(isinstance(k, six.string_types) for k in obj):
+        if all(isinstance(k, str) for k in obj):
             named_args = [(k, as_apply(v)) for (k, v) in items]
             rval = Apply("dict", [], named_args, len(named_args))
         else:
@@ -228,7 +219,7 @@ def as_apply(obj):
     return rval
 
 
-class Apply(object):
+class Apply:
     """
     Represent a symbolic application of a symbol to arguments.
 
@@ -245,7 +236,7 @@ class Apply(object):
         self.pos_args = list(pos_args)
         self.named_args = [[kw, arg] for (kw, arg) in named_args]
         # -- o_len is attached this early to support tuple unpacking and
-        #    list coersion.
+        #    list coercion.
         self.o_len = o_len
         self.pure = pure
         # -- define_params lets us cope with stuff that may be in the
@@ -253,7 +244,7 @@ class Apply(object):
         self.define_params = define_params
         assert all(isinstance(v, Apply) for v in pos_args)
         assert all(isinstance(v, Apply) for k, v in named_args)
-        assert all(isinstance(k, six.string_types) for k, v in named_args)
+        assert all(isinstance(k, str) for k, v in named_args)
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -287,7 +278,7 @@ class Apply(object):
             return memo[id(self)]
         else:
             args = [a.eval() for a in self.pos_args]
-            kwargs = dict([(n, a.eval()) for (n, a) in self.named_args])
+            kwargs = {n: a.eval() for (n, a) in self.named_args}
             f = scope._impls[self.name]
             memo[id(self)] = rval = f(*args, **kwargs)
             return rval
@@ -517,7 +508,7 @@ class Apply(object):
         if self.o_len is not None and isinstance(idx, int):
             if idx >= self.o_len:
                 #  -- this IndexError is essential for supporting
-                #     tuple-unpacking syntax or list coersion of self.
+                #     tuple-unpacking syntax or list coercion of self.
                 raise IndexError()
         return scope.getitem(self, idx)
 
@@ -569,7 +560,7 @@ class Literal(Apply):
         else:
             # TODO: set up a registry for this
             if isinstance(self._obj, np.ndarray):
-                msg = "Literal{np.ndarray,shape=%s,min=%f,max=%f}" % (
+                msg = "Literal{{np.ndarray,shape={},min={:f},max={:f}}}".format(
                     self._obj.shape,
                     self._obj.min(),
                     self._obj.max(),
@@ -587,7 +578,7 @@ class Literal(Apply):
         return self.__class__(self._obj)
 
 
-class Lambda(object):
+class Lambda:
 
     # XXX: Extend Lambda objects to have a list of exception clauses.
     #      If the code of the expr() throws an error, these clauses convert
@@ -612,7 +603,7 @@ class Lambda(object):
         return rval
 
 
-class UndefinedValue(object):
+class UndefinedValue:
     pass
 
 
@@ -626,7 +617,7 @@ p4 = Literal(UndefinedValue)
 
 @scope.define
 def call(fn, args=(), kwargs={}):
-    """ call fn with given args and kwargs.
+    """call fn with given args and kwargs.
 
     This is used to represent Apply.__call__
     """
@@ -768,7 +759,7 @@ def clone_merge(expr, memo=None, merge_literals=False):
 ##############################################################################
 
 
-class GarbageCollected(object):
+class GarbageCollected:
     """Placeholder representing a garbage-collected value """
 
 
@@ -897,7 +888,7 @@ def rec_eval(
             # -- not waiting on anything;
             #    this instruction can be evaluated.
             args = _args = [memo[v] for v in node.pos_args]
-            kwargs = _kwargs = dict([(k, memo[v]) for (k, v) in node.named_args])
+            kwargs = _kwargs = {k: memo[v] for (k, v) in node.named_args}
 
             if memo_gc:
                 for aa in args + list(kwargs.values()):

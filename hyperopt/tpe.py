@@ -1,13 +1,6 @@
 """
 Graphical model (GM)-based optimization algorithm using Theano
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import str
-from builtins import map
-from builtins import zip
-from builtins import range
 from past.utils import old_div
 import logging
 import time
@@ -59,8 +52,6 @@ def adaptive_parzen_sampler(name):
 
 @scope.define
 def categorical_lpdf(sample, p):
-    """
-    """
     if sample.size:
         return np.log(np.asarray(p)[sample])
     return np.asarray([])
@@ -116,7 +107,9 @@ def normal_cdf(x, mu, sigma):
 
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
-    print_verbose = lambda s, x: print("GMM1_lpdf:{}".format(s), x)
+    def print_verbose(s, x):
+        return print(f"GMM1_lpdf:{s}", x)
+
     verbose = 0
     samples, weights, mus, sigmas = list(
         map(np.asarray, (samples, weights, mus, sigmas))
@@ -134,13 +127,13 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     samples = _samples.flatten()
 
     if verbose:
-        print_verbose('samples', set(samples))
-        print_verbose('weights', weights)
-        print_verbose('mus', mus)
-        print_verbose('sigmas', sigmas)
-        print_verbose('low', low)
-        print_verbose('high', high)
-        print_verbose('q', q)
+        print_verbose("samples", set(samples))
+        print_verbose("weights", weights)
+        print_verbose("mus", mus)
+        print_verbose("sigmas", sigmas)
+        print_verbose("low", low)
+        print_verbose("high", high)
+        print_verbose("q", q)
 
     if low is None and high is None:
         p_accept = 1
@@ -913,7 +906,7 @@ def suggest(
     # Sample and compute log-probability.
     first_new_id = new_ids[0]
     if tids:
-        # -- the +2 co-ordinates with an assertion above
+        # -- the +2 coordinates with an assertion above
         #    to ensure that fake ids are used during sampling
         #    TODO: not sure what assertion this refers to...
         fake_id_0 = max(max(tids), first_new_id) + 2
@@ -949,7 +942,8 @@ def suggest(
 
     # -- retrieve the best of the samples and form the return tuple
 
-    rval_specs = [None]  # specs are deprecated since build_posterior makes all the same
+    # specs are deprecated since build_posterior makes all the same
+    rval_specs = [None]
     rval_results = [domain.new_result()]
     rval_miscs = [{"tid": first_new_id, "cmd": domain.cmd, "workdir": domain.workdir}]
 

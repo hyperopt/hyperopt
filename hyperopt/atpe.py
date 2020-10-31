@@ -28,6 +28,8 @@ import copy
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
+
+
 @contextmanager
 def ClosedNamedTempFile(contents):
     try:
@@ -261,7 +263,8 @@ class Hyperparameter:
                     )
                 )
             else:
-                return math.log10(20)  # Default of 20 for fully uniform numbers.
+                # Default of 20 for fully uniform numbers.
+                return math.log10(20)
 
     def convertToFlatValues(self, params):
         flatParams = {}
@@ -854,7 +857,7 @@ class ATPEOptimizer:
                     ):
                         value[atpeParamValueIndex] = max(
                             value[atpeParamValueIndex], maxVal * 0.15
-                        )  # We still allow the non reccomended modes to get chosen 15% of the time
+                        )  # We still allow the non recommended modes to get chosen 15% of the time
 
                     # Make a random weighted choice based on the normalized probabilities
                     probabilities = value / numpy.sum(value)
@@ -983,7 +986,7 @@ class ATPEOptimizer:
                     [0.5] * len(parameters),
                 )  # Put all parameters as primary
 
-            if len(set(result["loss"] for result in results)) < 5:
+            if len({result["loss"] for result in results}) < 5:
                 return (
                     parameters,
                     [],
@@ -1006,11 +1009,11 @@ class ATPEOptimizer:
             for parameter in numberParameters:
                 if (
                     len(
-                        set(
+                        {
                             result[parameter.name]
                             for result in results
                             if result[parameter.name] is not None
-                        )
+                        }
                     )
                     < 2
                 ):
@@ -1321,14 +1324,14 @@ class ATPEOptimizer:
             if parameter.config["type"] == "number":
                 if (
                     len(
-                        set(
+                        {
                             getValue(result, parameter)
                             for result in results
                             if (
                                 getValue(result, parameter) is not None
                                 and result["loss"] is not None
                             )
-                        )
+                        }
                     )
                     < 2
                 ):
