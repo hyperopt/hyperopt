@@ -305,9 +305,9 @@ class TestExperimentWithThreads(unittest.TestCase):
         while n_jobs:
             try:
                 mw.run_one(host_id, timeout, erase_created_workdir=True)
-                print("worker: %s ran job" % str(host_id))
+                print("worker: {} ran job".format(str(host_id)))
             except Exception as exc:
-                print("worker: %s failed :: %s" % (str(host_id), str(exc)))
+                print("worker: {} failed :: {}".format(str(host_id), str(exc)))
                 traceback.print_exc()
             n_jobs -= 1
 
