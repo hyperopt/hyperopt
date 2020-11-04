@@ -5,6 +5,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import unittest
 
 import numpy as np
@@ -286,6 +287,13 @@ def passthrough(x):
     return x
 
 
+def passthrough_with_attachments(x):
+    result = passthrough(x)
+    if isinstance(result, dict) and "attachments" not in result:
+        result.update(attachments={"time": pickle.dumps(time.time())})
+    return result
+
+
 class TestExperimentWithThreads(unittest.TestCase):
     @staticmethod
     def worker_thread_fn(host_id, n_jobs, timeout):
@@ -295,14 +303,18 @@ class TestExperimentWithThreads(unittest.TestCase):
             workdir="mongoexp_test_dir",
         )
         while n_jobs:
-            mw.run_one(host_id, timeout, erase_created_workdir=True)
-            print("worker: %s ran job" % str(host_id))
+            try:
+                mw.run_one(host_id, timeout, erase_created_workdir=True)
+                print("worker: %s ran job" % str(host_id))
+            except Exception as exc:
+                print("worker: %s failed :: %s" % (str(host_id), str(exc)))
+                traceback.print_exc()
             n_jobs -= 1
 
     @staticmethod
     def fmin_thread_fn(space, trials, max_evals, seed):
         fmin(
-            fn=passthrough,
+            fn=passthrough_with_attachments,
             space=space,
             algo=rand.suggest,
             trials=trials,
