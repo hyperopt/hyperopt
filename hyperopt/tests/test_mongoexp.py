@@ -3,6 +3,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -176,19 +177,20 @@ def with_mongo_trials(f, exp_key=None):
 
 
 def _worker_thread_fn(host_id, n_jobs, timeout, dbname="foo", logfilename=None):
-    mw = MongoWorker(
-        mj=TempMongo.mongo_jobs(dbname),
-        logfilename=logfilename,
-        workdir="mongoexp_test_dir",
-    )
-    try:
-        while n_jobs:
-            mw.run_one(host_id, timeout, erase_created_workdir=True)
-            print("worker: %s ran job" % str(host_id))
-            n_jobs -= 1
-    except ReserveTimeout:
-        print("worker timed out:", host_id)
-        pass
+    with tempfile.TemporaryDirectory(prefix="mongoexp_test_dir") as temp_dir:
+        mw = MongoWorker(
+            mj=TempMongo.mongo_jobs(dbname),
+            logfilename=logfilename,
+            workdir=temp_dir,
+        )
+        try:
+            while n_jobs:
+                mw.run_one(host_id, timeout, erase_created_workdir=False)
+                print(f"worker: {str(host_id)} ran job")
+                n_jobs -= 1
+        except ReserveTimeout:
+            print(f"worker: {str(host_id)} timed out:")
+            pass
 
 
 def with_worker_threads(n_threads, dbname="foo", n_jobs=sys.maxsize, timeout=10.0):
@@ -281,9 +283,7 @@ def test_handles_are_independent():
 
 
 def passthrough(x):
-    assert os.path.split(os.getcwd()).count("mongoexp_test_dir") == 1, (
-        "cwd is %s" % os.getcwd()
-    )
+    print(f"cwd is {os.getcwd()}")
     return x
 
 
@@ -297,19 +297,20 @@ def passthrough_with_attachments(x):
 class TestExperimentWithThreads(unittest.TestCase):
     @staticmethod
     def worker_thread_fn(host_id, n_jobs, timeout):
-        mw = MongoWorker(
-            mj=TempMongo.mongo_jobs("foodb"),
-            logfilename=None,
-            workdir="mongoexp_test_dir",
-        )
-        while n_jobs:
-            try:
-                mw.run_one(host_id, timeout, erase_created_workdir=True)
-                print("worker: {} ran job".format(str(host_id)))
-            except Exception as exc:
-                print("worker: {} failed :: {}".format(str(host_id), str(exc)))
-                traceback.print_exc()
-            n_jobs -= 1
+        with tempfile.TemporaryDirectory(prefix="mongoexp_test_dir") as temp_dir:
+            mw = MongoWorker(
+                mj=TempMongo.mongo_jobs("foodb"),
+                logfilename=None,
+                workdir=temp_dir,
+            )
+            while n_jobs:
+                try:
+                    mw.run_one(host_id, timeout, erase_created_workdir=False)
+                    print("worker: {} ran job".format(str(host_id)))
+                except Exception as exc:
+                    print("worker: {} failed :: {}".format(str(host_id), str(exc)))
+                    traceback.print_exc()
+                n_jobs -= 1
 
     @staticmethod
     def fmin_thread_fn(space, trials, max_evals, seed):
