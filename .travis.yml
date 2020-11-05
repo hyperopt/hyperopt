@@ -31,7 +31,7 @@ jobs:
     - name: "Run tests on python 3.9"
       python: 3.9
       env: NUMPY_VERSION=1.19.4
-  allow_failures:
+  allow_failures: 
     - name: "Run tests on python 3.9"
 
 install:
