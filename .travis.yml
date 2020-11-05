@@ -30,18 +30,15 @@ jobs:
       python: 3.8
     - name: "Run tests on python 3.9"
       python: 3.9
-      env: NUMPY_VERSION=1.19.3
+      env: NUMPY_VERSION=1.19.4
   allow_failures:
     - name: "Run tests on python 3.9"
 
 install:
   - sudo apt-get remove ipython || true  # ipython is not pre-installed in Focal
   - pip install --upgrade pip setuptools wheel
-  - pip install $IPYTHON
-  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
+  - pip install $IPYTHON numpy==$NUMPY_VERSION nose pyspark==$SPARK_VERSION scipy
   - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
-  - pip install nose
-  - pip install pyspark==$SPARK_VERSION
 
 before_script:
   - sleep 15 # mongo takes time to start
