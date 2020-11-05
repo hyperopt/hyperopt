@@ -31,8 +31,6 @@ jobs:
     - name: "Run tests on python 3.9"
       python: 3.9
       env: NUMPY_VERSION=1.19.4
-  allow_failures: 
-    - name: "Run tests on python 3.9"
 
 install:
   - sudo apt-get remove ipython || true  # ipython is not pre-installed in Focal
