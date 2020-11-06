@@ -57,8 +57,7 @@ class SparkTrials(Trials):
                             The actual parallelism is subject to available Spark task slots at
                             runtime.
                             If set to None (default) or a non-positive value, this will be set to
-                            Spark's default parallelism, or the current total of Spark task slots,
-                            or `1`, whichever is greater.
+                            Spark's default parallelism or `1`.
                             We cap the value at `MAX_CONCURRENT_JOBS_ALLOWED=128`.
         :param timeout: Maximum time (in seconds) which fmin is allowed to take.
                         If this timeout is hit, then fmin will cancel running and proposed trials.
@@ -87,13 +86,11 @@ class SparkTrials(Trials):
         self._spark_supports_job_cancelling = hasattr(
             self._spark_context.parallelize([1]), "collectWithJobGroup"
         )
-        # maxNumConcurrentTasks() is a package private API
-        max_num_concurrent_tasks = self._spark_context._jsc.sc().maxNumConcurrentTasks()
+
         spark_default_parallelism = self._spark_context.defaultParallelism
         self.parallelism = self._decide_parallelism(
             requested_parallelism=parallelism,
-            spark_default_parallelism=spark_default_parallelism,
-            max_num_concurrent_tasks=max_num_concurrent_tasks,
+            spark_default_parallelism=spark_default_parallelism
         )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
@@ -113,29 +110,18 @@ class SparkTrials(Trials):
 
     @staticmethod
     def _decide_parallelism(
-        requested_parallelism, spark_default_parallelism, max_num_concurrent_tasks
+        requested_parallelism, spark_default_parallelism
     ):
-        """
-        Given the requested parallelism, return the max parallelism SparkTrials will actually use.
-        See the docstring for `parallelism` in the constructor for expected behavior.
-        """
-        if max_num_concurrent_tasks == 0:
-            logger.warning(
-                "The cluster has no executors currently. "
-                "The trials won't start until some new executors register."
-            )
-
         if requested_parallelism is None or requested_parallelism <= 0:
-            parallelism = max(spark_default_parallelism, max_num_concurrent_tasks, 1)
+            parallelism = max(spark_default_parallelism, 1)
             logger.warning(
                 "Because the requested parallelism was None or a non-positive value, "
                 "parallelism will be set to ({d}), which is Spark's default parallelism ({s}), "
-                "or the current total of Spark task slots ({t}), or 1, whichever is greater. "
+                "or 1, whichever is greater. "
                 "We recommend setting parallelism explicitly to a positive value because "
                 "the total of Spark task slots is subject to cluster sizing.".format(
                     d=parallelism,
-                    s=spark_default_parallelism,
-                    t=max_num_concurrent_tasks,
+                    s=spark_default_parallelism
                 )
             )
         else:
@@ -148,14 +134,6 @@ class SparkTrials(Trials):
                 )
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-
-        if parallelism > max_num_concurrent_tasks:
-            logger.warning(
-                "Parallelism ({p}) is greater than the current total of Spark task slots ({c}). "
-                "If dynamic allocation is enabled, you might see more executors allocated.".format(
-                    p=requested_parallelism, c=max_num_concurrent_tasks
-                )
-            )
         return parallelism
 
     def count_successful_trials(self):

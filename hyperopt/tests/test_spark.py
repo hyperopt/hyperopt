@@ -266,97 +266,56 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         )
 
     def test_parallelism_arg(self):
-        # Computing max_num_concurrent_tasks
-        max_num_concurrent_tasks = self.sc._jsc.sc().maxNumConcurrentTasks()
-        self.assertEqual(
-            max_num_concurrent_tasks,
-            BaseSparkContext.NUM_SPARK_EXECUTORS,
-            "max_num_concurrent_tasks ({c}) did not equal "
-            "BaseSparkContext.NUM_SPARK_EXECUTORS ({e})".format(
-                c=max_num_concurrent_tasks, e=BaseSparkContext.NUM_SPARK_EXECUTORS
-            ),
-        )
+        default_parallelism = 2
 
-        for spark_default_parallelism, max_num_concurrent_tasks in [(2, 4), (2, 0)]:
-            default_parallelism = max(
-                spark_default_parallelism, max_num_concurrent_tasks
-            )
-
-            # Test requested_parallelism is None or negative values.
-            for requested_parallelism in [None, -1]:
-                with patch_logger("hyperopt-spark") as output:
-                    parallelism = SparkTrials._decide_parallelism(
-                        requested_parallelism=requested_parallelism,
-                        spark_default_parallelism=spark_default_parallelism,
-                        max_num_concurrent_tasks=max_num_concurrent_tasks,
-                    )
-                    self.assertEqual(
-                        parallelism,
-                        default_parallelism,
-                        "Failed to set parallelism to be default parallelism ({p})"
-                        " ({e})".format(p=parallelism, e=default_parallelism),
-                    )
-                    log_output = output.getvalue().strip()
-                    self.assertIn(
-                        "Because the requested parallelism was None or a non-positive value, "
-                        "parallelism will be set to ({d})".format(
-                            d=default_parallelism
-                        ),
-                        log_output,
-                        """set to default parallelism missing from log: {log_output}""".format(
-                            log_output=log_output
-                        ),
-                    )
-
-            # Test requested_parallelism which will trigger spark executor dynamic allocation.
+        # Test requested_parallelism is None or negative values.
+        for requested_parallelism in [None, -1]:
             with patch_logger("hyperopt-spark") as output:
                 parallelism = SparkTrials._decide_parallelism(
-                    requested_parallelism=max_num_concurrent_tasks + 1,
-                    spark_default_parallelism=spark_default_parallelism,
-                    max_num_concurrent_tasks=max_num_concurrent_tasks,
+                    requested_parallelism=requested_parallelism,
+                    spark_default_parallelism=spark_default_parallelism
                 )
                 self.assertEqual(
                     parallelism,
-                    max_num_concurrent_tasks + 1,
-                    "Expect parallelism to be ({e}) but get ({p})".format(
-                        p=parallelism, e=max_num_concurrent_tasks + 1
-                    ),
+                    default_parallelism,
+                    "Failed to set parallelism to be default parallelism ({p})"
+                    " ({e})".format(p=parallelism, e=default_parallelism),
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
-                    "Parallelism ({p}) is greater".format(
-                        p=max_num_concurrent_tasks + 1
+                    "Because the requested parallelism was None or a non-positive value, "
+                    "parallelism will be set to ({d})".format(
+                        d=default_parallelism
                     ),
                     log_output,
-                    """Parallelism ({p}) missing from log: {log_output}""".format(
-                        p=max_num_concurrent_tasks + 1, log_output=log_output
-                    ),
-                )
-
-            # Test requested_parallelism exceeds hard cap
-            with patch_logger("hyperopt-spark") as output:
-                parallelism = SparkTrials._decide_parallelism(
-                    requested_parallelism=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED + 1,
-                    spark_default_parallelism=spark_default_parallelism,
-                    max_num_concurrent_tasks=max_num_concurrent_tasks,
-                )
-                self.assertEqual(
-                    parallelism,
-                    SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED,
-                    "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})".format(
-                        p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                    ),
-                )
-                log_output = output.getvalue().strip()
-                self.assertIn(
-                    "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
-                        c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                    ),
-                    log_output,
-                    """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""".format(
+                    """set to default parallelism missing from log: {log_output}""".format(
                         log_output=log_output
                     ),
                 )
+
+        # Test requested_parallelism exceeds hard cap
+        with patch_logger("hyperopt-spark") as output:
+            parallelism = SparkTrials._decide_parallelism(
+                requested_parallelism=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED + 1,
+                spark_default_parallelism=spark_default_parallelism
+            )
+            self.assertEqual(
+                parallelism,
+                SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED,
+                "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})".format(
+                    p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
+                ),
+            )
+            log_output = output.getvalue().strip()
+            self.assertIn(
+                "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
+                    c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
+                ),
+                log_output,
+                """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""".format(
+                    log_output=log_output
+                ),
+            )
 
     def test_all_successful_trials(self):
         spark_trials = SparkTrials(parallelism=1)
