@@ -273,7 +273,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             with patch_logger("hyperopt-spark") as output:
                 parallelism = SparkTrials._decide_parallelism(
                     requested_parallelism=requested_parallelism,
-                    spark_default_parallelism=spark_default_parallelism
+                    spark_default_parallelism=default_parallelism
                 )
                 self.assertEqual(
                     parallelism,
@@ -297,7 +297,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         with patch_logger("hyperopt-spark") as output:
             parallelism = SparkTrials._decide_parallelism(
                 requested_parallelism=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED + 1,
-                spark_default_parallelism=spark_default_parallelism
+                spark_default_parallelism=default_parallelism
             )
             self.assertEqual(
                 parallelism,
