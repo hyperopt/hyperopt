@@ -273,7 +273,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             with patch_logger("hyperopt-spark") as output:
                 parallelism = SparkTrials._decide_parallelism(
                     requested_parallelism=requested_parallelism,
-                    spark_default_parallelism=default_parallelism
+                    spark_default_parallelism=default_parallelism,
                 )
                 self.assertEqual(
                     parallelism,
@@ -284,9 +284,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 log_output = output.getvalue().strip()
                 self.assertIn(
                     "Because the requested parallelism was None or a non-positive value, "
-                    "parallelism will be set to ({d})".format(
-                        d=default_parallelism
-                    ),
+                    "parallelism will be set to ({d})".format(d=default_parallelism),
                     log_output,
                     """set to default parallelism missing from log: {log_output}""".format(
                         log_output=log_output
@@ -297,7 +295,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         with patch_logger("hyperopt-spark") as output:
             parallelism = SparkTrials._decide_parallelism(
                 requested_parallelism=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED + 1,
-                spark_default_parallelism=default_parallelism
+                spark_default_parallelism=default_parallelism,
             )
             self.assertEqual(
                 parallelism,

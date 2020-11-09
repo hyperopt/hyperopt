@@ -86,11 +86,10 @@ class SparkTrials(Trials):
         self._spark_supports_job_cancelling = hasattr(
             self._spark_context.parallelize([1]), "collectWithJobGroup"
         )
-
         spark_default_parallelism = self._spark_context.defaultParallelism
         self.parallelism = self._decide_parallelism(
             requested_parallelism=parallelism,
-            spark_default_parallelism=spark_default_parallelism
+            spark_default_parallelism=spark_default_parallelism,
         )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
@@ -109,9 +108,11 @@ class SparkTrials(Trials):
         self.refresh()
 
     @staticmethod
-    def _decide_parallelism(
-        requested_parallelism, spark_default_parallelism
-    ):
+    def _decide_parallelism(requested_parallelism, spark_default_parallelism):
+        """
+        Given the requested parallelism, return the max parallelism SparkTrials will actually use.
+        See the docstring for `parallelism` in the constructor for expected behavior.
+        """
         if requested_parallelism is None or requested_parallelism <= 0:
             parallelism = max(spark_default_parallelism, 1)
             logger.warning(
@@ -120,8 +121,7 @@ class SparkTrials(Trials):
                 "or 1, whichever is greater. "
                 "We recommend setting parallelism explicitly to a positive value because "
                 "the total of Spark task slots is subject to cluster sizing.".format(
-                    d=parallelism,
-                    s=spark_default_parallelism
+                    d=parallelism, s=spark_default_parallelism
                 )
             )
         else:
