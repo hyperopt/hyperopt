@@ -1,4 +1,6 @@
-dist: bionic
+os: linux
+
+dist: focal
 
 language: python
 
@@ -16,33 +18,31 @@ env:
 services:
   - mongodb
 
+jobs:
+  include:
+    - name: "Run Linter (black)"
+      python: 3.9
+      install: pip install --upgrade black
+      script: black .
+    - name: "Run tests on python 3.7"
+      python: 3.7
+    - name: "Run tests on python 3.8"
+      python: 3.8
+    - name: "Run tests on python 3.9"
+      python: 3.9
+      env: NUMPY_VERSION=1.19.4
+
+install:
+  - sudo apt-get remove ipython || true  # ipython is not pre-installed in Focal
+  - pip install --upgrade pip setuptools wheel
+  - pip install $IPYTHON numpy==$NUMPY_VERSION nose pyspark==$SPARK_VERSION scipy
+  - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+
 before_script:
   - sleep 15 # mongo takes time to start
   - mongo mydb_test --eval 'db.createUser({user:"travis",pwd:"test",roles:["readWrite"]});'
 
-install:
-  - sudo apt-get remove ipython
-  - pip install --upgrade pip setuptools wheel
-  - pip install $IPYTHON
-  - pip install --only-binary=numpy,scipy numpy==$NUMPY_VERSION scipy
-  - pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
-  - pip install nose
-  - pip install pyspark==$SPARK_VERSION
-
-jobs:
-  include:
-    - stage: "lint"
-      name: "Run Linter (black)"
-      python: 3.8
-      script: black .
-    - stage: "test python 3.7"
-      name: "Run tests on python 3.7"
-      script: pytest
-      python: 3.7
-    - stage: "test python 3.8"
-      name: "Run tests on python 3.8"
-      script: pytest
-      python: 3.8
+script: pytest
 
 after_success:
   - coveralls
