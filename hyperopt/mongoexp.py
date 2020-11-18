@@ -911,6 +911,9 @@ class MongoTrials(Trials):
 
         # don't offer more here than in MongoCtrl
         class Attachments:
+            def __init__(self, handle: MongoJobs):
+                self.handle = handle
+
             def __contains__(self, name):
                 return name in self.handle.attachment_names(doc=trial)
 
@@ -943,7 +946,7 @@ class MongoTrials(Trials):
             def items(self):
                 return [(k, self[k]) for k in self]
 
-        return Attachments()
+        return Attachments(self.handle)
 
     @property
     def attachments(self):
