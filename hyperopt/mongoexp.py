@@ -911,7 +911,7 @@ class MongoTrials(Trials):
 
         # don't offer more here than in MongoCtrl
         class Attachments:
-            def __init__(self, handle):
+            def __init__(self, handle: MongoJobs):
                 self.handle = handle
 
             def __contains__(self, name):

@@ -12,7 +12,7 @@ import numpy as np
 import nose
 import nose.plugins.skip
 
-from hyperopt.base import JOB_STATE_DONE
+from hyperopt.base import JOB_STATE_DONE, STATUS_OK
 from hyperopt.mongoexp import parse_url
 from hyperopt.mongoexp import MongoTrials
 from hyperopt.mongoexp import MongoWorker
@@ -21,7 +21,7 @@ from hyperopt.mongoexp import as_mongo_str
 from hyperopt.mongoexp import main_worker_helper
 from hyperopt.mongoexp import MongoJobs
 from hyperopt.fmin import fmin
-from hyperopt import rand
+from hyperopt import hp, rand
 import hyperopt.tests.test_base
 from .test_domains import gauss_wave2
 
@@ -257,48 +257,6 @@ def test_attachments(trials):
     assert "aname" not in trials.attachments
 
 
-def test_trial_attachments():
-    def fmin_thread_fn(space, mongo_trials, evals):
-        fmin(
-            fn=passthrough_with_attachments,
-            space=space,
-            algo=rand.suggest,
-            trials=mongo_trials,
-            rstate=np.random.RandomState(),
-            max_evals=evals,
-            return_argmin=False,
-        )
-
-    exp_key = "A"
-    with TempMongo() as tm:
-        mj = tm.mongo_jobs("foo")
-        trials = MongoTrials(tm.connection_string("foo"), exp_key=exp_key)
-
-        domain = gauss_wave2()
-        max_evals = 3
-        fmin_thread = threading.Thread(
-            target=fmin_thread_fn, args=(domain.expr, trials, max_evals)
-        )
-        fmin_thread.start()
-
-        mw = MongoWorker(mj=mj, logfilename=None, workdir="mongoexp_test_dir")
-        n_jobs = max_evals
-        while n_jobs:
-            try:
-                mw.run_one("hostname", 10.0, erase_created_workdir=True)
-                print("worker: ran job")
-            except Exception as exc:
-                print(f"worker: encountered error : {str(exc)}")
-                traceback.print_exc()
-            n_jobs -= 1
-        fmin_thread.join()
-        all_trials = MongoTrials(tm.connection_string("foo"))
-
-        assert len(all_trials) == max_evals
-        assert trials.count_by_state_synced(JOB_STATE_DONE) == max_evals
-        assert trials.count_by_state_unsynced(JOB_STATE_DONE) == max_evals
-
-
 @with_mongo_trials
 def test_delete_all_on_attachments(trials):
     trials.attachments["aname"] = "a"
@@ -327,13 +285,6 @@ def passthrough(x):
         "cwd is %s" % os.getcwd()
     )
     return x
-
-
-def passthrough_with_attachments(x):
-    result = passthrough(x)
-    if isinstance(result, dict) and "attachments" not in result:
-        result["attachments"] = {"time": pickle.dumps(time.time())}
-    return result
 
 
 class TestExperimentWithThreads(unittest.TestCase):
@@ -439,6 +390,61 @@ class TestExperimentWithThreads(unittest.TestCase):
                 [t["misc"]["vals"] for t in trials_A0.trials],
                 [t["misc"]["vals"] for t in trials_B0.trials],
             )
+
+
+def objective_with_attachments(x: float):
+    """Objective function that includes extra information as attachments and
+    dictionary attributes."""
+    return {
+        "loss": x ** 2,
+        "status": STATUS_OK,
+        "extra_stuff": {"type": None, "value": [0, 1, 2]},
+        "attachments": {"time": pickle.dumps(time.time)},
+    }
+
+
+def fmin_thread_fn(space, mongo_trials: MongoTrials, max_evals: int):
+    fmin(
+        fn=objective_with_attachments,
+        space=space,
+        algo=rand.suggest,
+        trials=mongo_trials,
+        rstate=np.random.RandomState(),
+        max_evals=max_evals,
+        return_argmin=False,
+    )
+
+
+def test_trial_attachments():
+
+    exp_key = "A"
+    with TempMongo() as tm:
+        mj = tm.mongo_jobs("foo")
+        trials = MongoTrials(tm.connection_string("foo"), exp_key=exp_key)
+
+        space = hp.uniform("x", -10, 10)
+        max_evals = 3
+        fmin_thread = threading.Thread(
+            target=fmin_thread_fn, args=(space, trials, max_evals)
+        )
+        fmin_thread.start()
+
+        mw = MongoWorker(mj=mj, logfilename=None, workdir="mongoexp_test_dir")
+        n_jobs = max_evals
+        while n_jobs:
+            try:
+                mw.run_one("hostname", 10.0, erase_created_workdir=True)
+                print("worker: ran job")
+            except Exception as exc:
+                print(f"worker: encountered error : {str(exc)}")
+                traceback.print_exc()
+            n_jobs -= 1
+        fmin_thread.join()
+        all_trials = MongoTrials(tm.connection_string("foo"))
+
+        assert len(all_trials) == max_evals
+        assert trials.count_by_state_synced(JOB_STATE_DONE) == max_evals
+        assert trials.count_by_state_unsynced(JOB_STATE_DONE) == max_evals
 
 
 class FakeOptions:
