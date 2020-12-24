@@ -39,7 +39,7 @@ def test_lnorm():
     print(lnorm)
     print(("len", len(str(lnorm))))
     # not sure what to assert
-    # ... this is too fagile
+    # ... this is too fragile
     # assert len(str(lnorm)) == 980
 
 
