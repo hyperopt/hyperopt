@@ -102,9 +102,10 @@ def __objective_fmin_wrapper(func):
     """
     Wrap the objective function on a dict to kargs
     """
+
     def _objective(params):
         return func(**params)
-    
+
     return _objective
 
 
@@ -527,9 +528,9 @@ def fmin(
         for var, hp_func in space.items():
             if not isinstance(hp_func, pyll.base.Apply):
                 raise exceptions.InvalidAnnotationParameter(
-                        f"Parameter {var} has type {hp_func} which is not "
-                        "an pyll.base.Apply subclass."
-                    )
+                    f"Parameter {var} has type {hp_func} which is not "
+                    "an pyll.base.Apply subclass."
+                )
 
         # Change fn to accept a dict-like argument
         fn = __objective_fmin_wrapper(fn)
