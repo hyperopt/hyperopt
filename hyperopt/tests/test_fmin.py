@@ -372,3 +372,38 @@ def test_early_stop_no_progress_loss():
     )
 
     assert len(trials) == 10
+
+
+def test_annotated_params_space():
+    def objective(
+                x: hp.uniform("x", -10, 10),
+                y: hp.uniform("y", -10, 10)
+            ):
+        return (x * y) ** 2
+
+    trials = Trials()
+    fmin(
+        objective,
+        space="auto",
+        algo=tpe.suggest,
+        max_evals=10,
+        trials=trials
+    )
+
+    assert len(trials) == 10
+
+
+@nose.tools.raises(exceptions.InvalidAnnotationParameter)
+def test_invalid_annotated_params_space():
+    def objective(
+                x: hp.uniform("x", -10, 10),
+                y: float
+            ):
+        return (x * y) ** 2
+
+    fmin(
+        objective,
+        space="auto",
+        algo=tpe.suggest,
+        max_evals=10
+    )
