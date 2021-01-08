@@ -100,11 +100,11 @@ def partial(fn, **kwargs):
 
 def __objective_fmin_wrapper(func):
     """
-    Wrap the objective function on a dict to kargs
+    Wrap the objective function on a dict to kwargs
     """
 
-    def _objective(params):
-        return func(**params)
+    def _objective(kwargs):
+        return func(**kwargs)
 
     return _objective
 
@@ -525,11 +525,12 @@ def fmin(
         space = inspect.getfullargspec(fn).annotations
 
         # Validate space
-        for var, hp_func in space.items():
+        for param, hp_func in space.items():
             if not isinstance(hp_func, pyll.base.Apply):
-                raise exceptions.InvalidAnnotationParameter(
-                    f"Parameter {var} has type {hp_func} which is not "
-                    "an pyll.base.Apply subclass."
+                raise exceptions.InvalidAnnotatedParameter(
+                    'When using `space="auto"`, please annotate the '
+                    "objective function arguments with a `pyll.base.Apply` "
+                    "subclass. See example in `fmin` docstring"
                 )
 
         # Change fn to accept a dict-like argument

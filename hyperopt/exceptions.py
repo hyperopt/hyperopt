@@ -38,7 +38,7 @@ class AllTrialsFailed(Exception):
     """All optimization steps have finished with status base.STATUS_FAIL"""
 
 
-class InvalidAnnotationParameter(ValueError):
+class InvalidAnnotatedParameter(ValueError):
     """fn has a type hint that is not from hp."""
 
     def __init__(self, result):
