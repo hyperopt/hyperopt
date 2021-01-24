@@ -410,12 +410,12 @@ def fmin(
         dictionary will be stored and available later as some 'result'
         sub-dictionary within `trials.trials`.
 
-    space : hyperopt.pyll.Apply node or "auto"
+    space : hyperopt.pyll.Apply node or "annotated"
         The set of possible arguments to `fn` is the set of objects
         that could be created with non-zero probability by drawing randomly
         from this stochastic program involving involving hp_<xxx> nodes
         (see `hyperopt.hp` and `hyperopt.pyll_utils`).
-        If set to "auto", will read space using type hint in fn. Ex:
+        If set to "annotated", will read space using type hint in fn. Ex:
         (`def fn(x: hp.uniform("x", -1, 1)): return x`)
 
     algo : search algorithm
@@ -520,7 +520,7 @@ def fmin(
     validate_timeout(timeout)
     validate_loss_threshold(loss_threshold)
 
-    if space == "auto":
+    if space == "annotated":
         # Read space from objective fn
         space = inspect.getfullargspec(fn).annotations
 
@@ -528,7 +528,7 @@ def fmin(
         for param, hp_func in space.items():
             if not isinstance(hp_func, pyll.base.Apply):
                 raise exceptions.InvalidAnnotatedParameter(
-                    'When using `space="auto"`, please annotate the '
+                    'When using `space="annotated"`, please annotate the '
                     "objective function arguments with a `pyll.base.Apply` "
                     "subclass. See example in `fmin` docstring"
                 )
