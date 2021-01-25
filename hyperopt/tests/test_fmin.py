@@ -379,7 +379,7 @@ def test_annotated_params_space():
         return (x * y) ** 2
 
     trials = Trials()
-    fmin(objective, space="auto", algo=tpe.suggest, max_evals=10, trials=trials)
+    fmin(objective, space="annotated", algo=tpe.suggest, max_evals=10, trials=trials)
 
     assert len(trials) == 10
 
@@ -389,4 +389,4 @@ def test_invalid_annotated_params_space():
         return (x * y) ** 2
 
     with pytest.raises(exceptions.InvalidAnnotatedParameter):
-        fmin(objective, space="auto", algo=tpe.suggest, max_evals=10)
+        fmin(objective, space="annotated", algo=tpe.suggest, max_evals=10)
