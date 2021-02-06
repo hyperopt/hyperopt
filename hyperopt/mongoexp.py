@@ -1222,11 +1222,14 @@ def main_worker_helper(options, args):
     if N > 1:
         proc = None
         cons_errs = 0
-        if last_job_timeout and time.time() > last_job_timeout:
-            logger.info("Exiting due to last_job_timeout")
-            return
 
         while N and cons_errs < int(options.max_consecutive_failures):
+            # exit due to time limit:
+            if last_job_timeout and time.time() > last_job_timeout:
+                logger.info("Exiting due to last_job_timeout")
+                return
+
+            # exit due to threshold on number of jobs:
             if (
                 options.max_jobs_in_db is not None
                 and options.max_jobs_in_db != sys.maxsize
@@ -1240,6 +1243,8 @@ def main_worker_helper(options, args):
                         + str(options.max_jobs_in_db)
                     )
                     return
+
+            # try to run one MongoWorker
             try:
                 if options.use_subprocesses:
                     # recursive Popen, dropping N from the argv
