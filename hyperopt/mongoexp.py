@@ -1200,9 +1200,9 @@ def number_of_jobs_in_db(options):
 def main_worker_helper(options, args):
     N = int(options.max_jobs)
     if options.last_job_timeout is not None:
-        last_job_timeout = time.time() + float(options.last_job_timeout)
+        end_time = time.time() + float(options.last_job_timeout)
     else:
-        last_job_timeout = None
+        end_time = None
 
     def sighandler_shutdown(signum, frame):
         logger.info("Caught signal %i, shutting down." % signum)
@@ -1225,7 +1225,7 @@ def main_worker_helper(options, args):
 
         while N and cons_errs < int(options.max_consecutive_failures):
             # exit due to time limit:
-            if last_job_timeout and time.time() > last_job_timeout:
+            if end_time and time.time() > end_time:
                 logger.info("Exiting due to last_job_timeout")
                 return
 
