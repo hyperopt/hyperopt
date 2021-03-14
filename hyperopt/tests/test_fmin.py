@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
-import nose.tools
 from timeit import default_timer as timer
 import time
 from hyperopt.early_stop import no_progress_loss
 from hyperopt.fmin import generate_trials_to_calculate
+import pytest
 
 from hyperopt import (
     fmin,
@@ -72,7 +72,6 @@ def test_quadratic1_anneal():
     assert abs(argmin["x"] - 3.0) < 0.25
 
 
-@nose.tools.raises(exceptions.DuplicateLabel)
 def test_duplicate_label_is_error():
     trials = Trials()
 
@@ -80,13 +79,14 @@ def test_duplicate_label_is_error():
         x, y = xy
         return x ** 2 + y ** 2
 
-    fmin(
-        fn=fn,
-        space=[hp.uniform("x", -5, 5), hp.uniform("x", -5, 5)],
-        algo=rand.suggest,
-        max_evals=500,
-        trials=trials,
-    )
+    with pytest.raises(exceptions.DuplicateLabel):
+        fmin(
+            fn=fn,
+            space=[hp.uniform("x", -5, 5), hp.uniform("x", -5, 5)],
+            algo=rand.suggest,
+            max_evals=500,
+            trials=trials,
+        )
 
 
 def test_space_eval():
@@ -372,3 +372,21 @@ def test_early_stop_no_progress_loss():
     )
 
     assert len(trials) == 10
+
+
+def test_annotated_params_space():
+    def objective(x: hp.uniform("x", -10, 10), y: hp.uniform("y", -10, 10)):
+        return (x * y) ** 2
+
+    trials = Trials()
+    fmin(objective, space="annotated", algo=tpe.suggest, max_evals=10, trials=trials)
+
+    assert len(trials) == 10
+
+
+def test_invalid_annotated_params_space():
+    def objective(x: hp.uniform("x", -10, 10), y: float):
+        return (x * y) ** 2
+
+    with pytest.raises(exceptions.InvalidAnnotatedParameter):
+        fmin(objective, space="annotated", algo=tpe.suggest, max_evals=10)

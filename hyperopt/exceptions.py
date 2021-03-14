@@ -38,4 +38,12 @@ class AllTrialsFailed(Exception):
     """All optimization steps have finished with status base.STATUS_FAIL"""
 
 
+class InvalidAnnotatedParameter(ValueError):
+    """fn has a type hint that is not from hp."""
+
+    def __init__(self, result):
+        ValueError.__init__(self)
+        self.result = result
+
+
 # -- flake8 doesn't like blank last line

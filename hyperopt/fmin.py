@@ -1,6 +1,7 @@
 from future import standard_library
 
 import functools
+import inspect
 import logging
 import os
 import sys
@@ -9,7 +10,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-from hyperopt import tpe
+from hyperopt import tpe, exceptions
 from hyperopt.base import validate_timeout, validate_loss_threshold
 from . import pyll
 from .utils import coarse_utcnow
@@ -95,6 +96,17 @@ def partial(fn, **kwargs):
     if hasattr(fn, "fmin_pass_expr_memo_ctrl"):
         rval.fmin_pass_expr_memo_ctrl = fn.fmin_pass_expr_memo_ctrl
     return rval
+
+
+def __objective_fmin_wrapper(func):
+    """
+    Wrap the objective function on a dict to kwargs
+    """
+
+    def _objective(kwargs):
+        return func(**kwargs)
+
+    return _objective
 
 
 class FMinIter:
@@ -398,11 +410,13 @@ def fmin(
         dictionary will be stored and available later as some 'result'
         sub-dictionary within `trials.trials`.
 
-    space : hyperopt.pyll.Apply node
+    space : hyperopt.pyll.Apply node or "annotated"
         The set of possible arguments to `fn` is the set of objects
         that could be created with non-zero probability by drawing randomly
         from this stochastic program involving involving hp_<xxx> nodes
         (see `hyperopt.hp` and `hyperopt.pyll_utils`).
+        If set to "annotated", will read space using type hint in fn. Ex:
+        (`def fn(x: hp.uniform("x", -1, 1)): return x`)
 
     algo : search algorithm
         This object, such as `hyperopt.rand.suggest` and
@@ -505,6 +519,22 @@ def fmin(
 
     validate_timeout(timeout)
     validate_loss_threshold(loss_threshold)
+
+    if space == "annotated":
+        # Read space from objective fn
+        space = inspect.getfullargspec(fn).annotations
+
+        # Validate space
+        for param, hp_func in space.items():
+            if not isinstance(hp_func, pyll.base.Apply):
+                raise exceptions.InvalidAnnotatedParameter(
+                    'When using `space="annotated"`, please annotate the '
+                    "objective function arguments with a `pyll.base.Apply` "
+                    "subclass. See example in `fmin` docstring"
+                )
+
+        # Change fn to accept a dict-like argument
+        fn = __objective_fmin_wrapper(fn)
 
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
