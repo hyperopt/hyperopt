@@ -219,7 +219,7 @@ def main_plot_1D_attachment(
         plotted_trials = [
             trials_by_loss[i]
             for i in np.linspace(
-                0, len(trials_by_loss), num_trails, endpoint=False, dtype=np.int
+                0, len(trials_by_loss), num_trails, endpoint=False, dtype=int
             )
         ]
 

@@ -54,9 +54,9 @@ class lognorm_gen(scipy_lognorm_gen):
 
 
 def qtable_pmf(x, q, qlow, xs, ps):
-    qx = np.round(old_div(np.atleast_1d(x).astype(np.float), q)) * q
+    qx = np.round(old_div(np.atleast_1d(x).astype(float), q)) * q
     is_multiple = np.isclose(qx, x)
-    ix = np.round(old_div((qx - qlow), q)).astype(np.int)
+    ix = np.round(old_div((qx - qlow), q)).astype(int)
     is_inbounds = np.logical_and(ix >= 0, ix < len(ps))
     oks = np.logical_and(is_multiple, is_inbounds)
     rval = np.zeros_like(qx)
@@ -195,7 +195,7 @@ class qnormal_gen:
     def logpmf(self, x):
         x1 = np.atleast_1d(x)
         in_domain = self.in_domain(x1)
-        rval = np.zeros_like(x1, dtype=np.float) - np.inf
+        rval = np.zeros_like(x1, dtype=float) - np.inf
         x_in_domain = x1[in_domain]
 
         ubound = x_in_domain + self.q * 0.5
@@ -240,7 +240,7 @@ class qlognormal_gen:
         x1 = np.atleast_1d(x)
         in_domain = self.in_domain(x1)
         x1_in_domain = x1[in_domain]
-        rval = np.zeros_like(x1, dtype=np.float)
+        rval = np.zeros_like(x1, dtype=float)
         rval_in_domain = self._norm_cdf(np.log(x1_in_domain + 0.5 * self.q))
         rval_in_domain[x1_in_domain != 0] -= self._norm_cdf(
             np.log(x1_in_domain[x1_in_domain != 0] - 0.5 * self.q)

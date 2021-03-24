@@ -233,12 +233,6 @@ class TestSONify(unittest.TestCase):
     def test_float(self):
         assert self.SONify(1.1) == 1.1
 
-    def test_np_int(self):
-        assert self.SONify(np.int(1)) == 1
-
-    def test_np_float(self):
-        assert self.SONify(np.float(1.1)) == 1.1
-
     def test_np_1d_int(self):
         assert np.all(self.SONify(np.asarray([1, 2, 3])) == [1, 2, 3])
 
@@ -255,5 +249,5 @@ class TestSONify(unittest.TestCase):
         assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) == [[1, 2], [3, 4.5]])
 
     def test_nested_w_bool(self):
-        thing = dict(a=1, b="2", c=True, d=False, e=np.int(3), f=[1])
+        thing = dict(a=1, b="2", c=True, d=False, e=int(3), f=[1])
         assert thing == SONify(thing)
