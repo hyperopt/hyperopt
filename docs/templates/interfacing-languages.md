@@ -11,6 +11,8 @@ The easiest way to use hyperopt to optimize the arguments to a non-python functi
 
 ```python
 import subprocess
+
+
 def foo_wrapper(n):
     # Optional: write out a script for the external executable
     # (we just call foo with the argument proposed by hyperopt)
@@ -28,7 +30,7 @@ from hyperopt import fmin, hp, rand
 
 best_n = fmin(foo_wrapper, hp.quniform('n', 1, 100, 1), algo=rand.suggest)
 
-print best_n
+print(best_n)
 ```
 
 When the search space is larger than the simple one here, you might want or need the wrapper function to translate its argument into some kind of configuration file/script for the external executable.
@@ -37,7 +39,7 @@ This approach is perfectly compatible with MongoTrials.
 
 ## Communicating with MongoDB Directly
 
-It is possible to interface more directly with the search process (when using MongoTrials) by communicating with MongoDB directly, just like `hyperopt-mongo-worker` does. It's beyond the scope of a tutorial to explain how to do this, but Hannes Schultz (@temporaer) got hyperopt working with his MDBQ project, which is a standalone mongodb-based task queue:
+It is possible to interface more directly with the search process (when using MongoTrials) by communicating with MongoDB directly, just like `hyperopt-mongo-worker` does. It's beyond the scope of a tutorial to explain how to do this, but Hannes Schultz (@[temporaer](https://github.com/temporaer)) got hyperopt working with his MDBQ project, which is a standalone mongodb-based task queue:
 
 [Hyperopt C++ Client](https://github.com/temporaer/MDBQ/blob/master/src/example/hyperopt_client.cpp)
 
