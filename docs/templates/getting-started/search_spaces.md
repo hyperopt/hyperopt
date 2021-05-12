@@ -25,7 +25,7 @@ If you like, you can evaluate a sample space by sampling from it.
 
 ```python
 import hyperopt.pyll.stochastic
-print hyperopt.pyll.stochastic.sample(space)
+print(hyperopt.pyll.stochastic.sample(space))
 ```
 
 This search space described by `space` has 3 parameters:
@@ -64,6 +64,11 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
        The elements of `options` can themselves be [nested] stochastic expressions.
        In this case, the stochastic choices that only appear in some of the options become *conditional* parameters.
 
+* `hp.pchoice(label, p_list)`
+  * Returns one of the options, where p_list is a list of (probability, option) pairs.
+        The elements of options can themselves be [nested] stochastic expressions. 
+        In this case, the stochastic choices that only appear in some of the options become conditional parameters.
+    
 * `hp.randint(label, upper)`
   * Returns a random integer in the range [0, upper). The semantics of this
        distribution is that there is *no* more correlation in the loss function between nearby integer values,
@@ -76,6 +81,11 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
 
 * `hp.quniform(label, low, high, q)`
   * Returns a value like round(uniform(low, high) / q) * q
+  * Suitable for a discrete value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.
+
+* `hp.quniformint(label, low, high)` or `hp.uniformint(label, low, high, q)`
+  * Returns a value like round(uniform(low, high) / q) * q
+  * The parameter `q` will always be set to `1.0`  
   * Suitable for a discrete value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.
 
 * `hp.loguniform(label, low, high)`
@@ -124,7 +134,7 @@ space = hp.choice('classifier_type', [
         'type': 'dtree',
         'criterion': hp.choice('dtree_criterion', ['gini', 'entropy']),
         'max_depth': hp.choice('dtree_max_depth',
-            [None, hp.qlognormal('dtree_max_depth_int', 3, 1, 1)]),
+                     [None, hp.qlognormal('dtree_max_depth_int', 3, 1, 1)]),
         'min_samples_split': hp.qlognormal('dtree_min_samples_split', 2, 1, 1),
     },
     ])
@@ -142,13 +152,14 @@ that it can be used via the `scope` object.
 import hyperopt.pyll
 from hyperopt.pyll import scope
 
+
 @scope.define
 def foo(a, b=0):
-     print 'runing foo', a, b
+     print('runing foo', a, b)
      return a + b / 2
 
 # -- this will print 0, foo is called as usual.
-print foo(0)
+print(foo(0))
 
 # In describing search spaces you can use `foo` as you
 # would in normal Python. These two calls will not actually call foo,
@@ -158,10 +169,10 @@ space1 = scope.foo(hp.uniform('a', 0, 10))
 space2 = scope.foo(hp.uniform('a', 0, 10), hp.normal('b', 0, 1))
 
 # -- this will print an pyll.Apply node
-print space1
+print(space1)
 
 # -- this will draw a sample by running foo()
-print hyperopt.pyll.stochastic.sample(space1)
+print(hyperopt.pyll.stochastic.sample(space1))
 ```
 
 ## Adding New Kinds of Hyperparameter
