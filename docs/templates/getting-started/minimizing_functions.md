@@ -83,6 +83,9 @@ date-times, you'll be fine.
 **HINT:** To store numpy arrays, serialize them to a string, and consider storing
 them as attachments.
 
+**HINT:** If you need to replicate the results of the stochastic search (e.g. for a demonstration),
+pass an object of type `np.random.RandomState` into the `fmin` function, using the `rstate` optional parameter.
+
 Writing the function above in dictionary-returning style, it
 would look like this:
 
