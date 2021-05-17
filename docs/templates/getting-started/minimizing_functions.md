@@ -16,7 +16,7 @@ which we can describe with a *search space*:
 space = hp.uniform('x', -10, 10)
 ```
 
-Below, Section 2, covers how to specify search spaces that are more complicated.
+Refer to [this page](search_spaces.md) for information on how to specify search spaces that are more complicated.
 
 ## The Simplest Case
 
