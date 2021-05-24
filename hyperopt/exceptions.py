@@ -7,7 +7,7 @@ class BadSearchSpace(Exception):
 
 
 class DuplicateLabel(BadSearchSpace):
-    """A search space included a duplicate label """
+    """A search space included a duplicate label"""
 
 
 class InvalidTrial(ValueError):
