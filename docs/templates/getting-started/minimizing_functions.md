@@ -28,9 +28,9 @@ receives a valid point from the search space, and returns the floating-point
 ```python
 from hyperopt import fmin, tpe, hp
 best = fmin(fn=lambda x: x ** 2,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100)
 print(best)
 ```
 
@@ -87,17 +87,16 @@ Writing the function above in dictionary-returning style, it
 would look like this:
 
 ```python
-import pickle
-import time
 from hyperopt import fmin, tpe, hp, STATUS_OK
+
 
 def objective(x):
     return {'loss': x ** 2, 'status': STATUS_OK }
 
 best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100)
 
 print(best)
 ```
@@ -113,6 +112,7 @@ import pickle
 import time
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
+
 def objective(x):
     return {
         'loss': x ** 2,
@@ -126,10 +126,10 @@ def objective(x):
         }
 trials = Trials()
 best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100,
-    trials=trials)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100,
+            trials=trials)
 
 print(best)
 ```
@@ -152,6 +152,7 @@ Here is a simple example of one way to save and subsequently load a trials objec
 import pickle
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 
+
 def objective(x):
     return {'loss': x ** 2, 'status': STATUS_OK }
 
@@ -160,10 +161,10 @@ trials = Trials()
 
 # Perform 100 evaluations on the search space
 best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    trials=trials,
-    max_evals=100)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            trials=trials,
+            max_evals=100)
 
 # The trials database now contains 100 entries, it can be saved/reloaded with pickle or another method
 pickle.dump(trials, open("my_trials.pkl", "wb"))
@@ -192,7 +193,7 @@ time_module = pickle.loads(msg)
 
 The syntax is somewhat involved because the idea is that attachments are large strings,
 so when using MongoTrials, we do not want to download more than necessary.
-Strings can also be attached globally to the entire trials object via trials.attachments,
+Strings can also be attached globally to the entire trials object via `trials.attachments`,
 which behaves like a string-to-string dictionary.
 
 **N.B.** Currently, the trial-specific attachments to a Trials object are tossed into the same global trials attachment dictionary, but that may change in the future and it is not true of MongoTrials.

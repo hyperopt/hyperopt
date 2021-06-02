@@ -23,7 +23,7 @@ def _get_random_id():
 
 
 def _get_logger(name):
-    """ Gets a logger by name, or creates and configures it for the first time. """
+    """Gets a logger by name, or creates and configures it for the first time."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     # If the logger is configured, skip the configure

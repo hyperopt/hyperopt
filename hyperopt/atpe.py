@@ -42,7 +42,7 @@ def ClosedNamedTempFile(contents):
 
 
 class Hyperparameter:
-    """ This class represents a hyperparameter."""
+    """This class represents a hyperparameter."""
 
     def __init__(self, config, parent=None, root="root"):
         self.config = config

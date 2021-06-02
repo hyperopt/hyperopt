@@ -25,7 +25,7 @@ DEFAULT_MAX_PROGRAM_LEN = 100000
 
 
 class PyllImportError(ImportError):
-    """A pyll symbol was not defined in the scope """
+    """A pyll symbol was not defined in the scope"""
 
 
 class MissingArgument:
@@ -93,13 +93,13 @@ class SymbolTable:
         return self._new_apply("range", args, {}, o_len=None, pure=True)
 
     def max(self, *args):
-        """ return max of args """
+        """return max of args"""
         return self._new_apply(
             "max", list(map(as_apply, args)), {}, o_len=None, pure=True
         )
 
     def min(self, *args):
-        """ return min of args """
+        """return min of args"""
         return self._new_apply(
             "min", list(map(as_apply, args)), {}, o_len=None, pure=True
         )
@@ -760,7 +760,7 @@ def clone_merge(expr, memo=None, merge_literals=False):
 
 
 class GarbageCollected:
-    """Placeholder representing a garbage-collected value """
+    """Placeholder representing a garbage-collected value"""
 
 
 def rec_eval(
