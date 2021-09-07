@@ -504,14 +504,6 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                     log_output=log_output
                 ),
             )
-            self.assertNotIn(
-                "Task should have been cancelled",
-                log_output,
-                """ "Task should have been cancelled" should not in log:
-                              {log_output}""".format(
-                    log_output=log_output
-                ),
-            )
             self.assert_task_failed(log_output, 0)
 
         # Test mix of successful and cancelled trials.
