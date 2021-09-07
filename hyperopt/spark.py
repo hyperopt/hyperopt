@@ -490,7 +490,8 @@ class _SparkFMinState:
                             "spark.job.description", self._job_desc
                         )
                         spark_context.setLocalProperty(
-                            "spark.job.interruptOnCancel", str(self._job_interrupt_on_cancel).lower()
+                            "spark.job.interruptOnCancel",
+                            str(self._job_interrupt_on_cancel).lower()
                         )
                         result_or_e = worker_rdd.mapPartitions(
                             run_task_on_executor
