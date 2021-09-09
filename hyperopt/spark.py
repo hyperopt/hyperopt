@@ -10,10 +10,14 @@ from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 try:
     from pyspark.sql import SparkSession
+    from pyspark.util import VersionUtils
+    import pyspark
 
     _have_spark = True
+    _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
 except ImportError as e:
     _have_spark = False
+    _spark_major_minor_version = None
 
 logger = _get_logger("hyperopt-spark")
 
@@ -83,8 +87,13 @@ class SparkTrials(Trials):
         )
         self._spark_context = self._spark.sparkContext
         # The feature to support controlling jobGroupIds is in SPARK-22340
-        self._spark_supports_job_cancelling = hasattr(
-            self._spark_context.parallelize([1]), "collectWithJobGroup"
+        self._spark_supports_job_cancelling = (
+            _spark_major_minor_version
+            >= (
+                3,
+                2,
+            )
+            or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
         )
         spark_default_parallelism = self._spark_context.defaultParallelism
         self.parallelism = self._decide_parallelism(
@@ -469,15 +478,34 @@ class _SparkFMinState:
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
-                    result_or_e = worker_rdd.mapPartitions(
-                        run_task_on_executor
-                    ).collectWithJobGroup(
-                        self._job_group_id,
-                        self._job_desc,
-                        self._job_interrupt_on_cancel,
-                    )[
-                        0
-                    ]
+                    if _spark_major_minor_version >= (3, 2):
+                        self.spark.sparkContext.setLocalProperty(
+                            "spark.jobGroup.id", self._job_group_id
+                        )
+                        spark_context = self.spark.sparkContext
+                        self._job_group_id = spark_context.setLocalProperty(
+                            "spark.jobGroup.id", self._job_group_id
+                        )
+                        self._job_desc = spark_context.setLocalProperty(
+                            "spark.job.description", self._job_desc
+                        )
+                        spark_context.setLocalProperty(
+                            "spark.job.interruptOnCancel",
+                            str(self._job_interrupt_on_cancel).lower(),
+                        )
+                        result_or_e = worker_rdd.mapPartitions(
+                            run_task_on_executor
+                        ).collect()[0]
+                    else:
+                        result_or_e = worker_rdd.mapPartitions(
+                            run_task_on_executor
+                        ).collectWithJobGroup(
+                            self._job_group_id,
+                            self._job_desc,
+                            self._job_interrupt_on_cancel,
+                        )[
+                            0
+                        ]
                 else:
                     result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
@@ -493,6 +521,11 @@ class _SparkFMinState:
             else:
                 # The exceptions captured in run_task_on_executor would be returned in the result_or_e
                 finish_trial_run(result_or_e)
+
+        if _spark_major_minor_version >= (3, 2):
+            from pyspark import inheritable_thread_target
+
+            run_task_thread = inheritable_thread_target(run_task_thread)
 
         task_thread = threading.Thread(target=run_task_thread)
         task_thread.setDaemon(True)
