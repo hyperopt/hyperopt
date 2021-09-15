@@ -479,14 +479,11 @@ class _SparkFMinState:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
                     if _spark_major_minor_version >= (3, 2):
-                        self.spark.sparkContext.setLocalProperty(
-                            "spark.jobGroup.id", self._job_group_id
-                        )
                         spark_context = self.spark.sparkContext
-                        self._job_group_id = spark_context.setLocalProperty(
+                        spark_context.setLocalProperty(
                             "spark.jobGroup.id", self._job_group_id
                         )
-                        self._job_desc = spark_context.setLocalProperty(
+                        spark_context.setLocalProperty(
                             "spark.job.description", self._job_desc
                         )
                         spark_context.setLocalProperty(
