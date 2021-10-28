@@ -32,7 +32,7 @@ jobs:
     - name: "Run tests on python 3.9"
       python: 3.9
       env: NUMPY_VERSION=1.19.4
-    - name: "Run tests on python 3.9 with spark 3.2 with pinned threads"
+    - name: "Run tests on python 3.9 with spark 3.2 and pinned threads"
       env:
         - NUMPY_VERSION=1.19.4
         - SPARK_VERSION=3.2.0
