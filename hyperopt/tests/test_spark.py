@@ -8,6 +8,7 @@ import timeit
 import unittest
 
 import numpy as np
+import pyspark
 from pyspark.sql import SparkSession
 from six import StringIO
 
@@ -588,3 +589,42 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
         call_count = len(os.listdir(output_dir))
         self.assertEqual(NUM_TRIALS, call_count)
+
+    def test_pin_thread_off(self):
+        spark_trials = SparkTrials(parallelism=2)
+        self.assertFalse(spark_trials._spark_pinned_threads_enabled)
+        self.assertTrue(spark_trials._spark_supports_job_cancelling)
+        fmin(
+            fn=lambda x: x + 1,
+            space=hp.uniform("x", -1, 1),
+            algo=rand.suggest,
+            max_evals=5,
+            trials=spark_trials,
+        )
+        self.assertEqual(spark_trials.count_successful_trials(), 5)
+
+
+if "PYSPARK_PIN_THREAD" in os.environ and os.environ["PYSPARK_PIN_THREAD"] == "true":
+
+    class PinThreadTestCase(unittest.TestCase, BaseSparkContext):
+        @classmethod
+        def setUpClass(cls):
+            cls.setup_spark()
+            cls._sc.setLogLevel("OFF")
+
+        @classmethod
+        def tearDownClass(cls):
+            cls.teardown_spark()
+
+        def test_pin_thread_on(self):
+            spark_trials = SparkTrials(parallelism=2)
+            self.assertTrue(spark_trials._spark_pinned_threads_enabled)
+            self.assertTrue(spark_trials._spark_supports_job_cancelling)
+            fmin(
+                fn=lambda x: x + 1,
+                space=hp.uniform("x", -1, 1),
+                algo=rand.suggest,
+                max_evals=5,
+                trials=spark_trials,
+            )
+            self.assertEqual(spark_trials.count_successful_trials(), 5)

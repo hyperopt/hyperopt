@@ -26,13 +26,18 @@ jobs:
       script: black .
     - name: "Run tests on python 3.7"
       python: 3.7
-      env:
-        - SPARK_VERSION=3.0.1
+      env: SPARK_VERSION=3.0.1
     - name: "Run tests on python 3.8"
       python: 3.8
     - name: "Run tests on python 3.9"
       python: 3.9
       env: NUMPY_VERSION=1.19.4
+    - name: "Run tests on python 3.9 with spark 3.2 with pinned threads"
+      env:
+        - NUMPY_VERSION=1.19.4
+        - SPARK_VERSION=3.2.0
+        - PYSPARK_PIN_THREAD=true
+      script: pytest hyperopt/tests/test_spark.py -k test_pin_thread_on
 
 install:
   - sudo apt-get remove ipython || true  # ipython is not pre-installed in Focal
