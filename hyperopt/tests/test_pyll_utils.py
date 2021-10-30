@@ -104,9 +104,9 @@ def test_uniformint_arguments(arguments):
         space = hp.uniformint(*arguments)
     if isinstance(arguments, dict):
         space = hp.uniformint(**arguments)
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(np.random.PCG64(123))
     values = [sample(space, rng=rng) for _ in range(10)]
-    assert values == [7, 3, 2, 6, 7, 4, 10, 7, 5, 4]
+    assert values == [7, 1, 2, 2, 2, 8, 9, 3, 8, 9]
 
 
 class TestValidateDistributionRange(unittest.TestCase):

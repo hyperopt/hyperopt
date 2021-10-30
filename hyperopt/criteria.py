@@ -19,7 +19,7 @@ def EI_gaussian_empirical(mean, var, thresh, rng, N):
 
     (estimated empirically)
     """
-    return EI_empirical(rng.randn(N) * np.sqrt(var) + mean, thresh)
+    return EI_empirical(rng.standard_normal(N) * np.sqrt(var) + mean, thresh)
 
 
 def EI_gaussian(mean, var, thresh):

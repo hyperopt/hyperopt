@@ -4,7 +4,7 @@ import hyperopt.criteria as crit
 
 
 def test_ei():
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     for mean, var in [(0, 1), (-4, 9)]:
         thresholds = np.arange(-5, 5, 0.25) * np.sqrt(var) + mean
 

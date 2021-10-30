@@ -276,7 +276,7 @@ class FMinIter:
                     # `new_trials`. This is the core of `run`, all the rest is just
                     # processes orchestration
                     new_trials = algo(
-                        new_ids, self.domain, trials, self.rstate.randint(2 ** 31 - 1)
+                        new_ids, self.domain, trials, self.rstate.integers(2 ** 31 - 1)
                     )
                     assert len(new_ids) >= len(new_trials)
 
@@ -441,11 +441,11 @@ def fmin(
         a trials object, then that trials object will be affected by
         side-effect of this call.
 
-    rstate : numpy.RandomState, default numpy.random or `$HYPEROPT_FMIN_SEED`
+    rstate : numpy.random.Generator, default numpy.random or `$HYPEROPT_FMIN_SEED`
         Each call to `algo` requires a seed value, which should be different
         on each call. This object is used to draw these seeds via `randint`.
         The default rstate is
-        `numpy.random.RandomState(int(env['HYPEROPT_FMIN_SEED']))`
+        `numpy.random.default_rng(int(env['HYPEROPT_FMIN_SEED']))`
         if the `HYPEROPT_FMIN_SEED` environment variable is set to a non-empty
         string, otherwise np.random is used in whatever state it is in.
 
@@ -513,9 +513,9 @@ def fmin(
     if rstate is None:
         env_rseed = os.environ.get("HYPEROPT_FMIN_SEED", "")
         if env_rseed:
-            rstate = np.random.RandomState(int(env_rseed))
+            rstate = np.random.default_rng(int(env_rseed))
         else:
-            rstate = np.random.RandomState()
+            rstate = np.random.default_rng()
 
     validate_timeout(timeout)
     validate_loss_threshold(loss_threshold)

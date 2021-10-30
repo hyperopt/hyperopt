@@ -206,7 +206,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_evals=8,
                 return_argmin=False,
                 trials=spark_trials,
-                rstate=np.random.RandomState(99),
+                rstate=np.random.default_rng(99),
             )
             self.check_run_status(
                 spark_trials, output, num_total=8, num_success=7, num_failure=1
@@ -428,7 +428,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
-                rstate=np.random.RandomState(99),
+                rstate=np.random.default_rng(99),
             )
             log_output = output.getvalue().strip()
 
@@ -483,7 +483,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_queue_len=1,
                 show_progressbar=False,
                 return_argmin=False,
-                rstate=np.random.RandomState(4),
+                rstate=np.random.default_rng(4),
             )
             log_output = output.getvalue().strip()
 
@@ -517,7 +517,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             max_queue_len=1,
             show_progressbar=False,
             return_argmin=True,
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
         )
 
         time.sleep(2)

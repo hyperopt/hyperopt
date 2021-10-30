@@ -223,10 +223,10 @@ class SuggestAlgo(ExprEvaluator):
             n: l for l, n in list(self.domain.vh.vals_by_label().items())
         }
         self._seed = seed
-        self.rng = np.random.RandomState(seed)
+        self.rng = np.random.default_rng(seed)
 
     def __call__(self, new_id):
-        self.rng.seed(self._seed + new_id)
+        self.rng = np.random.default_rng(self._seed + new_id)
         memo = self.eval_nodes(
             memo={self.domain.s_new_ids: [new_id], self.domain.s_rng: self.rng}
         )
@@ -246,7 +246,7 @@ class SuggestAlgo(ExprEvaluator):
 
     def batch(self, new_ids):
         new_ids = list(new_ids)
-        self.rng.seed([self._seed] + new_ids)
+        self.rng = np.random.default_rng([self._seed] + new_ids)
         memo = self.eval_nodes(
             memo={self.domain.s_new_ids: new_ids, self.domain.s_rng: self.rng}
         )

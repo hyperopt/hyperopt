@@ -56,7 +56,7 @@ def test_vectorize_trivial():
     full_output = as_apply([vloss, vh.idxs_by_label(), vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
-    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.RandomState(1)))
+    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.default_rng(1)))
 
     # print new_vc
     losses, idxs, vals = rec_eval(new_vc)
@@ -81,7 +81,7 @@ def test_vectorize_simple():
     full_output = as_apply([vloss, vh.idxs_by_label(), vh.vals_by_label()])
     fo2 = replace_repeat_stochastic(full_output)
 
-    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.RandomState(1)))
+    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.default_rng(1)))
 
     # print new_vc
     losses, idxs, vals = rec_eval(new_vc)
@@ -106,7 +106,7 @@ def test_vectorize_multipath():
 
     full_output = as_apply([vloss, vh.idxs_by_label(), vh.vals_by_label()])
 
-    new_vc = recursive_set_rng_kwarg(full_output, as_apply(np.random.RandomState(1)))
+    new_vc = recursive_set_rng_kwarg(full_output, as_apply(np.random.default_rng(1)))
 
     losses, idxs, vals = rec_eval(new_vc)
     print("losses", losses)
@@ -157,7 +157,7 @@ def test_vectorize_config0():
         print(fo2)
         print("\n" * 1)
 
-    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.RandomState(1)))
+    new_vc = recursive_set_rng_kwarg(fo2, as_apply(np.random.default_rng(1)))
     if 0:
         print("=" * 80)
         print("VECTORIZED STOCHASTIC WITH RNGS")
@@ -220,7 +220,7 @@ def test_distributions():
         algo=rand.suggest,
         trials=trials,
         max_evals=N,
-        rstate=np.random.RandomState(124),
+        rstate=np.random.default_rng(124),
         catch_eval_exceptions=False,
     )
     assert len(trials) == N

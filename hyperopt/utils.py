@@ -129,9 +129,9 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
 
     """
     if rng is None:
-        rng = numpy.random.RandomState(232342)
+        rng = numpy.random.default_rng(232342)
 
-    samples = rng.randn(n_samples, len(mean)) * numpy.sqrt(var) + mean
+    samples = rng.standard_normal((n_samples, len(mean))) * numpy.sqrt(var) + mean
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape

@@ -919,7 +919,7 @@ def suggest(
 
     # -- this dictionary will map pyll nodes to the values
     #    they should take during the evaluation of the pyll program
-    memo = {domain.s_new_ids: fake_ids, domain.s_rng: np.random.RandomState(seed)}
+    memo = {domain.s_new_ids: fake_ids, domain.s_rng: np.random.default_rng(seed)}
 
     memo[observed_loss["idxs"]] = tids
     memo[observed_loss["vals"]] = losses

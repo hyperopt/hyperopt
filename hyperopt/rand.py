@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def suggest(new_ids, domain, trials, seed):
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     rval = []
     for ii, new_id in enumerate(new_ids):
         # -- sample new specs, idxs, vals
@@ -28,7 +28,7 @@ def suggest(new_ids, domain, trials, seed):
 
 def suggest_batch(new_ids, domain, trials, seed):
 
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     # -- sample new specs, idxs, vals
     idxs, vals = pyll.rec_eval(
         domain.s_idxs_vals, memo={domain.s_new_ids: new_ids, domain.s_rng: rng}

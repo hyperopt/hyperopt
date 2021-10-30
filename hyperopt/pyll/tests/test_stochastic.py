@@ -7,7 +7,7 @@ from hyperopt.pyll.stochastic import recursive_set_rng_kwarg, sample
 def test_recursive_set_rng_kwarg():
     uniform = scope.uniform
     a = as_apply([uniform(0, 1), uniform(2, 3)])
-    rng = np.random.RandomState(234)
+    rng = np.random.default_rng(234)
     recursive_set_rng_kwarg(a, rng)
     print(a)
     val_a = rec_eval(a)
@@ -46,16 +46,16 @@ def test_lnorm():
 def test_sample_deterministic():
     aa = as_apply([0, 1])
     print(aa)
-    dd = sample(aa, np.random.RandomState(3))
+    dd = sample(aa, np.random.default_rng(3))
     assert dd == (0, 1)
 
 
 def test_repeatable():
     u = scope.uniform(0, 1)
     aa = as_apply(dict(u=u, n=scope.normal(5, 0.1), l=[0, 1, scope.one_of(2, 3), u]))
-    dd1 = sample(aa, np.random.RandomState(3))
-    dd2 = sample(aa, np.random.RandomState(3))
-    dd3 = sample(aa, np.random.RandomState(4))
+    dd1 = sample(aa, np.random.default_rng(3))
+    dd2 = sample(aa, np.random.default_rng(3))
+    dd3 = sample(aa, np.random.default_rng(4))
     assert dd1 == dd2
     assert dd1 != dd3
 
@@ -64,7 +64,7 @@ def test_sample():
     u = scope.uniform(0, 1)
     aa = as_apply(dict(u=u, n=scope.normal(5, 0.1), l=[0, 1, scope.one_of(2, 3), u]))
     print(aa)
-    dd = sample(aa, np.random.RandomState(3))
+    dd = sample(aa, np.random.default_rng(3))
     assert 0 < dd["u"] < 1
     assert 4 < dd["n"] < 6
     assert dd["u"] == dd["l"][3]

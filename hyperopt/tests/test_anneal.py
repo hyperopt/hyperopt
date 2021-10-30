@@ -74,7 +74,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
             trials=trials,
             algo=algo,
             max_evals=iters_thresholds,
-            rstate=np.random.RandomState(8),
+            rstate=np.random.default_rng(8),
         )
         assert len(trials) == iters_thresholds
 
@@ -85,7 +85,7 @@ class TestItAtLeastSortOfWorks(unittest.TestCase, CasePerDomain):
             trials=rtrials,
             algo=rand.suggest,
             max_evals=iters_thresholds,
-            rstate=np.random.RandomState(8),
+            rstate=np.random.default_rng(8),
         )
 
         thresh = self.thresholds[bandit.name]

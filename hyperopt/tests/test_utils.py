@@ -41,7 +41,7 @@ def test_get_most_recent_inds():
         for _ind in range(k):
             test_data.append({"_id": ind, "version": _ind})
         most_recent_data.append({"_id": ind, "version": _ind})
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     p = rng.permutation(len(test_data))
     test_data_rearranged = [test_data[_p] for _p in p]
     rind = get_most_recent_inds(test_data_rearranged)

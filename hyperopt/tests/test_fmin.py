@@ -29,6 +29,7 @@ def test_quadratic1_rand():
         algo=rand.suggest,
         max_evals=500,
         trials=trials,
+        rstate=np.random.default_rng(np.random.PCG64(123)),
     )
 
     assert len(trials) == 500
@@ -43,6 +44,7 @@ def test_quadratic1_tpe(trials=Trials()):
         algo=tpe.suggest,
         max_evals=50,
         trials=trials,
+        rstate=np.random.default_rng(np.random.PCG64(123)),
     )
 
     assert len(trials) == 50, len(trials)
@@ -64,6 +66,7 @@ def test_quadratic1_anneal():
         algo=hyperopt.anneal.suggest,
         max_evals=N,
         trials=trials,
+        rstate=np.random.default_rng(np.random.PCG64(123)),
     )
 
     print(argmin)
@@ -86,6 +89,7 @@ def test_duplicate_label_is_error():
             algo=rand.suggest,
             max_evals=500,
             trials=trials,
+            rstate=np.random.default_rng(0),
         )
 
 
@@ -113,7 +117,7 @@ def test_set_fmin_rstate():
         algo=rand.suggest,
         max_evals=1,
         trials=trials_seed0,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     assert len(trials_seed0) == 1
     trials_seed1 = Trials()
@@ -123,7 +127,7 @@ def test_set_fmin_rstate():
         algo=rand.suggest,
         max_evals=1,
         trials=trials_seed1,
-        rstate=np.random.RandomState(1),
+        rstate=np.random.default_rng(1),
     )
     assert len(trials_seed1) == 1
     assert argmin_seed0 != argmin_seed1
@@ -142,7 +146,7 @@ def test_fmin_return_argmin():
         max_evals=10,
         algo=rand.suggest,
         return_argmin=False,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     assert best_parameter == 5
 
@@ -154,7 +158,7 @@ def test_fmin_return_argmin():
         max_evals=10,
         algo=rand.suggest,
         return_argmin=True,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     assert best_args["x"] == 1
 
@@ -255,7 +259,7 @@ def test_timeout():
         timeout=1,
         algo=rand.suggest,
         return_argmin=False,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     end_time_1 = timer()
     assert (end_time_1 - start_time_1) < 2
@@ -269,7 +273,7 @@ def test_timeout():
         timeout=5,
         algo=rand.suggest,
         return_argmin=False,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     end_time_5 = timer()
     assert (end_time_5 - start_time_5) < 6
@@ -294,7 +298,7 @@ def test_invalid_timeout():
                 timeout=wrong_timeout,
                 algo=rand.suggest,
                 return_argmin=False,
-                rstate=np.random.RandomState(0),
+                rstate=np.random.default_rng(0),
             )
         except Exception as e:
             assert str(e) == expected_message
@@ -309,7 +313,7 @@ def test_loss_threshold():
         loss_threshold=loss_threshold,
         algo=rand.suggest,
         trials=hypopt_trials,
-        rstate=np.random.RandomState(0),
+        rstate=np.random.default_rng(0),
     )
     best_loss = hypopt_trials.best_trial["result"]["loss"]
     assert best_loss <= loss_threshold
@@ -335,7 +339,7 @@ def test_invalid_loss_threshold():
                 loss_threshold=wrong_loss_threshold,
                 algo=rand.suggest,
                 return_argmin=False,
-                rstate=np.random.RandomState(0),
+                rstate=np.random.default_rng(0),
             )
         except Exception as e:
             assert str(e) == expected_message

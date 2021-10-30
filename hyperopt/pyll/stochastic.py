@@ -24,7 +24,7 @@ def implicit_stochastic(f):
 
 @scope.define
 def rng_from_seed(seed):
-    return np.random.RandomState(seed)
+    return np.random.default_rng(seed)
 
 
 # -- UNIFORM
@@ -95,9 +95,9 @@ def qlognormal(mu, sigma, q, rng=None, size=()):
 def randint(low, high=None, rng=None, size=()):
     """
     See np.random.randint documentation.
-    rng = random number generator, typically equals np.random.mtrand.RandomState
+    rng = random number generator, typically equals np.random.Generator
     """
-    return rng.randint(low, high, size)
+    return rng.integers(low, high, size)
 
 
 @implicit_stochastic
@@ -107,7 +107,7 @@ def randint_via_categorical(p, rng=None, size=()):
     Only used in tpe because of the chaotic API based on names.
     # ideally we would just use randint above, but to use priors this is a wrapper of
     categorical
-    rng = random number generator, typically equals np.random.mtrand.RandomState
+    rng = random number generator, typically equals np.random.Generator
     """
 
     return scope.categorical(p, rng, size)
@@ -177,7 +177,7 @@ def recursive_set_rng_kwarg(expr, rng=None):
     uniform(0, 1) -> uniform(0, 1, rng=rng)
     """
     if rng is None:
-        rng = np.random.RandomState()
+        rng = np.random.default_rng()
     lrng = as_apply(rng)
     for node in dfs(expr):
         if node.name in implicit_stochastic_symbols:
@@ -195,14 +195,14 @@ def sample(expr, rng=None, **kwargs):
     Parameters:
     expr - a pyll expression to be evaluated
 
-    rng - a np.random.RandomState instance
-          default: `np.random.RandomState()`
+    rng - a np.random.Generator instance
+          default: `np.random.default_rng()`
 
     **kwargs - optional arguments passed along to
                `hyperopt.pyll.rec_eval`
 
     """
     if rng is None:
-        rng = np.random.RandomState()
+        rng = np.random.default_rng()
     foo = recursive_set_rng_kwarg(clone(as_apply(expr)), as_apply(rng))
     return rec_eval(foo, **kwargs)

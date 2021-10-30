@@ -30,7 +30,7 @@ def test_run_basic_search():
         space,
         algo=atpe.suggest,
         max_evals=20,
-        rstate=np.random.RandomState(1),
+        rstate=np.random.default_rng(1),
     )
 
     assert best["a"] == 1
