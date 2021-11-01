@@ -111,7 +111,13 @@ If you're a developer and wish to contribute, please follow these steps:
 ### Formatting
 10. We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR which is installed automatically in step 6.
 
-11. Then, once you commit ensure that git hooks are activated (Pycharm for example has the option to omit them). This will run black automatically on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the following:
+11. Then, once you commit ensure that git hooks are activated (Pycharm for example has the option to omit them). This can be done using [pre-commit](https://pre-commit.com/), which is installed automatically in step 6, as follows:
+
+    ```bash
+    $ pre-commit install
+    ```
+
+    This will run black automatically when you commit on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the following:
 
     ```bash
     $ black {source_file_or_directory}
