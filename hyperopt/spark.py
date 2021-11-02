@@ -521,9 +521,12 @@ class _SparkFMinState:
                 finish_trial_run(result_or_e)
 
         if self.trials._spark_pinned_threads_enabled:
-            from pyspark import inheritable_thread_target
-
-            run_task_thread = inheritable_thread_target(run_task_thread)
+            try:
+                # pylint: disable=no-name-in-module,import-outside-toplevel
+                from pyspark import inheritable_thread_target
+                run_task_thread = inheritable_thread_target(run_task_thread)
+            except ImportError:
+                pass
 
         task_thread = threading.Thread(target=run_task_thread)
         task_thread.setDaemon(True)
