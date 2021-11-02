@@ -16,6 +16,7 @@ from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 from .test_fmin import test_quadratic1_tpe
 from py4j.clientserver import ClientServer
 
+
 @contextlib.contextmanager
 def patch_logger(name, level=logging.INFO):
     """patch logger and give an output"""
@@ -61,9 +62,7 @@ class BaseSparkContext:
             .getOrCreate()
         )
         cls._sc = cls._spark.sparkContext
-        cls._pin_mode_enabled = isinstance(
-            cls._sc._gateway, ClientServer
-        )
+        cls._pin_mode_enabled = isinstance(cls._sc._gateway, ClientServer)
         cls.checkpointDir = tempfile.mkdtemp()
         cls._sc.setCheckpointDir(cls.checkpointDir)
         # Small tests run much faster with spark.sql.shuffle.partitions=4
@@ -593,7 +592,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(NUM_TRIALS, call_count)
 
     def test_pin_thread_off(self):
-        if (self._pin_mode_enabled):
+        if self._pin_mode_enabled:
             raise unittest.SkipTest()
 
         spark_trials = SparkTrials(parallelism=2)
@@ -609,7 +608,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(spark_trials.count_successful_trials(), 5)
 
     def test_pin_thread_on(self):
-        if (not self._pin_mode_enabled):
+        if not self._pin_mode_enabled:
             raise unittest.SkipTest()
 
         spark_trials = SparkTrials(parallelism=2)
