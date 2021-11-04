@@ -69,8 +69,8 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
         The elements of options can themselves be [nested] stochastic expressions. 
         In this case, the stochastic choices that only appear in some of the options become conditional parameters.
     
-* `hp.randint(label, upper)`
-  * Returns a random integer in the range [0, upper). The semantics of this
+* `hp.randint(label[, low], upper)`
+  * Returns a random integer in the range [low, upper). The default low value is 0. The semantics of this
        distribution is that there is *no* more correlation in the loss function between nearby integer values,
        as compared with more distant integer values.  This is an appropriate distribution for describing random seeds    for example.
        If the loss function is probably more correlated for nearby integer values, then you should probably use one of the "quantized" continuous distributions, such as either `quniform`, `qloguniform`, `qnormal` or `qlognormal`.
