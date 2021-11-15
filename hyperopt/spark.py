@@ -8,6 +8,8 @@ from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
+from py4j.clientserver import ClientServer
+
 try:
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
@@ -86,13 +88,12 @@ class SparkTrials(Trials):
             else spark_session
         )
         self._spark_context = self._spark.sparkContext
+        self._spark_pinned_threads_enabled = isinstance(
+            self._spark_context._gateway, ClientServer
+        )
         # The feature to support controlling jobGroupIds is in SPARK-22340
         self._spark_supports_job_cancelling = (
-            _spark_major_minor_version
-            >= (
-                3,
-                2,
-            )
+            self._spark_pinned_threads_enabled
             or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
         )
         spark_default_parallelism = self._spark_context.defaultParallelism
@@ -478,7 +479,7 @@ class _SparkFMinState:
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
                 if self.trials._spark_supports_job_cancelling:
-                    if _spark_major_minor_version >= (3, 2):
+                    if self.trials._spark_pinned_threads_enabled:
                         spark_context = self.spark.sparkContext
                         spark_context.setLocalProperty(
                             "spark.jobGroup.id", self._job_group_id
@@ -519,10 +520,13 @@ class _SparkFMinState:
                 # The exceptions captured in run_task_on_executor would be returned in the result_or_e
                 finish_trial_run(result_or_e)
 
-        if _spark_major_minor_version >= (3, 2):
-            from pyspark import inheritable_thread_target
-
-            run_task_thread = inheritable_thread_target(run_task_thread)
+        if self.trials._spark_pinned_threads_enabled:
+            try:
+                # pylint: disable=no-name-in-module,import-outside-toplevel
+                from pyspark import inheritable_thread_target
+                run_task_thread = inheritable_thread_target(run_task_thread)
+            except ImportError:
+                pass
 
         task_thread = threading.Thread(target=run_task_thread)
         task_thread.setDaemon(True)

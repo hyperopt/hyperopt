@@ -11,7 +11,7 @@ cache:
 env:
   global:
     - HYPEROPT_FMIN_SEED=3
-    - SPARK_VERSION=3.0.1
+    - SPARK_VERSION=3.2.0
     - NUMPY_VERSION=1.18.1
     - IPYTHON=ipython[all]
 
@@ -26,11 +26,26 @@ jobs:
       script: black .
     - name: "Run tests on python 3.7"
       python: 3.7
+      env: SPARK_VERSION=3.0.1
     - name: "Run tests on python 3.8"
       python: 3.8
     - name: "Run tests on python 3.9"
       python: 3.9
       env: NUMPY_VERSION=1.19.4
+    - name: "Run tests on python 3.9 with spark 3.2 and pinned threads on"
+      python: 3.9
+      env:
+        - NUMPY_VERSION=1.19.4
+        - SPARK_VERSION=3.2.0
+        - PYSPARK_PIN_THREAD=true
+      script: pytest hyperopt/tests/test_spark.py
+    - name: "Run tests on python 3.9 with spark 3.2 and pinned threads off"
+      python: 3.9
+      env:
+        - NUMPY_VERSION=1.19.4
+        - SPARK_VERSION=3.2.0
+        - PYSPARK_PIN_THREAD=false
+      script: pytest hyperopt/tests/test_spark.py
 
 install:
   - sudo apt-get remove ipython || true  # ipython is not pre-installed in Focal

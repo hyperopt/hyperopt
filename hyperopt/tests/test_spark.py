@@ -11,9 +11,10 @@ import numpy as np
 from pyspark.sql import SparkSession
 from six import StringIO
 
-from hyperopt import SparkTrials, anneal, base, fmin, hp
+from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 
 from .test_fmin import test_quadratic1_tpe
+from py4j.clientserver import ClientServer
 
 
 @contextlib.contextmanager
@@ -61,6 +62,7 @@ class BaseSparkContext:
             .getOrCreate()
         )
         cls._sc = cls._spark.sparkContext
+        cls._pin_mode_enabled = isinstance(cls._sc._gateway, ClientServer)
         cls.checkpointDir = tempfile.mkdtemp()
         cls._sc.setCheckpointDir(cls.checkpointDir)
         # Small tests run much faster with spark.sql.shuffle.partitions=4
@@ -588,3 +590,35 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
         call_count = len(os.listdir(output_dir))
         self.assertEqual(NUM_TRIALS, call_count)
+
+    def test_pin_thread_off(self):
+        if self._pin_mode_enabled:
+            raise unittest.SkipTest()
+
+        spark_trials = SparkTrials(parallelism=2)
+        self.assertFalse(spark_trials._spark_pinned_threads_enabled)
+        self.assertTrue(spark_trials._spark_supports_job_cancelling)
+        fmin(
+            fn=lambda x: x + 1,
+            space=hp.uniform("x", -1, 1),
+            algo=rand.suggest,
+            max_evals=5,
+            trials=spark_trials,
+        )
+        self.assertEqual(spark_trials.count_successful_trials(), 5)
+
+    def test_pin_thread_on(self):
+        if not self._pin_mode_enabled:
+            raise unittest.SkipTest()
+
+        spark_trials = SparkTrials(parallelism=2)
+        self.assertTrue(spark_trials._spark_pinned_threads_enabled)
+        self.assertTrue(spark_trials._spark_supports_job_cancelling)
+        fmin(
+            fn=lambda x: x + 1,
+            space=hp.uniform("x", -1, 1),
+            algo=rand.suggest,
+            max_evals=5,
+            trials=spark_trials,
+        )
+        self.assertEqual(spark_trials.count_successful_trials(), 5)
