@@ -42,11 +42,11 @@ def passthrough(x):
 
 
 def test_adaptive_parzen_normal_orig():
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
 
     prior_mu = 7
     prior_sigma = 2
-    mus = rng.randn(10) + 5
+    mus = rng.standard_normal(10) + 5
 
     weights2, mus2, sigmas2 = adaptive_parzen_normal_orig(
         mus, 3.3, prior_mu, prior_sigma
@@ -65,7 +65,7 @@ def test_adaptive_parzen_normal_orig():
 
 class TestGMM1(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.RandomState(234)
+        self.rng = np.random.default_rng(234)
 
     def test_mu_is_used_correctly(self):
         assert np.allclose(10, GMM1([1], [10.0], [0.0000001], rng=self.rng))
@@ -215,7 +215,7 @@ class TestGMM1(unittest.TestCase):
 
 class TestGMM1Math(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.RandomState(234)
+        self.rng = np.random.default_rng(234)
         self.weights = [0.1, 0.3, 0.4, 0.2]
         self.mus = [1.0, 2.0, 3.0, 4.0]
         self.sigmas = [0.1, 0.4, 0.8, 2.0]
@@ -274,7 +274,7 @@ class TestGMM1Math(unittest.TestCase):
 
 class TestQGMM1Math(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.RandomState(234)
+        self.rng = np.random.default_rng(234)
         self.weights = [0.1, 0.3, 0.4, 0.2]
         self.mus = [1.0, 2.0, 3.0, 4.0]
         self.sigmas = [0.1, 0.4, 0.8, 2.0]
@@ -377,7 +377,7 @@ class TestQGMM1Math(unittest.TestCase):
 
 class TestLGMM1Math(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.RandomState(234)
+        self.rng = np.random.default_rng(234)
         self.weights = [0.1, 0.3, 0.4, 0.2]
         self.mus = [-2.0, 1.0, 0.0, 3.0]
         self.sigmas = [0.1, 0.4, 0.8, 2.0]
@@ -440,7 +440,7 @@ class TestLGMM1Math(unittest.TestCase):
 
 class TestQLGMM1Math(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.RandomState(234)
+        self.rng = np.random.default_rng(234)
         self.weights = [0.1, 0.3, 0.4, 0.2]
         self.mus = [-2, 0.0, -3.0, 1.0]
         self.sigmas = [2.1, 0.4, 0.8, 2.1]
@@ -623,7 +623,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
             algo=algo,
             trials=trials,
             max_evals=LEN,
-            rstate=np.random.RandomState(123),
+            rstate=np.random.default_rng(np.random.PCG64(0)),
             catch_eval_exceptions=False,
         )
         assert len(trials) == LEN
@@ -664,7 +664,7 @@ class TestOpt(unittest.TestCase, CasePerDomain):
 
 @domain_constructor(loss_target=0)
 def opt_q_uniform(target):
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     x = hp.quniform("x", 1.01, 10, 1)
     return {
         "loss": (x - target) ** 2 + scope.normal(0, 1, rng=rng),

@@ -136,7 +136,7 @@ class IPythonTrials(Trials):
 
             if idles:
                 new_ids = self.new_trial_ids(len(idles))
-                new_trials = algo(new_ids, domain, self, rstate.randint(2 ** 31 - 1))
+                new_trials = algo(new_ids, domain, self, rstate.integers(2 ** 31 - 1))
                 if len(new_trials) == 0:
                     break
                 assert len(idles) >= len(new_trials)

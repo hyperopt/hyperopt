@@ -13,7 +13,7 @@ class TestPChoice(unittest.TestCase):
             [(0.14, "gaussian"), (0.02, "multinomial"), (0.84, "bernoulli")],
         )
         a, b, c = 0, 0, 0
-        rng = np.random.RandomState(123)
+        rng = np.random.default_rng(123)
         for i in range(0, 1000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
             if nesto == "gaussian":
@@ -37,7 +37,7 @@ class TestPChoice(unittest.TestCase):
             ],
         )
         a, b, c = 0, 0, 0
-        rng = np.random.RandomState(123)
+        rng = np.random.default_rng(123)
         for i in range(0, 1000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
             if nesto == "first":
@@ -63,7 +63,7 @@ class TestPChoice(unittest.TestCase):
             ],
         )
         a, b, c, d = 0, 0, 0, 0
-        rng = np.random.RandomState(123)
+        rng = np.random.default_rng(123)
         for i in range(0, 2000):
             nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
             if nesto == 2:
@@ -105,7 +105,7 @@ class TestSimpleFMin(unittest.TestCase):
             space=self.space,
             trials=self.trials,
             algo=rand.suggest,
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=max_evals,
         )
 
@@ -121,7 +121,7 @@ class TestSimpleFMin(unittest.TestCase):
             space=self.space,
             trials=self.trials,
             algo=partial(tpe.suggest, n_startup_jobs=10),
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=max_evals,
         )
 
@@ -136,7 +136,7 @@ class TestSimpleFMin(unittest.TestCase):
             space=self.space,
             trials=self.trials,
             algo=partial(anneal.suggest),
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=max_evals,
         )
 
@@ -171,7 +171,7 @@ def test_constant_fn_tpe():
         space=space,
         algo=tpe.suggest,
         max_evals=50,
-        rstate=np.random.RandomState(44),
+        rstate=np.random.default_rng(44),
     )
 
 

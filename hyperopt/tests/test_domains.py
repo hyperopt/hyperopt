@@ -82,7 +82,7 @@ def n_arms(N=2):
     The correct arm is arm 0.
 
     """
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     x = hp.choice("x", [0, 1])
     reward_mus = as_apply([-1] + [0] * (N - 1))
     reward_sigmas = as_apply([1] * N)
@@ -143,7 +143,7 @@ def gauss_wave2():
     up the amp to 1.
     """
 
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     var = 0.1
     x = hp.uniform("x", -20, 20)
     amp = hp.uniform("amp", 0, 1)
@@ -218,7 +218,7 @@ class DomainExperimentMixin:
             domain.expr,
             trials=trials,
             algo=suggest,
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=self._n_steps,
         )
         assert trials.average_best_error(domain) - domain.loss_target < 0.2

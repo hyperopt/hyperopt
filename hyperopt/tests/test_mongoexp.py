@@ -307,7 +307,7 @@ class TestExperimentWithThreads(unittest.TestCase):
             space=space,
             algo=rand.suggest,
             trials=trials,
-            rstate=np.random.RandomState(seed),
+            rstate=np.random.default_rng(seed),
             max_evals=max_evals,
             return_argmin=False,
         )
@@ -409,7 +409,7 @@ def fmin_thread_fn(space, mongo_trials: MongoTrials, max_evals: int):
         space=space,
         algo=rand.suggest,
         trials=mongo_trials,
-        rstate=np.random.RandomState(),
+        rstate=np.random.default_rng(),
         max_evals=max_evals,
         return_argmin=False,
     )

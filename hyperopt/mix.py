@@ -25,10 +25,10 @@ def suggest(new_ids, domain, trials, seed, p_suggest):
         sum(probabilities) must be [close to] 1.0
 
     """
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     ps, suggests = list(zip(*p_suggest))
     assert len(ps) == len(suggests) == len(p_suggest)
     if not np.isclose(sum(ps), 1.0):
         raise ValueError("Probabilities should sum to 1", ps)
     idx = rng.multinomial(n=1, pvals=ps).argmax()
-    return suggests[idx](new_ids, domain, trials, seed=rng.randint(2 ** 31))
+    return suggests[idx](new_ids, domain, trials, seed=rng.integers(2 ** 31))

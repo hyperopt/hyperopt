@@ -10,7 +10,7 @@ def test_basic():
 
     space = hp.randint("a", 5)
     x = np.zeros(5)
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     for i in range(0, 1000):
         nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
         x[nesto] += 1
@@ -24,7 +24,7 @@ def test_basic2():
 
     space = hp.randint("a", 5, 15)
     x = np.zeros(15)
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     for i in range(0, 1000):
         nesto = hyperopt.pyll.stochastic.sample(space, rng=rng)
         x[nesto] += 1
@@ -58,7 +58,7 @@ class TestSimpleFMin(unittest.TestCase):
             space=self.space,
             trials=self.trials,
             algo=rand.suggest,
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=max_evals,
         )
 
@@ -73,7 +73,7 @@ class TestSimpleFMin(unittest.TestCase):
             space=self.space,
             trials=self.trials,
             algo=partial(tpe.suggest, n_startup_jobs=10),
-            rstate=np.random.RandomState(4),
+            rstate=np.random.default_rng(4),
             max_evals=max_evals,
         )
 
@@ -90,7 +90,7 @@ class TestSimpleFMin(unittest.TestCase):
                 self.objective,
                 space=hp.randint("t", lower, upper),
                 algo=rand.suggest,
-                rstate=np.random.RandomState(4),
+                rstate=np.random.default_rng(4),
                 max_evals=max_evals,
             )
             expected = [i for i in [3, 10, 50] if lower <= i < upper]
@@ -105,7 +105,7 @@ class TestSimpleFMin(unittest.TestCase):
                 self.objective,
                 space=hp.randint("t", lower, upper),
                 algo=tpe.suggest,
-                rstate=np.random.RandomState(4),
+                rstate=np.random.default_rng(4),
                 max_evals=max_evals,
             )
             expected = [i for i in [3, 10, 50] if lower <= i < upper]
