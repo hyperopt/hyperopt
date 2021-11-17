@@ -23,7 +23,7 @@ from hyperopt.mongoexp import MongoJobs
 from hyperopt.fmin import fmin
 from hyperopt import hp, rand
 import hyperopt.tests.test_base
-from .test_domains import gauss_wave2
+from hyperopt.tests.unit.test_domains import gauss_wave2
 
 
 def skiptest(f):

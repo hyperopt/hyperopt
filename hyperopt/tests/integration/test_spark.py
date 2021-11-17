@@ -13,7 +13,7 @@ from six import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 
-from .test_fmin import test_quadratic1_tpe
+from hyperopt.tests.unit.test_fmin import test_quadratic1_tpe
 from py4j.clientserver import ClientServer
 
 

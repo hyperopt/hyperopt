@@ -48,6 +48,7 @@ setuptools.setup(
         "future",
         "tqdm",
         "cloudpickle",
+        "py4j",
     ],
     extras_require={
         "SparkTrials": "pyspark",

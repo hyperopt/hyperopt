@@ -5,7 +5,6 @@
 <img src="https://i.postimg.cc/TPmffWrp/hyperopt-new.png" />
 </p>
 
-
 [![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)  [![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
 
 [Hyperopt](https://github.com/hyperopt/hyperopt) is a Python library for serial and parallel optimization over awkward
@@ -17,7 +16,7 @@ dimensions.
 Install hyperopt from PyPI
 
 ```bash
-$ pip install hyperopt
+pip install hyperopt
 ```
 
 to run your first example
@@ -49,10 +48,11 @@ print(space_eval(space, best))
 # -> ('case 2', 0.01420615366247227}
 ```
 
-## Contributing 
+## Contributing
+
+If you're a developer and wish to contribute, please follow these steps.
 
 ### Setup (based on [this](https://scikit-learn.org/stable/developers/contributing.html#contributing-code))
-If you're a developer and wish to contribute, please follow these steps:
 
 1. Create an account on GitHub if you do not already have one.
 
@@ -61,11 +61,10 @@ If you're a developer and wish to contribute, please follow these steps:
 3. Clone your fork of the hyperopt repo from your GitHub account to your local disk:
 
    ```bash
-   $ git clone https://github.com/<github username>/hyperopt.git
-   $ cd hyperopt
+   git clone https://github.com/<github username>/hyperopt.git
+   cd hyperopt
    ```
 
-### Setup a python 3.x environment for dependencies
 4. Create environment with:  
    `$ python3 -m venv my_env` or `$ python -m venv my_env`
    or with conda:  
@@ -81,6 +80,7 @@ If you're a developer and wish to contribute, please follow these steps:
    `$ pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'`
 
    or Windows:
+
    ```cmd
    pip install -e .[MongoTrials]
    pip install -e .[SparkTrials]
@@ -97,8 +97,8 @@ If you're a developer and wish to contribute, please follow these steps:
 8. Synchronize your master branch with the upstream master branch:
 
     ```bash
-    $ git checkout master
-    $ git pull upstream master
+    git checkout master
+    git pull upstream master
     ```
 
 9. Create a feature branch to hold your development changes:
@@ -107,38 +107,36 @@ If you're a developer and wish to contribute, please follow these steps:
 
     and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!
 
-
-### Formatting
 10. We recommend to use [Black](https://github.com/psf/black) to format your code before submitting a PR which is installed automatically in step 6.
 
 11. Then, once you commit ensure that git hooks are activated (Pycharm for example has the option to omit them). This can be done using [pre-commit](https://pre-commit.com/), which is installed automatically in step 6, as follows:
 
     ```bash
-    $ pre-commit install
+    pre-commit install
     ```
 
     This will run black automatically when you commit on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the following:
 
     ```bash
-    $ black {source_file_or_directory}
+    black {source_file_or_directory}
     ```
 
 12. Develop the feature on your feature branch on your computer, using Git to do the version control. When you’re done editing, add changed files using git add and then git commit:
 
     ```bash
-    $ git add modified_files
-    $ git commit -m "my first hyperopt commit"
+    git add modified_files
+    git commit -m "my first hyperopt commit"
     ```
 
-### Running tests
 13. The tests for this project use [PyTest](https://docs.pytest.org/en/latest/) and can be run by calling `pytest`.
 
 14. Record your changes in Git, then push the changes to your GitHub account with:
 
-    `$ git push -u origin my_feature`
+    ```bash
+    git push -u origin my_feature
+    ```
 
 Note that dev dependencies require python 3.6+.
-
 
 ## Algorithms
 
@@ -165,11 +163,11 @@ All algorithms can be parallelized in two ways, using:
 
 ## Related Projects
 
-* [hyperopt-sklearn](https://github.com/hyperopt/hyperopt-sklearn)
-* [hyperopt-nnet](https://github.com/hyperopt/hyperopt-nnet)
-* [hyperas](https://github.com/maxpumperla/hyperas)
-* [hyperopt-convent](https://github.com/hyperopt/hyperopt-convnet)
-* [hyperopt-gpsmbo](https://github.com/hyperopt/hyperopt-gpsmbo/blob/master/hp_gpsmbo/hpsuggest.py)
+- [hyperopt-sklearn](https://github.com/hyperopt/hyperopt-sklearn)
+- [hyperopt-nnet](https://github.com/hyperopt/hyperopt-nnet)
+- [hyperas](https://github.com/maxpumperla/hyperas)
+- [hyperopt-convent](https://github.com/hyperopt/hyperopt-convnet)
+- [hyperopt-gpsmbo](https://github.com/hyperopt/hyperopt-gpsmbo/blob/master/hp_gpsmbo/hpsuggest.py)
 
 ## Examples
 
