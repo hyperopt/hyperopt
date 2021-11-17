@@ -1,6 +1,6 @@
 # https://pre-commit.com
 # This GitHub Action assumes that the repo contains a valid .pre-commit-config.yaml file.
-name: pre-commit
+name: pre-commit, build and test
 on: [pull_request, push]
 jobs:
   pre-commit:
@@ -18,3 +18,21 @@ jobs:
       - run: pre-commit --version
       - run: pre-commit install
       - run: pre-commit run --all-files
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+      - name: Test with pytest - Unit tests
+        run: |
+          python -m pytest .
