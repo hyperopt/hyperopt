@@ -524,6 +524,7 @@ class _SparkFMinState:
             try:
                 # pylint: disable=no-name-in-module,import-outside-toplevel
                 from pyspark import inheritable_thread_target
+
                 run_task_thread = inheritable_thread_target(run_task_thread)
             except ImportError:
                 pass
