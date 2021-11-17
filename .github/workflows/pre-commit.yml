@@ -35,4 +35,4 @@ jobs:
           pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
       - name: Test with pytest - Unit tests
         run: |
-          python -m pytest .
+          python -m pytest ./hyperopt/tests/unit
