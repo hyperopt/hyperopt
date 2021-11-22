@@ -411,12 +411,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assert_task_succeeded(log_output, 0)
 
     def test_timeout_without_job_cancellation_fmin_timeout(self):
-        timeout = 4
+        timeout = 5
         spark_trials = SparkTrials(parallelism=1)
         spark_trials._spark_supports_job_cancelling = False
 
         def fn(x):
-            time.sleep(0.5)
+            time.sleep(1)
             return x
 
         with patch_logger("hyperopt-spark", logging.DEBUG) as output:
