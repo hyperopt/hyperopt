@@ -33,6 +33,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'
+          pip install pyspark==3.2.0
       - name: Test with pytest - Unit tests
         run: |
           python -m pytest ./hyperopt/tests/unit
+      - name: Test spark plugin - pin thread mode
+        run: |
+          PYSPARK_PIN_THREAD=true pytest hyperopt/tests/integration/test_spark.py
+      - name: Test spark plugin - non pin thread mode
+        run: |
+          PYSPARK_PIN_THREAD=false pytest hyperopt/tests/integration/test_spark.py
