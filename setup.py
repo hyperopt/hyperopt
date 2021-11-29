@@ -41,7 +41,7 @@ setuptools.setup(
     keywords="Bayesian optimization hyperparameter model selection",
     include_package_data=True,
     install_requires=[
-        "numpy",
+        "numpy>=1.17",
         "scipy",
         "six",
         "networkx>=2.2",
