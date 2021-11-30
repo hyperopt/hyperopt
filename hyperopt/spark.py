@@ -5,7 +5,7 @@ import timeit
 import traceback
 
 from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout, validate_loss_threshold
+from hyperopt.base import validate_timeout, validate_loss_threshold, STATUS_OK
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 from py4j.clientserver import ClientServer
@@ -414,9 +414,22 @@ class _SparkFMinState:
 
     @staticmethod
     def _write_result_back(trial, result):
-        trial["state"] = base.JOB_STATE_DONE
+        trial["state"] = _SparkFMinState._determine_job_state(result)
         trial["result"] = result
         trial["refresh_time"] = coarse_utcnow()
+
+    @staticmethod
+    def _determine_job_state(result):
+        def result_is_only_loss(result):
+            return not isinstance(result, dict)
+
+        if result_is_only_loss(result):
+            return base.JOB_STATE_DONE
+
+        if result["status"] == STATUS_OK:
+            return base.JOB_STATE_DONE
+
+        return base.JOB_STATE_ERROR
 
     def _write_exception_back(self, trial, e):
         trial["state"] = base.JOB_STATE_ERROR

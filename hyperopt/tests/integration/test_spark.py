@@ -11,7 +11,7 @@ import numpy as np
 from pyspark.sql import SparkSession
 from six import StringIO
 
-from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
+from hyperopt import SparkTrials, anneal, base, fmin, hp, rand, STATUS_FAIL, STATUS_OK
 
 from hyperopt.tests.unit.test_fmin import test_quadratic1_tpe
 from py4j.clientserver import ClientServer
@@ -112,6 +112,18 @@ def fn_succeed_within_range(x):
         raise RuntimeError
 
 
+def fn_succeed_withn_range_dict_response(x):
+    """
+    Test function to test the handling failures for `fmin`
+    :param x:
+    :return: {status: "ok", "loss": 1} when -3 < x < 3, and {"status": "fail"} otherwise
+    """
+    if -3 < x < 3:
+        return {"loss": 1, "status": STATUS_OK}
+    else:
+        return {"status": STATUS_FAIL}
+
+
 class FMinTestCase(unittest.TestCase, BaseSparkContext):
     @classmethod
     def setUpClass(cls):
@@ -187,6 +199,16 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             f"trial {task} task thread catches an exception",
             log_output,
             """Debug info "trial {task} task thread catches an exception" missing from log:
+             {log_output}""".format(
+                task=task, log_output=log_output
+            ),
+        )
+
+    def assert_task_failed_gracefully(self, log_output, task):
+        self.assertIn(
+            f"trial task {task} succeeded, result is {{'status': 'fail'}}",
+            log_output,
+            """Debug info "trial {task} task succeeded, result is {{'status': 'fail'}}" missing from log:
              {log_output}""".format(
                 task=task, log_output=log_output
             ),
@@ -355,6 +377,33 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
             self.assertEqual(spark_trials.count_failed_trials(), 1)
             self.assert_task_failed(log_output, 0)
+
+        spark_trials = SparkTrials(parallelism=4)
+        # Here return_argmin is True (by default) and an exception should be thrown
+        with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
+            fmin(
+                fn=fn_succeed_within_range,
+                space=hp.uniform("x", 5, 8),
+                algo=anneal.suggest,
+                max_evals=2,
+                trials=spark_trials,
+            )
+
+    def test_all_failed_gracefully_trials(self):
+        spark_trials = SparkTrials(parallelism=1)
+        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
+            fmin(
+                fn=fn_succeed_withn_range_dict_response,
+                space=hp.uniform("x", 5, 10),
+                algo=anneal.suggest,
+                max_evals=1,
+                trials=spark_trials,
+                return_argmin=False,
+            )
+            log_output = output.getvalue().strip()
+
+            self.assertEqual(spark_trials.count_failed_trials(), 1)
+            self.assert_task_failed_gracefully(log_output, 0)
 
         spark_trials = SparkTrials(parallelism=4)
         # Here return_argmin is True (by default) and an exception should be thrown
