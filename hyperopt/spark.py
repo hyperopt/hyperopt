@@ -5,7 +5,7 @@ import timeit
 import traceback
 
 from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout, validate_loss_threshold
+from hyperopt.base import validate_timeout, validate_loss_threshold, STATUS_OK
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 try:
@@ -52,6 +52,9 @@ class SparkTrials(Trials):
 
     # Hard cap on the number of concurrent hyperopt tasks (Spark jobs) to run. Set at 128.
     MAX_CONCURRENT_JOBS_ALLOWED = 128
+
+    def __str__(self):
+        return f"SparkTrials(trials={self.trials})"
 
     def __init__(
         self, parallelism=None, timeout=None, loss_threshold=None, spark_session=None
@@ -229,7 +232,7 @@ class SparkTrials(Trials):
             not catch_eval_exceptions
         ), "SparkTrials does not support `catch_eval_exceptions`"
 
-        state = _SparkFMinState(self._spark, fn, space, self)
+        state = _SparkFMinState(self._spark, fn, space, self, early_stop_fn=early_stop_fn,)
 
         # Will launch a dispatcher thread which runs each trial task as one spark job.
         state.launch_dispatcher()
@@ -252,7 +255,8 @@ class SparkTrials(Trials):
                 return_argmin=return_argmin,
                 points_to_evaluate=None,  # not supported
                 show_progressbar=show_progressbar,
-                early_stop_fn=early_stop_fn,
+                # do not check early stopping in fmin. SparkTrials early stopping is implemented in run_dispatcher
+                early_stop_fn=None,
                 trials_save_file="",  # not supported
             )
         except BaseException as e:
@@ -282,11 +286,13 @@ class _SparkFMinState:
     Each trial's thread runs 1 Spark job with 1 task.
     """
 
-    def __init__(self, spark, eval_function, space, trials):
+    def __init__(self, spark, eval_function, space, trials, early_stop_fn):
         self.spark = spark
         self.eval_function = eval_function
         self.space = space
         self.trials = trials
+        self.early_stop_fn = early_stop_fn
+        self.early_stop_args = []
         self._fmin_done = False
         self._dispatcher_thread = None
         self._task_threads = set()
@@ -365,6 +371,7 @@ class _SparkFMinState:
 
     def launch_dispatcher(self):
         def run_dispatcher():
+            prev_num_ok_trials = 0  # number of trials that succeeded with STATUS_OK
             start_time = timeit.default_timer()
 
             while not self._fmin_done:
@@ -375,6 +382,33 @@ class _SparkFMinState:
 
                 cur_time = timeit.default_timer()
                 elapsed_time = cur_time - start_time
+
+                # check early stopping condition if it is defined
+                if self.early_stop_fn:
+                    curr_num_ok_trials = 0
+                    for trial in self.trials:
+                        if trial["result"]["status"] == STATUS_OK:
+                            curr_num_ok_trials += 1
+
+                    if curr_num_ok_trials > prev_num_ok_trials:
+                        # check early stopping condition
+                        stop, kwargs = self.early_stop_fn(
+                            self.trials, *self.early_stop_args
+                        )
+                        self.early_stop_args = kwargs
+
+                        if stop:
+                            # same logic as timeouts
+                            self.trials._fmin_cancelled = True
+                            self.trials._fmin_cancelled_reason = (
+                                "early stopping condition"
+                            )
+                            self._cancel_running_trials()
+                            logger.warning(
+                                "fmin cancelled because of "
+                                + self.trials._fmin_cancelled_reason
+                            )
+                        prev_num_ok_trials = curr_num_ok_trials
 
                 # In the future, timeout checking logic could be moved to `fmin`.
                 # For now, timeouts are specific to SparkTrials.
