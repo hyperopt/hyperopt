@@ -15,6 +15,9 @@ setuptools.setup(
     packages=setuptools.find_packages(include=["hyperopt*"]),
     entry_points={"console_scripts": ["hyperopt-mongo-worker=hyperopt.mongoexp:main"]},
     url="https://hyperopt.github.io/hyperopt",
+    project_urls={
+        "Source": "https://github.com/hyperopt/hyperopt",
+    },
     author="James Bergstra",
     author_email="james.bergstra@gmail.com",
     description="Distributed Asynchronous Hyperparameter Optimization",
