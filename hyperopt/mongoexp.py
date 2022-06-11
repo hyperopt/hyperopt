@@ -266,10 +266,12 @@ def connection_with_tunnel(
         # -- give the subprocess time to set up
         time.sleep(0.5)
         connection = pymongo.MongoClient(
-            "127.0.0.1", local_port, document_class=SON, w=1, j=True
+            "127.0.0.1", local_port, document_class=SON, w=1, journal=True
         )
     else:
-        connection = pymongo.MongoClient(host, port, document_class=SON, w=1, j=True)
+        connection = pymongo.MongoClient(
+            host, port, document_class=SON, w=1, journal=True
+        )
         if user:
             if not pw:
                 pw = read_pw()
@@ -281,7 +283,7 @@ def connection_with_tunnel(
 
         ssh_tunnel = None
 
-    # Note that the w=1 and j=True args to MongoClient above should:
+    # Note that the w=1 and journal=True args to MongoClient above should:
     # -- Ensure that changes are written to at least one server.
     # -- Ensure that changes are written to the journal if there is one.
 

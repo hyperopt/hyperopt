@@ -52,7 +52,7 @@ setuptools.setup(
     ],
     extras_require={
         "SparkTrials": "pyspark",
-        "MongoTrials": "pymongo",
+        "MongoTrials": "pymongo>=4.0.0",
         "ATPE": ["lightgbm", "scikit-learn"],
         "dev": ["black", "pre-commit", "nose", "pytest"],
     },
