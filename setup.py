@@ -1,8 +1,6 @@
-import io
 import re
 
 import setuptools
-
 
 with open("hyperopt/__init__.py", encoding="utf8") as f:
     version = re.search(r"__version__ = \"(.*?)\"", f.read()).group(1)
@@ -31,8 +29,9 @@ setuptools.setup(
         "Operating System :: POSIX",
         "Operating System :: Unix",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development",
     ],
@@ -40,6 +39,7 @@ setuptools.setup(
     license="BSD",
     keywords="Bayesian optimization hyperparameter model selection",
     include_package_data=True,
+    requires_python=">=3.7",
     install_requires=[
         "numpy>=1.17",
         "scipy",
