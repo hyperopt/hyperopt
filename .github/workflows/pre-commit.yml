@@ -1,23 +1,11 @@
-# https://pre-commit.com
-# This GitHub Action assumes that the repo contains a valid .pre-commit-config.yaml file.
 name: pre-commit, build and test
 on: [pull_request, push]
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cache/pre-commit
-            ~/.cache/pip
-          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-      - uses: actions/setup-python@v2
-      - run: pip install pre-commit
-      - run: pre-commit --version
-      - run: pre-commit install
-      - run: pre-commit run --all-files
+      - uses: actions/checkout@v3
+      - uses: pre-commit/action@v3.0.0
   build:
     runs-on: ubuntu-latest
     strategy:
