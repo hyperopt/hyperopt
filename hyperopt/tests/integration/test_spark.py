@@ -9,7 +9,7 @@ import unittest
 
 import numpy as np
 from pyspark.sql import SparkSession
-from six import StringIO
+from io import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 
@@ -358,7 +358,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
         spark_trials = SparkTrials(parallelism=4)
         # Here return_argmin is True (by default) and an exception should be thrown
-        with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
+        with self.assertRaisesRegex(Exception, "There are no evaluation tasks"):
             fmin(
                 fn=fn_succeed_within_range,
                 space=hp.uniform("x", 5, 8),
@@ -540,12 +540,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         )
 
     def test_invalid_timeout(self):
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: -1",
         ):
             SparkTrials(parallelism=4, timeout=-1)
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: True",
         ):
@@ -557,7 +557,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         orig_have_spark = hyperopt.spark._have_spark
         hyperopt.spark._have_spark = False
         try:
-            with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
+            with self.assertRaisesRegex(Exception, "cannot import pyspark"):
                 SparkTrials(parallelism=4)
         finally:
             hyperopt.spark._have_spark = orig_have_spark

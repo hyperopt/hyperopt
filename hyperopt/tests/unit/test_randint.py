@@ -7,7 +7,6 @@ import hyperopt.pyll.stochastic
 
 
 def test_basic():
-
     space = hp.randint("a", 5)
     x = np.zeros(5)
     rng = np.random.default_rng(123)
@@ -21,7 +20,6 @@ def test_basic():
 
 
 def test_basic2():
-
     space = hp.randint("a", 5, 15)
     x = np.zeros(15)
     rng = np.random.default_rng(123)

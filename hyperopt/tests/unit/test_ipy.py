@@ -41,7 +41,7 @@ def test0():
         # using debug=True when instantiating the Client.
         import hyperopt
 
-        return {"loss": args ** 2, "status": hyperopt.STATUS_OK}
+        return {"loss": args**2, "status": hyperopt.STATUS_OK}
 
     space = hyperopt.hp.uniform("x", 0, 1)
 
@@ -70,7 +70,7 @@ def test_fmin_fn():
     def simple_objective(args):
         import hyperopt
 
-        return {"loss": args ** 2, "status": hyperopt.STATUS_OK}
+        return {"loss": args**2, "status": hyperopt.STATUS_OK}
 
     space = hyperopt.hp.uniform("x", 0, 1)
 

@@ -12,7 +12,7 @@ def test_run_basic_search():
         if case == "case 1":
             return val
         else:
-            return val ** 2
+            return val**2
 
     # define a search space
     space = hp.choice(

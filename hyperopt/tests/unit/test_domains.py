@@ -170,7 +170,7 @@ def many_dists():
     j = hp.qlognormal("j", 0, 2, 1)
     k = hp.pchoice("k", [(0.1, 0), (0.9, 1)])
     z = a + b + bb + c + d + e + f + g + h + i + j + k
-    return {"loss": scope.float(scope.log(1e-12 + z ** 2)), "status": base.STATUS_OK}
+    return {"loss": scope.float(scope.log(1e-12 + z**2)), "status": base.STATUS_OK}
 
 
 @domain_constructor(loss_target=0.398)
@@ -200,7 +200,7 @@ def branin():
     y = hp.uniform("y", 0.0, 15.0)
     pi = float(np.pi)
     loss = (
-        (y - (old_div(5.1, (4 * pi ** 2))) * x ** 2 + 5 * x / pi - 6) ** 2
+        (y - (old_div(5.1, (4 * pi**2))) * x**2 + 5 * x / pi - 6) ** 2
         + 10 * (1 - old_div(1, (8 * pi))) * scope.cos(x)
         + 10
     )

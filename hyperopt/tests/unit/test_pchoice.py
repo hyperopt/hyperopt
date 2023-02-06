@@ -7,7 +7,6 @@ import hyperopt.pyll.stochastic
 
 class TestPChoice(unittest.TestCase):
     def test_basic(self):
-
         space = hp.pchoice(
             "naive_type",
             [(0.14, "gaussian"), (0.02, "multinomial"), (0.84, "bernoulli")],

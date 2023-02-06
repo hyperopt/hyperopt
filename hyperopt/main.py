@@ -21,7 +21,7 @@ except Exception as e:
         'Failed to load cloudpickle, try installing cloudpickle via "pip install '
         'cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"
