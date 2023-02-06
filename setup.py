@@ -48,10 +48,9 @@ setuptools.setup(
         "future",
         "tqdm",
         "cloudpickle",
-        "py4j",
     ],
     extras_require={
-        "SparkTrials": "pyspark",
+        "SparkTrials": ["pyspark", "py4j"],
         "MongoTrials": "pymongo",
         "ATPE": ["lightgbm", "scikit-learn"],
         "dev": ["black", "pre-commit", "nose", "pytest"],
