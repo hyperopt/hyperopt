@@ -481,7 +481,7 @@ def fmin(
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool or context manager, default True (or False is verbose is False).
+    show_progressbar : bool or context manager, default True (or False if verbose is False).
         Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
     early_stop_fn: callable ((result, *args) -> (Boolean, *args)).
