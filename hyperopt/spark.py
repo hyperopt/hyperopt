@@ -8,9 +8,8 @@ from hyperopt import base, fmin, Trials
 from hyperopt.base import validate_timeout, validate_loss_threshold
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
-from py4j.clientserver import ClientServer
-
 try:
+    from py4j.clientserver import ClientServer
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
     import pyspark
