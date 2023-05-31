@@ -157,7 +157,7 @@ class FMinIter:
         self.rstate = rstate
         self.verbose = verbose
 
-        if self.asynchronous:
+        if self.asynchronous and not hasattr(self.trials, "_spark"):
             if "FMinIter_Domain" in trials.attachments:
                 logger.warning("over-writing old domain trials attachment")
             msg = pickler.dumps(domain)
