@@ -218,7 +218,7 @@ class TestTrials(unittest.TestCase):
         trials.refresh()
 
         best_trial = trials.best_trial
-        self.assertEquals(best_trial["tid"], 3)
+        self.assertEqual(best_trial["tid"], 3)
 
 
 class TestSONify(unittest.TestCase):

@@ -698,7 +698,7 @@ class ATPEOptimizer:
     def recommendNextParameters(
         self, hyperparameterSpace, results, currentTrials, lockedValues=None
     ):
-        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2 ** 32 - 1)))
+        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2**32 - 1)))
 
         params = {"param": {}}
 

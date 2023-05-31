@@ -101,7 +101,7 @@ def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
             print(("Error in sampling frequencies", ii))
             print("value\tpmf\tfreq")
             for jj in sorted(counts):
-                print("{:.2f}\t{:.3f}\t{:.4f}".format(jj, dfn.pmf(jj), counts[jj]))
+                print(f"{jj:.2f}\t{dfn.pmf(jj):.3f}\t{counts[jj]:.4f}")
             npt.assert_(t, "n = %i; pmf = %f; p = %f" % (n, dfn.pmf(ii), p))
 
 

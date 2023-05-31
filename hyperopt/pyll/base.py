@@ -15,7 +15,7 @@ import networkx as nx
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
 import six
-from six import StringIO
+from io import StringIO
 
 standard_library.install_aliases()
 logger = logging.getLogger(__name__)
@@ -579,7 +579,6 @@ class Literal(Apply):
 
 
 class Lambda:
-
     # XXX: Extend Lambda objects to have a list of exception clauses.
     #      If the code of the expr() throws an error, these clauses convert
     #      that error to a return value.
@@ -973,7 +972,7 @@ def log(a):
 
 @scope.define_pure
 def pow(a, b):
-    return a ** b
+    return a**b
 
 
 @scope.define_pure

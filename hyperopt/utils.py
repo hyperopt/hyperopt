@@ -41,7 +41,7 @@ except Exception as e:
     logger.info(
         'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 
 def import_tokens(tokens):
@@ -201,7 +201,7 @@ def coarse_utcnow():
     # http://api.mongodb.org/python/current/api/bson/son.html#dt
     """
     now = datetime.datetime.utcnow()
-    microsec = (now.microsecond // 10 ** 3) * (10 ** 3)
+    microsec = (now.microsecond // 10**3) * (10**3)
     return datetime.datetime(
         now.year, now.month, now.day, now.hour, now.minute, now.second, microsec
     )

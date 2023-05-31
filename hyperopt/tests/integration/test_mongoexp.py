@@ -1,4 +1,4 @@
-import six.moves.cPickle as pickle
+import pickle as pickle
 import os
 import signal
 import subprocess
@@ -396,7 +396,7 @@ def objective_with_attachments(x: float):
     """Objective function that includes extra information as attachments and
     dictionary attributes."""
     return {
-        "loss": x ** 2,
+        "loss": x**2,
         "status": STATUS_OK,
         "extra_stuff": {"type": None, "value": [0, 1, 2]},
         "attachments": {"time": pickle.dumps(time.time)},
@@ -416,7 +416,6 @@ def fmin_thread_fn(space, mongo_trials: MongoTrials, max_evals: int):
 
 
 def test_trial_attachments():
-
     exp_key = "A"
     with TempMongo() as tm:
         mj = tm.mongo_jobs("foo")

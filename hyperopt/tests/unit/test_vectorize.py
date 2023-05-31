@@ -72,7 +72,7 @@ def test_vectorize_simple():
     N = as_apply(15)
 
     p0 = hp_uniform("p0", 0, 1)
-    loss = p0 ** 2
+    loss = p0**2
     print(loss)
     expr_idxs = scope.range(N)
     vh = VectorizeHelper(loss, expr_idxs, build=True)
