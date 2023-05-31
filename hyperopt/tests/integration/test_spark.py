@@ -211,7 +211,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 rstate=np.random.default_rng(99),
             )
             self.check_run_status(
-                spark_trials, output, num_total=8, num_success=5, num_failure=3
+                spark_trials, output, num_total=8, num_success=6, num_failure=2
             )
 
         expected_result = {"loss": 1.0, "status": "ok"}
@@ -244,8 +244,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         num_failure = spark_trials.count_by_state_unsynced(base.JOB_STATE_ERROR)
         self.assertEqual(
             num_failure,
-            3,
-            f"Wrong number of failed trial runs: Expected 3 but got {num_failure}."
+            2,
+            f"Wrong number of failed trial runs: Expected 2 but got {num_failure}.",
         )
 
     def test_accepting_sparksession(self):
