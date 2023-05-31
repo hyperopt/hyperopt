@@ -1271,8 +1271,6 @@ class ATPEOptimizer:
         percentile75Loss = 0
         statistics = {}
 
-        numpy.warnings.filterwarnings("ignore")
-
         if len(set(losses)) > 1:
             bestLoss = numpy.percentile(losses, 0)
             percentile5Loss = numpy.percentile(losses, 5)
