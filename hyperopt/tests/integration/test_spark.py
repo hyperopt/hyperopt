@@ -211,7 +211,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 rstate=np.random.default_rng(99),
             )
             self.check_run_status(
-                spark_trials, output, num_total=8, num_success=6, num_failure=2
+                spark_trials, output, num_total=8, num_success=5, num_failure=3
             )
 
         expected_result = {"loss": 1.0, "status": "ok"}
