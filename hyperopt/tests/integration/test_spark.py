@@ -109,7 +109,7 @@ def fn_succeed_within_range(x):
     if -3 < x < 3:
         return 1
     else:
-        raise RuntimeError
+        raise RuntimeError(f"{x} is out of range")
 
 
 class FMinTestCase(unittest.TestCase, BaseSparkContext):
@@ -208,10 +208,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_evals=8,
                 return_argmin=False,
                 trials=spark_trials,
-                rstate=np.random.default_rng(99),
+                rstate=np.random.default_rng(90),
             )
             self.check_run_status(
-                spark_trials, output, num_total=8, num_success=6, num_failure=2
+                spark_trials, output, num_total=8, num_success=5, num_failure=3
             )
 
         expected_result = {"loss": 1.0, "status": "ok"}
@@ -244,8 +244,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         num_failure = spark_trials.count_by_state_unsynced(base.JOB_STATE_ERROR)
         self.assertEqual(
             num_failure,
-            2,
-            f"Wrong number of failed trial runs: Expected 2 but got {num_failure}.",
+            3,
+            f"Wrong number of failed trial runs: Expected 3 but got {num_failure}.",
         )
 
     def test_accepting_sparksession(self):
