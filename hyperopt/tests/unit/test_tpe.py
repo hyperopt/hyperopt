@@ -116,7 +116,7 @@ class TestGMM1(unittest.TestCase):
         # x  # weights  # mu  # sigma
         llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])
         assert llval.shape == ()
-        assert np.allclose(llval, np.log(old_div(1.0, np.sqrt(2 * np.pi * 2.0 ** 2))))
+        assert np.allclose(llval, np.log(old_div(1.0, np.sqrt(2 * np.pi * 2.0**2))))
 
     def test_lpdf_scalar_N_components(self):
         llval = GMM1_lpdf(
@@ -127,11 +127,11 @@ class TestGMM1(unittest.TestCase):
         )
         print(llval)
 
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0**2))
         a += (
             0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
+            / np.sqrt(2 * np.pi * 5.0**2)
             * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
         )
 
@@ -144,11 +144,11 @@ class TestGMM1(unittest.TestCase):
         )
 
         # case x = 1.0
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0**2))
         a += (
             0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
+            / np.sqrt(2 * np.pi * 5.0**2)
             * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
         )
 
@@ -156,15 +156,15 @@ class TestGMM1(unittest.TestCase):
         assert np.allclose(llval[0], np.log(a))
 
         # case x = 0.0
-        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0 ** 2))
+        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0**2))
         a += (
             0.25
-            / np.sqrt(2 * np.pi * 2.0 ** 2)
+            / np.sqrt(2 * np.pi * 2.0**2)
             * np.exp(-0.5 * (old_div(1.0, 2.0)) ** 2)
         )
         a += (
             0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
+            / np.sqrt(2 * np.pi * 5.0**2)
             * np.exp(-0.5 * (old_div(2.0, 5.0)) ** 2)
         )
         assert np.allclose(llval[1], np.log(a))
@@ -179,11 +179,11 @@ class TestGMM1(unittest.TestCase):
         print(llval)
         assert llval.shape == (3, 3)
 
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0**2))
         a += (
             0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
+            / np.sqrt(2 * np.pi * 5.0**2)
             * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
         )
 
@@ -191,15 +191,15 @@ class TestGMM1(unittest.TestCase):
         assert np.allclose(llval[1, 2], np.log(a))
 
         # case x = 0.0
-        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0 ** 2))
+        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0**2))
         a += (
             0.25
-            / np.sqrt(2 * np.pi * 2.0 ** 2)
+            / np.sqrt(2 * np.pi * 2.0**2)
             * np.exp(-0.5 * (old_div(1.0, 2.0)) ** 2)
         )
         a += (
             0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
+            / np.sqrt(2 * np.pi * 5.0**2)
             * np.exp(-0.5 * (old_div(2.0, 5.0)) ** 2)
         )
 
@@ -605,7 +605,6 @@ class TestOpt(unittest.TestCase, CasePerDomain):
         np.seterr(**self.olderr)
 
     def work(self):
-
         bandit = self.bandit
         assert bandit.name is not None
         algo = partial(
@@ -673,7 +672,6 @@ def opt_q_uniform(target):
 
 
 class TestOptQUniform:
-
     show_steps = False
     show_vars = DO_SHOW
     LEN = 25

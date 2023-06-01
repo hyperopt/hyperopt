@@ -9,7 +9,7 @@ import unittest
 
 import numpy as np
 from pyspark.sql import SparkSession
-from six import StringIO
+from io import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 
@@ -220,9 +220,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     trial["result"],
                     expected_result,
-                    "Wrong result has been saved: Expected {e} but got {r}.".format(
-                        e=expected_result, r=trial["result"]
-                    ),
+                    f"Wrong result has been saved: Expected {expected_result} but got {trial['result']}.",
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
                 err_message = trial["misc"]["error"][1]
@@ -241,17 +239,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(
             num_success,
             6,
-            "Wrong number of successful trial runs: Expected {e} but got {r}.".format(
-                e=6, r=num_success
-            ),
+            f"Wrong number of successful trial runs: Expected {6} but got {num_success}.",
         )
         num_failure = spark_trials.count_by_state_unsynced(base.JOB_STATE_ERROR)
         self.assertEqual(
             num_failure,
             2,
-            "Wrong number of failed trial runs: Expected {e} but got {r}.".format(
-                e=2, r=num_failure
-            ),
+            f"Wrong number of failed trial runs: Expected 2 but got {num_failure}.",
         )
 
     def test_accepting_sparksession(self):
@@ -358,7 +352,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
         spark_trials = SparkTrials(parallelism=4)
         # Here return_argmin is True (by default) and an exception should be thrown
-        with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
+        with self.assertRaisesRegex(Exception, "There are no evaluation tasks"):
             fmin(
                 fn=fn_succeed_within_range,
                 space=hp.uniform("x", 5, 8),
@@ -540,12 +534,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         )
 
     def test_invalid_timeout(self):
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: -1",
         ):
             SparkTrials(parallelism=4, timeout=-1)
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: True",
         ):
@@ -557,7 +551,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         orig_have_spark = hyperopt.spark._have_spark
         hyperopt.spark._have_spark = False
         try:
-            with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
+            with self.assertRaisesRegex(Exception, "cannot import pyspark"):
                 SparkTrials(parallelism=4)
         finally:
             hyperopt.spark._have_spark = orig_have_spark

@@ -27,7 +27,6 @@ def suggest(new_ids, domain, trials, seed):
 
 
 def suggest_batch(new_ids, domain, trials, seed):
-
     rng = np.random.default_rng(seed)
     # -- sample new specs, idxs, vals
     idxs, vals = pyll.rec_eval(

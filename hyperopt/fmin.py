@@ -28,7 +28,7 @@ except Exception as e:
         'Failed to load cloudpickle, try installing cloudpickle via "pip install '
         'cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 
 def generate_trial(tid, space):
@@ -252,7 +252,6 @@ class FMinIter:
         with self.progress_callback(
             initial=initial_n_done, total=self.max_evals
         ) as progress_ctx:
-
             all_trials_complete = False
             best_loss = float("inf")
             while (
@@ -276,7 +275,7 @@ class FMinIter:
                     # `new_trials`. This is the core of `run`, all the rest is just
                     # processes orchestration
                     new_trials = algo(
-                        new_ids, self.domain, trials, self.rstate.integers(2 ** 31 - 1)
+                        new_ids, self.domain, trials, self.rstate.integers(2**31 - 1)
                     )
                     assert len(new_ids) >= len(new_trials)
 
@@ -481,7 +480,7 @@ def fmin(
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool or context manager, default True (or False is verbose is False).
+    show_progressbar : bool or context manager, default True (or False if verbose is False).
         Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
     early_stop_fn: callable ((result, *args) -> (Boolean, *args)).

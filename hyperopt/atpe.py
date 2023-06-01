@@ -698,7 +698,7 @@ class ATPEOptimizer:
     def recommendNextParameters(
         self, hyperparameterSpace, results, currentTrials, lockedValues=None
     ):
-        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2 ** 32 - 1)))
+        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2**32 - 1)))
 
         params = {"param": {}}
 
@@ -1255,7 +1255,8 @@ class ATPEOptimizer:
         elif parameter.config.get("mode", "uniform") == "randint":
             min = parameter.config["min"]
             max = parameter.config["max"]
-            value = random.randint(min, max)
+            # `max` should be reduced by one, as native randint includes `max`, while numpy randint excludes it
+            value = random.randint(min, max - 1)
 
         return value
 
@@ -1270,8 +1271,6 @@ class ATPEOptimizer:
         percentile50Loss = 0
         percentile75Loss = 0
         statistics = {}
-
-        numpy.warnings.filterwarnings("ignore")
 
         if len(set(losses)) > 1:
             bestLoss = numpy.percentile(losses, 0)

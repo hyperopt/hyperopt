@@ -146,7 +146,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         dist = samples[:, None] - mus
         mahal = (old_div(dist, np.maximum(sigmas, EPS))) ** 2
         # mahal shape is (n_samples, n_components)
-        Z = np.sqrt(2 * np.pi * sigmas ** 2)
+        Z = np.sqrt(2 * np.pi * sigmas**2)
         coef = weights / Z / p_accept
         rval = logsum_rows(-0.5 * mahal + np.log(coef))
     else:
@@ -413,7 +413,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=DEFAULT_
             srtd_mus = np.asarray([mus[0], prior_mu])
             sigma = np.asarray([prior_sigma * 0.5, prior_sigma])
     elif len(mus) >= 2:
-
         # create new_mus, which is sorted, and in which
         # the prior has been inserted
         order = np.argsort(mus)
@@ -867,7 +866,6 @@ def suggest(
     best_docs = dict()
     best_docs_loss = dict()
     for doc in trials.trials:
-
         # get either these docs own tid or the one that it's from
         tid = doc["misc"].get("from_tid", doc["tid"])
 

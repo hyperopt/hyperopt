@@ -22,7 +22,7 @@ def no_progress_loss(iteration_stop_count=20, percent_increase=0.0):
         if best_loss is None:
             return False, [new_loss, iteration_no_progress + 1]
         best_loss_threshold = best_loss - abs(best_loss * (percent_increase / 100.0))
-        if new_loss < best_loss_threshold:
+        if new_loss is None or new_loss < best_loss_threshold:
             best_loss = new_loss
             iteration_no_progress = 0
         else:

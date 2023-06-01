@@ -260,7 +260,6 @@ def test_partial():
 
 
 def test_callpipe():
-
     # -- set up some 1-variable functions
     a2 = scope.partial("add", 2)
     a3 = scope.partial("add", 3)
