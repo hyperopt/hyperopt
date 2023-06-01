@@ -1,4 +1,4 @@
-"""Test scikit-learn integration."""
+"""Test scikit-learn integration"""
 
 import pytest
 from sklearn.linear_model import Ridge, RidgeClassifier
