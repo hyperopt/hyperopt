@@ -269,12 +269,7 @@ class SparkTrials(Trials):
             state.wait_for_all_threads()
 
             logger.info(
-                "Total Trials: {t}: {s} succeeded, {f} failed, {c} cancelled.".format(
-                    t=self.count_total_trials(),
-                    s=self.count_successful_trials(),
-                    f=self.count_failed_trials(),
-                    c=self.count_cancelled_trials(),
-                )
+                f"Total Trials: {self.count_total_trials()}: {self.count_successful_trials()} succeeded, {self.count_failed_trials()} failed, {self.count_cancelled_trials()} cancelled."
             )
 
 
