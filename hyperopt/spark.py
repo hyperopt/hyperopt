@@ -232,7 +232,13 @@ class SparkTrials(Trials):
             not catch_eval_exceptions
         ), "SparkTrials does not support `catch_eval_exceptions`"
 
-        state = _SparkFMinState(self._spark, fn, space, self, early_stop_fn=early_stop_fn,)
+        state = _SparkFMinState(
+             self._spark,
+             fn,
+             space,
+             self,
+             early_stop_fn=early_stop_fn,
+         )
 
         # Will launch a dispatcher thread which runs each trial task as one spark job.
         state.launch_dispatcher()
