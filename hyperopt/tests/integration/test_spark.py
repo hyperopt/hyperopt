@@ -220,9 +220,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     trial["result"],
                     expected_result,
-                    "Wrong result has been saved: Expected {e} but got {r}.".format(
-                        e=expected_result, r=trial["result"]
-                    ),
+                    f"Wrong result has been saved: Expected {expected_result} but got {trial['result']}.",
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
                 err_message = trial["misc"]["error"][1]
@@ -241,17 +239,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(
             num_success,
             6,
-            "Wrong number of successful trial runs: Expected {e} but got {r}.".format(
-                e=6, r=num_success
-            ),
+            f"Wrong number of successful trial runs: Expected {6} but got {num_success}.",
         )
         num_failure = spark_trials.count_by_state_unsynced(base.JOB_STATE_ERROR)
         self.assertEqual(
             num_failure,
             2,
-            "Wrong number of failed trial runs: Expected {e} but got {r}.".format(
-                e=2, r=num_failure
-            ),
+            f"Wrong number of failed trial runs: Expected 2 but got {num_failure}.",
         )
 
     def test_accepting_sparksession(self):
