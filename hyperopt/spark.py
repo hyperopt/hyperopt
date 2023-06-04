@@ -5,7 +5,7 @@ import timeit
 import traceback
 
 from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout, validate_loss_threshold, STATUS_OK
+from hyperopt.base import STATUS_OK, validate_loss_threshold, validate_timeout
 from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
 
 from py4j.clientserver import ClientServer
