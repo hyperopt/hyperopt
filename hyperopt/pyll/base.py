@@ -532,7 +532,9 @@ class Literal(Apply):
     def __init__(self, obj=None):
         try:
             o_len = len(obj)
-        except TypeError:
+        except (AttributeError, TypeError):
+            # Note: AttributeError is raised on sklearn's
+            #       RandomForestClassifier when used before fit
             o_len = None
         Apply.__init__(self, "literal", [], {}, o_len, pure=True)
         self._obj = obj
