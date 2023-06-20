@@ -1,8 +1,0 @@
-name: lint
-on: [pull_request, push]
-jobs:
-  pre-commit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pre-commit/action@v3.0.0

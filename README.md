@@ -5,7 +5,10 @@
 <img src="https://i.postimg.cc/TPmffWrp/hyperopt-new.png" />
 </p>
 
-[![Build Status](https://travis-ci.org/hyperopt/hyperopt.svg?branch=master)](https://travis-ci.org/hyperopt/hyperopt)  [![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)  [![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
+[![build](https://github.com/hyperopt/hyperopt/actions/workflows/build.yml/badge.svg)](https://github.com/hyperopt/hyperopt/actions/workflows/build.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/hyperopt/hyperopt/master.svg)](https://results.pre-commit.ci/latest/github/hyperopt/hyperopt/master)
+[![PyPI version](https://badge.fury.io/py/hyperopt.svg)](https://badge.fury.io/py/hyperopt)
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/hyperopt/badges/version.svg)](https://anaconda.org/conda-forge/hyperopt)
 
 [Hyperopt](https://github.com/hyperopt/hyperopt) is a Python library for serial and parallel optimization over awkward
 search spaces, which may include real-valued, discrete, and conditional
