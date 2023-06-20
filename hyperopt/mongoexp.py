@@ -129,7 +129,6 @@ from .utils import fast_isin
 from .utils import get_most_recent_inds
 from .utils import json_call
 from .utils import working_dir, temp_dir
-import six
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"

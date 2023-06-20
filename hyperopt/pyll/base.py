@@ -14,7 +14,6 @@ import networkx as nx
 
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
-import six
 from io import StringIO
 
 standard_library.install_aliases()

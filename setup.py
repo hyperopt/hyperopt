@@ -46,7 +46,6 @@ setuptools.setup(
     install_requires=[
         "numpy>=1.17",
         "scipy",
-        "six",
         "networkx>=2.2",
         "future",
         "tqdm",
