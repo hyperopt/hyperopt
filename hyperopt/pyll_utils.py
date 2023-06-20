@@ -1,4 +1,3 @@
-from past.builtins import basestring
 from functools import partial, wraps
 from .base import DuplicateLabel
 from .pyll.base import Apply, Literal, MissingArgument
@@ -9,9 +8,9 @@ from .pyll import as_apply
 def validate_label(f):
     @wraps(f)
     def wrapper(label, *args, **kwargs):
-        is_real_string = isinstance(label, basestring)
+        is_real_string = isinstance(label, (str, bytes))
         is_literal_string = isinstance(label, Literal) and isinstance(
-            label.obj, basestring
+            label.obj, (str, bytes)
         )
         if not is_real_string and not is_literal_string:
             raise TypeError("require string label")

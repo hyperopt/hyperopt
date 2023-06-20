@@ -1,4 +1,3 @@
-from past.utils import old_div
 import unittest
 
 import numpy as np
@@ -106,7 +105,7 @@ def distractor():
 
     x = hp.uniform("x", -15, 15)
     # climbs rightward from 0.0 to 1.0
-    f1 = old_div(1.0, (1.0 + scope.exp(-x)))
+    f1 = 1 / (1.0 + scope.exp(-x))
     f2 = 2 * scope.exp(-((x + 10) ** 2))  # bump with height 2 at (x=-10)
     return {"loss": -f1 - f2, "status": base.STATUS_OK}
 
@@ -127,7 +126,7 @@ def gauss_wave():
     x = hp.uniform("x", -20, 20)
     t = hp.choice("curve", [x, x + np.pi])
     f1 = scope.sin(t)
-    f2 = 2 * scope.exp(-((old_div(t, 5.0)) ** 2))
+    f2 = 2 * scope.exp(-((t / 5) ** 2))
     return {"loss": -(f1 + f2), "status": base.STATUS_OK}
 
 
@@ -147,7 +146,7 @@ def gauss_wave2():
     var = 0.1
     x = hp.uniform("x", -20, 20)
     amp = hp.uniform("amp", 0, 1)
-    t = scope.normal(0, var, rng=rng) + 2 * scope.exp(-((old_div(x, 5.0)) ** 2))
+    t = scope.normal(0, var, rng=rng) + 2 * scope.exp(-((x / 5) ** 2))
     return {
         "loss": -hp.choice("hf", [t, t + scope.sin(x) * amp]),
         "loss_variance": var,
@@ -200,8 +199,8 @@ def branin():
     y = hp.uniform("y", 0.0, 15.0)
     pi = float(np.pi)
     loss = (
-        (y - (old_div(5.1, (4 * pi**2))) * x**2 + 5 * x / pi - 6) ** 2
-        + 10 * (1 - old_div(1, (8 * pi))) * scope.cos(x)
+        (y - (5.1 / (4 * pi**2)) * x**2 + 5 * x / pi - 6) ** 2
+        + 10 * (1 - 1 / (8 * pi)) * scope.cos(x)
         + 10
     )
     return {"loss": loss, "loss_variance": 0, "status": base.STATUS_OK}

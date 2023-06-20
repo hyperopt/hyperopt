@@ -22,7 +22,6 @@ The design is that there are three components fitting together in this project:
 """
 
 import numbers
-from past.builtins import basestring
 import logging
 import datetime
 import sys
@@ -139,7 +138,7 @@ def SONify(arg, memo=None):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
             rval = {SONify(k, memo): SONify(v, memo) for k, v in list(arg.items())}
-        elif isinstance(arg, (basestring, float, int, type(None))):
+        elif isinstance(arg, (str, bytes, float, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:

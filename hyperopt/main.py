@@ -3,14 +3,12 @@
 """
 Entry point for bin/* scripts
 """
-from future import standard_library
 import logging
 import os
 from . import utils
 from .base import SerialExperiment
 import sys
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 

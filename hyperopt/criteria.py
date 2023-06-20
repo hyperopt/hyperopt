@@ -1,6 +1,5 @@
 """Criteria for Bayesian optimization
 """
-from past.utils import old_div
 import numpy as np
 import scipy.stats
 
@@ -28,7 +27,7 @@ def EI_gaussian(mean, var, thresh):
     (estimated analytically)
     """
     sigma = np.sqrt(var)
-    score = old_div((mean - thresh), sigma)
+    score = (mean - thresh) / sigma
     n = scipy.stats.norm
     return sigma * (score * n.cdf(score) + n.pdf(score))
 
@@ -42,7 +41,7 @@ def logEI_gaussian(mean, var, thresh):
     """
     assert np.asarray(var).min() >= 0
     sigma = np.sqrt(var)
-    score = old_div((mean - thresh), sigma)
+    score = (mean - thresh) / sigma
     n = scipy.stats.norm
     try:
         float(mean)

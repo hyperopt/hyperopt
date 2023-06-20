@@ -89,7 +89,6 @@ bandit.evaluate function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
-from future import standard_library
 import copy
 
 # import hashlib
@@ -134,7 +133,6 @@ __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 try:

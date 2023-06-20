@@ -1,6 +1,3 @@
-from future import standard_library
-from past.builtins import basestring
-from past.utils import old_div
 import datetime
 import numpy as np
 import logging
@@ -11,8 +8,6 @@ import uuid
 import numpy
 from . import pyll
 from contextlib import contextmanager
-
-standard_library.install_aliases()
 
 
 def _get_random_id():
@@ -90,7 +85,7 @@ def json_call(json, args=(), kwargs=None):
     """
     if kwargs is None:
         kwargs = {}
-    if isinstance(json, basestring):
+    if isinstance(json, (str, bytes)):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)
     elif isinstance(json, dict):
@@ -135,7 +130,7 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape
-    return old_div(wincounts.astype("float64"), wincounts.sum())
+    return wincounts.astype("float64") / wincounts.sum()
 
 
 def fast_isin(X, Y):

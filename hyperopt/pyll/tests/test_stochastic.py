@@ -1,4 +1,3 @@
-from past.utils import old_div
 import numpy as np
 from hyperopt.pyll import scope, as_apply, rec_eval
 from hyperopt.pyll.stochastic import recursive_set_rng_kwarg, sample
@@ -30,9 +29,7 @@ def test_lnorm():
                 "outker_shape": (inker_size, inker_size),
                 "remove_mean": choice([0, 1]),
                 "stretch": uniform(low=0, high=10),
-                "threshold": uniform(
-                    low=old_div(0.1, np.sqrt(10.0)), high=10 * np.sqrt(10)
-                ),
+                "threshold": uniform(low=0.1 / np.sqrt(10.0), high=10 * np.sqrt(10)),
             }
         }
     )
