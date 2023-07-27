@@ -1,4 +1,5 @@
 import copy
+import os
 import threading
 import time
 import timeit
@@ -21,6 +22,10 @@ except ImportError as e:
     _spark_major_minor_version = None
 
 logger = _get_logger("hyperopt-spark")
+
+FMIN_CANCELLED_REASON_EARLY_STOPPING = "early stopping condition"
+FMIN_CANCELLED_REASON_TIMEOUT = "fmin run timeout"
+FMIN_CANCELLED_REASON_USER = "fmin run cancelled by user"
 
 
 class SparkTrials(Trials):
@@ -57,7 +62,12 @@ class SparkTrials(Trials):
         return f"SparkTrials(trials={self.trials})"
 
     def __init__(
-        self, parallelism=None, timeout=None, loss_threshold=None, spark_session=None
+        self,
+        parallelism=None,
+        timeout=None,
+        loss_threshold=None,
+        spark_session=None,
+        resource_profile=None,
     ):
         """
         :param parallelism: Maximum number of parallel trials to run,
@@ -75,6 +85,8 @@ class SparkTrials(Trials):
                               to use an existing SparkSession or create a new one. SparkSession is
                               the entry point for various facilities provided by Spark. For more
                               information, visit the documentation for PySpark.
+        :param resource_profile: A ResourceProfile object. If not None, SparkTrials will use resources
+                                 specified by the profile in Spark training tasks.
         """
         super().__init__(exp_key=None, refresh=False)
         if not _have_spark:
@@ -103,6 +115,20 @@ class SparkTrials(Trials):
             requested_parallelism=parallelism,
             spark_default_parallelism=spark_default_parallelism,
         )
+        self.user_specified_parallelism = parallelism
+
+        self._spark_supports_resource_profile = hasattr(
+            self._spark_context.parallelize([1]), "withResources"
+        ) and not self._spark.conf.get("spark.master", "").startswith("local")
+        if self._spark_supports_resource_profile:
+            self._resource_profile = resource_profile
+        else:
+            self._resource_profile = None
+            if resource_profile is not None:
+                logger.warning(
+                    "SparkTrials was constructed with a ResourceProfile, but this Apache "
+                    "Spark version does not support stage-level scheduling."
+                )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
             logger.warning(
@@ -147,6 +173,10 @@ class SparkTrials(Trials):
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
         return parallelism
+
+    @property
+    def fmin_cancelled_reason(self):
+        return self._fmin_cancelled_reason
 
     def count_successful_trials(self):
         """
@@ -233,12 +263,13 @@ class SparkTrials(Trials):
         ), "SparkTrials does not support `catch_eval_exceptions`"
 
         state = _SparkFMinState(
-             self._spark,
-             fn,
-             space,
-             self,
-             early_stop_fn=early_stop_fn,
-         )
+            self._spark,
+            self._resource_profile,
+            fn,
+            space,
+            self,
+            early_stop_fn=early_stop_fn,
+        )
 
         # Will launch a dispatcher thread which runs each trial task as one spark job.
         state.launch_dispatcher()
@@ -265,6 +296,11 @@ class SparkTrials(Trials):
                 early_stop_fn=None,
                 trials_save_file="",  # not supported
             )
+        except KeyboardInterrupt as e:
+            self._fmin_cancelled = True
+            self._fmin_cancelled_reason = FMIN_CANCELLED_REASON_USER
+            logger.debug("fmin thread terminated by user.")
+            raise e
         except BaseException as e:
             logger.debug("fmin thread exits with an exception raised.")
             raise e
@@ -287,8 +323,17 @@ class _SparkFMinState:
     Each trial's thread runs 1 Spark job with 1 task.
     """
 
-    def __init__(self, spark, eval_function, space, trials, early_stop_fn):
+    def __init__(
+            self,
+            spark,
+            resource_profile,
+            eval_function,
+            space,
+            trials,
+            early_stop_fn,
+    ):
         self.spark = spark
+        self.resource_profile = resource_profile
         self.eval_function = eval_function
         self.space = space
         self.trials = trials
@@ -493,6 +538,8 @@ class _SparkFMinState:
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
+                import traceback
+
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
@@ -512,6 +559,8 @@ class _SparkFMinState:
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
+                if self.resource_profile:
+                    worker_rdd = worker_rdd.withResources(self.resource_profile)
                 if self.trials._spark_supports_job_cancelling:
                     if self.trials._spark_pinned_threads_enabled:
                         spark_context = self.spark.sparkContext
@@ -535,9 +584,7 @@ class _SparkFMinState:
                             self._job_group_id,
                             self._job_desc,
                             self._job_interrupt_on_cancel,
-                        )[
-                            0
-                        ]
+                        )[0]
                 else:
                     result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
