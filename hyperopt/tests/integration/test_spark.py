@@ -12,6 +12,7 @@ from pyspark.sql import SparkSession
 from io import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
+from hyperopt.base import STATUS_OK
 
 from hyperopt.tests.unit.test_fmin import test_quadratic1_tpe
 from py4j.clientserver import ClientServer
@@ -616,3 +617,40 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             trials=spark_trials,
         )
         self.assertEqual(spark_trials.count_successful_trials(), 5)
+
+    def test_early_stop(self):
+        # stop after at least 3 trials succeed
+        def early_stop_fn(trials):
+            num_ok_trials = 0
+            for trial in trials:
+                if trial["result"]["status"] == STATUS_OK:
+                    num_ok_trials += 1
+            return num_ok_trials >= 3, []
+
+        spark_trials = SparkTrials(parallelism=2)
+        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
+            fmin(
+                fn=lambda x: {"loss": x, "status": STATUS_OK, "other_info": "hello"},
+                space=hp.uniform("x", -1, 1),
+                algo=rand.suggest,
+                max_evals=10,
+                trials=spark_trials,
+                early_stop_fn=early_stop_fn,
+            )
+            log_output = output.getvalue().strip()
+
+            num_successful_trials = spark_trials.count_successful_trials()
+            self.assertGreaterEqual(num_successful_trials, 3)
+            self.assertLess(num_successful_trials, 10)
+
+            self.assertIn(
+                "fmin thread exits normally",
+                log_output,
+                f'Debug info "fmin thread exits normally" missing from log: {log_output}',
+            )
+
+            self.assertIn(
+                "fmin cancelled because of early stopping condition",
+                log_output,
+                f"Debug info for early stopping missing from log: {log_output}",
+            )
