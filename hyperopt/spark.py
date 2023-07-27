@@ -324,13 +324,13 @@ class _SparkFMinState:
     """
 
     def __init__(
-            self,
-            spark,
-            resource_profile,
-            eval_function,
-            space,
-            trials,
-            early_stop_fn,
+        self,
+        spark,
+        resource_profile,
+        eval_function,
+        space,
+        trials,
+        early_stop_fn,
     ):
         self.spark = spark
         self.resource_profile = resource_profile
@@ -584,7 +584,9 @@ class _SparkFMinState:
                             self._job_group_id,
                             self._job_desc,
                             self._job_interrupt_on_cancel,
-                        )[0]
+                        )[
+                            0
+                        ]
                 else:
                     result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
