@@ -1,58 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/getting-started/overview/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/interfacing-languages/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/getting-started/minimizing_functions/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/related-work/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/getting-started/search_spaces/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/scipy_submission/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/setup/installation-notes/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/getting-started/minimizing_functions/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/setup/running-tests/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/getting-started/overview/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/scaleout/mongodb/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/getting-started/search_spaces/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/scaleout/spark/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/scaleout/mongodb/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/interfacing-languages/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/scaleout/spark/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/related-work/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/setup/installation-notes/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>http://hyperopt.github.io/hyperopt/scipy_submission/</loc>
-     <lastmod>2019-10-18</lastmod>
-     <changefreq>daily</changefreq>
+         <loc>http://hyperopt.github.io/hyperopt/setup/running-tests/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://hyperopt.github.io/hyperopt/tutorials/01.BasicTutorial/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://hyperopt.github.io/hyperopt/tutorials/02.MultipleParameterTutorial/</loc>
+         <lastmod>2023-08-08</lastmod>
+         <changefreq>daily</changefreq>
     </url>
 </urlset>

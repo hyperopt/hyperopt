@@ -9,128 +9,125 @@
         <link rel="canonical" href="http://hyperopt.github.io/hyperopt/">
         <link rel="shortcut icon" href="img/favicon.ico">
         <title>Hyperopt Documentation</title>
-        <link href="css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="css/bootstrap.min.css" rel="stylesheet">
         <link href="css/font-awesome.min.css" rel="stylesheet">
         <link href="css/base.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
-        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-        <!--[if lt IE 9]>
-            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-            <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-        <![endif]-->
-
-        <script src="js/jquery-1.10.2.min.js" defer></script>
-        <script src="js/bootstrap-3.0.3.min.js" defer></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/python.min.js"></script>
-        <script>hljs.initHighlightingOnLoad();</script> 
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script>hljs.highlightAll();</script> 
     </head>
 
     <body class="homepage">
-
-        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-
-                <!-- Collapsed navigation -->
-                <div class="navbar-header">
-                    <!-- Expander button -->
-                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand" href=".">Hyperopt Documentation</a>
-                </div>
+                <a class="navbar-brand" href=".">Hyperopt Documentation</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
                 <!-- Expanded navigation -->
-                <div class="navbar-collapse collapse">
+                <div id="navbar-collapse" class="navbar-collapse collapse">
                         <!-- Main navigation -->
                         <ul class="nav navbar-nav">
-                            <li class="active">
-                                <a href=".">Home</a>
+                            <li class="navitem active">
+                                <a href="." class="nav-link">Home</a>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="getting-started/overview/">Getting started with Hyperopt</a>
+<li>
+    <a href="tutorials/01.BasicTutorial/" class="dropdown-item">01. Basic Tutorial</a>
 </li>
                                     
-<li >
-    <a href="getting-started/minimizing_functions/">Minimizing functions</a>
-</li>
-                                    
-<li >
-    <a href="getting-started/search_spaces/">Defining search spaces</a>
+<li>
+    <a href="tutorials/02.MultipleParameterTutorial/" class="dropdown-item">02. Multiple Parameter Tutorial</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="setup/installation-notes/">Installation notes</a>
+<li>
+    <a href="getting-started/overview/" class="dropdown-item">Getting started with Hyperopt</a>
 </li>
                                     
-<li >
-    <a href="setup/running-tests/">Running tests</a>
+<li>
+    <a href="getting-started/minimizing_functions/" class="dropdown-item">Minimizing functions</a>
+</li>
+                                    
+<li>
+    <a href="getting-started/search_spaces/" class="dropdown-item">Defining search spaces</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="scaleout/mongodb/">MongoDB</a>
+<li>
+    <a href="setup/installation-notes/" class="dropdown-item">Installation notes</a>
 </li>
                                     
-<li >
-    <a href="scaleout/spark/">Spark</a>
+<li>
+    <a href="setup/running-tests/" class="dropdown-item">Running tests</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="interfacing-languages/">Interfacing with other languages</a>
+<li>
+    <a href="scaleout/mongodb/" class="dropdown-item">MongoDB</a>
 </li>
                                     
-<li >
-    <a href="related-work/">Related work</a>
+<li>
+    <a href="scaleout/spark/" class="dropdown-item">Spark</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="interfacing-languages/" class="dropdown-item">Interfacing with other languages</a>
 </li>
                                     
-<li >
-    <a href="scipy_submission/">SciPy 2013 submission</a>
+<li>
+    <a href="related-work/" class="dropdown-item">Related work</a>
+</li>
+                                    
+<li>
+    <a href="scipy_submission/" class="dropdown-item">SciPy 2013 submission</a>
 </li>
                                 </ul>
                             </li>
                         </ul>
 
-                    <ul class="nav navbar-nav navbar-right">
-                        <li>
-                            <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                    <ul class="nav navbar-nav ml-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-toggle="modal" data-target="#mkdocs_search_modal">
                                 <i class="fa fa-search"></i> Search
                             </a>
                         </li>
-                            <li class="disabled">
-                                <a rel="next" >
+                            <li class="nav-item">
+                                <a rel="prev" class="nav-link disabled">
                                     <i class="fa fa-arrow-left"></i> Previous
                                 </a>
                             </li>
-                            <li >
-                                <a rel="prev" href="getting-started/overview/">
+                            <li class="nav-item">
+                                <a rel="next" href="tutorials/01.BasicTutorial/" class="nav-link">
                                     Next <i class="fa fa-arrow-right"></i>
                                 </a>
                             </li>
-                            <li>
-                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/index.md"><i class="fa fa-github"></i> Edit on GitHub</a>
+                            <li class="nav-item">
+                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/index.md" class="nav-link"><i class="fa fa-github"></i> Edit on GitHub</a>
                             </li>
                     </ul>
                 </div>
@@ -138,29 +135,74 @@
         </div>
 
         <div class="container">
-                <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
-    <ul class="nav bs-sidenav">
-        <li class="main active"><a href="#hyperopt-distributed-asynchronous-hyper-parameter-optimization">Hyperopt: Distributed Asynchronous Hyper-parameter Optimization</a></li>
-            <li><a href="#getting-started">Getting started</a></li>
-            <li><a href="#algorithms">Algorithms</a></li>
-            <li><a href="#documentation">Documentation</a></li>
-            <li><a href="#examples">Examples</a></li>
-            <li><a href="#announcements-mailing-list">Announcements mailing list</a></li>
-            <li><a href="#discussion-mailing-list">Discussion mailing list</a></li>
-            <li><a href="#cite">Cite</a></li>
-            <li><a href="#thanks">Thanks</a></li>
-    </ul>
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-light navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-secondary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-level="1"><a href="#hyperopt-distributed-asynchronous-hyper-parameter-optimization" class="nav-link">Hyperopt: Distributed Asynchronous Hyper-parameter Optimization</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-level="2"><a href="#getting-started" class="nav-link">Getting started</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#contributing" class="nav-link">Contributing</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#algorithms" class="nav-link">Algorithms</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#documentation" class="nav-link">Documentation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#related-projects" class="nav-link">Related Projects</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#examples" class="nav-link">Examples</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#announcements-mailing-list" class="nav-link">Announcements mailing list</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#discussion-mailing-list" class="nav-link">Discussion mailing list</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#cite" class="nav-link">Cite</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#thanks" class="nav-link">Thanks</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
 </div></div>
-                <div class="col-md-9" role="main">
+                    <div class="col-md-9" role="main">
 
 <h1 id="hyperopt-distributed-asynchronous-hyper-parameter-optimization">Hyperopt: Distributed Asynchronous Hyper-parameter Optimization</h1>
 <h2 id="getting-started">Getting started</h2>
 <p>Install hyperopt from PyPI</p>
-<pre><code class="bash">pip install hyperopt
+<pre><code class="language-bash">pip install hyperopt
 </code></pre>
-
 <p>to run your first example</p>
-<pre><code class="python"># define an objective function
+<pre><code class="language-python"># define an objective function
 def objective(args):
     case, val = args
     if case == 'case 1':
@@ -177,24 +219,104 @@ space = hp.choice('a',
     ])
 
 # minimize the objective over the space
-from hyperopt import fmin, tpe
+from hyperopt import fmin, tpe, space_eval
 best = fmin(objective, space, algo=tpe.suggest, max_evals=100)
 
-print best
+print(best)
 # -&gt; {'a': 1, 'c2': 0.01420615366247227}
-print hyperopt.space_eval(space, best)
+print(space_eval(space, best))
 # -&gt; ('case 2', 0.01420615366247227}
 </code></pre>
-
-<p>If you're a developer, clone this repository and install from source:</p>
-<pre><code class="bash">git clone https://github.com/jaberg/hyperopt.git
-cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[MongoTrials, SparkTrials, ATPE]'
-</code></pre>
-
+<h2 id="contributing">Contributing</h2>
+<p>If you're a developer and wish to contribute, please follow these steps.</p>
+<h3 id="setup-based-on-this">Setup (based on <a href="https://scikit-learn.org/stable/developers/contributing.html#contributing-code">this</a>)</h3>
+<ol>
+<li>
+<p>Create an account on GitHub if you do not already have one.</p>
+</li>
+<li>
+<p>Fork the project repository: click on the ‘Fork’ button near the top of the page. This creates a copy of the code under your account on the GitHub user account. For more details on how to fork a repository see <a href="https://help.github.com/articles/fork-a-repo/">this guide</a>.</p>
+</li>
+<li>
+<p>Clone your fork of the hyperopt repo from your GitHub account to your local disk:</p>
+</li>
+</ol>
+<p><code>bash
+   git clone https://github.com/&lt;github username&gt;/hyperopt.git
+   cd hyperopt</code></p>
+<ol>
+<li>
+<p>Create environment with:<br />
+<code>$ python3 -m venv my_env</code> or <code>$ python -m venv my_env</code>
+   or with conda:<br />
+<code>$ conda create -n my_env python=3</code></p>
+</li>
+<li>
+<p>Activate the environment:<br />
+<code>$ source my_env/bin/activate</code><br />
+   or with conda:<br />
+<code>$ conda activate my_env</code></p>
+</li>
+<li>
+<p>Install dependencies for extras (you'll need these to run pytest):
+   Linux/UNIX:
+   <code>$ pip install -e '.[MongoTrials, SparkTrials, ATPE, dev]'</code></p>
+</li>
+</ol>
+<p>or Windows:</p>
+<p><code>cmd
+   pip install -e .[MongoTrials]
+   pip install -e .[SparkTrials]
+   pip install -e .[ATPE]
+   pip install -e .[dev]</code></p>
+<ol>
+<li>
+<p>Add the upstream remote. This saves a reference to the main hyperopt repository, which you can use to keep your repository synchronized with the latest changes:</p>
+<p><code>$ git remote add upstream https://github.com/hyperopt/hyperopt.git</code></p>
+<p>You should now have a working installation of hyperopt, and your git repository properly configured. The next steps now describe the process of modifying code and submitting a PR:</p>
+</li>
+<li>
+<p>Synchronize your master branch with the upstream master branch:</p>
+<p><code>bash
+git checkout master
+git pull upstream master</code></p>
+</li>
+<li>
+<p>Create a feature branch to hold your development changes:</p>
+<p><code>$ git checkout -b my_feature</code></p>
+<p>and start making changes. Always use a feature branch. It’s good practice to never work on the master branch!</p>
+</li>
+<li>
+<p>We recommend to use <a href="https://github.com/psf/black">Black</a> to format your code before submitting a PR which is installed automatically in step 6.</p>
+</li>
+<li>
+<p>Then, once you commit ensure that git hooks are activated (Pycharm for example has the option to omit them). This can be done using <a href="https://pre-commit.com/">pre-commit</a>, which is installed automatically in step 6, as follows:</p>
+<p><code>bash
+pre-commit install</code></p>
+<p>This will run black automatically when you commit on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the following:</p>
+<p><code>bash
+black {source_file_or_directory}</code></p>
+</li>
+<li>
+<p>Develop the feature on your feature branch on your computer, using Git to do the version control. When you’re done editing, add changed files using git add and then git commit:</p>
+<p><code>bash
+git add modified_files
+git commit -m "my first hyperopt commit"</code></p>
+</li>
+<li>
+<p>The tests for this project use <a href="https://docs.pytest.org/en/latest/">PyTest</a> and can be run by calling <code>pytest</code>.</p>
+</li>
+<li>
+<p>Record your changes in Git, then push the changes to your GitHub account with:</p>
+<p><code>bash
+git push -u origin my_feature</code></p>
+</li>
+</ol>
+<p>Note that dev dependencies require python 3.6+.</p>
 <h2 id="algorithms">Algorithms</h2>
 <p>Currently three algorithms are implemented in hyperopt:</p>
 <ul>
-<li>Random Search</li>
+<li><a href="http://www.jmlr.org/papers/v13/bergstra12a.html?source=post_page---------------------------">Random Search</a></li>
 <li><a href="https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf">Tree of Parzen Estimators (TPE)</a></li>
 <li><a href="https://www.electricbrain.io/blog/learning-to-optimize">Adaptive TPE</a></li>
 </ul>
@@ -211,15 +333,23 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
 <li><a href="https://github.com/hyperopt/hyperopt/wiki/Installation-Notes">Installation notes</a></li>
 <li><a href="https://github.com/hyperopt/hyperopt/wiki/Parallelizing-Evaluations-During-Search-via-MongoDB">Using mongodb</a></li>
 </ul>
+<h2 id="related-projects">Related Projects</h2>
+<ul>
+<li><a href="https://github.com/hyperopt/hyperopt-sklearn">hyperopt-sklearn</a></li>
+<li><a href="https://github.com/hyperopt/hyperopt-nnet">hyperopt-nnet</a></li>
+<li><a href="https://github.com/maxpumperla/hyperas">hyperas</a></li>
+<li><a href="https://github.com/hyperopt/hyperopt-convnet">hyperopt-convent</a></li>
+<li><a href="https://github.com/hyperopt/hyperopt-gpsmbo/blob/master/hp_gpsmbo/hpsuggest.py">hyperopt-gpsmbo</a></li>
+</ul>
 <h2 id="examples">Examples</h2>
 <p>See <a href="https://github.com/hyperopt/hyperopt/wiki/Hyperopt-in-Other-Projects">projects using hyperopt</a> on the wiki.</p>
 <h2 id="announcements-mailing-list">Announcements mailing list</h2>
-<p><a href="https://groups.google.com/forum/#!forum/hyperopt-announce">Announcments</a></p>
+<p><a href="https://groups.google.com/forum/#!forum/hyperopt-announce">Announcements</a></p>
 <h2 id="discussion-mailing-list">Discussion mailing list</h2>
 <p><a href="https://groups.google.com/forum/#!forum/hyperopt-discuss">Discussion</a></p>
 <h2 id="cite">Cite</h2>
-<p>If you use this software for research, plase cite the following paper:</p>
-<p>Bergstra, J., Yamins, D., Cox, D. D. (2013) Making a Science of Model Search: Hyperparameter Optimization in Hundreds of Dimensions for Vision Architectures. To appear in Proc. of the 30th International Conference on Machine Learning (ICML 2013).</p>
+<p>If you use this software for research, please cite the paper (http://proceedings.mlr.press/v28/bergstra13.pdf) as follows:</p>
+<p>Bergstra, J., Yamins, D., Cox, D. D. (2013) Making a Science of Model Search: Hyperparameter Optimization in Hundreds of Dimensions for Vision Architectures. TProc. of the 30th International Conference on Machine Learning (ICML 2013), June 2013, pp. I-115 to I-23.</p>
 <h2 id="thanks">Thanks</h2>
 <p>This project has received support from</p>
 <ul>
@@ -228,48 +358,48 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
 <li>National Science and Engineering Research Council of Canada (NSERC),</li>
 <li>D-Wave Systems, Inc.</li>
 </ul></div>
+            </div>
         </div>
 
         <footer class="col-md-12">
             <hr>
             <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
         </footer>
+        <script src="js/jquery-3.6.0.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
         <script>
             var base_url = ".",
-                shortcuts = {"search": 83, "next": 78, "help": 191, "previous": 80};
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
         </script>
-        <script src="js/base.js" defer></script>
-        <script src="search/main.js" defer></script>
+        <script src="js/base.js"></script>
+        <script src="search/main.js"></script>
 
-        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="Search Modal" aria-hidden="true">
-    <div class="modal-dialog">
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Search</h4>
             </div>
             <div class="modal-body">
-                <p>
-                    From here you can search these documents. Enter
-                    your search terms below.
-                </p>
-                <form role="form">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
                     <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
                     </div>
                 </form>
-                <div id="mkdocs-search-results"></div>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
             </div>
             <div class="modal-footer">
             </div>
         </div>
     </div>
-</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="Keyboard Shortcuts Modal" aria-hidden="true">
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Keyboard Shortcuts</h4>
             </div>
             <div class="modal-body">
               <table class="table">
@@ -309,6 +439,6 @@ cd hyperopt &amp;&amp; python setup.py develop &amp;&amp;  pip install -e '.[Mon
 </html>
 
 <!--
-MkDocs version : 1.0.4
-Build Date UTC : 2019-10-18 12:19:35
+MkDocs version : 1.5.2
+Build Date UTC : 2023-08-08 19:18:11.250659+00:00
 -->

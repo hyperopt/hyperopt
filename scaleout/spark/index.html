@@ -9,128 +9,125 @@
         <link rel="canonical" href="http://hyperopt.github.io/hyperopt/scaleout/spark/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
         <title>Spark - Hyperopt Documentation</title>
-        <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/font-awesome.min.css" rel="stylesheet">
         <link href="../../css/base.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
-        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-        <!--[if lt IE 9]>
-            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-            <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-        <![endif]-->
-
-        <script src="../../js/jquery-1.10.2.min.js" defer></script>
-        <script src="../../js/bootstrap-3.0.3.min.js" defer></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/python.min.js"></script>
-        <script>hljs.initHighlightingOnLoad();</script> 
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script>hljs.highlightAll();</script> 
     </head>
 
     <body>
-
-        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-
-                <!-- Collapsed navigation -->
-                <div class="navbar-header">
-                    <!-- Expander button -->
-                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand" href="../..">Hyperopt Documentation</a>
-                </div>
+                <a class="navbar-brand" href="../..">Hyperopt Documentation</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
                 <!-- Expanded navigation -->
-                <div class="navbar-collapse collapse">
+                <div id="navbar-collapse" class="navbar-collapse collapse">
                         <!-- Main navigation -->
                         <ul class="nav navbar-nav">
-                            <li >
-                                <a href="../..">Home</a>
+                            <li class="navitem">
+                                <a href="../.." class="nav-link">Home</a>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../getting-started/overview/">Getting started with Hyperopt</a>
+<li>
+    <a href="../../tutorials/01.BasicTutorial/" class="dropdown-item">01. Basic Tutorial</a>
 </li>
                                     
-<li >
-    <a href="../../getting-started/minimizing_functions/">Minimizing functions</a>
-</li>
-                                    
-<li >
-    <a href="../../getting-started/search_spaces/">Defining search spaces</a>
+<li>
+    <a href="../../tutorials/02.MultipleParameterTutorial/" class="dropdown-item">02. Multiple Parameter Tutorial</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../setup/installation-notes/">Installation notes</a>
+<li>
+    <a href="../../getting-started/overview/" class="dropdown-item">Getting started with Hyperopt</a>
 </li>
                                     
-<li >
-    <a href="../../setup/running-tests/">Running tests</a>
+<li>
+    <a href="../../getting-started/minimizing_functions/" class="dropdown-item">Minimizing functions</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/search_spaces/" class="dropdown-item">Defining search spaces</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../setup/installation-notes/" class="dropdown-item">Installation notes</a>
+</li>
+                                    
+<li>
+    <a href="../../setup/running-tests/" class="dropdown-item">Running tests</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown active">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../mongodb/">MongoDB</a>
+<li>
+    <a href="../mongodb/" class="dropdown-item">MongoDB</a>
 </li>
                                     
-<li class="active">
-    <a href="./">Spark</a>
+<li>
+    <a href="./" class="dropdown-item active">Spark</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../interfacing-languages/">Interfacing with other languages</a>
+<li>
+    <a href="../../interfacing-languages/" class="dropdown-item">Interfacing with other languages</a>
 </li>
                                     
-<li >
-    <a href="../../related-work/">Related work</a>
+<li>
+    <a href="../../related-work/" class="dropdown-item">Related work</a>
 </li>
                                     
-<li >
-    <a href="../../scipy_submission/">SciPy 2013 submission</a>
+<li>
+    <a href="../../scipy_submission/" class="dropdown-item">SciPy 2013 submission</a>
 </li>
                                 </ul>
                             </li>
                         </ul>
 
-                    <ul class="nav navbar-nav navbar-right">
-                        <li>
-                            <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                    <ul class="nav navbar-nav ml-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-toggle="modal" data-target="#mkdocs_search_modal">
                                 <i class="fa fa-search"></i> Search
                             </a>
                         </li>
-                            <li >
-                                <a rel="next" href="../mongodb/">
+                            <li class="nav-item">
+                                <a rel="prev" href="../mongodb/" class="nav-link">
                                     <i class="fa fa-arrow-left"></i> Previous
                                 </a>
                             </li>
-                            <li >
-                                <a rel="prev" href="../../interfacing-languages/">
+                            <li class="nav-item">
+                                <a rel="next" href="../../interfacing-languages/" class="nav-link">
                                     Next <i class="fa fa-arrow-right"></i>
                                 </a>
                             </li>
-                            <li>
-                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/scaleout/spark.md"><i class="fa fa-github"></i> Edit on GitHub</a>
+                            <li class="nav-item">
+                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/scaleout/spark.md" class="nav-link"><i class="fa fa-github"></i> Edit on GitHub</a>
                             </li>
                     </ul>
                 </div>
@@ -138,19 +135,39 @@
         </div>
 
         <div class="container">
-                <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
-    <ul class="nav bs-sidenav">
-        <li class="main active"><a href="#scaling-out-search-with-apache-spark">Scaling out search with Apache Spark</a></li>
-            <li><a href="#sparktrials-api">SparkTrials API</a></li>
-            <li><a href="#example-workflow-with-sparktrials">Example workflow with SparkTrials</a></li>
-    </ul>
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-light navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-secondary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-level="1"><a href="#scaling-out-search-with-apache-spark" class="nav-link">Scaling out search with Apache Spark</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-level="2"><a href="#sparktrials-api" class="nav-link">SparkTrials API</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#example-workflow-with-sparktrials" class="nav-link">Example workflow with SparkTrials</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
 </div></div>
-                <div class="col-md-9" role="main">
+                    <div class="col-md-9" role="main">
 
 <h1 id="scaling-out-search-with-apache-spark">Scaling out search with Apache Spark</h1>
 <p>With the new class <code>SparkTrials</code>, you can tell Hyperopt to distribute a tuning job across an Apache Spark cluster. Initially developed within Databricks, this API has now been contributed to Hyperopt.</p>
 <p>Hyperparameter tuning and model selection often involve training hundreds or thousands of models.  <code>SparkTrials</code> runs batches of these training tasks in parallel, one on each Spark executor, allowing massive scale-out for tuning.  To use <code>SparkTrials</code> with Hyperopt, simply pass the <code>SparkTrials</code> object to Hyperopt’s <code>fmin()</code> function:</p>
-<pre><code class="python">import hyperopt
+<pre><code class="language-python">import hyperopt
 
 best_hyperparameters = hyperopt.fmin(
   fn = training_function,
@@ -159,7 +176,6 @@ best_hyperparameters = hyperopt.fmin(
   max_evals = 64,
   trials = hyperopt.SparkTrials())
 </code></pre>
-
 <p>Under the hood, <code>fmin()</code> will generate new hyperparameter settings to test and pass them to <code>SparkTrials</code>, which runs these tasks asynchronously on a cluster as follows:</p>
 <ul>
 <li>Hyperopt’s primary logic runs on the Spark driver, computing new hyperparameter settings.</li>
@@ -172,7 +188,7 @@ best_hyperparameters = hyperopt.fmin(
 <h2 id="sparktrials-api">SparkTrials API</h2>
 <p><code>SparkTrials</code> may be configured via 3 arguments, all of which are optional:</p>
 <p><strong><code>parallelism</code></strong>
-The maximum number of trials to evaluate concurrently. Greater parallelism allows scale-out testing of more hyperparameter settings. Defaults to the number of Spark executors.</p>
+The maximum number of trials to evaluate concurrently. Greater parallelism allows scale-out testing of more hyperparameter settings. Defaults to Spark <code>SparkContext.defaultParallelism</code>.</p>
 <ul>
 <li>Trade-offs: The <code>parallelism</code> parameter can be set in conjunction with the <code>max_evals</code> parameter in <code>fmin()</code>. Hyperopt will test <code>max_evals</code> total settings for your hyperparameters, in batches of size <code>parallelism</code>.  If <code>parallelism = max_evals</code>, then Hyperopt will do Random Search: it will select all hyperparameter settings to test independently and then evaluate them in parallel.  If <code>parallelism = 1</code>, then Hyperopt can make full use of adaptive algorithms like Tree of Parzen Estimators (TPE) which iteratively explore the hyperparameter space: each new hyperparameter setting tested will be chosen based on previous results.  Setting <code>parallelism</code> in between <code>1</code> and <code>max_evals</code> allows you to trade off scalability (getting results faster) and adaptiveness (sometimes getting better models).</li>
 <li>Limits: There is currently a hard cap on parallelism of 128. <code>SparkTrials</code> will also check the cluster’s configuration to see how many concurrent tasks Spark will allow; if parallelism exceeds this maximum, <code>SparkTrials</code> will reduce parallelism to this maximum.</li>
@@ -185,7 +201,7 @@ Timeout provides a budgeting mechanism, allowing a cap on how long tuning can ta
 <p>The <code>SparkTrials</code> API may also be viewed by calling <code>help(SparkTrials)</code>.</p>
 <h2 id="example-workflow-with-sparktrials">Example workflow with SparkTrials</h2>
 <p>Below, we give an example workflow which tunes a scikit-learn model using SparkTrials.   This example was adapted from the <a href="https://scikit-learn.org/stable/auto_examples/linear_model/plot_sparse_logistic_regression_mnist.html">scikit-learn doc example</a> for sparse logistic regression with MNIST.</p>
-<pre><code class="python">from sklearn.datasets import fetch_openml
+<pre><code class="language-python">from sklearn.datasets import fetch_openml
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -263,48 +279,48 @@ best_hyperparameters = fmin(
   max_evals=32)
 best_hyperparameters
 </code></pre></div>
+            </div>
         </div>
 
         <footer class="col-md-12">
             <hr>
             <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
         </footer>
+        <script src="../../js/jquery-3.6.0.min.js"></script>
+        <script src="../../js/bootstrap.min.js"></script>
         <script>
             var base_url = "../..",
-                shortcuts = {"search": 83, "next": 78, "help": 191, "previous": 80};
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
         </script>
-        <script src="../../js/base.js" defer></script>
-        <script src="../../search/main.js" defer></script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
 
-        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="Search Modal" aria-hidden="true">
-    <div class="modal-dialog">
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Search</h4>
             </div>
             <div class="modal-body">
-                <p>
-                    From here you can search these documents. Enter
-                    your search terms below.
-                </p>
-                <form role="form">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
                     <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
                     </div>
                 </form>
-                <div id="mkdocs-search-results"></div>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
             </div>
             <div class="modal-footer">
             </div>
         </div>
     </div>
-</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="Keyboard Shortcuts Modal" aria-hidden="true">
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Keyboard Shortcuts</h4>
             </div>
             <div class="modal-body">
               <table class="table">

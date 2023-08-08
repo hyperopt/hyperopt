@@ -6,9 +6,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         
         
-        <link rel="canonical" href="http://hyperopt.github.io/hyperopt/scaleout/mongodb/">
+        <link rel="canonical" href="http://hyperopt.github.io/hyperopt/tutorials/02.MultipleParameterTutorial/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
-        <title>MongoDB - Hyperopt Documentation</title>
+        <title>02. Multiple Parameter Tutorial - Hyperopt Documentation</title>
         <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/font-awesome.min.css" rel="stylesheet">
         <link href="../../css/base.css" rel="stylesheet">
@@ -35,16 +35,16 @@
                             <li class="navitem">
                                 <a href="../.." class="nav-link">Home</a>
                             </li>
-                            <li class="dropdown">
+                            <li class="dropdown active">
                                 <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
 <li>
-    <a href="../../tutorials/01.BasicTutorial/" class="dropdown-item">01. Basic Tutorial</a>
+    <a href="../01.BasicTutorial/" class="dropdown-item">01. Basic Tutorial</a>
 </li>
                                     
 <li>
-    <a href="../../tutorials/02.MultipleParameterTutorial/" class="dropdown-item">02. Multiple Parameter Tutorial</a>
+    <a href="./" class="dropdown-item active">02. Multiple Parameter Tutorial</a>
 </li>
                                 </ul>
                             </li>
@@ -78,16 +78,16 @@
 </li>
                                 </ul>
                             </li>
-                            <li class="dropdown active">
+                            <li class="dropdown">
                                 <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
 <li>
-    <a href="./" class="dropdown-item active">MongoDB</a>
+    <a href="../../scaleout/mongodb/" class="dropdown-item">MongoDB</a>
 </li>
                                     
 <li>
-    <a href="../spark/" class="dropdown-item">Spark</a>
+    <a href="../../scaleout/spark/" class="dropdown-item">Spark</a>
 </li>
                                 </ul>
                             </li>
@@ -117,17 +117,17 @@
                             </a>
                         </li>
                             <li class="nav-item">
-                                <a rel="prev" href="../../setup/running-tests/" class="nav-link">
+                                <a rel="prev" href="../01.BasicTutorial/" class="nav-link">
                                     <i class="fa fa-arrow-left"></i> Previous
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a rel="next" href="../spark/" class="nav-link">
+                                <a rel="next" href="../../getting-started/overview/" class="nav-link">
                                     Next <i class="fa fa-arrow-right"></i>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/scaleout/mongodb.md" class="nav-link"><i class="fa fa-github"></i> Edit on GitHub</a>
+                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/tutorials/02.MultipleParameterTutorial.md" class="nav-link"><i class="fa fa-github"></i> Edit on GitHub</a>
                             </li>
                     </ul>
                 </div>
@@ -147,21 +147,9 @@
     <div id="toc-collapse" class="navbar-collapse collapse card bg-secondary">
         <ul class="nav flex-column">
             
-            <li class="nav-item" data-level="1"><a href="#parallelizing-evaluations-during-search-via-mongodb" class="nav-link">Parallelizing Evaluations During Search via MongoDB</a>
+            <li class="nav-item" data-level="1"><a href="#02-multipleparametertutorial" class="nav-link">02. MultipleParameterTutorial</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-level="2"><a href="#start-a-mongod-process" class="nav-link">Start a mongod process</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-level="2"><a href="#use-mongotrials" class="nav-link">Use MongoTrials</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-level="2"><a href="#run-hyperopt-mongo-worker" class="nav-link">Run hyperopt-mongo-worker</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-level="2"><a href="#mongotrials-is-a-persistent-object" class="nav-link">MongoTrials is a Persistent Object</a>
+            <li class="nav-item" data-level="2"><a href="#define-different-types-of-search-space" class="nav-link">Define different types of Search Space</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -172,84 +160,93 @@
 </div></div>
                     <div class="col-md-9" role="main">
 
-<h1 id="parallelizing-evaluations-during-search-via-mongodb">Parallelizing Evaluations During Search via MongoDB</h1>
-<p>Hyperopt is designed to support different kinds of trial databases.
-The default trial database (<code>Trials</code>) is implemented with Python lists and dictionaries.
-The default implementation is a reference implementation and it is easy to work with,
-but it does not support the asynchronous updates required to evaluate trials in parallel.
-For parallel search, hyperopt includes a <code>MongoTrials</code> implementation that supports asynchronous updates.</p>
-<p>To run a parallelized search, you will need to do the following (after <a href="Installation-Notes">installing mongodb</a>):</p>
-<ol>
-<li>
-<p>Start a mongod process somewhere network-visible.</p>
-</li>
-<li>
-<p>Modify your call to <code>hyperopt.fmin</code> to use a MongoTrials backend connected to that mongod process.</p>
-</li>
-<li>
-<p>Start one or more <code>hyperopt-mongo-worker</code> processes that will also connect to the mongod process,
-    and carry out the search while <code>fmin</code> blocks.</p>
-</li>
-</ol>
-<h2 id="start-a-mongod-process">Start a mongod process</h2>
-<p>Once mongodb is installed, starting a database process (mongod) is as easy as typing e.g.</p>
-<pre><code class="language-bash">mongod --dbpath . --port 1234
-# or storing each db its own directory is nice:
-mongod --dbpath . --port 1234 --directoryperdb --journal --nohttpinterface
-# or consider starting mongod as a daemon:
-mongod --dbpath . --port 1234 --directoryperdb --fork --journal --logpath log.log --nohttpinterface
+<h1 id="02-multipleparametertutorial">02. MultipleParameterTutorial</h1>
+<p>In this tutorial, you will learn how to:</p>
+<ul>
+<li>Optimize the Objective Function with Multiple HyperParameters</li>
+<li>Define different types of Search Space</li>
+</ul>
+<pre><code class="language-python"># Import HyperOpt Library
+from hyperopt import tpe, hp, fmin
+import numpy as np
 </code></pre>
-<p>Mongo has a habit of pre-allocating a few GB of space (you can disable this with --noprealloc) for better performance, so think a little about where you want to create this database.
-Creating a database on a networked filesystem may give terrible performance not only to your database but also to everyone else on your network, be careful about it.</p>
-<p>Also, if your machine is visible to the internet, then either bind to the loopback interface and connect via ssh or read mongodb's documentation on password protection.</p>
-<p>The rest of the tutorial is based on mongo running on <strong>port 1234</strong> of the <strong>localhost</strong>.</p>
-<h2 id="use-mongotrials">Use MongoTrials</h2>
-<p>Suppose, to keep things really simple, that you wanted to minimize the <code>math.sin</code> function with hyperopt.
-To run things in-process (serially) you could type things out like this:</p>
-<pre><code class="language-python">import math
-from hyperopt import fmin, tpe, hp, Trials
+<p>Declares a objective function to optimize. Unlike last time, we will optimize the function with two Hyperparameters, $x$ and $y$.</p>
+<p>$$ z = sin\sqrt{x^2 + y^2} $$</p>
+<pre><code class="language-python">def objective(params):
+    x, y = params['x'], params['y']
+    return np.sin(np.sqrt(x**2 + y**2))
+</code></pre>
+<p>Just like last time, let's try visualizing it. But unlike last time, there are two Hyperparameters, so we need to visualize them in 3D space.</p>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
 
-trials = Trials()
-best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
-</code></pre>
-<p>To use the mongo database for persistent storage of the experiment, use a <code>MongoTrials</code> object instead of <code>Trials</code> like this:</p>
-<pre><code class="language-python">import math
-from hyperopt import fmin, tpe, hp
-from hyperopt.mongoexp import MongoTrials
+x = np.linspace(-6, 6, 30)
+y = np.linspace(-6, 6, 30)
+x, y = np.meshgrid(x, y)
 
-trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key='exp1')
-best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
+z = objective({'x': x, 'y': y})
+
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+ax.plot_surface(x, y, z, cmap=cm.coolwarm)
+
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+
+plt.show()
 </code></pre>
-<p>The first argument to MongoTrials tells it what mongod process to use, and which <em>database</em> (here 'foo_db') within that process to use.
-The second argument (<code>exp_key='exp_1'</code>) is useful for tagging a particular set of trials <em>within</em> a database.
-The exp_key argument is technically optional.</p>
-<p><strong>N.B.</strong> There is currently an implementation requirement that the database name be followed by '/jobs'.</p>
-<p>Whether you always put your trials in separate databases or whether you use the exp_key mechanism to distinguish them is up to you.
-In favour of databases: they can be manipulated from the shell (they appear as distinct files) and they ensure greater independence/isolation of experiments.
-In favour of exp_key: hyperopt-mongo-worker processes (see below) poll at the database level so they can simultaneously support multiple experiments that are using the same database.</p>
-<h2 id="run-hyperopt-mongo-worker">Run <code>hyperopt-mongo-worker</code></h2>
-<p>If you run the code fragment above, you will see that it blocks (hangs) at the call fmin.
-MongoTrials describes itself internally to fmin as an <em>asynchronous</em> trials object, so fmin
-does not actually evaluate the objective function when a new search point has been suggested.
-Instead, it just sits there, patiently waiting for another process to do that work and update the mongodb with the results.
-The <code>hyperopt-mongo-worker</code> script included in the <code>bin</code> directory of hyperopt was written for this purpose.
-It should have been installed on your <code>$PATH</code> when you installed hyperopt.</p>
-<p>While the <code>fmin</code> call in the script above is blocked, open a new shell and type</p>
-<pre><code class="language-bash">hyperopt-mongo-worker --mongo=localhost:1234/foo_db --poll-interval=0.1
+<p><img alt="png" src="02.MultipleParameterTutorial_files/02.MultipleParameterTutorial_5_0.png" /></p>
+<p>Likewise, let's define the search space. However, this time, you need to define two search spaces($x, y$), so you put each of them in the <code>dict()</code>.</p>
+<pre><code class="language-python">space = {
+    'x': hp.uniform('x', -6, 6),
+    'y': hp.uniform('y', -6, 6)
+}
 </code></pre>
-<p>It will dequeue a work item from the mongodb, evaluate the <code>math.sin</code> function, store the results back to the database.
-After the <code>fmin</code> function has tried enough points it will return and the script above will terminate.
-The <code>hyperopt-mongo-worker</code> script will then sit around for a few minutes waiting for more work to appear, and then terminate too.</p>
-<p>We set the poll interval explicitly in this case because the default timings are set up for jobs (search point evaluations) that take at least a minute or two to complete.</p>
-<h2 id="mongotrials-is-a-persistent-object">MongoTrials is a Persistent Object</h2>
-<p>If you run the example above a second time,</p>
-<pre><code class="language-python">best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
+<p>Perfect! Now you can do exactly what you did at BasicTutorial!</p>
+<pre><code class="language-python">best = fmin(
+    fn=objective, # Objective Function to optimize
+    space=space, # Hyperparameter's Search Space
+    algo=tpe.suggest, # Optimization algorithm (representative TPE)
+    max_evals=1000 # Number of optimization attempts
+)
+print(best)
 </code></pre>
-<p>you will see that it returns right away and nothing happens.
-That's because the database you are connected to already has enough trials in it; you already computed them when you ran the first experiment.
-If you want to do another search, you can change the database name or the <code>exp_key</code>.
-If you want to extend the search, then you can call fmin with a higher number for <code>max_evals</code>.
-Alternatively, you can launch other processes that create the MongoTrials specifically to analyze the results that are already in the database. Those other processes do not need to call fmin at all.</p></div>
+<pre><code>100%|██████████| 1000/1000 [00:07&lt;00:00, 127.90trial/s, best loss: -0.9999976342002768]
+{'x': 4.278018218372159, 'y': 1.97095757186186}
+</code></pre>
+<h2 id="define-different-types-of-search-space">Define different types of Search Space</h2>
+<ul>
+<li><code>hp.randint(label, upper)</code> searches the integer in the [0, upper) interval.</li>
+<li><code>hp.choice(label, list)</code> searches for elements in the list.</li>
+</ul>
+<pre><code class="language-python">def f(params):
+    x1, x2 = params['x1'], params['x2']
+    if x1 == 'james':
+        return -1 * x2
+    if x1 == 'max':
+        return 2 * x2
+    if x1 == 'wansoo':
+        return -3 * x2
+
+search_space = {
+    'x1': hp.choice('x1', ['james', 'max', 'wansoo']),
+    'x2': hp.randint('x2', -5, 5)
+}
+
+best = fmin(
+    fn=f,
+    space=search_space,
+    algo=tpe.suggest,
+    max_evals=100
+)
+
+print(best)
+</code></pre>
+<pre><code>100%|██████████| 100/100 [00:00&lt;00:00, 396.61trial/s, best loss: -12.0]
+{'x1': 2, 'x2': 4}
+</code></pre></div>
             </div>
         </div>
 

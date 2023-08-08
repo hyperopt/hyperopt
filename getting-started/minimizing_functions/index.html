@@ -9,128 +9,125 @@
         <link rel="canonical" href="http://hyperopt.github.io/hyperopt/getting-started/minimizing_functions/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
         <title>Minimizing functions - Hyperopt Documentation</title>
-        <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/font-awesome.min.css" rel="stylesheet">
         <link href="../../css/base.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
-        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-        <!--[if lt IE 9]>
-            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-            <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-        <![endif]-->
-
-        <script src="../../js/jquery-1.10.2.min.js" defer></script>
-        <script src="../../js/bootstrap-3.0.3.min.js" defer></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/python.min.js"></script>
-        <script>hljs.initHighlightingOnLoad();</script> 
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script>hljs.highlightAll();</script> 
     </head>
 
     <body>
-
-        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-
-                <!-- Collapsed navigation -->
-                <div class="navbar-header">
-                    <!-- Expander button -->
-                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand" href="../..">Hyperopt Documentation</a>
-                </div>
+                <a class="navbar-brand" href="../..">Hyperopt Documentation</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
                 <!-- Expanded navigation -->
-                <div class="navbar-collapse collapse">
+                <div id="navbar-collapse" class="navbar-collapse collapse">
                         <!-- Main navigation -->
                         <ul class="nav navbar-nav">
-                            <li >
-                                <a href="../..">Home</a>
+                            <li class="navitem">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../tutorials/01.BasicTutorial/" class="dropdown-item">01. Basic Tutorial</a>
+</li>
+                                    
+<li>
+    <a href="../../tutorials/02.MultipleParameterTutorial/" class="dropdown-item">02. Multiple Parameter Tutorial</a>
+</li>
+                                </ul>
                             </li>
                             <li class="dropdown active">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Getting started <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../overview/">Getting started with Hyperopt</a>
+<li>
+    <a href="../overview/" class="dropdown-item">Getting started with Hyperopt</a>
 </li>
                                     
-<li class="active">
-    <a href="./">Minimizing functions</a>
+<li>
+    <a href="./" class="dropdown-item active">Minimizing functions</a>
 </li>
                                     
-<li >
-    <a href="../search_spaces/">Defining search spaces</a>
+<li>
+    <a href="../search_spaces/" class="dropdown-item">Defining search spaces</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Installation <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../setup/installation-notes/">Installation notes</a>
+<li>
+    <a href="../../setup/installation-notes/" class="dropdown-item">Installation notes</a>
 </li>
                                     
-<li >
-    <a href="../../setup/running-tests/">Running tests</a>
+<li>
+    <a href="../../setup/running-tests/" class="dropdown-item">Running tests</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Scale out <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../scaleout/mongodb/">MongoDB</a>
+<li>
+    <a href="../../scaleout/mongodb/" class="dropdown-item">MongoDB</a>
 </li>
                                     
-<li >
-    <a href="../../scaleout/spark/">Spark</a>
+<li>
+    <a href="../../scaleout/spark/" class="dropdown-item">Spark</a>
 </li>
                                 </ul>
                             </li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
+                                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Misc <b class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     
-<li >
-    <a href="../../interfacing-languages/">Interfacing with other languages</a>
+<li>
+    <a href="../../interfacing-languages/" class="dropdown-item">Interfacing with other languages</a>
 </li>
                                     
-<li >
-    <a href="../../related-work/">Related work</a>
+<li>
+    <a href="../../related-work/" class="dropdown-item">Related work</a>
 </li>
                                     
-<li >
-    <a href="../../scipy_submission/">SciPy 2013 submission</a>
+<li>
+    <a href="../../scipy_submission/" class="dropdown-item">SciPy 2013 submission</a>
 </li>
                                 </ul>
                             </li>
                         </ul>
 
-                    <ul class="nav navbar-nav navbar-right">
-                        <li>
-                            <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                    <ul class="nav navbar-nav ml-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-toggle="modal" data-target="#mkdocs_search_modal">
                                 <i class="fa fa-search"></i> Search
                             </a>
                         </li>
-                            <li >
-                                <a rel="next" href="../overview/">
+                            <li class="nav-item">
+                                <a rel="prev" href="../overview/" class="nav-link">
                                     <i class="fa fa-arrow-left"></i> Previous
                                 </a>
                             </li>
-                            <li >
-                                <a rel="prev" href="../search_spaces/">
+                            <li class="nav-item">
+                                <a rel="next" href="../search_spaces/" class="nav-link">
                                     Next <i class="fa fa-arrow-right"></i>
                                 </a>
                             </li>
-                            <li>
-                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/getting-started/minimizing_functions.md"><i class="fa fa-github"></i> Edit on GitHub</a>
+                            <li class="nav-item">
+                                <a href="http://github.com/hyperopt/hyperopt/edit/master/docs/getting-started/minimizing_functions.md" class="nav-link"><i class="fa fa-github"></i> Edit on GitHub</a>
                             </li>
                     </ul>
                 </div>
@@ -138,16 +135,42 @@
         </div>
 
         <div class="container">
-                <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
-    <ul class="nav bs-sidenav">
-        <li class="main active"><a href="#defining-a-function-to-minimize">Defining a Function to Minimize</a></li>
-            <li><a href="#the-simplest-case">The Simplest Case</a></li>
-            <li><a href="#attaching-extra-information-via-the-trials-object">Attaching Extra Information via the Trials Object</a></li>
-            <li><a href="#the-trials-object">The Trials Object</a></li>
-            <li><a href="#the-ctrl-object-for-realtime-communication-with-mongodb">The Ctrl Object for Realtime Communication with MongoDB</a></li>
-    </ul>
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-light navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-secondary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-level="1"><a href="#defining-a-function-to-minimize" class="nav-link">Defining a Function to Minimize</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-level="2"><a href="#the-simplest-case" class="nav-link">The Simplest Case</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#attaching-extra-information-via-the-trials-object" class="nav-link">Attaching Extra Information via the Trials Object</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#the-trials-object" class="nav-link">The Trials Object</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#the-ctrl-object-for-realtime-communication-with-mongodb" class="nav-link">The Ctrl Object for Realtime Communication with MongoDB</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
 </div></div>
-                <div class="col-md-9" role="main">
+                    <div class="col-md-9" role="main">
 
 <h1 id="defining-a-function-to-minimize">Defining a Function to Minimize</h1>
 <p>Hyperopt provides a few levels of increasing flexibility / complexity when it comes to specifying an objective function to minimize.
@@ -161,23 +184,21 @@ The questions to think about as a designer are</p>
 function that minimizes a quadratic objective function over a single variable.
 In each section, we will be searching over a bounded range from -10 to +10,
 which we can describe with a <em>search space</em>:</p>
-<pre><code class="python">space = hp.uniform('x', -10, 10)
+<pre><code class="language-python">space = hp.uniform('x', -10, 10)
 </code></pre>
-
-<p>Below, Section 2, covers how to specify search spaces that are more complicated.</p>
+<p>Refer to <a href="../search_spaces/">this page</a> for information on how to specify search spaces that are more complicated.</p>
 <h2 id="the-simplest-case">The Simplest Case</h2>
 <p>The simplest protocol for communication between hyperopt's optimization
 algorithms and your objective function, is that your objective function
 receives a valid point from the search space, and returns the floating-point
 <em>loss</em> (aka negative utility) associated with that point.</p>
-<pre><code class="python">from hyperopt import fmin, tpe, hp
+<pre><code class="language-python">from hyperopt import fmin, tpe, hp
 best = fmin(fn=lambda x: x ** 2,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100)
-print best
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100)
+print(best)
 </code></pre>
-
 <p>This protocol has the advantage of being extremely readable and quick to
 type. As you can see, it's nearly a one-liner.
 The disadvantages of this protocol are
@@ -222,30 +243,31 @@ a tree-structured graph of dictionaries, lists, tuples, numbers, strings, and
 date-times, you'll be fine.</p>
 <p><strong>HINT:</strong> To store numpy arrays, serialize them to a string, and consider storing
 them as attachments.</p>
+<p><strong>HINT:</strong> If you need to replicate the results of the stochastic search (e.g. for a demonstration),
+pass an object of type <code>np.random.Generator</code> into the <code>fmin</code> function, using the <code>rstate</code> optional parameter.</p>
 <p>Writing the function above in dictionary-returning style, it
 would look like this:</p>
-<pre><code class="python">import pickle
-import time
-from hyperopt import fmin, tpe, hp, STATUS_OK
+<pre><code class="language-python">from hyperopt import fmin, tpe, hp, STATUS_OK
+
 
 def objective(x):
     return {'loss': x ** 2, 'status': STATUS_OK }
 
 best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100)
 
-print best
+print(best)
 </code></pre>
-
 <h2 id="the-trials-object">The Trials Object</h2>
 <p>To really see the purpose of returning a dictionary,
 let's modify the objective function to return some more things,
 and pass an explicit <code>trials</code> argument to <code>fmin</code>.</p>
-<pre><code class="python">import pickle
+<pre><code class="language-python">import pickle
 import time
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+
 
 def objective(x):
     return {
@@ -260,14 +282,13 @@ def objective(x):
         }
 trials = Trials()
 best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
-    algo=tpe.suggest,
-    max_evals=100,
-    trials=trials)
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            max_evals=100,
+            trials=trials)
 
-print best
+print(best)
 </code></pre>
-
 <p>In this case the call to fmin proceeds as before, but by passing in a trials object directly,
 we can inspect all of the return values that were calculated during the experiment.</p>
 <p>So for example:</p>
@@ -278,22 +299,53 @@ we can inspect all of the return values that were calculated during the experime
 <li><code>trials.statuses()</code> - a list of status strings</li>
 </ul>
 <p>This trials object can be saved, passed on to the built-in plotting routines,
-or analyzed with your own custom code.</p>
+or analyzed with your own custom code.
+Here is a simple example of one way to save and subsequently load a trials object.</p>
+<pre><code class="language-python">import pickle
+from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+
+
+def objective(x):
+    return {'loss': x ** 2, 'status': STATUS_OK }
+
+# Initialize an empty trials database
+trials = Trials()
+
+# Perform 100 evaluations on the search space
+best = fmin(objective,
+            space=hp.uniform('x', -10, 10),
+            algo=tpe.suggest,
+            trials=trials,
+            max_evals=100)
+
+# The trials database now contains 100 entries, it can be saved/reloaded with pickle or another method
+pickle.dump(trials, open(&quot;my_trials.pkl&quot;, &quot;wb&quot;))
+trials = pickle.load(open(&quot;my_trials.pkl&quot;, &quot;rb&quot;))
+
+# Perform an additional 100 evaluations
+# Note that max_evals is set to 200 because 100 entries already exist in the database
+best = fmin(objective,
+    space=hp.uniform('x', -10, 10),
+    algo=tpe.suggest,
+    trials=trials,
+    max_evals=200)
+
+print(best)
+</code></pre>
 <p>The <em>attachments</em> are handled by a special mechanism that makes it possible to use the same code
 for both <code>Trials</code> and <code>MongoTrials</code>.</p>
 <p>You can retrieve a trial attachment like this, which retrieves the 'time_module' attachment of the 5th trial:</p>
-<pre><code class="python">msg = trials.trial_attachments(trials.trials[5])['time_module']
+<pre><code class="language-python">msg = trials.trial_attachments(trials.trials[5])['time_module']
 time_module = pickle.loads(msg)
 </code></pre>
-
 <p>The syntax is somewhat involved because the idea is that attachments are large strings,
 so when using MongoTrials, we do not want to download more than necessary.
-Strings can also be attached globally to the entire trials object via trials.attachments,
+Strings can also be attached globally to the entire trials object via <code>trials.attachments</code>,
 which behaves like a string-to-string dictionary.</p>
 <p><strong>N.B.</strong> Currently, the trial-specific attachments to a Trials object are tossed into the same global trials attachment dictionary, but that may change in the future and it is not true of MongoTrials.</p>
 <h2 id="the-ctrl-object-for-realtime-communication-with-mongodb">The <code>Ctrl</code> Object for Realtime Communication with MongoDB</h2>
 <p>It is possible for <code>fmin()</code> to give your objective function a handle to the mongodb used by a parallel experiment. This mechanism makes it possible to update the database with partial results, and to communicate with other concurrent processes that are evaluating different points.
-Your objective function can even add new search points, just like <code>random.suggest</code>.</p>
+Your objective function can even add new search points, just like <code>rand.suggest</code>.</p>
 <p>The basic technique involves:</p>
 <ul>
 <li>Using the <code>fmin_pass_expr_memo_ctrl</code> decorator</li>
@@ -305,50 +357,50 @@ Your objective function can even add new search points, just like <code>random.s
 <p>It's normal if this doesn't make a lot of sense to you after this short tutorial,
 but I wanted to give some mention of what's possible with the current code base,
 and provide some terms to grep for in the hyperopt source, the unit test,
-and example projects, such as <a href="https://github.com/jaberg/hyperopt-convnet">hyperopt-convnet</a>.
+and example projects, such as <a href="https://github.com/hyperopt/hyperopt-convnet">hyperopt-convnet</a>.
 Email me or file a github issue if you'd like some help getting up to speed with this part of the code.</p></div>
+            </div>
         </div>
 
         <footer class="col-md-12">
             <hr>
             <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
         </footer>
+        <script src="../../js/jquery-3.6.0.min.js"></script>
+        <script src="../../js/bootstrap.min.js"></script>
         <script>
             var base_url = "../..",
-                shortcuts = {"search": 83, "next": 78, "help": 191, "previous": 80};
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
         </script>
-        <script src="../../js/base.js" defer></script>
-        <script src="../../search/main.js" defer></script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
 
-        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="Search Modal" aria-hidden="true">
-    <div class="modal-dialog">
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Search</h4>
             </div>
             <div class="modal-body">
-                <p>
-                    From here you can search these documents. Enter
-                    your search terms below.
-                </p>
-                <form role="form">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
                     <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
                     </div>
                 </form>
-                <div id="mkdocs-search-results"></div>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
             </div>
             <div class="modal-footer">
             </div>
         </div>
     </div>
-</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="Keyboard Shortcuts Modal" aria-hidden="true">
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                <h4 class="modal-title" id="exampleModalLabel">Keyboard Shortcuts</h4>
             </div>
             <div class="modal-body">
               <table class="table">
