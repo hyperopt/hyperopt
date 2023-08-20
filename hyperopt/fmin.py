@@ -1,5 +1,3 @@
-from future import standard_library
-
 import functools
 import inspect
 import logging
@@ -17,7 +15,6 @@ from .utils import coarse_utcnow
 from . import base
 from . import progress
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 

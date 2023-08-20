@@ -3,12 +3,8 @@ Use graphviz's dot language to express the relationship between hyperparamters
 in a search space.
 
 """
-from future import standard_library
-
 import io
 from .pyll_utils import expr_to_config
-
-standard_library.install_aliases()
 
 
 def dot_hyperparameters(expr):
