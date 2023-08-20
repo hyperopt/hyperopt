@@ -1,4 +1,3 @@
-from past.builtins import basestring
 import datetime
 import numpy as np
 import logging
@@ -86,7 +85,7 @@ def json_call(json, args=(), kwargs=None):
     """
     if kwargs is None:
         kwargs = {}
-    if isinstance(json, basestring):
+    if isinstance(json, (str, bytes)):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)
     elif isinstance(json, dict):
