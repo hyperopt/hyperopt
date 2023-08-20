@@ -94,14 +94,14 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     samples = np.reshape(np.asarray(samples), size)
     if q is None:
         return samples
-    return np.round(old_div(samples, q)) * q
+    return np.round(samples / q) * q
 
 
 @scope.define
 def normal_cdf(x, mu, sigma):
     top = x - mu
     bottom = np.maximum(np.sqrt(2) * sigma, EPS)
-    z = old_div(top, bottom)
+    z = top / bottom
     return 0.5 * (1 + erf(z))
 
 
@@ -144,7 +144,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
 
     if q is None:
         dist = samples[:, None] - mus
-        mahal = (old_div(dist, np.maximum(sigmas, EPS))) ** 2
+        mahal = (dist / np.maximum(sigmas, EPS)) ** 2
         # mahal shape is (n_samples, n_components)
         Z = np.sqrt(2 * np.pi * sigmas**2)
         coef = weights / Z / p_accept
@@ -153,13 +153,13 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         prob = np.zeros(samples.shape, dtype="float64")
         for w, mu, sigma in zip(weights, mus, sigmas):
             if high is None:
-                ubound = samples + old_div(q, 2.0)
+                ubound = samples + q / 2
             else:
-                ubound = np.minimum(samples + old_div(q, 2.0), high)
+                ubound = np.minimum(samples + q / 2, high)
             if low is None:
-                lbound = samples - old_div(q, 2.0)
+                lbound = samples - q / 2
             else:
-                lbound = np.maximum(samples - old_div(q, 2.0), low)
+                lbound = np.maximum(samples - q / 2, low)
             # -- two-stage addition is slightly more numerically accurate
             inc_amt = w * normal_cdf(ubound, mu, sigma)
             inc_amt -= w * normal_cdf(lbound, mu, sigma)
@@ -192,7 +192,7 @@ def lognormal_cdf(x, mu, sigma):
     try:
         top = np.log(np.maximum(x, EPS)) - mu
         bottom = np.maximum(np.sqrt(2) * sigma, EPS)
-        z = old_div(top, bottom)
+        z = top / bottom
         return 0.5 + 0.5 * erf(z)
     finally:
         np.seterr(**olderr)
@@ -205,7 +205,7 @@ def lognormal_lpdf(x, mu, sigma):
     assert np.all(sigma >= 0)
     sigma = np.maximum(sigma, EPS)
     Z = sigma * x * np.sqrt(2 * np.pi)
-    E = 0.5 * (old_div((np.log(x) - mu), sigma)) ** 2
+    E = 0.5 * ((np.log(x) - mu) / sigma) ** 2
     rval = -E - np.log(Z)
     return rval
 
@@ -246,7 +246,7 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
 
     samples = np.reshape(np.asarray(samples), size)
     if q is not None:
-        samples = np.round(old_div(samples, q)) * q
+        samples = np.round(samples / q) * q
     return samples
 
 
@@ -283,13 +283,13 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         prob = np.zeros(samples.shape, dtype="float64")
         for w, mu, sigma in zip(weights, mus, sigmas):
             if high is None:
-                ubound = samples + old_div(q, 2.0)
+                ubound = samples + q / 2
             else:
-                ubound = np.minimum(samples + old_div(q, 2.0), np.exp(high))
+                ubound = np.minimum(samples + q / 2, np.exp(high))
             if low is None:
-                lbound = samples - old_div(q, 2.0)
+                lbound = samples - q / 2
             else:
-                lbound = np.maximum(samples - old_div(q, 2.0), np.exp(low))
+                lbound = np.maximum(samples - q / 2, np.exp(low))
             lbound = np.maximum(0, lbound)
             # -- two-stage addition is slightly more numerically accurate
             inc_amt = w * lognormal_cdf(ubound, mu, sigma)
@@ -358,14 +358,14 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
 
     maxsigma = prior_sigma
     # -- magic formula:
-    minsigma = old_div(prior_sigma, np.sqrt(1 + len(mus)))
+    minsigma = prior_sigma / np.sqrt(1 + len(mus))
 
     sigma = np.clip(sigma, minsigma, maxsigma)
 
     weights = np.ones(len(mus), dtype=mus.dtype)
     weights[0] = prior_weight
 
-    weights = old_div(weights, weights.sum())
+    weights = weights / weights.sum()
 
     return weights, mus, sigma
 
@@ -378,7 +378,7 @@ def linear_forgetting_weights(N, LF):
         return np.asarray([])
     if N < LF:
         return np.ones(N)
-    ramp = np.linspace(old_div(1.0, N), 1.0, num=N - LF)
+    ramp = np.linspace(1 / N, 1.0, num=N - LF)
     flat = np.ones(LF)
     weights = np.concatenate([ramp, flat], axis=0)
     assert weights.shape == (N,), (weights.shape, N)
@@ -443,8 +443,8 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma, LF=DEFAULT_
         srtd_weights[prior_pos] = prior_weight
 
     # -- magic formula:
-    maxsigma = old_div(prior_sigma, 1.0)
-    minsigma = old_div(prior_sigma, min(100.0, (1.0 + len(srtd_mus))))
+    maxsigma = prior_sigma
+    minsigma = prior_sigma / min(100.0, (1.0 + len(srtd_mus)))
 
     sigma = np.clip(sigma, minsigma, maxsigma)
 

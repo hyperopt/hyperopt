@@ -9,7 +9,6 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
-from past.utils import old_div
 import logging
 import numpy as np
 
@@ -137,7 +136,7 @@ class AnnealingAlgo(SuggestAlgo):
             the name of a hyperparameter
         """
         T = len(self.node_vals[label])
-        return old_div(1.0, (1.0 + T * self.shrink_coef))
+        return 1 / (1 + T * self.shrink_coef)
 
     def choose_ltv(self, label, size):
         """Returns (loss, tid, val) of best/runner-up trial"""
@@ -159,7 +158,7 @@ class AnnealingAlgo(SuggestAlgo):
                     return rval
 
         # -- choose a new good seed point
-        good_idx = self.rng.geometric(old_div(1.0, self.avg_best_idx), size=size) - 1
+        good_idx = self.rng.geometric(1 / self.avg_best_idx, size=size) - 1
         good_idx = np.clip(good_idx, 0, len(tids) - 1).astype("int32")
 
         picks = np.argsort(losses)[good_idx]
@@ -296,13 +295,11 @@ class AnnealingAlgo(SuggestAlgo):
         offset = 0 if high is None else low
         val1 = np.atleast_1d(val)
         if val1.size:
-            counts = old_div(
-                bincount(val1, offset=offset, minlength=domain_size), float(val1.size)
-            )
+            counts = bincount(val1, offset=offset, minlength=domain_size) / val1.size
         else:
             counts = np.zeros(domain_size)
         prior = self.shrinking(label)
-        p = (1 - prior) * counts + prior * (old_div(1.0, domain_size))
+        p = (1 - prior) * counts + prior / domain_size
         rval = categorical(p=p, rng=self.rng, size=memo[node.arg["size"]]) + offset
         return rval
 
@@ -325,7 +322,7 @@ class AnnealingAlgo(SuggestAlgo):
             assert p.ndim == 1
             p = p[np.newaxis, :]
         if val1.size:
-            counts = old_div(np.bincount(val1, minlength=p.size), float(val1.size))
+            counts = np.bincount(val1, minlength=p.size) / val1.size
             prior = self.shrinking(label)
         else:
             counts = np.zeros(p.size)

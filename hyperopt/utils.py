@@ -1,5 +1,4 @@
 from past.builtins import basestring
-from past.utils import old_div
 import datetime
 import numpy as np
 import logging
@@ -132,7 +131,7 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape
-    return old_div(wincounts.astype("float64"), wincounts.sum())
+    return wincounts.astype("float64") / wincounts.sum()
 
 
 def fast_isin(X, Y):

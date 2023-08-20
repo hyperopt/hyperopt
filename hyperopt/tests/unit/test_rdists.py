@@ -1,4 +1,3 @@
-from past.utils import old_div
 from collections import defaultdict
 import unittest
 import numpy as np
@@ -92,7 +91,7 @@ class TestLogNormal(unittest.TestCase):
 def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
     counts = defaultdict(lambda: 0)
     # print 'sample', dfn.rvs(size=n)
-    inc = old_div(1.0, n)
+    inc = 1 / n
     for s in dfn.rvs(size=n):
         counts[s] += inc
     for ii, p in sorted(counts.items()):
