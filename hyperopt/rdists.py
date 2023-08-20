@@ -23,13 +23,13 @@ class loguniform_gen(rv_continuous):
         return rval
 
     def _pdf(self, x):
-        return old_div(1.0, (x * (self._high - self._low)))
+        return 1 / (x * (self._high - self._low))
 
     def _logpdf(self, x):
         return -np.log(x) - np.log(self._high - self._low)
 
     def _cdf(self, x):
-        return old_div((np.log(x) - self._low), (self._high - self._low))
+        return (np.log(x) - self._low) / (self._high - self._low)
 
 
 class lognorm_gen(scipy_lognorm_gen):
@@ -54,9 +54,9 @@ class lognorm_gen(scipy_lognorm_gen):
 
 
 def qtable_pmf(x, q, qlow, xs, ps):
-    qx = np.round(old_div(np.atleast_1d(x).astype(float), q)) * q
+    qx = np.round(np.atleast_1d(x).astype(float) / q) * q
     is_multiple = np.isclose(qx, x)
-    ix = np.round(old_div((qx - qlow), q)).astype(int)
+    ix = np.round((qx - qlow) / q).astype(int)
     is_inbounds = np.logical_and(ix >= 0, ix < len(ps))
     oks = np.logical_and(is_multiple, is_inbounds)
     rval = np.zeros_like(qx)
@@ -84,15 +84,15 @@ class quniform_gen:
 
     def __init__(self, low, high, q):
         low, high = list(map(float, (low, high)))
-        qlow = safe_int_cast(np.round(old_div(low, q))) * q
-        qhigh = safe_int_cast(np.round(old_div(high, q))) * q
+        qlow = safe_int_cast(np.round(low / q)) * q
+        qhigh = safe_int_cast(np.round(high / q)) * q
         if qlow == qhigh:
             xs = [qlow]
             ps = [1.0]
         else:
-            lowmass = 1 - (old_div((low - qlow + 0.5 * q), q))
+            lowmass = 1 - ((low - qlow + 0.5 * q) / q)
             assert 0 <= lowmass <= 1.0, (lowmass, low, qlow, q)
-            highmass = old_div((high - qhigh + 0.5 * q), q)
+            highmass = (high - qhigh + 0.5 * q) / q
             assert 0 <= highmass <= 1.0, (highmass, high, qhigh, q)
             # -- xs: qlow to qhigh inclusive
             xs = np.arange(qlow, qhigh + 0.5 * q, q)
@@ -117,7 +117,7 @@ class quniform_gen:
 
     def rvs(self, size=()):
         rval = mtrand.uniform(low=self.low, high=self.high, size=size)
-        rval = safe_int_cast(np.round(old_div(rval, self.q))) * self.q
+        rval = safe_int_cast(np.round(rval / self.q)) * self.q
         return rval
 
 
@@ -131,8 +131,8 @@ class qloguniform_gen(quniform_gen):
         low, high = list(map(float, (low, high)))
         elow = np.exp(low)
         ehigh = np.exp(high)
-        qlow = safe_int_cast(np.round(old_div(elow, q))) * q
-        qhigh = safe_int_cast(np.round(old_div(ehigh, q))) * q
+        qlow = safe_int_cast(np.round(elow / q)) * q
+        qhigh = safe_int_cast(np.round(ehigh / q)) * q
 
         # -- loguniform for using the CDF
         lu = loguniform_gen(low=low, high=high)
@@ -173,7 +173,7 @@ class qloguniform_gen(quniform_gen):
 
     def rvs(self, size=()):
         x = mtrand.uniform(low=self.low, high=self.high, size=size)
-        rval = safe_int_cast(np.round(old_div(np.exp(x), self.q))) * self.q
+        rval = safe_int_cast(np.round(np.exp(x) / self.q)) * self.q
         return rval
 
 
@@ -217,7 +217,7 @@ class qnormal_gen:
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = safe_int_cast(np.round(old_div(x, self.q))) * self.q
+        rval = safe_int_cast(np.round(x / self.q)) * self.q
         return rval
 
 
@@ -261,7 +261,7 @@ class qlognormal_gen:
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = safe_int_cast(np.round(old_div(np.exp(x), self.q))) * self.q
+        rval = safe_int_cast(np.round(np.exp(x) / self.q)) * self.q
         return rval
 
 
