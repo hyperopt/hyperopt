@@ -2,7 +2,6 @@
 Extra distributions to complement scipy.stats
 
 """
-from past.utils import old_div
 import numpy as np
 import numpy.random as mtrand
 import scipy.stats
@@ -187,7 +186,7 @@ class qnormal_gen:
         self._norm_logcdf = scipy.stats.norm(loc=mu, scale=sigma).logcdf
 
     def in_domain(self, x):
-        return np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q)
+        return np.isclose(x, safe_int_cast(np.round(x / self.q)) * self.q)
 
     def pmf(self, x):
         return np.exp(self.logpmf(x))
@@ -233,7 +232,7 @@ class qlognormal_gen:
     def in_domain(self, x):
         return np.logical_and(
             (x >= 0),
-            np.isclose(x, safe_int_cast(np.round(old_div(x, self.q))) * self.q),
+            np.isclose(x, safe_int_cast(np.round(x / self.q)) * self.q),
         )
 
     def pmf(self, x):
