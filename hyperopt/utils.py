@@ -1,4 +1,3 @@
-from future import standard_library
 from past.builtins import basestring
 from past.utils import old_div
 import datetime
@@ -11,8 +10,6 @@ import uuid
 import numpy
 from . import pyll
 from contextlib import contextmanager
-
-standard_library.install_aliases()
 
 
 def _get_random_id():

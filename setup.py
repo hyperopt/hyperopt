@@ -47,7 +47,6 @@ setuptools.setup(
         "numpy>=1.17",
         "scipy",
         "networkx>=2.2",
-        "future",
         "tqdm",
         "cloudpickle",
     ],

@@ -2,7 +2,6 @@
 #
 # It provides types to build ASTs in a simple lambda-notation style
 #
-from future import standard_library
 import copy
 import logging
 import operator
@@ -16,7 +15,6 @@ import networkx as nx
 import numpy as np
 from io import StringIO
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 np_versions = list(map(int, np.__version__.split(".")[:2]))
 
