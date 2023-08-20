@@ -1,7 +1,6 @@
 """
 Graphical model (GM)-based optimization algorithm using Theano
 """
-from past.utils import old_div
 import logging
 import time
 
@@ -580,7 +579,7 @@ def ap_randint_sampler(
     # -- add in some prior pseudocounts
     pseudocounts = counts + prior_weight
     random_variable = scope.randint_via_categorical(
-        old_div(pseudocounts, scope.sum(pseudocounts)), size=size, rng=rng
+        pseudocounts / scope.sum(pseudocounts), size=size, rng=rng
     )
     return random_variable
 
@@ -593,7 +592,7 @@ def tpe_cat_pseudocounts(counts, prior_weight, p, size):
         assert np.all(p == p[0])
         p = p[0]
     pseudocounts = counts + p.size * (prior_weight * p)
-    return old_div(pseudocounts, np.sum(pseudocounts))
+    return pseudocounts / np.sum(pseudocounts)
 
 
 @adaptive_parzen_sampler("categorical")
