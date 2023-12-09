@@ -71,7 +71,7 @@ def hp_choice(label, options):
     return scope.switch(ch, *options)
 
 
-class _HyperoptRandintPatched:
+class _RandintPatched:
     def __call__(self, label, *args, **kwargs):
         return validate_label(scope.hyperopt_param)(
             label, scope.randint(*args, **kwargs)
@@ -81,7 +81,7 @@ class _HyperoptRandintPatched:
         return scope.int(self(label, *args, **kwargs))
 
 
-hp_randint = _HyperoptRandintPatched()
+hp_randint = _RandintPatched()
 
 
 @validate_label
