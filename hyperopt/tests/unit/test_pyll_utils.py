@@ -1,12 +1,12 @@
-from hyperopt import pyll_utils
-from hyperopt.pyll_utils import EQ
-from hyperopt.pyll_utils import expr_to_config
-from hyperopt import hp
-from hyperopt.pyll import as_apply
-from hyperopt.pyll.stochastic import sample
 import unittest
+
 import numpy as np
 import pytest
+
+from hyperopt import hp, pyll_utils
+from hyperopt.pyll import as_apply
+from hyperopt.pyll.stochastic import sample
+from hyperopt.pyll_utils import EQ, expr_to_config
 
 
 def test_expr_to_config():
@@ -107,6 +107,23 @@ def test_uniformint_arguments(arguments):
     rng = np.random.default_rng(np.random.PCG64(123))
     values = [sample(space, rng=rng) for _ in range(10)]
     assert values == [7, 1, 2, 2, 2, 8, 9, 3, 8, 9]
+
+
+@pytest.mark.parametrize(
+    "arguments", [["z", 0, 10], {"label": "z", "low": 0, "high": 10}]
+)
+def test_randint_patched_returns_int(arguments):
+    """
+    Test whether ``randint.patched`` returns an integer instead of numpy array.
+    Related to issue #437.
+    """
+    if isinstance(arguments, list):
+        space = hp.randint.patched(*arguments)
+    elif isinstance(arguments, dict):
+        space = hp.randint.patched(**arguments)
+    else:
+        raise ValueError("Unexpected type of 'arguments'.")
+    assert isinstance(sample(space), int)
 
 
 class TestValidateDistributionRange(unittest.TestCase):
