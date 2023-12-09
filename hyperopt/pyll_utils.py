@@ -73,7 +73,9 @@ def hp_choice(label, options):
 
 class _HyperoptRandintPatched:
     def __call__(self, label, *args, **kwargs):
-        return validate_label(scope.hyperopt_param)(label, scope.randint(*args, **kwargs))
+        return validate_label(scope.hyperopt_param)(
+            label, scope.randint(*args, **kwargs)
+        )
 
     def patched(self, label, *args, **kwargs):
         return scope.int(self(label, *args, **kwargs))
@@ -250,5 +252,6 @@ def _remove_allpaths(hps, conditions):
                 if frozenset(conds) == potential_conds[depvar]:
                     v["conditions"] = {conditions}
                     continue
+
 
 # -- eof
