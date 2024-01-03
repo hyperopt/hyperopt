@@ -147,7 +147,7 @@ Currently three algorithms are implemented in hyperopt:
 
 - [Random Search](http://www.jmlr.org/papers/v13/bergstra12a.html?source=post_page---------------------------)
 - [Tree of Parzen Estimators (TPE)](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf)
-- [Adaptive TPE](https://www.electricbrain.io/blog/learning-to-optimize)
+- [Adaptive TPE](https://articulon.bradleyarsenault.me/article/learning-to-optimize)
 
 Hyperopt has been designed to accommodate Bayesian optimization algorithms based on Gaussian processes and regression trees, but these are not currently implemented.
 

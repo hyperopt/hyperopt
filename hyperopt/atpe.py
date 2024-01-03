@@ -1,8 +1,8 @@
 """
     Implements the ATPE algorithm. See
-    https://www.electricbrain.io/blog/learning-to-optimize
+    https://articulon.bradleyarsenault.me/article/learning-to-optimize
     and
-    https://www.electricbrain.io/blog/optimizing-optimization to learn more
+    https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
 """
 
 __authors__ = "Bradley Arsenault"
