@@ -17,17 +17,17 @@ class loguniform_gen(rv_continuous):
         self._low = low
         self._high = high
 
-    def _rvs(self):
-        rval = np.exp(mtrand.uniform(self._low, self._high, self._size))
+    def _rvs(self, *args, size=None, random_state=None):
+        rval = np.exp(random_state.uniform(self._low, self._high, size))
         return rval
 
-    def _pdf(self, x):
+    def _pdf(self, x, *args):
         return 1 / (x * (self._high - self._low))
 
-    def _logpdf(self, x):
+    def _logpdf(self, x, *args):
         return -np.log(x) - np.log(self._high - self._low)
 
-    def _cdf(self, x):
+    def _cdf(self, x, *args):
         return (np.log(x) - self._low) / (self._high - self._low)
 
 

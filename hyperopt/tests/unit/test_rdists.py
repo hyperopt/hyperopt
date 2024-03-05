@@ -43,7 +43,7 @@ class TestLogUniform(unittest.TestCase):
         scale = 1
         arg = (loc, scale)
         distfn = loguniform_gen(0, 1)
-        D, pval = stats.kstest(distfn.rvs, distfn.cdf, args=arg, N=1000)
+        D, pval = stats.kstest(distfn.rvs(), distfn.cdf, args=arg, N=1000)
         if pval < alpha:
             npt.assert_(
                 pval > alpha,

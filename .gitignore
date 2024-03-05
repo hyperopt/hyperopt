@@ -1,5 +1,4 @@
 distribute*
-.noseids
 *.pyc
 *.swp
 *egg-info*
@@ -50,7 +49,6 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
-nosetests.xml
 coverage.xml
 *,cover
 

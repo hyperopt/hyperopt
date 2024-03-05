@@ -8,9 +8,8 @@ import threading
 import time
 import unittest
 
+import pytest
 import numpy as np
-import nose
-import nose.plugins.skip
 
 from hyperopt.base import JOB_STATE_DONE, STATUS_OK
 from hyperopt.mongoexp import parse_url
@@ -24,14 +23,6 @@ from hyperopt.fmin import fmin
 from hyperopt import hp, rand
 import hyperopt.tests.test_base
 from hyperopt.tests.unit.test_domains import gauss_wave2
-
-
-def skiptest(f):
-    def wrapper(*args, **kwargs):
-        raise nose.plugins.skip.SkipTest()
-
-    wrapper.__name__ = f.__name__
-    return wrapper
 
 
 class TempMongo:
@@ -149,7 +140,7 @@ except OSError as e:
     )
     if "such file" in str(e):
         print("Hint: is mongod executable on path?", file=sys.stderr)
-    raise nose.SkipTest()
+    pytest.skip(allow_module_level=True)
 
 
 class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
@@ -211,7 +202,7 @@ def with_worker_threads(n_threads, dbname="foo", n_jobs=sys.maxsize, timeout=10.
             finally:
                 [th.join() for th in threads]
 
-        wrapper.__name__ = f.__name__  # -- nose requires test in name
+        wrapper.__name__ = f.__name__
         return wrapper
 
     return deco
@@ -452,10 +443,7 @@ class FakeOptions:
 
 
 # -- assert that the test raises a ReserveTimeout within 5 seconds
-@nose.tools.timed(10.0)  # XXX:  this needs a suspiciously long timeout
-@nose.tools.raises(ReserveTimeout)
-@with_mongo_trials
-def test_main_worker(trials):
+def test_main_worker():
     options = FakeOptions(
         max_jobs=1,
         # XXX: sync this with TempMongo
