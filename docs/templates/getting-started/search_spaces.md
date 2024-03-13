@@ -83,10 +83,10 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
   * Returns a value like round(uniform(low, high) / q) * q
   * Suitable for a discrete value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.
 
-* `hp.quniformint(label, low, high)` or `hp.uniformint(label, low, high, q)`
-  * Returns a value like round(uniform(low, high) / q) * q
-  * The parameter `q` will always be set to `1.0`  
-  * Suitable for a discrete value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.
+* `hp.uniformint(label, low, high)`
+  * Returns a integer value uniformly between `low` and `high`
+  * Equivalent to `hp.quniform(label, low, high, 1.0)`
+  * Suitable for a discrete integer value with respect to which the objective is still somewhat "smooth", but which should be bounded both above and below.
 
 * `hp.loguniform(label, low, high)`
   * Returns a value drawn according to exp(uniform(low, high)) so that the logarithm of the return value is uniformly distributed.
