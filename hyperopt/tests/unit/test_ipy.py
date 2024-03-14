@@ -9,13 +9,14 @@ To start the engines in hyperopt/hyperopt/tests/
 
 """
 import sys
-from nose import SkipTest
+
+import pytest
 
 try:
     from IPython.parallel import Client
 except ImportError:
     print("Skipping IPython Tests (IPython not found)", file=sys.stderr)
-    raise SkipTest("IPython not present")
+    pytest.skip("IPython not present", allow_module_level=True)
 
 from hyperopt.ipy import IPythonTrials
 import hyperopt.hp
@@ -27,7 +28,7 @@ def test0():
     try:
         client = Client(debug=True)
     except OSError:
-        raise SkipTest()
+        pytest.skip()
 
     client[:].use_cloudpickle()
     trials = IPythonTrials(client, "log")
@@ -60,7 +61,7 @@ def test_fmin_fn():
     try:
         client = Client()
     except OSError:
-        raise SkipTest()
+        pytest.skip()
 
     client[:].use_cloudpickle()
 

@@ -10,13 +10,13 @@ __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
 from hyperopt import hp
+import hyperopt.atpe_models
 from contextlib import contextmanager
 import re
 import functools
 import random
 import numpy
 import numpy.random
-import pkg_resources
 import tempfile
 import scipy.stats
 import os
@@ -25,6 +25,8 @@ import hyperopt
 import datetime
 import json
 import copy
+
+import importlib.resources
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
@@ -656,9 +658,9 @@ class ATPEOptimizer:
             )
 
         scalingModelData = json.loads(
-            pkg_resources.resource_string(
-                __name__, "atpe_models/scaling_model.json"
-            ).decode("utf-8")
+            importlib.resources.read_text(
+                hyperopt.atpe_models.__name__, "scaling_model.json", encoding="utf-8"
+            )
         )
         self.featureScalingModels = {}
         for key in self.atpeModelFeatureKeys:
@@ -677,18 +679,20 @@ class ATPEOptimizer:
         self.parameterModels = {}
         self.parameterModelConfigurations = {}
         for param in self.atpeParameters:
-            modelData = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + ".txt"
+            modelData = importlib.resources.read_binary(
+                hyperopt.atpe_models.__name__, "model-" + param + ".txt"
             )
             with ClosedNamedTempFile(modelData) as model_file_name:
                 self.parameterModels[param] = lightgbm.Booster(
                     model_file=model_file_name
                 )
 
-            configString = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + "-configuration.json"
+            configString = importlib.resources.read_text(
+                hyperopt.atpe_models.__name__,
+                "model-" + param + "-configuration.json",
+                encoding="utf-8",
             )
-            data = json.loads(configString.decode("utf-8"))
+            data = json.loads(configString)
             self.parameterModelConfigurations[param] = data
 
         self.lastATPEParameters = None

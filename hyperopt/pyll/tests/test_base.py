@@ -11,8 +11,7 @@ from hyperopt.pyll.base import (
     clone_merge,
 )
 
-from nose import SkipTest
-from nose.tools import assert_raises
+import pytest
 import numpy as np
 
 
@@ -208,7 +207,7 @@ def test_bincount():
         test_f(base.bincount)
     except TypeError as e:
         if "function takes at most 2 arguments" in str(e):
-            raise SkipTest()
+            pytest.skip()
         raise
 
 
@@ -217,7 +216,8 @@ def test_switch_and_Raise():
     ab = scope.switch(i, "a", "b", scope.Raise(Exception))
     assert rec_eval(ab, memo={i: 0}) == "a"
     assert rec_eval(ab, memo={i: 1}) == "b"
-    assert_raises(Exception, rec_eval, ab, memo={i: 2})
+    with pytest.raises(Exception):
+        rec_eval(ab, memo={i: 2})
 
 
 def test_kwswitch():
@@ -225,7 +225,8 @@ def test_kwswitch():
     ab = scope.kwswitch(i, k1="a", k2="b", err=scope.Raise(Exception))
     assert rec_eval(ab, memo={i: "k1"}) == "a"
     assert rec_eval(ab, memo={i: "k2"}) == "b"
-    assert_raises(Exception, rec_eval, ab, memo={i: "err"})
+    with pytest.raises(Exception):
+        rec_eval(ab, memo={i: "err"})
 
 
 def test_recursion():
@@ -251,7 +252,8 @@ def test_partial():
     assert "SymbolTableEntry" in str(thing)
 
     # add2() evaluates to a failure because it's only a partial application
-    assert_raises(NotImplementedError, rec_eval, add2())
+    with pytest.raises(NotImplementedError):
+        rec_eval(add2())
 
     # add2(3) evaluates to 5 because we've filled in all the blanks
     thing = rec_eval(add2(3))
@@ -295,4 +297,5 @@ def test_clone_merge_no_merge_literals():
 
 
 def test_len():
-    assert_raises(TypeError, len, scope.uniform(0, 1))
+    with pytest.raises(TypeError):
+        len(scope.uniform(0, 1))

@@ -7,15 +7,14 @@ then the plots actually appear.
 """
 import unittest
 import os
+import pytest
 
 try:
     import matplotlib
 
     matplotlib.use("svg")  # -- prevents trying to connect to X server
 except ImportError:
-    import nose
-
-    raise nose.SkipTest()
+    pytest.skip("matplotlib not installed", allow_module_level=True)
 
 from hyperopt import Trials
 import hyperopt.plotting

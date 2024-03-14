@@ -16,7 +16,7 @@ Verify that hyperopt can use mongod by running either the full unit test suite, 
 
 ```bash
 # cd to the hyperopt project root
-nosetests hyperopt/tests/test_mongoexp.py
+pytest hyperopt/tests/test_mongoexp.py
 ```
 
 ## Spark
