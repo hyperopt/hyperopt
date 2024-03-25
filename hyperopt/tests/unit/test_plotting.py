@@ -5,6 +5,7 @@ If environment variable HYPEROPT_SHOW is defined and true,
 then the plots actually appear.
 
 """
+
 import unittest
 import os
 
