@@ -1610,7 +1610,7 @@ def suggest(new_ids, domain, trials, seed):
                 tid=new_id,
                 cmd=domain.cmd,
                 workdir=domain.workdir,
-                idxs={key: [0] for key in flatParameters},
+                idxs={key: [new_id] for key in flatParameters},
                 vals={key: [flatParameters[key]] for key in flatParameters},
             )
         ]
