@@ -1,5 +1,5 @@
 import numpy as np
-from nose.tools import raises, eq_
+import pytest
 import shutil
 import os
 from hyperopt.utils import fast_isin
@@ -83,10 +83,10 @@ def test_get_most_recent_inds():
     assert get_most_recent_inds(test_data).tolist() == [0, 3]
 
 
-@raises(RuntimeError)
 def test_temp_dir_pardir():
-    with temp_dir("../test_temp_dir"):
-        pass
+    with pytest.raises(RuntimeError):
+        with temp_dir("../test_temp_dir"):
+            pass
 
 
 def test_temp_dir():
@@ -113,7 +113,7 @@ def test_temp_dir():
 def test_path_split_all():
     ll = "foo bar baz".split()
     path = os.path.join(*ll)
-    eq_(list(path_split_all(path)), ll)
+    assert list(path_split_all(path)) == ll
 
 
 def test_temp_dir_sentinel():
@@ -125,8 +125,8 @@ def test_temp_dir_sentinel():
         print("Path %s exists, not running test_temp_dir_sentinel()" % basedir)
         return
     os.makedirs(basedir)
-    eq_(get_closest_dir(fn)[0], basedir)
-    eq_(get_closest_dir(fn)[1], "foo")
+    assert get_closest_dir(fn)[0] == basedir
+    assert get_closest_dir(fn)[1] == "foo"
     sentinel = join(basedir, "foo.inuse")
     try:
         with temp_dir(fn, erase_after=True, with_sentinel=True):
