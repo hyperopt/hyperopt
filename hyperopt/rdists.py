@@ -18,8 +18,8 @@ class loguniform_gen(rv_continuous):
         self._low = low
         self._high = high
 
-    def _rvs(self):
-        rval = np.exp(mtrand.uniform(self._low, self._high, self._size))
+    def _rvs(self, *args, size=None, random_state=None):
+        rval = np.exp(mtrand.uniform(self._low, self._high, size))
         return rval
 
     def _pdf(self, x):

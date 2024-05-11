@@ -49,7 +49,7 @@ setuptools.setup(
     requires_python=">=3.7",
     install_requires=[
         "numpy>=1.17",
-        "scipy",
+        "scipy>=1.5.0",
         "networkx>=2.2",
         "tqdm",
         "cloudpickle",
