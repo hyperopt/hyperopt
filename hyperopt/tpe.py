@@ -1,6 +1,7 @@
 """
 Graphical model (GM)-based optimization algorithm using Theano
 """
+
 import logging
 import time
 
