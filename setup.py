@@ -61,6 +61,6 @@ setuptools.setup(
         "ATPE": ["lightgbm", "scikit-learn"],
         "dev": ["black", "pre-commit", "pytest"],
     },
-    tests_require=["pytest"],
+    tests_require=["pytest", "packaging"],
     zip_safe=False,
 )

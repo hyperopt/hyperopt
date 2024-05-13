@@ -1,5 +1,7 @@
 from collections import defaultdict
+import importlib.metadata
 import unittest
+import packaging.version
 import numpy as np
 import numpy.testing as npt
 from hyperopt.rdists import (
@@ -43,7 +45,12 @@ class TestLogUniform(unittest.TestCase):
         scale = 1
         arg = (loc, scale)
         distfn = loguniform_gen(0, 1)
-        D, pval = stats.kstest(distfn.rvs, distfn.cdf, args=arg, N=1000)
+        if packaging.version.Version(
+            importlib.metadata.version("scipy")
+        ) >= packaging.version.Version("1.12.0"):
+            D, pval = stats.kstest(distfn.rvs(), distfn.cdf, args=arg, N=1000)
+        else:
+            D, pval = stats.kstest(distfn.rvs, distfn.cdf, args=arg, N=1000)
         if pval < alpha:
             npt.assert_(
                 pval > alpha,
