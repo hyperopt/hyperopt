@@ -46,13 +46,14 @@ setuptools.setup(
     license="BSD",
     keywords="Bayesian optimization hyperparameter model selection",
     include_package_data=True,
-    requires_python=">=3.7",
+    requires_python=">=3.8",
     install_requires=[
         "numpy>=1.17",
         "scipy>=1.5.0",
         "networkx>=2.2",
         "tqdm",
         "cloudpickle",
+        "importlib-resources>=1.3; python_version < '3.9'",
     ],
     extras_require={
         "SparkTrials": ["pyspark", "py4j"],

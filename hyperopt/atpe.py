@@ -11,17 +11,23 @@ __contact__ = "github.com/hyperopt/hyperopt"
 
 from hyperopt import hp
 from contextlib import contextmanager
+import sys
+
+if sys.version_info < (3, 9):
+    import importlib_resources as resources
+else:
+    from importlib import resources
 import re
 import functools
 import random
 import numpy
 import numpy.random
-import pkg_resources
 import tempfile
 import scipy.stats
 import os
 import math
 import hyperopt
+import hyperopt.atpe_models
 import datetime
 import json
 import copy
@@ -655,11 +661,10 @@ class ATPEOptimizer:
                 "You must install lightgbm and sklearn in order to use the ATPE algorithm. Please run `pip install lightgbm scikit-learn` and try again. These are not built in dependencies of hyperopt."
             )
 
-        scalingModelData = json.loads(
-            pkg_resources.resource_string(
-                __name__, "atpe_models/scaling_model.json"
-            ).decode("utf-8")
-        )
+        with resources.files(hyperopt.atpe_models.__name__).joinpath(
+            "scaling_model.json"
+        ).open() as fd:
+            scalingModelData = json.load(fd)
         self.featureScalingModels = {}
         for key in self.atpeModelFeatureKeys:
             self.featureScalingModels[key] = sklearn.preprocessing.StandardScaler()
@@ -677,19 +682,20 @@ class ATPEOptimizer:
         self.parameterModels = {}
         self.parameterModelConfigurations = {}
         for param in self.atpeParameters:
-            modelData = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + ".txt"
+            modelData = (
+                resources.files(hyperopt.atpe_models.__name__)
+                .joinpath(f"model-{param}.txt")
+                .read_bytes()
             )
             with ClosedNamedTempFile(modelData) as model_file_name:
                 self.parameterModels[param] = lightgbm.Booster(
                     model_file=model_file_name
                 )
 
-            configString = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + "-configuration.json"
-            )
-            data = json.loads(configString.decode("utf-8"))
-            self.parameterModelConfigurations[param] = data
+            with resources.files(hyperopt.atpe_models.__name__).joinpath(
+                f"model-{param}-configuration.json"
+            ).open() as config_fd:
+                self.parameterModelConfigurations[param] = json.load(config_fd)
 
         self.lastATPEParameters = None
         self.lastLockedParameters = []
