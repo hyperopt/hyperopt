@@ -557,7 +557,7 @@ def fmin(
         elif points_to_evaluate is None:
             trials = base.Trials()
         else:
-            assert type(points_to_evaluate) == list
+            assert isinstance(points_to_evaluate, list)
             trials = generate_trials_to_calculate(points_to_evaluate)
 
     domain = base.Domain(fn, space, pass_expr_memo_ctrl=pass_expr_memo_ctrl)

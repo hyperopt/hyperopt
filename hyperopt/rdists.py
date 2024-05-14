@@ -63,7 +63,7 @@ def qtable_pmf(x, q, qlow, xs, ps):
     rval[oks] = np.asarray(ps)[ix[oks]]
     if isinstance(x, np.ndarray):
         return rval.reshape(x.shape)
-    return float(rval)
+    return float(rval[0])
 
 
 def qtable_logpmf(x, q, qlow, xs, ps):
@@ -74,7 +74,7 @@ def qtable_logpmf(x, q, qlow, xs, ps):
     rval[p != 0] = np.log(p[p != 0])
     if isinstance(x, np.ndarray):
         return rval
-    return float(rval)
+    return float(rval[0])
 
 
 class quniform_gen:
@@ -213,7 +213,7 @@ class qnormal_gen:
         rval[in_domain] = a + np.log1p(-np.exp(b - a))
         if isinstance(x, np.ndarray):
             return rval
-        return float(rval)
+        return float(rval[0])
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
@@ -248,7 +248,7 @@ class qlognormal_gen:
         rval[in_domain] = rval_in_domain
         if isinstance(x, np.ndarray):
             return rval
-        return float(rval)
+        return float(rval[0])
 
     def logpmf(self, x):
         pmf = self.pmf(np.atleast_1d(x))
