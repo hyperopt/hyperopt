@@ -46,9 +46,9 @@ def ok_trial(tid, *args, **kwargs):
 def create_fake_trial(tid, loss=None, status=STATUS_OK, state=JOB_STATE_DONE):
     return dict(
         tid=tid,
-        result={"status": status, "loss": loss}
-        if loss is not None
-        else {"status": status},
+        result=(
+            {"status": status, "loss": loss} if loss is not None else {"status": status}
+        ),
         spec={"a": 1},
         misc={
             "tid": tid,

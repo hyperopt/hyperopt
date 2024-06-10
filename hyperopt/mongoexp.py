@@ -89,6 +89,7 @@ bandit.evaluate function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
+
 import copy
 
 # import hashlib
@@ -497,9 +498,9 @@ class MongoJobs:
             raise ValueError("refusing to reserve owned job")
         else:
             cond["owner"] = None
-            cond[
-                "state"
-            ] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
+            cond["state"] = (
+                JOB_STATE_NEW  # theoretically this is redundant, theoretically
+            )
 
         try:
             rval = self.jobs.find_and_modify(
