@@ -2,7 +2,7 @@ from functools import partial
 import os
 import unittest
 
-import nose
+import pytest
 
 import numpy as np
 
@@ -294,7 +294,7 @@ class TestQGMM1Math(unittest.TestCase):
         print(np.mean(err))
         print(np.median(err))
         if self.show:
-            raise nose.SkipTest()
+            pytest.skip()
         else:
             assert np.max(err) < 0.1
             assert np.mean(err) < 0.01
@@ -470,7 +470,7 @@ class TestQLGMM1Math(unittest.TestCase):
         print(np.mean(err))
         print(np.median(err))
         if self.show:
-            raise nose.SkipTest()
+            pytest.skip()
         else:
             assert np.max(err) < 0.1
             assert np.mean(err) < 0.01

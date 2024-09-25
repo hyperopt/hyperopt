@@ -854,13 +854,14 @@ def rec_eval(
             switch_i_var = node.pos_args[0]
             if switch_i_var in memo:
                 switch_i = memo[switch_i_var]
-                try:
-                    int(switch_i)
-                except:
+                if isinstance(switch_i, np.ndarray):
+                    switch_i = switch_i.item()
+                if isinstance(switch_i, int):
+                    if switch_i < 0:
+                        raise ValueError("switch pos must be positive int", switch_i)
+                else:
                     raise TypeError("switch argument was", switch_i)
-                if switch_i != int(switch_i) or switch_i < 0:
-                    raise ValueError("switch pos must be positive int", switch_i)
-                rval_var = node.pos_args[int(switch_i) + 1]
+                rval_var = node.pos_args[switch_i + 1]
                 if rval_var in memo:
                     set_memo(node, memo[rval_var])
                     continue
@@ -1039,7 +1040,7 @@ def str_join(s, seq):
 
 
 @scope.define_pure
-def bincount(x, offset=0, weights=None, minlength=None, p=None):
+def bincount(x, offset=0, weights=None, minlength: int = 0, p=None):
     y = np.asarray(x, dtype="int")
     # hack for pchoice, p is passed as [ np.repeat(p, obs.size) ],
     # so scope.len(p) gives incorrect #dimensions, need to get just the first one

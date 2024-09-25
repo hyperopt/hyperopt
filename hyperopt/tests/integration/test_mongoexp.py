@@ -9,8 +9,8 @@ import time
 import unittest
 
 import numpy as np
-import nose
-import nose.plugins.skip
+
+import pytest
 
 from hyperopt.base import JOB_STATE_DONE, STATUS_OK
 from hyperopt.mongoexp import parse_url
@@ -24,14 +24,6 @@ from hyperopt.fmin import fmin
 from hyperopt import hp, rand
 import hyperopt.tests.test_base
 from hyperopt.tests.unit.test_domains import gauss_wave2
-
-
-def skiptest(f):
-    def wrapper(*args, **kwargs):
-        raise nose.plugins.skip.SkipTest()
-
-    wrapper.__name__ = f.__name__
-    return wrapper
 
 
 class TempMongo:
@@ -149,7 +141,7 @@ except OSError as e:
     )
     if "such file" in str(e):
         print("Hint: is mongod executable on path?", file=sys.stderr)
-    raise nose.SkipTest()
+    pytest.skip(allow_module_level=True)
 
 
 class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
@@ -211,7 +203,7 @@ def with_worker_threads(n_threads, dbname="foo", n_jobs=sys.maxsize, timeout=10.
             finally:
                 [th.join() for th in threads]
 
-        wrapper.__name__ = f.__name__  # -- nose requires test in name
+        wrapper.__name__ = f.__name__
         return wrapper
 
     return deco
@@ -452,20 +444,20 @@ class FakeOptions:
 
 
 # -- assert that the test raises a ReserveTimeout within 5 seconds
-@nose.tools.timed(10.0)  # XXX:  this needs a suspiciously long timeout
-@nose.tools.raises(ReserveTimeout)
+@pytest.mark.timeout(10)  # XXX:  this needs a suspiciously long timeout
 @with_mongo_trials
 def test_main_worker(trials):
-    options = FakeOptions(
-        max_jobs=1,
-        # XXX: sync this with TempMongo
-        mongo=as_mongo_str("localhost:22334/foodb"),
-        reserve_timeout=1,
-        poll_interval=0.5,
-        workdir=None,
-        exp_key="foo",
-        last_job_timeout=None,
-    )
-    # -- check that it runs
-    #    and that the reserve timeout is respected
-    main_worker_helper(options, ())
+    with pytest.raises(ReserveTimeout):
+        options = FakeOptions(
+            max_jobs=1,
+            # XXX: sync this with TempMongo
+            mongo=as_mongo_str("localhost:22334/foodb"),
+            reserve_timeout=1,
+            poll_interval=0.5,
+            workdir=None,
+            exp_key="foo",
+            last_job_timeout=None,
+        )
+        # -- check that it runs
+        #    and that the reserve timeout is respected
+        main_worker_helper(options, ())

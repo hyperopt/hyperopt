@@ -483,8 +483,7 @@ class _SparkFMinState:
 
             logger.debug("dispatcher thread exits normally.")
 
-        self._dispatcher_thread = threading.Thread(target=run_dispatcher)
-        self._dispatcher_thread.setDaemon(True)
+        self._dispatcher_thread = threading.Thread(target=run_dispatcher, daemon=True)
         self._dispatcher_thread.start()
 
     @staticmethod
@@ -612,8 +611,7 @@ class _SparkFMinState:
             except ImportError:
                 pass
 
-        task_thread = threading.Thread(target=run_task_thread)
-        task_thread.setDaemon(True)
+        task_thread = threading.Thread(target=run_task_thread, daemon=True)
         task_thread.start()
         self._task_threads.add(task_thread)
 

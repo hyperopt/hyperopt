@@ -167,7 +167,7 @@ class AnnealingAlgo(SuggestAlgo):
         picks_vals = np.asarray(vals)[picks]
 
         if size == 1:
-            self.best_tids.append(int(picks_tids))
+            self.best_tids.append(int(picks_tids[0]))
         return picks_loss, picks_tids, picks_vals
 
     def on_node_hyperparameter(self, memo, node, label):

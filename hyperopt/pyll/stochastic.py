@@ -1,6 +1,7 @@
 """
 Constructs for annotating base graphs.
 """
+
 import sys
 import numpy as np
 from .base import scope, as_apply, dfs, rec_eval, clone
