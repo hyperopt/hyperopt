@@ -73,7 +73,7 @@ def hp_choice(label, options):
 
 @validate_label
 def hp_randint(label, *args, **kwargs):
-    return scope.hyperopt_param(label, scope.randint(*args, **kwargs))
+    return scope.int(scope.hyperopt_param(label, scope.randint(*args, **kwargs)))
 
 
 @validate_label
