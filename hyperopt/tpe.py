@@ -98,7 +98,6 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
 
 
 @scope.define
-
 def normal_cdf(x, mu, sigma):
     top = x - mu
     bottom = np.maximum(np.sqrt(2) * sigma, EPS)
