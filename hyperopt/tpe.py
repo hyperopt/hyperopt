@@ -98,6 +98,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
 
 
 @scope.define
+
 def normal_cdf(x, mu, sigma):
     top = x - mu
     bottom = np.maximum(np.sqrt(2) * sigma, EPS)
@@ -151,19 +152,19 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         rval = logsum_rows(-0.5 * mahal + np.log(coef))
     else:
         if high is None:
-            ubound = samples[..., None] + q / 2
+            ubound = samples[..., np.newaxis] + q / 2
         else:
-            ubound = np.minimum(samples[..., None] + q / 2, high)
+            ubound = np.minimum(samples[..., np.newaxis] + q / 2, high)
         if low is None:
-            lbound = samples[..., None] - q / 2
+            lbound = samples[..., np.newaxis] - q / 2
         else:
-            lbound = np.maximum(samples[..., None] - q / 2, low)
+            lbound = np.maximum(samples[..., np.newaxis] - q / 2, low)
 
         # ubound/lbound: (N, D, 1), mus/sigmas: (D,), broadcast to (N, D, D)
         cdf_ub = normal_cdf(ubound, mus, sigmas)
         cdf_lb = normal_cdf(lbound, mus, sigmas)
         inc_amt = weights * (cdf_ub - cdf_lb)  # (N, D, D)
-        # Sum over last axis (mixture components)
+
         prob = np.sum(inc_amt, axis=-1)
         rval = np.log(prob) - np.log(p_accept)
 
