@@ -159,8 +159,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         else:
             lbound = np.maximum(samples[..., None] - q / 2, low)
 
-        # ubound/lbound: (N, D, 1), mus/sigmas: (D,)
-        # Broadcast to (N, D, D)
+        # ubound/lbound: (N, D, 1), mus/sigmas: (D,), broadcast to (N, D, D)
         cdf_ub = normal_cdf(ubound, mus, sigmas)
         cdf_lb = normal_cdf(lbound, mus, sigmas)
         inc_amt = weights * (cdf_ub - cdf_lb)  # (N, D, D)
