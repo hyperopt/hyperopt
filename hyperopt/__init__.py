@@ -38,4 +38,4 @@ from . import anneal
 # -- spark extension
 from .spark import SparkTrials
 
-__version__ = "0.2.7"
+__version__ = "0.3.0"
