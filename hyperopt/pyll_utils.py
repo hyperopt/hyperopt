@@ -67,7 +67,7 @@ def hp_pchoice(label, p_options):
 
 @validate_label
 def hp_choice(label, options):
-    ch = scope.hyperopt_param(label, scope.randint(len(options)))
+    ch = scope.int(scope.hyperopt_param(label, scope.randint(len(options))))
     return scope.switch(ch, *options)
 
 
