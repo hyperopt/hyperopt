@@ -1,5 +1,4 @@
-"""Criteria for Bayesian optimization
-"""
+"""Criteria for Bayesian optimization"""
 
 import numpy as np
 import scipy.stats
