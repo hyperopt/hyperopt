@@ -9,6 +9,7 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
+
 import logging
 import numpy as np
 

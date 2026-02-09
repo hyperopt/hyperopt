@@ -1,8 +1,8 @@
 """
-    Implements the ATPE algorithm. See
-    https://articulon.bradleyarsenault.me/article/learning-to-optimize
-    and
-    https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
+Implements the ATPE algorithm. See
+https://articulon.bradleyarsenault.me/article/learning-to-optimize
+and
+https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
 """
 
 __authors__ = "Bradley Arsenault"
