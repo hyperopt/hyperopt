@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+license = "BSD-3-Clause"
+name = "hyperopt"
+dynamic = ["version"]
+description = "Distributed Asynchronous Hyperparameter Optimization"
+readme = "README.md"
+authors = [{ name = "James Bergstra", email = "james.bergstra@gmail.com" }]
+keywords = ["Bayesian optimization", "hyperparameter", "model selection"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.17",
+    "scipy>=1.5.0",
+    "networkx>=2.2",
+    "tqdm",
+    "cloudpickle",
+    "importlib-resources>=1.3; python_version < '3.9'",
+]
+
+[project.optional-dependencies]
+SparkTrials = ["pyspark", "py4j"]
+MongoTrials = ["pymongo>=4.0.0"]
+ATPE = ["lightgbm", "scikit-learn"]
+dev = ["black", "pre-commit", "pytest", "packaging"]
+
+[project.urls]
+Homepage = "https://hyperopt.github.io/hyperopt"
+Source = "https://github.com/hyperopt/hyperopt"
+
+[project.scripts]
+hyperopt-mongo-worker = "hyperopt.mongoexp:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["hyperopt*"]
+
+[tool.setuptools.package-data]
+hyperopt = ["atpe_models/**"]
+
+[tool.setuptools.dynamic]
+version = { attr = "hyperopt.__version__" }
