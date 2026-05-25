@@ -178,9 +178,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             f"trial {task} task thread exits normally",
             log_output,
             """Debug info "trial {task} task thread exits normally" missing from log:
-             {log_output}""".format(
-                task=task, log_output=log_output
-            ),
+             {log_output}""".format(task=task, log_output=log_output),
         )
 
     def assert_task_failed(self, log_output, task):
@@ -329,9 +327,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 "fmin thread exits normally",
                 log_output,
                 """Debug info "fmin thread exits normally" missing from 
-                log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                log: {log_output}""".format(log_output=log_output),
             )
             self.assert_task_succeeded(log_output, 0)
 

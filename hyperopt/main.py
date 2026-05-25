@@ -3,6 +3,7 @@
 """
 Entry point for bin/* scripts
 """
+
 import logging
 import os
 from . import utils
@@ -78,7 +79,7 @@ def main_search():
         "NOTE: bandit is pre-pended as first element of arg tuple.",
     )
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
     try:
         bandit_json, bandit_algo_json = args
     except:

@@ -1402,7 +1402,7 @@ def main_worker():
         help="max jobs in db (default: " + str(sys.maxsize) + ")",
     )
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
 
     if args:
         parser.print_help()
