@@ -86,3 +86,8 @@ norecursedirs = [
     ".venv",
     ".nox",
 ]
+markers = [
+    "slow: mark test as slow (scipy internal mark, imported via test_rdists)",
+    "xslow: mark test as extremely slow (scipy internal mark, imported via test_rdists)",
+    "thread_unsafe: mark test as not thread-safe (scipy internal mark, imported via test_rdists)",
+]
