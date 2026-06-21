@@ -9,15 +9,6 @@ __authors__ = "Bradley Arsenault"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
-import sys
-from contextlib import contextmanager
-
-from hyperopt import hp
-
-if sys.version_info < (3, 9):
-    import importlib_resources as resources
-else:
-    from importlib import resources
 import copy
 import datetime
 import functools
@@ -27,6 +18,8 @@ import os
 import random
 import re
 import tempfile
+from contextlib import contextmanager
+from importlib import resources
 
 import numpy
 import numpy.random
@@ -34,6 +27,7 @@ import scipy.stats
 
 import hyperopt
 import hyperopt.atpe_models
+from hyperopt import hp
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507

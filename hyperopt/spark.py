@@ -1,9 +1,7 @@
 import copy
-import os
 import threading
 import time
 import timeit
-import traceback
 
 from hyperopt import Trials, base, fmin
 from hyperopt.base import STATUS_OK, validate_loss_threshold, validate_timeout

@@ -14,15 +14,18 @@ from .std_out_err_redirect_tqdm import std_out_err_redirect_tqdm
 
 @contextlib.contextmanager
 def tqdm_progress_callback(initial, total):
-    with std_out_err_redirect_tqdm() as wrapped_stdout, tqdm(
-        total=total,
-        file=wrapped_stdout,
-        postfix={"best loss": "?"},
-        disable=False,
-        dynamic_ncols=True,
-        unit="trial",
-        initial=initial,
-    ) as pbar:
+    with (
+        std_out_err_redirect_tqdm() as wrapped_stdout,
+        tqdm(
+            total=total,
+            file=wrapped_stdout,
+            postfix={"best loss": "?"},
+            disable=False,
+            dynamic_ncols=True,
+            unit="trial",
+            initial=initial,
+        ) as pbar,
+    ):
         yield pbar
 
 

@@ -78,6 +78,7 @@ line-length = 88
 select = [
     "I",   # isort
     "UP",  # pyupgrade
+    "F401", # unused-imports autoremove
 ]
 ignore = [
     "UP031",  # printf-style formatting — large existing codebase, not enforced
