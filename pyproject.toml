@@ -45,7 +45,20 @@ dependencies = [
 SparkTrials = ["pyspark", "py4j"]
 MongoTrials = ["pymongo>=4.0.0"]
 ATPE = ["lightgbm", "scikit-learn"]
-dev = ["black", "pre-commit", "pytest", "packaging"]
+
+[dependency-groups]
+testing = [
+    "pytest",
+    "hyperopt[SparkTrials,MongoTrials,ATPE]"  # install witl all deps when testing
+]
+lint = [
+    "mypy",
+]
+dev = [
+    {include-group = "testing"},
+    {include-group = "lint"},
+    "pre-commit",
+]
 
 [project.urls]
 Homepage = "https://hyperopt.github.io/hyperopt"
@@ -65,3 +78,11 @@ hyperopt = ["atpe_models/**"]
 
 [tool.setuptools.dynamic]
 version = { attr = "hyperopt.__version__" }
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    "dist",
+    "build",
+    ".venv",
+    ".nox",
+]
