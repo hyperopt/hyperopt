@@ -132,6 +132,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
     uv run pytest
     ```
 
+    To test against all supported Python versions (matching CI), use [nox](https://nox.thea.codes):
+
+    ```bash
+    # all versions sequentially
+    uv run nox
+
+    # all versions in parallel
+    uv run nox -s tests_parallel
+
+    # a specific version only
+    uv run nox -p 3.12
+    ```
+
 12. Record your changes in Git, then push the changes to your GitHub account with:
 
     ```bash

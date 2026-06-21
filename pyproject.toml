@@ -58,6 +58,8 @@ dev = [
     {include-group = "testing"},
     {include-group = "lint"},
     "pre-commit",
+    "nox",
+    "pyyaml",
 ]
 
 [project.urls]
