@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 license = "BSD-3-Clause"
@@ -67,17 +67,9 @@ Source = "https://github.com/hyperopt/hyperopt"
 [project.scripts]
 hyperopt-mongo-worker = "hyperopt.mongoexp:main"
 
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-include = ["hyperopt*"]
-
-[tool.setuptools.package-data]
-hyperopt = ["atpe_models/**"]
-
-[tool.setuptools.dynamic]
-version = { attr = "hyperopt.__version__" }
+[tool.hatch.version]
+source = "vcs"
+raw-options = {version_scheme = "no-guess-dev"}
 
 [tool.pytest.ini_options]
 norecursedirs = [

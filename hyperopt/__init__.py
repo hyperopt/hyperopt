@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from .base import STATUS_STRINGS
 from .base import STATUS_NEW
 from .base import STATUS_RUNNING
@@ -38,4 +40,7 @@ from . import anneal
 # -- spark extension
 from .spark import SparkTrials
 
-__version__ = "0.3.0"
+try:
+    __version__ = version("hyperopt")
+except PackageNotFoundError:
+    __version__ = "unknown"
