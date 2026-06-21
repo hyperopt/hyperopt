@@ -2,7 +2,7 @@
 
 import pytest
 from sklearn.linear_model import Ridge, RidgeClassifier
-from sklearn.utils.estimator_checks import check_estimator
+from sklearn.utils.estimator_checks import estimator_checks_generator
 
 from hyperopt import hp
 from hyperopt.sklearn import HyperoptSearchCV
@@ -11,14 +11,13 @@ from hyperopt.sklearn import HyperoptSearchCV
 @pytest.mark.parametrize(
     "estimator,check",
     list(
-        check_estimator(
+        estimator_checks_generator(
             HyperoptSearchCV(
                 estimator=Ridge(),
                 space={"alpha": hp.uniform("alpha", 0, 1)},
                 max_evals=10,
                 random_state=42,
             ),
-            generate_only=True,
         )
     ),
 )
@@ -39,14 +38,13 @@ def test_estimator_regression(estimator, check):
 @pytest.mark.parametrize(
     "estimator,check",
     list(
-        check_estimator(
+        estimator_checks_generator(
             HyperoptSearchCV(
                 estimator=RidgeClassifier(),
                 space={"alpha": hp.uniform("alpha", 0, 1)},
                 max_evals=10,
                 random_state=42,
             ),
-            generate_only=True,
         )
     ),
 )

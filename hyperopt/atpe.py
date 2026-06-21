@@ -886,7 +886,7 @@ class ATPEOptimizer:
                     featureContributions = numpy.mean(
                         numpy.reshape(
                             featureContributions,
-                            newshape=(
+                            (
                                 len(allFeatureKeysForATPEParamModel) + 1,
                                 len(self.atpeParameterValues[atpeParameter]),
                             ),

@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.model_selection._search import is_classifier
 from sklearn.model_selection._search import BaseSearchCV
 from sklearn.utils.multiclass import check_classification_targets, unique_labels
-from sklearn.utils.validation import check_array
+from sklearn.utils.validation import check_array, validate_data
 
 from hyperopt.base import STATUS_OK, Trials
 from hyperopt.fmin import fmin
@@ -129,7 +129,7 @@ class HyperoptSearchCV(BaseSearchCV):
         self.warm_start = warm_start
         self.random_state = random_state
 
-    def _check_input_parameters(self, X, y=None, groups=None):
+    def _check_input_parameters(self, X, y=None, groups=None, split_params=None):
         """Run input checks.
 
         Based on a similar method in :class:`sklearn.model_selection.BaseSuccessiveHalving`.
@@ -170,15 +170,18 @@ class HyperoptSearchCV(BaseSearchCV):
                 "supported."
             )
 
-        check_array(X)
-        if is_classifier(self.estimator):
-            y = self._validate_data(X="no_validation", y=y)
-            check_classification_targets(y)
-            labels = unique_labels(y)
-            if len(labels) < 2:
-                raise ValueError(
-                    "Classifier can't train when only one class is present."
-                )
+        check_array(X, accept_sparse=True)
+        if y is not None:
+            if is_classifier(self.estimator):
+                y = validate_data(self, X="no_validation", y=y, multi_output=True)
+                check_classification_targets(y)
+                labels = unique_labels(y)
+                if len(labels) < 2:
+                    raise ValueError(
+                        "Classifier can't train when only one class is present."
+                    )
+            else:
+                y = validate_data(self, X="no_validation", y=y)
 
         if not isinstance(self.refit, bool):
             raise ValueError(

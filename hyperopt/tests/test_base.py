@@ -206,14 +206,14 @@ class TestTrials(unittest.TestCase):
         trials = self.trials
         assert len(trials) == 0
         # It should throw a reasonable error when no valid trials exist.
-        trials.insert_trial_doc(create_fake_trial(0, loss=np.NaN))
+        trials.insert_trial_doc(create_fake_trial(0, loss=np.nan))
         trials.refresh()
         with self.assertRaises(AllTrialsFailed):
             assert trials.best_trial is None
 
         # It should work even with some trials with NaN losses.
         trials.insert_trial_doc(create_fake_trial(1, loss=1.0))
-        trials.insert_trial_doc(create_fake_trial(2, loss=np.NaN))
+        trials.insert_trial_doc(create_fake_trial(2, loss=np.nan))
         trials.insert_trial_doc(create_fake_trial(3, loss=0.5))
         trials.refresh()
 
