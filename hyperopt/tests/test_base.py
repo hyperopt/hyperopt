@@ -1,21 +1,23 @@
 import copy
 import unittest
-import numpy as np
+
 import bson
+import numpy as np
 
-from hyperopt.pyll import scope
-
-from hyperopt.base import JOB_STATE_DONE, JOB_STATE_NEW
-from hyperopt.base import TRIAL_KEYS
-from hyperopt.base import TRIAL_MISC_KEYS
-from hyperopt.base import InvalidTrial
-from hyperopt.base import miscs_to_idxs_vals
-from hyperopt.base import SONify
-from hyperopt.base import STATUS_OK
-from hyperopt.base import Trials
-from hyperopt.base import trials_from_docs
-
+from hyperopt.base import (
+    JOB_STATE_DONE,
+    JOB_STATE_NEW,
+    STATUS_OK,
+    TRIAL_KEYS,
+    TRIAL_MISC_KEYS,
+    InvalidTrial,
+    SONify,
+    Trials,
+    miscs_to_idxs_vals,
+    trials_from_docs,
+)
 from hyperopt.exceptions import AllTrialsFailed
+from hyperopt.pyll import scope
 
 uniform = scope.uniform
 normal = scope.normal
@@ -249,5 +251,5 @@ class TestSONify(unittest.TestCase):
         assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) == [[1, 2], [3, 4.5]])
 
     def test_nested_w_bool(self):
-        thing = dict(a=1, b="2", c=True, d=False, e=int(3), f=[1])
+        thing = dict(a=1, b="2", c=True, d=False, e=3, f=[1])
         assert thing == SONify(thing)

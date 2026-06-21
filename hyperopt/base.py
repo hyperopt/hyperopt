@@ -21,9 +21,9 @@ The design is that there are three components fitting together in this project:
 
 """
 
-import numbers
-import logging
 import datetime
+import logging
+import numbers
 import sys
 
 import numpy as np
@@ -37,17 +37,15 @@ except ImportError:
     have_bson = False
 
 from . import pyll
-from .pyll.stochastic import recursive_set_rng_kwarg
-
 from .exceptions import (
-    DuplicateLabel,
-    InvalidTrial,
-    InvalidResultStatus,
-    InvalidLoss,
     AllTrialsFailed,
+    DuplicateLabel,
+    InvalidLoss,
+    InvalidResultStatus,
+    InvalidTrial,
 )
-from .utils import pmin_sampled
-from .utils import use_obj_for_literal_in_memo
+from .pyll.stochastic import recursive_set_rng_kwarg
+from .utils import pmin_sampled, use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
 
 __authors__ = "James Bergstra"

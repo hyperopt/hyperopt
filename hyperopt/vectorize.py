@@ -2,12 +2,7 @@ import sys
 
 import numpy as np
 
-from .pyll import Apply
-from .pyll import as_apply
-from .pyll import dfs
-from .pyll import toposort
-from .pyll import scope
-from .pyll import stochastic
+from .pyll import Apply, as_apply, dfs, scope, stochastic, toposort
 
 stoch = stochastic.implicit_stochastic_symbols
 

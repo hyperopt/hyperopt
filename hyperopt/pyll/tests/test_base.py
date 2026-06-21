@@ -1,18 +1,18 @@
+import numpy as np
+import pytest
+
 from hyperopt.pyll import base
 from hyperopt.pyll.base import (
+    Apply,
+    Lambda,
     Literal,
     as_apply,
-    Apply,
-    dfs,
-    scope,
-    rec_eval,
-    p0,
-    Lambda,
     clone_merge,
+    dfs,
+    p0,
+    rec_eval,
+    scope,
 )
-
-import pytest
-import numpy as np
 
 
 def test_literal_pprint():

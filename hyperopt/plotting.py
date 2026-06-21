@@ -10,8 +10,8 @@ import pickle
 # TODO: this is really bad style, create a backend plotting
 # module for this that defaults to matplotlib.
 # import matplotlib.pyplot as plt
-
 import numpy as np
+
 from . import base
 from .base import miscs_to_idxs_vals
 

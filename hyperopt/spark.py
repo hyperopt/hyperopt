@@ -5,15 +5,15 @@ import time
 import timeit
 import traceback
 
-from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout, validate_loss_threshold, STATUS_OK
-from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
+from hyperopt import Trials, base, fmin
+from hyperopt.base import STATUS_OK, validate_loss_threshold, validate_timeout
+from hyperopt.utils import _get_logger, _get_random_id, coarse_utcnow
 
 try:
+    import pyspark
     from py4j.clientserver import ClientServer
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
-    import pyspark
 
     _have_spark = True
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
@@ -155,21 +155,17 @@ class SparkTrials(Trials):
             parallelism = max(spark_default_parallelism, 1)
             logger.warning(
                 "Because the requested parallelism was None or a non-positive value, "
-                "parallelism will be set to ({d}), which is Spark's default parallelism ({s}), "
+                f"parallelism will be set to ({parallelism}), which is Spark's default parallelism ({spark_default_parallelism}), "
                 "or 1, whichever is greater. "
                 "We recommend setting parallelism explicitly to a positive value because "
-                "the total of Spark task slots is subject to cluster sizing.".format(
-                    d=parallelism, s=spark_default_parallelism
-                )
+                "the total of Spark task slots is subject to cluster sizing."
             )
         else:
             parallelism = requested_parallelism
 
         if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
-                "Parallelism ({p}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c}).".format(
-                    p=parallelism, c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                )
+                f"Parallelism ({parallelism}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})."
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
         return parallelism
@@ -255,12 +251,12 @@ class SparkTrials(Trials):
             validate_loss_threshold(loss_threshold)
             self.loss_threshold = loss_threshold
 
-        assert (
-            not pass_expr_memo_ctrl
-        ), "SparkTrials does not support `pass_expr_memo_ctrl`"
-        assert (
-            not catch_eval_exceptions
-        ), "SparkTrials does not support `catch_eval_exceptions`"
+        assert not pass_expr_memo_ctrl, (
+            "SparkTrials does not support `pass_expr_memo_ctrl`"
+        )
+        assert not catch_eval_exceptions, (
+            "SparkTrials does not support `catch_eval_exceptions`"
+        )
 
         state = _SparkFMinState(
             self._spark,
@@ -361,11 +357,7 @@ class _SparkFMinState:
             if self._job_desc is None:
                 self._job_desc = "Trial evaluation jobs launched by hyperopt fmin"
             logger.debug(
-                "Job group id: {g}, job desc: {d}, job interrupt on cancel: {i}".format(
-                    g=self._job_group_id,
-                    d=self._job_desc,
-                    i=self._job_interrupt_on_cancel,
-                )
+                f"Job group id: {self._job_group_id}, job desc: {self._job_desc}, job interrupt on cancel: {self._job_interrupt_on_cancel}"
             )
 
     def running_trial_count(self):
@@ -583,9 +575,7 @@ class _SparkFMinState:
                             self._job_group_id,
                             self._job_desc,
                             self._job_interrupt_on_cancel,
-                        )[
-                            0
-                        ]
+                        )[0]
                 else:
                     result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
@@ -629,9 +619,7 @@ class _SparkFMinState:
     def _cancel_running_trials(self):
         if self.trials._spark_supports_job_cancelling:
             logger.debug(
-                "Cancelling all running jobs in job group {g}".format(
-                    g=self._job_group_id
-                )
+                f"Cancelling all running jobs in job group {self._job_group_id}"
             )
             self.spark.sparkContext.cancelJobGroup(self._job_group_id)
             # Make a copy of trials by slicing

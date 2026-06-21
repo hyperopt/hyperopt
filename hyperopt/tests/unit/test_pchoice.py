@@ -1,8 +1,10 @@
-from functools import partial
-import numpy as np
 import unittest
-from hyperopt import hp, Trials, fmin, tpe, anneal, rand
+from functools import partial
+
+import numpy as np
+
 import hyperopt.pyll.stochastic
+from hyperopt import Trials, anneal, fmin, hp, rand, tpe
 
 
 class TestPChoice(unittest.TestCase):

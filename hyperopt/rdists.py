@@ -139,7 +139,8 @@ class qloguniform_gen(quniform_gen):
 
         cut_low = np.exp(low)  # -- lowest possible pre-round value
         cut_high = min(
-            qlow + 0.5 * q, ehigh  # -- highest value that would ...
+            qlow + 0.5 * q,
+            ehigh,  # -- highest value that would ...
         )  # -- round to qlow
         xs = [qlow]
         ps = [lu.cdf(cut_high)]

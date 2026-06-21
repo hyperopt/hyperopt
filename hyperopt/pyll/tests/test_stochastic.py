@@ -1,5 +1,6 @@
 import numpy as np
-from hyperopt.pyll import scope, as_apply, rec_eval
+
+from hyperopt.pyll import as_apply, rec_eval, scope
 from hyperopt.pyll.stochastic import recursive_set_rng_kwarg, sample
 
 

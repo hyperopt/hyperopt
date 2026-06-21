@@ -116,7 +116,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
     This will run black automatically when you commit on all files you modified, failing if there are any files requiring to be blacked. In case black does not run execute the following:
 
     ```bash
-    uv run black {source_file_or_directory}
+    uv run pre-commit run --all-files
     ```
 
 10. Develop the feature on your feature branch on your computer, using Git to do the version control. When you’re done editing, add changed files using git add and then git commit:

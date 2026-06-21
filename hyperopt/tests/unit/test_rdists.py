@@ -1,24 +1,25 @@
-from collections import defaultdict
 import importlib.metadata
 import unittest
-import packaging.version
+from collections import defaultdict
+
 import numpy as np
 import numpy.testing as npt
-from hyperopt.rdists import (
-    loguniform_gen,
-    lognorm_gen,
-    quniform_gen,
-    qloguniform_gen,
-    qnormal_gen,
-    qlognormal_gen,
-)
+import packaging.version
 from scipy import stats
-
 from scipy.stats.tests.test_continuous_basic import (
     check_cdf_logcdf,
-    check_pdf_logpdf,
-    check_pdf,
     check_cdf_ppf,
+    check_pdf,
+    check_pdf_logpdf,
+)
+
+from hyperopt.rdists import (
+    lognorm_gen,
+    loguniform_gen,
+    qlognormal_gen,
+    qloguniform_gen,
+    qnormal_gen,
+    quniform_gen,
 )
 
 

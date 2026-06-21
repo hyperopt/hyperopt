@@ -5,21 +5,22 @@ Author: James Bergstra <james.bergstra@gmail.com>
 Licensed: MIT
 """
 
+import sys
 from time import sleep, time
 
 import numpy as np
 
-from .base import Trials
-from .base import Domain
-from .base import JOB_STATE_NEW
-from .base import JOB_STATE_RUNNING
-from .base import JOB_STATE_DONE
-from .base import JOB_STATE_ERROR
-from .base import spec_from_misc
-from .base import Ctrl
+from .base import (
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR,
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    Ctrl,
+    Domain,
+    Trials,
+    spec_from_misc,
+)
 from .utils import coarse_utcnow
-
-import sys
 
 print(sys.stderr, "WARNING: IPythonTrials is not as complete, stable", file=sys.stderr)
 print("         or well tested as Trials or MongoTrials.", file=sys.stderr)

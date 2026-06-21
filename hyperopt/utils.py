@@ -1,13 +1,15 @@
 import datetime
-import numpy as np
 import logging
 import os
 import shutil
 import sys
 import uuid
-import numpy
-from . import pyll
 from contextlib import contextmanager
+
+import numpy
+import numpy as np
+
+from . import pyll
 
 
 def _get_random_id():

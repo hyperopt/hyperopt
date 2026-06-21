@@ -1,23 +1,24 @@
-import unittest
-import numpy as np
-from timeit import default_timer as timer
 import time
-from hyperopt.early_stop import no_progress_loss
-from hyperopt.fmin import generate_trials_to_calculate
+import unittest
+from timeit import default_timer as timer
+
+import numpy as np
 import pytest
 
 from hyperopt import (
-    fmin,
-    rand,
-    tpe,
-    hp,
-    Trials,
-    exceptions,
-    space_eval,
     STATUS_FAIL,
     STATUS_OK,
+    Trials,
+    exceptions,
+    fmin,
+    hp,
+    rand,
+    space_eval,
+    tpe,
 )
 from hyperopt.base import JOB_STATE_ERROR
+from hyperopt.early_stop import no_progress_loss
+from hyperopt.fmin import generate_trials_to_calculate
 
 
 def test_quadratic1_rand():
@@ -285,9 +286,7 @@ def test_invalid_timeout():
     space = hp.choice("x", range(20))
 
     for wrong_timeout in [-1, True]:
-        expected_message = "The timeout argument should be None or a positive value. Given value: {m}".format(
-            m=wrong_timeout
-        )
+        expected_message = f"The timeout argument should be None or a positive value. Given value: {wrong_timeout}"
         try:
             fmin(
                 fn=fn,
@@ -327,7 +326,7 @@ def test_invalid_loss_threshold():
     for wrong_loss_threshold in ["a", True]:
         expected_message = (
             "The loss_threshold argument should be None "
-            "or a numeric value. Given value: {m}".format(m=wrong_loss_threshold)
+            f"or a numeric value. Given value: {wrong_loss_threshold}"
         )
         try:
             fmin(

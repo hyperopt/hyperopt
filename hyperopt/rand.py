@@ -3,10 +3,10 @@ Random search - presented as hyperopt.fmin_random
 """
 
 import logging
+
 import numpy as np
 
 from . import pyll
-
 from .base import miscs_update_idxs_vals
 
 logger = logging.getLogger(__name__)

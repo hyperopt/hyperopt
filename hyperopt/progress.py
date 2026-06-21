@@ -8,6 +8,7 @@ and should yield an object with an `update(n)` method.
 import contextlib
 
 from tqdm import tqdm
+
 from .std_out_err_redirect_tqdm import std_out_err_redirect_tqdm
 
 

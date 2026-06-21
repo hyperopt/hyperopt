@@ -109,26 +109,34 @@ import warnings
 import numpy
 
 try:
-    import pymongo
     import gridfs
+    import pymongo
     from bson import SON
 
     _has_mongo = True
 except:
     _has_mongo = False
 
-from .base import JOB_STATES
-from .base import JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE, JOB_STATE_ERROR
-from .base import Trials
-from .base import InvalidTrial
-from .base import Ctrl
-from .base import SONify
-from .base import spec_from_misc
-from .utils import coarse_utcnow
-from .utils import fast_isin
-from .utils import get_most_recent_inds
-from .utils import json_call
-from .utils import working_dir, temp_dir
+from .base import (
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR,
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATES,
+    Ctrl,
+    InvalidTrial,
+    SONify,
+    Trials,
+    spec_from_misc,
+)
+from .utils import (
+    coarse_utcnow,
+    fast_isin,
+    get_most_recent_inds,
+    json_call,
+    temp_dir,
+    working_dir,
+)
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"

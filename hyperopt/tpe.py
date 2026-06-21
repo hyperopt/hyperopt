@@ -7,15 +7,12 @@ import time
 
 import numpy as np
 from scipy.special import erf
-from . import pyll
-from .pyll import scope
-from .pyll.stochastic import implicit_stochastic
-
-from .base import miscs_to_idxs_vals
-from .base import miscs_update_idxs_vals
 
 # from .base import Trials
-from . import rand
+from . import pyll, rand
+from .base import miscs_to_idxs_vals, miscs_update_idxs_vals
+from .pyll import scope
+from .pyll.stochastic import implicit_stochastic
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"

@@ -5,8 +5,7 @@ inspired by :class:sklearn.model_selection._search_successive_halving.BaseSucces
 """
 
 import numpy as np
-from sklearn.model_selection._search import is_classifier
-from sklearn.model_selection._search import BaseSearchCV
+from sklearn.model_selection._search import BaseSearchCV, is_classifier
 from sklearn.utils.multiclass import check_classification_targets, unique_labels
 from sklearn.utils.validation import check_array, validate_data
 

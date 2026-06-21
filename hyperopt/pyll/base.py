@@ -6,14 +6,13 @@ import copy
 import logging
 import operator
 import time
-
 from collections import deque
+from io import StringIO
 
 import networkx as nx
 
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
-from io import StringIO
 
 logger = logging.getLogger(__name__)
 np_versions = list(map(int, np.__version__.split(".")[:2]))
@@ -559,11 +558,7 @@ class Literal(Apply):
         else:
             # TODO: set up a registry for this
             if isinstance(self._obj, np.ndarray):
-                msg = "Literal{{np.ndarray,shape={},min={:f},max={:f}}}".format(
-                    self._obj.shape,
-                    self._obj.min(),
-                    self._obj.max(),
-                )
+                msg = f"Literal{{np.ndarray,shape={self._obj.shape},min={self._obj.min():f},max={self._obj.max():f}}}"
             else:
                 msg = "Literal{%s}" % str(self._obj)
             memo[self] = "%s  [line:%i]" % (msg, lineno[0])

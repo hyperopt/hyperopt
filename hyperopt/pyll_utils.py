@@ -1,8 +1,8 @@
 from functools import partial, wraps
+
 from .base import DuplicateLabel
+from .pyll import as_apply, scope
 from .pyll.base import Apply, Literal, MissingArgument
-from .pyll import scope
-from .pyll import as_apply
 
 
 def validate_label(f):

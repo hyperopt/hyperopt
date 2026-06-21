@@ -71,6 +71,24 @@ hyperopt-mongo-worker = "hyperopt.mongoexp:main"
 source = "vcs"
 raw-options = {version_scheme = "no-guess-dev"}
 
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "UP031",  # printf-style formatting — large existing codebase, not enforced
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-export modules: imports are intentionally exposed to consumers
+"hyperopt/__init__.py" = ["F401"]
+"hyperopt/hp.py" = ["F401"]
+"hyperopt/pyll/__init__.py" = ["F401"]
+
 [tool.pytest.ini_options]
 norecursedirs = [
     "dist",

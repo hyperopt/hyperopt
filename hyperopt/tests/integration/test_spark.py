@@ -6,16 +6,15 @@ import tempfile
 import time
 import timeit
 import unittest
+from io import StringIO
 
 import numpy as np
+from py4j.clientserver import ClientServer
 from pyspark.sql import SparkSession
-from io import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
 from hyperopt.base import STATUS_OK
-
 from hyperopt.tests.unit.test_fmin import test_quadratic1_tpe
-from py4j.clientserver import ClientServer
 
 
 @contextlib.contextmanager
@@ -132,65 +131,49 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(
             spark_trials.count_total_trials(),
             num_total,
-            "Wrong number of total trial runs: Expected {e} but got {r}.".format(
-                e=num_total, r=spark_trials.count_total_trials()
-            ),
+            f"Wrong number of total trial runs: Expected {num_total} but got {spark_trials.count_total_trials()}.",
         )
         self.assertEqual(
             spark_trials.count_successful_trials(),
             num_success,
-            "Wrong number of successful trial runs: Expected {e} but got {r}.".format(
-                e=num_success, r=spark_trials.count_successful_trials()
-            ),
+            f"Wrong number of successful trial runs: Expected {num_success} but got {spark_trials.count_successful_trials()}.",
         )
         self.assertEqual(
             spark_trials.count_failed_trials(),
             num_failure,
-            "Wrong number of failed trial runs: Expected {e} but got {r}.".format(
-                e=num_failure, r=spark_trials.count_failed_trials()
-            ),
+            f"Wrong number of failed trial runs: Expected {num_failure} but got {spark_trials.count_failed_trials()}.",
         )
         log_output = output.getvalue().strip()
         self.assertIn(
             "Total Trials: " + str(num_total),
             log_output,
-            """Logging "Total Trials: {num}" missing from the log: {log}""".format(
-                num=str(num_total), log=log_output
-            ),
+            f"""Logging "Total Trials: {str(num_total)}" missing from the log: {log_output}""",
         )
         self.assertIn(
             str(num_success) + " succeeded",
             log_output,
-            """Logging "{num} succeeded " missing from the log: {log}""".format(
-                num=str(num_success), log=log_output
-            ),
+            f"""Logging "{str(num_success)} succeeded " missing from the log: {log_output}""",
         )
         self.assertIn(
             str(num_failure) + " failed",
             log_output,
-            """ Logging "{num} failed " missing from the log: {log}""".format(
-                num=str(num_failure), log=log_output
-            ),
+            f""" Logging "{str(num_failure)} failed " missing from the log: {log_output}""",
         )
 
     def assert_task_succeeded(self, log_output, task):
         self.assertIn(
             f"trial {task} task thread exits normally",
             log_output,
-            """Debug info "trial {task} task thread exits normally" missing from log:
-             {log_output}""".format(
-                task=task, log_output=log_output
-            ),
+            f"""Debug info "trial {task} task thread exits normally" missing from log:
+             {log_output}""",
         )
 
     def assert_task_failed(self, log_output, task):
         self.assertIn(
             f"trial {task} task thread catches an exception",
             log_output,
-            """Debug info "trial {task} task thread catches an exception" missing from log:
-             {log_output}""".format(
-                task=task, log_output=log_output
-            ),
+            f"""Debug info "trial {task} task thread catches an exception" missing from log:
+             {log_output}""",
         )
 
     def test_quadratic1_tpe(self):
@@ -275,17 +258,15 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     parallelism,
                     default_parallelism,
-                    "Failed to set parallelism to be default parallelism ({p})"
-                    " ({e})".format(p=parallelism, e=default_parallelism),
+                    f"Failed to set parallelism to be default parallelism ({parallelism})"
+                    f" ({default_parallelism})",
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
                     "Because the requested parallelism was None or a non-positive value, "
-                    "parallelism will be set to ({d})".format(d=default_parallelism),
+                    f"parallelism will be set to ({default_parallelism})",
                     log_output,
-                    """set to default parallelism missing from log: {log_output}""".format(
-                        log_output=log_output
-                    ),
+                    f"""set to default parallelism missing from log: {log_output}""",
                 )
 
         # Test requested_parallelism exceeds hard cap
@@ -297,19 +278,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertEqual(
                 parallelism,
                 SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED,
-                "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})".format(
-                    p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                ),
+                f"Failed to limit parallelism ({parallelism}) to MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})",
             )
             log_output = output.getvalue().strip()
             self.assertIn(
-                "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
-                    c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                ),
+                f"SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})",
                 log_output,
-                """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f"""MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""",
             )
 
     def test_all_successful_trials(self):
@@ -328,10 +303,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin thread exits normally",
                 log_output,
-                """Debug info "fmin thread exits normally" missing from 
-                log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f"""Debug info "fmin thread exits normally" missing from 
+                log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
@@ -391,17 +364,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin is cancelled, so new trials will not be launched",
                 log_output,
-                """ "fmin is cancelled, so new trials will not be launched" missing from log:
-                {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "fmin is cancelled, so new trials will not be launched" missing from log:
+                {log_output}""",
             )
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                """ "SparkTrials will block" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "SparkTrials will block" missing from log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
@@ -436,17 +405,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin is cancelled, so new trials will not be launched",
                 log_output,
-                """ "fmin is cancelled, so new trials will not be launched" missing from log:
-                {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "fmin is cancelled, so new trials will not be launched" missing from log:
+                {log_output}""",
             )
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                """ "SparkTrials will block" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "SparkTrials will block" missing from log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
@@ -490,16 +455,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "Cancelling all running jobs",
                 log_output,
-                """ "Cancelling all running jobs" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "Cancelling all running jobs" missing from log: {log_output}""",
             )
             self.assertIn(
                 "trial task 0 cancelled",
                 log_output,
-                """ "trial task 0 cancelled" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "trial task 0 cancelled" missing from log: {log_output}""",
             )
             self.assert_task_failed(log_output, 0)
 

@@ -9,23 +9,26 @@ The simple (but not overly simple) code of simulated annealing makes this file
 a good starting point for implementing new search algorithms.
 
 """
+
 import logging
+
 import numpy as np
 
 from hyperopt.pyll.base import bincount
+
+from .algobase import ExprEvaluator, SuggestAlgo
+from .base import miscs_to_idxs_vals
 from .pyll.stochastic import (
     categorical,
-    normal,
     lognormal,
-    qnormal,
-    qlognormal,
-    uniform,
     loguniform,
-    quniform,
+    normal,
+    qlognormal,
     qloguniform,
+    qnormal,
+    quniform,
+    uniform,
 )
-from .base import miscs_to_idxs_vals
-from .algobase import SuggestAlgo, ExprEvaluator
 
 __authors__ = "James Bergstra"
 __license__ = "3-clause BSD License"

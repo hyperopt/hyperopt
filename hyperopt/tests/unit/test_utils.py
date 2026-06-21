@@ -1,10 +1,17 @@
+import os
+import shutil
+
 import numpy as np
 import pytest
-import shutil
-import os
-from hyperopt.utils import fast_isin
-from hyperopt.utils import get_most_recent_inds
-from hyperopt.utils import temp_dir, working_dir, get_closest_dir, path_split_all
+
+from hyperopt.utils import (
+    fast_isin,
+    get_closest_dir,
+    get_most_recent_inds,
+    path_split_all,
+    temp_dir,
+    working_dir,
+)
 
 
 def test_fast_isin():
@@ -117,7 +124,7 @@ def test_path_split_all():
 
 
 def test_temp_dir_sentinel():
-    from os.path import join, isdir, exists
+    from os.path import exists, isdir, join
 
     basedir = "test_temp_dir_sentinel"
     fn = join(basedir, "foo", "bar")

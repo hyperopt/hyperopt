@@ -10,6 +10,7 @@ To start the engines in hyperopt/hyperopt/tests/
 """
 
 import sys
+
 import pytest
 
 try:
@@ -18,10 +19,10 @@ except ImportError:
     print("Skipping IPython Tests (IPython not found)", file=sys.stderr)
     pytest.skip("IPython not present", allow_module_level=True)
 
-from hyperopt.ipy import IPythonTrials
+import hyperopt
 import hyperopt.hp
 import hyperopt.tpe
-import hyperopt
+from hyperopt.ipy import IPythonTrials
 
 
 def test0():

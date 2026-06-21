@@ -1,41 +1,27 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from .base import STATUS_STRINGS
-from .base import STATUS_NEW
-from .base import STATUS_RUNNING
-from .base import STATUS_SUSPENDED
-from .base import STATUS_OK
-from .base import STATUS_FAIL
-
-from .base import JOB_STATES
-from .base import JOB_STATE_NEW
-from .base import JOB_STATE_RUNNING
-from .base import JOB_STATE_DONE
-from .base import JOB_STATE_ERROR
-
-from .base import Ctrl
-from .base import Trials
-from .base import trials_from_docs
-from .base import Domain
-
-from .fmin import fmin
-from .fmin import fmin_pass_expr_memo_ctrl
-from .fmin import FMinIter
-from .fmin import partial
-from .fmin import space_eval
-
 # -- syntactic sugar
-from . import hp
-
 # -- exceptions
-from . import exceptions
-
 # -- Import built-in optimization algorithms
-from . import rand
-from . import tpe
-from . import atpe
-from . import mix
-from . import anneal
+from . import anneal, atpe, exceptions, hp, mix, rand, tpe
+from .base import (
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR,
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATES,
+    STATUS_FAIL,
+    STATUS_NEW,
+    STATUS_OK,
+    STATUS_RUNNING,
+    STATUS_STRINGS,
+    STATUS_SUSPENDED,
+    Ctrl,
+    Domain,
+    Trials,
+    trials_from_docs,
+)
+from .fmin import FMinIter, fmin, fmin_pass_expr_memo_ctrl, partial, space_eval
 
 # -- spark extension
 from .spark import SparkTrials

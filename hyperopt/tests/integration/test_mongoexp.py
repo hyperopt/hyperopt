@@ -1,28 +1,29 @@
-import pickle as pickle
 import os
+import pickle as pickle
 import signal
 import subprocess
 import sys
-import traceback
 import threading
 import time
+import traceback
 import unittest
 
 import numpy as np
-
 import pytest
 
-from hyperopt.base import JOB_STATE_DONE, STATUS_OK
-from hyperopt.mongoexp import parse_url
-from hyperopt.mongoexp import MongoTrials
-from hyperopt.mongoexp import MongoWorker
-from hyperopt.mongoexp import ReserveTimeout
-from hyperopt.mongoexp import as_mongo_str
-from hyperopt.mongoexp import main_worker_helper
-from hyperopt.mongoexp import MongoJobs
-from hyperopt.fmin import fmin
-from hyperopt import hp, rand
 import hyperopt.tests.test_base
+from hyperopt import hp, rand
+from hyperopt.base import JOB_STATE_DONE, STATUS_OK
+from hyperopt.fmin import fmin
+from hyperopt.mongoexp import (
+    MongoJobs,
+    MongoTrials,
+    MongoWorker,
+    ReserveTimeout,
+    as_mongo_str,
+    main_worker_helper,
+    parse_url,
+)
 from hyperopt.tests.unit.test_domains import gauss_wave2
 
 
@@ -136,7 +137,7 @@ try:
 except OSError as e:
     print(e, file=sys.stderr)
     print(
-        ("Failed to create a TempMongo context," " skipping all mongo tests."),
+        ("Failed to create a TempMongo context, skipping all mongo tests."),
         file=sys.stderr,
     )
     if "such file" in str(e):

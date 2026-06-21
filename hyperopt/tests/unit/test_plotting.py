@@ -6,8 +6,9 @@ then the plots actually appear.
 
 """
 
-import unittest
 import os
+import unittest
+
 import pytest
 
 try:
@@ -17,9 +18,9 @@ try:
 except ImportError:
     pytest.skip("matplotlib not installed", allow_module_level=True)
 
-from hyperopt import Trials
 import hyperopt.plotting
-from hyperopt import rand, fmin
+from hyperopt import Trials, fmin, rand
+
 from .test_domains import many_dists
 
 

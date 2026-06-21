@@ -1,10 +1,9 @@
-from functools import partial
 import unittest
-import numpy as np
-from hyperopt import anneal
-from hyperopt import rand
-from hyperopt import Trials, fmin
+from functools import partial
 
+import numpy as np
+
+from hyperopt import Trials, anneal, fmin, rand
 
 try:
     import matplotlib.pyplot as plt

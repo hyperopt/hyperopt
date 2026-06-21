@@ -1,37 +1,24 @@
-from functools import partial
 import os
 import unittest
-
-import pytest
+from functools import partial
 
 import numpy as np
+import pytest
 
 try:
     import matplotlib.pyplot as plt
 except ImportError:
     pass
 
-from hyperopt import pyll
-from hyperopt.pyll import scope
-
-from hyperopt import Trials
-
-from hyperopt.base import miscs_to_idxs_vals, STATUS_OK
-
-from hyperopt import hp
-
-from hyperopt.tpe import adaptive_parzen_normal_orig
-from hyperopt.tpe import GMM1
-from hyperopt.tpe import GMM1_lpdf
-from hyperopt.tpe import LGMM1
-from hyperopt.tpe import LGMM1_lpdf
-
+import hyperopt.atpe as atpe
 import hyperopt.rand as rand
 import hyperopt.tpe as tpe
-import hyperopt.atpe as atpe
-from hyperopt import fmin
+from hyperopt import Trials, fmin, hp, pyll
+from hyperopt.base import STATUS_OK, miscs_to_idxs_vals
+from hyperopt.pyll import scope
+from hyperopt.tpe import GMM1, LGMM1, GMM1_lpdf, LGMM1_lpdf, adaptive_parzen_normal_orig
 
-from .test_domains import domain_constructor, CasePerDomain, NonCategoricalCasePerDomain
+from .test_domains import CasePerDomain, NonCategoricalCasePerDomain, domain_constructor
 
 DO_SHOW = int(os.getenv("HYPEROPT_SHOW", "0"))
 
@@ -673,8 +660,7 @@ class TestOptQUniform:
 
         losses = trials.losses()
 
-        from hyperopt.tpe import ap_split_trials
-        from hyperopt.tpe import adaptive_parzen_samplers
+        from hyperopt.tpe import adaptive_parzen_samplers, ap_split_trials
 
         qu = scope.quniform(1.01, 10, 1)
         fn = adaptive_parzen_samplers["quniform"]

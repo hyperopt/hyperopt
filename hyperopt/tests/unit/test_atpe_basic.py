@@ -1,6 +1,8 @@
 import random
+
 import numpy as np
-from hyperopt import hp, fmin, atpe, space_eval
+
+from hyperopt import atpe, fmin, hp, space_eval
 
 random.seed(1)
 np.random.seed(1)

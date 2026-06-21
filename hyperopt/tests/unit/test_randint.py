@@ -2,8 +2,9 @@ import unittest
 from functools import partial
 
 import numpy as np
-from hyperopt import hp, Trials, fmin, rand, tpe
+
 import hyperopt.pyll.stochastic
+from hyperopt import Trials, fmin, hp, rand, tpe
 
 
 def test_basic():

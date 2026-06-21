@@ -2,10 +2,9 @@ import unittest
 
 import numpy as np
 
-from hyperopt import Trials, Domain, fmin, hp, base
+from hyperopt import Domain, Trials, base, fmin, hp
+from hyperopt.pyll import as_apply, scope
 from hyperopt.rand import suggest
-from hyperopt.pyll import as_apply
-from hyperopt.pyll import scope
 
 
 # -- define this bandit here too for completeness' sake

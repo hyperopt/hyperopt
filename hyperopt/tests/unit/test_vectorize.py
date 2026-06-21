@@ -1,16 +1,16 @@
 import numpy as np
 
-from hyperopt.pyll import as_apply, scope, rec_eval, clone, dfs
-from hyperopt.pyll.stochastic import recursive_set_rng_kwarg
-
 from hyperopt import base, fmin, rand
-from hyperopt.vectorize import VectorizeHelper
-from hyperopt.vectorize import replace_repeat_stochastic
-from hyperopt.pyll_utils import hp_choice
-from hyperopt.pyll_utils import hp_uniform
-from hyperopt.pyll_utils import hp_quniform
-from hyperopt.pyll_utils import hp_loguniform
-from hyperopt.pyll_utils import hp_qloguniform
+from hyperopt.pyll import as_apply, clone, dfs, rec_eval, scope
+from hyperopt.pyll.stochastic import recursive_set_rng_kwarg
+from hyperopt.pyll_utils import (
+    hp_choice,
+    hp_loguniform,
+    hp_qloguniform,
+    hp_quniform,
+    hp_uniform,
+)
+from hyperopt.vectorize import VectorizeHelper, replace_repeat_stochastic
 
 
 def config0():

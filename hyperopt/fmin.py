@@ -8,12 +8,11 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-from hyperopt import tpe, exceptions
-from hyperopt.base import validate_timeout, validate_loss_threshold
-from . import pyll
+from hyperopt import exceptions, tpe
+from hyperopt.base import validate_loss_threshold, validate_timeout
+
+from . import base, progress, pyll
 from .utils import coarse_utcnow
-from . import base
-from . import progress
 
 logger = logging.getLogger(__name__)
 

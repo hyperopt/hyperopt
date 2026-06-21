@@ -1,12 +1,12 @@
-from hyperopt import pyll_utils
-from hyperopt.pyll_utils import EQ
-from hyperopt.pyll_utils import expr_to_config
-from hyperopt import hp
-from hyperopt.pyll import as_apply
-from hyperopt.pyll.stochastic import sample
 import unittest
+
 import numpy as np
 import pytest
+
+from hyperopt import hp, pyll_utils
+from hyperopt.pyll import as_apply
+from hyperopt.pyll.stochastic import sample
+from hyperopt.pyll_utils import EQ, expr_to_config
 
 
 def test_expr_to_config():

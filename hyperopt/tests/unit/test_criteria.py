@@ -1,4 +1,5 @@
 import numpy as np
+
 import hyperopt.criteria as crit
 
 

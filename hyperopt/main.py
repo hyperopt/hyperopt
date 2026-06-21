@@ -3,11 +3,13 @@
 """
 Entry point for bin/* scripts
 """
+
 import logging
 import os
+import sys
+
 from . import utils
 from .base import SerialExperiment
-import sys
 
 logger = logging.getLogger(__name__)
 

@@ -1,36 +1,39 @@
 """
-    Implements the ATPE algorithm. See
-    https://articulon.bradleyarsenault.me/article/learning-to-optimize
-    and
-    https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
+Implements the ATPE algorithm. See
+https://articulon.bradleyarsenault.me/article/learning-to-optimize
+and
+https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
 """
 
 __authors__ = "Bradley Arsenault"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
-from hyperopt import hp
-from contextlib import contextmanager
 import sys
+from contextlib import contextmanager
+
+from hyperopt import hp
 
 if sys.version_info < (3, 9):
     import importlib_resources as resources
 else:
     from importlib import resources
-import re
+import copy
+import datetime
 import functools
+import json
+import math
+import os
 import random
+import re
+import tempfile
+
 import numpy
 import numpy.random
-import tempfile
 import scipy.stats
-import os
-import math
+
 import hyperopt
 import hyperopt.atpe_models
-import datetime
-import json
-import copy
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
@@ -661,9 +664,11 @@ class ATPEOptimizer:
                 "You must install lightgbm and sklearn in order to use the ATPE algorithm. Please run `pip install lightgbm scikit-learn` and try again. These are not built in dependencies of hyperopt."
             )
 
-        with resources.files(hyperopt.atpe_models.__name__).joinpath(
-            "scaling_model.json"
-        ).open() as fd:
+        with (
+            resources.files(hyperopt.atpe_models.__name__)
+            .joinpath("scaling_model.json")
+            .open()
+        ) as fd:
             scalingModelData = json.load(fd)
         self.featureScalingModels = {}
         for key in self.atpeModelFeatureKeys:
@@ -692,9 +697,11 @@ class ATPEOptimizer:
                     model_file=model_file_name
                 )
 
-            with resources.files(hyperopt.atpe_models.__name__).joinpath(
-                f"model-{param}-configuration.json"
-            ).open() as config_fd:
+            with (
+                resources.files(hyperopt.atpe_models.__name__)
+                .joinpath(f"model-{param}-configuration.json")
+                .open()
+            ) as config_fd:
                 self.parameterModelConfigurations[param] = json.load(config_fd)
 
         self.lastATPEParameters = None
