@@ -16,12 +16,9 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --group dev
-      - name: Test with pytest - Unit tests
+      - name: Test with pytest - everything - pyspark in pin thread mode
         run: |
-          uv run pytest ./hyperopt/tests/unit
-      - name: Test spark plugin - pin thread mode
-        run: |
-          PYSPARK_PIN_THREAD=true uv run pytest hyperopt/tests/integration/test_spark.py
+          PYSPARK_PIN_THREAD=true uv run pytest
       - name: Test spark plugin - non pin thread mode
         run: |
           PYSPARK_PIN_THREAD=false uv run pytest hyperopt/tests/integration/test_spark.py
