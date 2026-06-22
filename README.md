@@ -24,6 +24,11 @@ pip install hyperopt
 uv add hyperopt
 ```
 
+Hyperopt supports the following [extras](https://packaging.python.org/en/latest/specifications/dependency-specifiers/#extras):
+- `SparkTrials`
+- `MongoTrials`
+- `ATPE`
+
 to run your first example
 
 ```python
