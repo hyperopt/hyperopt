@@ -1,3 +1,4 @@
-1. Create a new release in github.
+1. Create a new release in github, for a tag that starts with "v" e.g. v0.2.9
    The pipeline will build and publish the package automatically with the version defined as tag.
 2. Announce to hyperopt-announce (maybe also scikit-learn?)
+
