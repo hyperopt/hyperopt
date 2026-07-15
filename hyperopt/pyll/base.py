@@ -851,9 +851,9 @@ def rec_eval(
                 switch_i = memo[switch_i_var]
                 if isinstance(switch_i, np.ndarray):
                     switch_i = switch_i.item()
-                if isinstance(switch_i, np.integer):
+                if isinstance(switch_i, (int, np.integer)):
+                    assert switch_i == int(switch_i)
                     switch_i = int(switch_i)
-                if isinstance(switch_i, int):
                     if switch_i < 0:
                         raise ValueError("switch pos must be positive int", switch_i)
                 else:
