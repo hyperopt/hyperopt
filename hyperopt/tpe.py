@@ -147,20 +147,21 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         coef = weights / Z / p_accept
         rval = logsum_rows(-0.5 * mahal + np.log(coef))
     else:
-        prob = np.zeros(samples.shape, dtype="float64")
-        for w, mu, sigma in zip(weights, mus, sigmas):
-            if high is None:
-                ubound = samples + q / 2
-            else:
-                ubound = np.minimum(samples + q / 2, high)
-            if low is None:
-                lbound = samples - q / 2
-            else:
-                lbound = np.maximum(samples - q / 2, low)
-            # -- two-stage addition is slightly more numerically accurate
-            inc_amt = w * normal_cdf(ubound, mu, sigma)
-            inc_amt -= w * normal_cdf(lbound, mu, sigma)
-            prob += inc_amt
+        if high is None:
+            ubound = samples[..., np.newaxis] + q / 2
+        else:
+            ubound = np.minimum(samples[..., np.newaxis] + q / 2, high)
+        if low is None:
+            lbound = samples[..., np.newaxis] - q / 2
+        else:
+            lbound = np.maximum(samples[..., np.newaxis] - q / 2, low)
+
+        # ubound/lbound: (N, D, 1), mus/sigmas: (D,), broadcast to (N, D, D)
+        cdf_ub = normal_cdf(ubound, mus, sigmas)
+        cdf_lb = normal_cdf(lbound, mus, sigmas)
+        inc_amt = weights * (cdf_ub - cdf_lb)  # (N, D, D)
+
+        prob = np.sum(inc_amt, axis=-1)
         rval = np.log(prob) - np.log(p_accept)
 
     if verbose:
