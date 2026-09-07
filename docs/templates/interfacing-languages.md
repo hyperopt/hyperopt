@@ -16,7 +16,7 @@ import subprocess
 def foo_wrapper(n):
     # Optional: write out a script for the external executable
     # (we just call foo with the argument proposed by hyperopt)
-    proc = subprocess.Popen(['foo', '--n', n], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(["foo", "--n", n], stdout=subprocess.PIPE)
     proc_out, proc_err = proc.communicate()
     # <you might have to do some more elaborate parsing of foo's output here>
     score = float(proc_out)
@@ -28,7 +28,7 @@ Of course, to optimize the `n` argument to `foo` you also need to call hyperopt.
 ```python
 from hyperopt import fmin, hp, rand
 
-best_n = fmin(foo_wrapper, hp.quniform('n', 1, 100, 1), algo=rand.suggest)
+best_n = fmin(foo_wrapper, hp.quniform("n", 1, 100, 1), algo=rand.suggest)
 
 print(best_n)
 ```
