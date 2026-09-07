@@ -44,7 +44,9 @@ import math
 from hyperopt import fmin, tpe, hp, Trials
 
 trials = Trials()
-best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
+best = fmin(
+    math.sin, hp.uniform("x", -2, 2), trials=trials, algo=tpe.suggest, max_evals=10
+)
 ```
 
 To use the mongo database for persistent storage of the experiment, use a `MongoTrials` object instead of `Trials` like this:
@@ -54,8 +56,10 @@ import math
 from hyperopt import fmin, tpe, hp
 from hyperopt.mongoexp import MongoTrials
 
-trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key='exp1')
-best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
+trials = MongoTrials("mongo://localhost:1234/foo_db/jobs", exp_key="exp1")
+best = fmin(
+    math.sin, hp.uniform("x", -2, 2), trials=trials, algo=tpe.suggest, max_evals=10
+)
 ```
 
 The first argument to MongoTrials tells it what mongod process to use, and which *database* (here 'foo_db') within that process to use.
@@ -94,7 +98,9 @@ We set the poll interval explicitly in this case because the default timings are
 If you run the example above a second time,
 
 ```python
-best = fmin(math.sin, hp.uniform('x', -2, 2), trials=trials, algo=tpe.suggest, max_evals=10)
+best = fmin(
+    math.sin, hp.uniform("x", -2, 2), trials=trials, algo=tpe.suggest, max_evals=10
+)
 ```
 
 you will see that it returns right away and nothing happens.
