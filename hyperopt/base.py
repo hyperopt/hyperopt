@@ -638,7 +638,7 @@ class Trials:
         pass_expr_memo_ctrl=None,
         catch_eval_exceptions=False,
         return_argmin=True,
-        show_progressbar=True,
+        show_progressbar=None,
         early_stop_fn=None,
         trials_save_file="",
     ):
@@ -656,8 +656,10 @@ class Trials:
             error jobs (JOB_STATE_ERROR).  If set to False, such exceptions
             will not be caught, and so they will propagate to calling code.
 
-        show_progressbar : bool or context manager, default True.
-            Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
+        show_progressbar : None, bool or context-manager factory, default None
+            Show a progress bar. When None, this follows the value of `verbose`.
+            A custom factory must accept `initial` and `total` keyword arguments.
+            See `hyperopt.progress` for customizing progress reporting.
 
         """
         # -- Stop-gap implementation!

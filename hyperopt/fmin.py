@@ -124,14 +124,16 @@ class FMinIter:
         timeout=None,
         loss_threshold=None,
         verbose=False,
-        show_progressbar=True,
+        show_progressbar=None,
         early_stop_fn=None,
         trials_save_file="",
     ):
         self.algo = algo
         self.domain = domain
         self.trials = trials
-        if not show_progressbar or not verbose:
+        if show_progressbar is None:
+            show_progressbar = verbose
+        if not show_progressbar:
             self.progress_callback = progress.no_progress_callback
         elif show_progressbar is True:
             self.progress_callback = progress.default_callback
@@ -377,7 +379,7 @@ def fmin(
     return_argmin=True,
     points_to_evaluate=None,
     max_queue_len=1,
-    show_progressbar=True,
+    show_progressbar=None,
     early_stop_fn=None,
     trials_save_file="",
 ):
@@ -445,8 +447,8 @@ def fmin(
         string, otherwise np.random is used in whatever state it is in.
 
     verbose : bool
-        Print out some information to stdout during search. If False, disable
-            progress bar irrespectively of show_progressbar argument
+        Print out some information to stdout during search. By default, setting
+        this to False also disables the progress bar.
 
     allow_trials_fmin : bool, default True
         If the `trials` argument
@@ -476,8 +478,10 @@ def fmin(
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool or context manager, default True (or False if verbose is False).
-        Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
+    show_progressbar : None, bool or context-manager factory, default None
+        Show a progress bar. When None, this follows the value of `verbose`.
+        A custom factory must accept `initial` and `total` keyword arguments.
+        See `hyperopt.progress` for customizing progress reporting.
 
     early_stop_fn: callable ((result, *args) -> (Boolean, *args)).
         Called after every run with the result of the run and the values returned by the function previously.
@@ -530,6 +534,9 @@ def fmin(
 
         # Change fn to accept a dict-like argument
         fn = __objective_fmin_wrapper(fn)
+
+    if show_progressbar is None:
+        show_progressbar = verbose
 
     if allow_trials_fmin and hasattr(trials, "fmin"):
         return trials.fmin(
