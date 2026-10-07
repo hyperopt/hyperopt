@@ -47,7 +47,7 @@ class TempMongo:
             proc_args = [
                 "mongod",
                 "--dbpath=%s/db" % self.workdir,
-                "--noprealloc",
+                "--logpath=%s/mongod.log" % self.workdir,
                 "--port=22334",
             ]
             print("starting mongod", proc_args)
@@ -99,7 +99,7 @@ class TempMongo:
 
     def db_up(self):
         try:
-            self.mongo_jobs("__test_db")
+            self.mongo_jobs("__test_db").conn.admin.command("ping")
             return True
         except:  # XXX: don't know what exceptions to put here
             return False

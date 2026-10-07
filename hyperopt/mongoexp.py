@@ -275,9 +275,7 @@ def connection_with_tunnel(
             "127.0.0.1", local_port, document_class=SON, w=1, journal=True
         )
     else:
-        connection = pymongo.MongoClient(
-            host, port, document_class=SON, w=1, journal=True
-        )
+        auth_kwargs = {}
         if user:
             if not pw:
                 pw = read_pw()
@@ -285,7 +283,13 @@ def connection_with_tunnel(
             if user == "hyperopt" and not auth_dbname:
                 auth_dbname = "admin"
 
-            connection[dbname].authenticate(user, pw, source=auth_dbname)
+            auth_kwargs = dict(
+                username=user, password=pw, authSource=auth_dbname or dbname
+            )
+
+        connection = pymongo.MongoClient(
+            host, port, document_class=SON, w=1, journal=True, **auth_kwargs
+        )
 
         ssh_tunnel = None
 
@@ -397,7 +401,7 @@ class MongoJobs:
 
     def __len__(self):
         try:
-            return self.jobs.count()
+            return self.jobs.count_documents({})
         except:
             return 0
 
@@ -447,7 +451,7 @@ class MongoJobs:
         try:
             cpy = copy.deepcopy(job)
             # -- this call adds an _id field to cpy
-            _id = self.jobs.insert(cpy, check_keys=True)
+            _id = self.jobs.insert_one(cpy).inserted_id
             # -- so now we return the dict with the _id field
             assert _id == cpy["_id"]
             return cpy
@@ -461,7 +465,7 @@ class MongoJobs:
     def delete(self, job):
         """Delete job[s]"""
         try:
-            self.jobs.remove(job)
+            self.jobs.delete_many(job)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
             #    see insert() code for rationale.
@@ -479,7 +483,7 @@ class MongoJobs:
                         self.gfs.delete(file_id)
                     except gridfs.errors.NoFile:
                         logger.error(f"failed to remove attachment {name}:{file_id}")
-                self.jobs.remove(d)
+                self.jobs.delete_one(d)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
             #    see insert() code for rationale.
@@ -511,7 +515,7 @@ class MongoJobs:
             )
 
         try:
-            rval = self.jobs.find_and_modify(
+            rval = self.jobs.find_one_and_update(
                 cond,
                 {
                     "$set": {
@@ -521,7 +525,7 @@ class MongoJobs:
                         "refresh_time": now,
                     }
                 },
-                new=True,
+                return_document=pymongo.ReturnDocument.AFTER,
                 upsert=False,
             )
         except pymongo.errors.OperationFailure as e:
@@ -564,7 +568,7 @@ class MongoJobs:
         try:
             # warning - if doc matches nothing then this function succeeds
             # N.B. this matches *at most* one entry, and possibly zero
-            collection.update(doc_query, {"$set": dct}, upsert=False, multi=False)
+            collection.update_one(doc_query, {"$set": dct}, upsert=False)
         except pymongo.errors.OperationFailure as e:
             # -- translate pymongo error class into hyperopt error class
             #    see insert() code for rationale.
@@ -847,7 +851,7 @@ class MongoTrials(Trials):
     def _insert_trial_docs(self, docs):
         rval = []
         for doc in docs:
-            rval.append(self.handle.jobs.insert(doc))
+            rval.append(self.handle.jobs.insert_one(doc).inserted_id)
         return rval
 
     def count_by_state_unsynced(self, arg):
@@ -864,7 +868,7 @@ class MongoTrials(Trials):
             query = dict(state={"$in": states})
         if exp_key != None:
             query["exp_key"] = exp_key
-        rval = self.handle.jobs.find(query).count()
+        rval = self.handle.jobs.count_documents(query)
         return rval
 
     def delete_all(self, cond=None):
@@ -901,7 +905,7 @@ class MongoTrials(Trials):
 
         doc = None
         while doc is None:
-            doc = db.job_ids.find_and_modify(
+            doc = db.job_ids.find_one_and_update(
                 query, {"$inc": {"last_id": last_id}}, upsert=True
             )
             if doc is None:
@@ -1201,7 +1205,7 @@ def as_mongo_str(s):
 
 def number_of_jobs_in_db(options):
     mj = MongoJobs.new_from_connection_str(as_mongo_str(options.mongo) + "/jobs")
-    final_num = mj.jobs.find().count()
+    final_num = mj.jobs.count_documents({})
     return final_num
 
 
