@@ -375,6 +375,64 @@ def test_early_stop_no_progress_loss():
     assert len(trials) == 10
 
 
+@pytest.mark.parametrize(
+    "failed_result",
+    [
+        {"status": STATUS_FAIL},
+        {"status": STATUS_FAIL, "loss": None},
+        {"status": STATUS_FAIL, "loss": -100},
+    ],
+)
+@pytest.mark.parametrize("failure_first", [False, True])
+def test_early_stop_no_progress_loss_failed_result(failed_result, failure_first):
+    trials = Trials()
+    success = {"status": STATUS_OK, "loss": 4}
+    results = [failed_result, success] if failure_first else [success, failed_result]
+
+    fmin(
+        fn=lambda x: results[min(len(trials) - 1, len(results) - 1)],
+        space=hp.uniform("x", -5, 5),
+        algo=rand.suggest,
+        max_evals=8,
+        trials=trials,
+        early_stop_fn=no_progress_loss(3),
+        show_progressbar=False,
+    )
+
+    assert len(trials) == 3
+    assert trials.best_trial["result"]["loss"] == 4
+
+
+@pytest.mark.parametrize(
+    "failed_result",
+    [
+        {"status": STATUS_FAIL},
+        {"status": STATUS_FAIL, "loss": None},
+        {"status": STATUS_FAIL, "loss": -100},
+    ],
+)
+def test_early_stop_no_progress_loss_improvement_after_failure(failed_result):
+    trials = Trials()
+    results = [
+        {"status": STATUS_OK, "loss": 4},
+        failed_result,
+        {"status": STATUS_OK, "loss": 3},
+    ]
+
+    fmin(
+        fn=lambda x: results[min(len(trials) - 1, len(results) - 1)],
+        space=hp.uniform("x", -5, 5),
+        algo=rand.suggest,
+        max_evals=8,
+        trials=trials,
+        early_stop_fn=no_progress_loss(3),
+        show_progressbar=False,
+    )
+
+    assert len(trials) == 6
+    assert trials.best_trial["result"]["loss"] == 3
+
+
 def test_annotated_params_space():
     def objective(x: hp.uniform("x", -10, 10), y: hp.uniform("y", -10, 10)):
         return (x * y) ** 2
