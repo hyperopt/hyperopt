@@ -111,6 +111,11 @@ The stochastic expressions currently recognized by hyperopt's optimization algor
   * Returns a value like round(exp(normal(mu, sigma)) / q) * q
   * Suitable for a discrete variable with respect to which the objective is smooth and gets smoother with the size of the variable, which is bounded from one side.
 
+For `hp.uniform`, `hp.quniform`, `hp.uniformint`, `hp.loguniform`, and
+`hp.qloguniform`, numeric bounds must satisfy `low < high`, including when either
+bound is zero. To fix a parameter to one value, put that value directly in the
+search space instead of using identical bounds.
+
 ## A Search Space Example: scikit-learn
 
 To see all these possibilities in action, let's look at how one might go about describing the space of hyperparameters of classification algorithms in scikit-learn.

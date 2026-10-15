@@ -137,3 +137,68 @@ class TestDistributionsWithRangeValidateBoundries(unittest.TestCase):
 
     def test_hp_qloguniform_raises_error_when_range_is_zero(self):
         self.assertRaises(ValueError, hp.qloguniform, "stub", 10, 10, 1)
+
+
+@pytest.mark.parametrize(
+    "distribution, extra",
+    [
+        (hp.uniform, {}),
+        (hp.quniform, {"q": 1}),
+        (hp.uniformint, {}),
+        (hp.loguniform, {}),
+        (hp.qloguniform, {"q": 1}),
+    ],
+)
+@pytest.mark.parametrize(
+    "low, high",
+    [
+        (0, 0),
+        (0, -1),
+        (1, 0),
+        (0.0, 0.0),
+        (np.float64(0), np.float64(0)),
+        (1, 1),
+        (2, 1),
+    ],
+)
+@pytest.mark.parametrize("style", ["positional", "mixed", "keyword"])
+def test_invalid_distribution_ranges(distribution, extra, low, high, style):
+    args, kwargs = {
+        "positional": ((low, high), {}),
+        "mixed": ((low,), {"high": high}),
+        "keyword": ((), {"low": low, "high": high}),
+    }[style]
+    with pytest.raises(ValueError, match="low should be less than high"):
+        distribution("x", *args, **kwargs, **extra)
+
+
+@pytest.mark.parametrize(
+    "distribution, extra, expected",
+    [
+        (hp.uniform, {}, 0.6369616873214543),
+        (hp.quniform, {"q": 1}, 1.0),
+        (hp.uniformint, {}, 1),
+        (hp.loguniform, {}, np.exp(0.6369616873214543)),
+        (hp.qloguniform, {"q": 1}, 2.0),
+    ],
+)
+@pytest.mark.parametrize("symbolic_high", [False, True])
+def test_valid_zero_lower_bound(distribution, extra, expected, symbolic_high):
+    high = as_apply(1) if symbolic_high else 1
+    space = distribution("x", 0, high, **extra)
+    assert sample(space, rng=np.random.default_rng(0)) == expected
+
+
+@pytest.mark.parametrize(
+    "distribution, extra, expected",
+    [
+        (hp.uniform, {}, -0.3630383126785457),
+        (hp.quniform, {"q": 1}, 0.0),
+        (hp.uniformint, {}, 0),
+        (hp.loguniform, {}, np.exp(-0.3630383126785457)),
+        (hp.qloguniform, {"q": 1}, 1.0),
+    ],
+)
+def test_valid_zero_upper_bound(distribution, extra, expected):
+    space = distribution("x", low=-1, high=0, **extra)
+    assert sample(space, rng=np.random.default_rng(0)) == expected

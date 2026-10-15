@@ -28,7 +28,14 @@ def validate_distribution_range(f):
         max_val = (
             args[1] if len(args) > 1 else (kwargs["high"] if "high" in kwargs else None)
         )
-        if min_val and max_val and not min_val < max_val:
+        # Symbolic bounds cannot be compared until the graph is evaluated.
+        if (
+            min_val is not None
+            and max_val is not None
+            and not isinstance(min_val, Apply)
+            and not isinstance(max_val, Apply)
+            and not min_val < max_val
+        ):
             raise ValueError(
                 "low should be less than high: %s is not smaller than %s"
                 % (min_val, max_val)
