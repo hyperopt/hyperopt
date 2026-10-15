@@ -162,3 +162,34 @@ def test_workdir():
     finally:
         if os.path.isdir(fn):
             os.rmdir(fn)
+
+
+@pytest.mark.parametrize("error_type", [RuntimeError, ValueError, KeyboardInterrupt])
+def test_workdir_restored_after_exception(tmp_path, error_type):
+    original = os.getcwd()
+    error = error_type("objective stopped")
+    try:
+        with pytest.raises(error_type) as caught:
+            with working_dir(tmp_path):
+                assert os.getcwd() == str(tmp_path)
+                raise error
+        assert caught.value is error
+        assert os.getcwd() == original
+    finally:
+        os.chdir(original)
+
+
+def test_nested_workdir_restored_after_exception(tmp_path):
+    original = os.getcwd()
+    outer = tmp_path / "outer"
+    inner = outer / "inner"
+    inner.mkdir(parents=True)
+    try:
+        with working_dir(outer):
+            with pytest.raises(RuntimeError, match="nested objective stopped"):
+                with working_dir(inner):
+                    raise RuntimeError("nested objective stopped")
+            assert os.getcwd() == str(outer)
+        assert os.getcwd() == original
+    finally:
+        os.chdir(original)

@@ -208,8 +208,10 @@ def coarse_utcnow():
 def working_dir(dir):
     cwd = os.getcwd()
     os.chdir(dir)
-    yield
-    os.chdir(cwd)
+    try:
+        yield
+    finally:
+        os.chdir(cwd)
 
 
 def path_split_all(path):
