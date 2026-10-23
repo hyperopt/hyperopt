@@ -310,8 +310,12 @@ class FMinIter:
                 # update progress bar with the min loss among trials with status ok
                 losses = [
                     loss
-                    for loss in self.trials.losses()
-                    if loss is not None and not np.isnan(loss)
+                    for loss, status in zip(
+                        self.trials.losses(), self.trials.statuses()
+                    )
+                    if status == base.STATUS_OK
+                    and loss is not None
+                    and not np.isnan(loss)
                 ]
                 if losses:
                     best_loss = min(losses)
