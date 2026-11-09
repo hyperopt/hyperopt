@@ -13,7 +13,7 @@ In each section, we will be searching over a bounded range from -10 to +10,
 which we can describe with a *search space*:
 
 ```python
-space = hp.uniform('x', -10, 10)
+space = hp.uniform("x", -10, 10)
 ```
 
 Refer to [this page](search_spaces.md) for information on how to specify search spaces that are more complicated.
@@ -27,10 +27,10 @@ receives a valid point from the search space, and returns the floating-point
 
 ```python
 from hyperopt import fmin, tpe, hp
-best = fmin(fn=lambda x: x ** 2,
-            space=hp.uniform('x', -10, 10),
-            algo=tpe.suggest,
-            max_evals=100)
+
+best = fmin(
+    fn=lambda x: x**2, space=hp.uniform("x", -10, 10), algo=tpe.suggest, max_evals=100
+)
 print(best)
 ```
 
@@ -94,12 +94,10 @@ from hyperopt import fmin, tpe, hp, STATUS_OK
 
 
 def objective(x):
-    return {'loss': x ** 2, 'status': STATUS_OK }
+    return {"loss": x**2, "status": STATUS_OK}
 
-best = fmin(objective,
-            space=hp.uniform('x', -10, 10),
-            algo=tpe.suggest,
-            max_evals=100)
+
+best = fmin(objective, space=hp.uniform("x", -10, 10), algo=tpe.suggest, max_evals=100)
 
 print(best)
 ```
@@ -118,21 +116,24 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 def objective(x):
     return {
-        'loss': x ** 2,
-        'status': STATUS_OK,
+        "loss": x**2,
+        "status": STATUS_OK,
         # -- store other results like this
-        'eval_time': time.time(),
-        'other_stuff': {'type': None, 'value': [0, 1, 2]},
+        "eval_time": time.time(),
+        "other_stuff": {"type": None, "value": [0, 1, 2]},
         # -- attachments are handled differently
-        'attachments':
-            {'time_module': pickle.dumps(time.time)}
-        }
+        "attachments": {"time_module": pickle.dumps(time.time)},
+    }
+
+
 trials = Trials()
-best = fmin(objective,
-            space=hp.uniform('x', -10, 10),
-            algo=tpe.suggest,
-            max_evals=100,
-            trials=trials)
+best = fmin(
+    objective,
+    space=hp.uniform("x", -10, 10),
+    algo=tpe.suggest,
+    max_evals=100,
+    trials=trials,
+)
 
 print(best)
 ```
@@ -157,17 +158,20 @@ from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 
 
 def objective(x):
-    return {'loss': x ** 2, 'status': STATUS_OK }
+    return {"loss": x**2, "status": STATUS_OK}
+
 
 # Initialize an empty trials database
 trials = Trials()
 
 # Perform 100 evaluations on the search space
-best = fmin(objective,
-            space=hp.uniform('x', -10, 10),
-            algo=tpe.suggest,
-            trials=trials,
-            max_evals=100)
+best = fmin(
+    objective,
+    space=hp.uniform("x", -10, 10),
+    algo=tpe.suggest,
+    trials=trials,
+    max_evals=100,
+)
 
 # The trials database now contains 100 entries, it can be saved/reloaded with pickle or another method
 pickle.dump(trials, open("my_trials.pkl", "wb"))
@@ -175,11 +179,13 @@ trials = pickle.load(open("my_trials.pkl", "rb"))
 
 # Perform an additional 100 evaluations
 # Note that max_evals is set to 200 because 100 entries already exist in the database
-best = fmin(objective,
-    space=hp.uniform('x', -10, 10),
+best = fmin(
+    objective,
+    space=hp.uniform("x", -10, 10),
     algo=tpe.suggest,
     trials=trials,
-    max_evals=200)
+    max_evals=200,
+)
 
 print(best)
 ```
@@ -190,7 +196,7 @@ for both `Trials` and `MongoTrials`.
 You can retrieve a trial attachment like this, which retrieves the 'time_module' attachment of the 5th trial:
 
 ```python
-msg = trials.trial_attachments(trials.trials[5])['time_module']
+msg = trials.trial_attachments(trials.trials[5])["time_module"]
 time_module = pickle.loads(msg)
 ```
 
