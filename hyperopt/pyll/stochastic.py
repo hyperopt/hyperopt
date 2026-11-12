@@ -137,8 +137,7 @@ def categorical(p, rng=None, size=()):
     if p.ndim == 0:
         raise NotImplementedError()
     elif p.ndim == 1:
-        n_draws = int(np.prod(size))
-        sample = rng.multinomial(n=1, pvals=p, size=int(n_draws))
+        sample = rng.multinomial(n=1, pvals=p, size=size)
         assert sample.shape == size + (len(p),)
         rval = np.dot(sample, np.arange(len(p)))
         rval.shape = size
