@@ -6,7 +6,7 @@ import logging
 import time
 
 import numpy as np
-from scipy.special import erf
+from scipy.special import erf, logsumexp
 
 # from .base import Trials
 from . import pyll, rand
@@ -248,8 +248,7 @@ def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
 
 
 def logsum_rows(x):
-    m = x.max(axis=1)
-    return np.log(np.exp(x - m[:, None]).sum(axis=1)) + m
+    return logsumexp(x, axis=1)
 
 
 @scope.define
