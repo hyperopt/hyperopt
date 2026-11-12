@@ -274,7 +274,7 @@ def LGMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     if q is None:
         # compute the lpdf of each sample under each component
         lpdfs = lognormal_lpdf(samples[:, None], mus, sigmas)
-        rval = logsum_rows(lpdfs + np.log(weights))
+        rval = logsum_rows(lpdfs + np.log(weights)) - np.log(p_accept)
     else:
         # compute the lpdf of each sample under each component
         prob = np.zeros(samples.shape, dtype="float64")
