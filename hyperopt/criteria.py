@@ -26,6 +26,16 @@ def EI_gaussian(mean, var, thresh):
 
     (estimated analytically)
     """
+    if np.any(np.asarray(var) == 0):
+        mean, var, thresh = np.broadcast_arrays(mean, var, thresh)
+        improvement = np.array(np.maximum(mean - thresh, 0.0), dtype=float)
+        nonzero = var != 0
+        if np.any(nonzero):
+            improvement[nonzero] = EI_gaussian(
+                mean[nonzero], var[nonzero], thresh[nonzero]
+            )
+        return improvement[()]
+
     sigma = np.sqrt(var)
     score = (mean - thresh) / sigma
     n = scipy.stats.norm
@@ -40,6 +50,20 @@ def logEI_gaussian(mean, var, thresh):
 
     """
     assert np.asarray(var).min() >= 0
+    if np.any(np.asarray(var) == 0):
+        mean, var, thresh = np.broadcast_arrays(mean, var, thresh)
+        result = np.full(mean.shape, -np.inf)
+        improved = (var == 0) & (mean > thresh)
+        result[improved] = np.log(mean[improved] - thresh[improved])
+        nonzero = var != 0
+        if np.any(nonzero):
+            result[nonzero] = logEI_gaussian(
+                mean[nonzero].squeeze(),
+                var[nonzero].squeeze(),
+                thresh[nonzero].squeeze(),
+            )
+        return result[()]
+
     sigma = np.sqrt(var)
     score = (mean - thresh) / sigma
     n = scipy.stats.norm
