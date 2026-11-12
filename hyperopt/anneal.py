@@ -325,10 +325,10 @@ class AnnealingAlgo(SuggestAlgo):
             assert p.ndim == 1
             p = p[np.newaxis, :]
         if val1.size:
-            counts = np.bincount(val1, minlength=p.size) / val1.size
+            counts = np.bincount(val1, minlength=p.shape[-1]) / val1.size
             prior = self.shrinking(label)
         else:
-            counts = np.zeros(p.size)
+            counts = np.zeros(p.shape[-1])
             prior = 1.0
         new_p = (1 - prior) * counts + prior * p
         assert new_p.ndim == 2
