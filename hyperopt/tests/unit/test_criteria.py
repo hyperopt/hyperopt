@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import hyperopt.criteria as crit
 
@@ -55,6 +56,49 @@ def test_log_ei_range():
             ]
         )
     )
+
+
+@pytest.mark.parametrize("mean,threshold", [(-2.0, 0.0), (0.0, 0.0), (3.0, 1.0)])
+@pytest.mark.parametrize("function", [crit.EI_gaussian, crit.logEI_gaussian])
+def test_expected_improvement_with_zero_variance(function, mean, threshold):
+    improvement = max(mean - threshold, 0.0)
+    if function is crit.logEI_gaussian:
+        expected = np.log(improvement) if improvement else -np.inf
+    else:
+        expected = improvement
+
+    with np.errstate(all="raise"):
+        actual = function(mean, 0.0, threshold)
+
+    assert actual == expected
+
+
+@pytest.mark.parametrize("function", [crit.EI_gaussian, crit.logEI_gaussian])
+def test_expected_improvement_with_mixed_variances(function):
+    mean = np.array([-2.0, 0.0, 3.0, 0.5])
+    var = np.array([0.0, 0.0, 0.0, 1.0])
+    expected = np.array([0.0, 0.0, 2.0, crit.EI_gaussian(0.5, 1.0, 1.0)])
+    if function is crit.logEI_gaussian:
+        with np.errstate(divide="ignore"):
+            expected = np.log(expected)
+
+    with np.errstate(all="raise"):
+        actual = function(mean, var, 1.0)
+
+    np.testing.assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("function", [crit.EI_gaussian, crit.logEI_gaussian])
+def test_mixed_variance_inputs_preserve_positive_variance_precision(function):
+    mean = np.array([1.0, 0.12345678], dtype=np.float32)
+    var = np.array([0.0, 1.2345678], dtype=np.float32)
+    threshold = np.zeros(2, dtype=np.float32)
+    expected = function(mean[1], var[1], threshold[1])
+
+    actual = function(mean, var, threshold)
+
+    assert actual.dtype == np.dtype(np.float64)
+    assert actual[1] == expected
 
 
 def test_ucb():
