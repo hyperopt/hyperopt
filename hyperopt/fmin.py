@@ -110,6 +110,7 @@ class FMinIter:
 
     catch_eval_exceptions = False
     pickle_protocol = -1
+    _early_stop_triggered = False
 
     def __init__(
         self,
@@ -232,6 +233,7 @@ class FMinIter:
         trials = self.trials
         algo = self.algo
         n_queued = 0
+        self._early_stop_triggered = False
 
         def get_queue_len():
             return self.trials.count_by_state_unsynced(base.JOB_STATE_NEW)
@@ -303,6 +305,7 @@ class FMinIter:
                     )
                     self.early_stop_args = kwargs
                     if stop:
+                        self._early_stop_triggered = True
                         logger.info(
                             "Early stop triggered. Stopping iterations as condition is reach."
                         )
@@ -344,12 +347,11 @@ class FMinIter:
         return self
 
     def __next__(self):
+        if self._early_stop_triggered:
+            raise StopIteration()
         self.run(1, block_until_done=self.asynchronous)
-        if self.early_stop_fn is not None:
-            stop, kwargs = self.early_stop_fn(self.trials, *self.early_stop_args)
-            self.early_stop_args = kwargs
-            if stop:
-                raise StopIteration()
+        if self._early_stop_triggered:
+            raise StopIteration()
         if len(self.trials) >= self.max_evals:
             raise StopIteration()
         return self.trials
