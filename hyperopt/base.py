@@ -585,12 +585,9 @@ class Trials:
             best_idx = np.argmin(loss3[:, 0])
             return loss3[best_idx, 2]
         else:
-            cutoff = 0
-            sigma = np.sqrt(loss3[0][1])
-            while cutoff < len(loss3) and loss3[cutoff][0] < loss3[0][0] + 3 * sigma:
-                cutoff += 1
-            pmin = pmin_sampled(loss3[:cutoff, 0], loss3[:cutoff, 1])
-            avg_true_loss = (pmin * loss3[:cutoff, 2]).sum()
+            # A higher observed loss can still win when its uncertainty is large.
+            pmin = pmin_sampled(loss3[:, 0], loss3[:, 1])
+            avg_true_loss = (pmin * loss3[:, 2]).sum()
             return avg_true_loss
 
     @property
