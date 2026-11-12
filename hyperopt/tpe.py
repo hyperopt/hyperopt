@@ -178,16 +178,14 @@ def lognormal_cdf(x, mu, sigma):
     # wikipedia claims cdf is
     # .5 + .5 erf( log(x) - mu / sqrt(2 sigma^2))
     #
-    # the maximum is used to move negative values and 0 up to a point
-    # where they do not cause nan or inf, but also don't contribute much
-    # to the cdf.
     if len(x) == 0:
         return np.asarray([])
     if x.min() < 0:
         raise ValueError("negative arg to lognormal_cdf", x)
     olderr = np.seterr(divide="ignore")
     try:
-        top = np.log(np.maximum(x, EPS)) - mu
+        # log(0) = -inf gives a zero CDF without clamping positive values.
+        top = np.log(x) - mu
         bottom = np.maximum(np.sqrt(2) * sigma, EPS)
         z = top / bottom
         return 0.5 + 0.5 * erf(z)
@@ -516,7 +514,7 @@ def ap_qloguniform_sampler(obs, prior_weight, low, high, q, size=(), rng=None):
             scope.maximum(
                 obs,
                 scope.maximum(  # -- protect against exp(low) underflow
-                    EPS, scope.exp(low)
+                    np.nextafter(0.0, 1.0), scope.exp(low)
                 ),
             )
         ),
