@@ -17,7 +17,7 @@ import numpy as np
 from hyperopt.pyll.base import bincount
 
 from .algobase import ExprEvaluator, SuggestAlgo
-from .base import miscs_to_idxs_vals
+from .base import STATUS_OK, miscs_to_idxs_vals
 from .pyll.stochastic import (
     categorical,
     lognormal,
@@ -114,7 +114,11 @@ class AnnealingAlgo(SuggestAlgo):
         for doc in trials.trials:
             # get either this docs own tid or the one that it's from
             tid = doc["tid"]
-            loss = domain.loss(doc["result"], doc["spec"])
+            loss = (
+                domain.loss(doc["result"], doc["spec"])
+                if domain.status(doc["result"], doc["spec"]) == STATUS_OK
+                else None
+            )
             # -- associate infinite loss to new/running/failed jobs
             loss = float("inf" if loss is None else loss)
             doc_by_tid[tid] = (doc, loss)

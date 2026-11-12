@@ -10,7 +10,7 @@ from scipy.special import erf
 
 # from .base import Trials
 from . import pyll, rand
-from .base import miscs_to_idxs_vals, miscs_update_idxs_vals
+from .base import STATUS_OK, miscs_to_idxs_vals, miscs_update_idxs_vals
 from .pyll import scope
 from .pyll.stochastic import implicit_stochastic
 
@@ -867,7 +867,11 @@ def suggest(
         tid = doc["misc"].get("from_tid", doc["tid"])
 
         # associate infinite loss to new/running/failed jobs
-        loss = doc["result"].get("loss")
+        loss = (
+            doc["result"].get("loss")
+            if doc["result"].get("status") == STATUS_OK
+            else None
+        )
         loss = float("inf") if loss is None else float(loss)
 
         # if set, update loss for this tid if it's higher than current loss
