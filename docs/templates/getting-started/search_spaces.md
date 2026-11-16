@@ -10,11 +10,11 @@ It's best to think of search spaces as stochastic argument-sampling programs. Fo
 
 ```python
 from hyperopt import hp
-space = hp.choice('a',
-    [
-        ('case 1', 1 + hp.lognormal('c1', 0, 1)),
-        ('case 2', hp.uniform('c2', -10, 10))
-    ])
+
+space = hp.choice(
+    "a",
+    [("case 1", 1 + hp.lognormal("c1", 0, 1)), ("case 2", hp.uniform("c2", -10, 10))],
+)
 ```
 
 The result of running this code fragment is a variable `space` that refers to a graph of expression identifiers and their arguments.
@@ -25,6 +25,7 @@ If you like, you can evaluate a sample space by sampling from it.
 
 ```python
 import hyperopt.pyll.stochastic
+
 print(hyperopt.pyll.stochastic.sample(space))
 ```
 
@@ -118,26 +119,34 @@ To see all these possibilities in action, let's look at how one might go about d
 
 ```python
 from hyperopt import hp
-space = hp.choice('classifier_type', [
-    {
-        'type': 'naive_bayes',
-    },
-    {
-        'type': 'svm',
-        'C': hp.lognormal('svm_C', 0, 1),
-        'kernel': hp.choice('svm_kernel', [
-            {'ktype': 'linear'},
-            {'ktype': 'RBF', 'width': hp.lognormal('svm_rbf_width', 0, 1)},
-            ]),
-    },
-    {
-        'type': 'dtree',
-        'criterion': hp.choice('dtree_criterion', ['gini', 'entropy']),
-        'max_depth': hp.choice('dtree_max_depth',
-                     [None, hp.qlognormal('dtree_max_depth_int', 3, 1, 1)]),
-        'min_samples_split': hp.qlognormal('dtree_min_samples_split', 2, 1, 1),
-    },
-    ])
+
+space = hp.choice(
+    "classifier_type",
+    [
+        {
+            "type": "naive_bayes",
+        },
+        {
+            "type": "svm",
+            "C": hp.lognormal("svm_C", 0, 1),
+            "kernel": hp.choice(
+                "svm_kernel",
+                [
+                    {"ktype": "linear"},
+                    {"ktype": "RBF", "width": hp.lognormal("svm_rbf_width", 0, 1)},
+                ],
+            ),
+        },
+        {
+            "type": "dtree",
+            "criterion": hp.choice("dtree_criterion", ["gini", "entropy"]),
+            "max_depth": hp.choice(
+                "dtree_max_depth", [None, hp.qlognormal("dtree_max_depth_int", 3, 1, 1)]
+            ),
+            "min_samples_split": hp.qlognormal("dtree_min_samples_split", 2, 1, 1),
+        },
+    ],
+)
 ```
 
 ## Adding Non-Stochastic Expressions with pyll
@@ -155,8 +164,9 @@ from hyperopt.pyll import scope
 
 @scope.define
 def foo(a, b=0):
-     print('runing foo', a, b)
-     return a + b / 2
+    print("runing foo", a, b)
+    return a + b / 2
+
 
 # -- this will print 0, foo is called as usual.
 print(foo(0))
@@ -165,8 +175,8 @@ print(foo(0))
 # would in normal Python. These two calls will not actually call foo,
 # they just record that foo should be called to evaluate the graph.
 
-space1 = scope.foo(hp.uniform('a', 0, 10))
-space2 = scope.foo(hp.uniform('a', 0, 10), hp.normal('b', 0, 1))
+space1 = scope.foo(hp.uniform("a", 0, 10))
+space2 = scope.foo(hp.uniform("a", 0, 10), hp.normal("b", 0, 1))
 
 # -- this will print an pyll.Apply node
 print(space1)
