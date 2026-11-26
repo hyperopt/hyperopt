@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import logging
 import os
 import shutil
@@ -50,12 +51,13 @@ def import_tokens(tokens):
         # XXX: try using getattr, and then merge with load_tokens
         try:
             logger.info("importing %s" % modname)
-            exec(f"import {modname}")
-            exec(f"rval = {modname}")
+            rval = importlib.import_module(modname)
         except ImportError as e:
             logger.info("failed to import %s" % modname)
             logger.info("reason: %s" % str(e))
             break
+    else:
+        return rval, []
     return rval, tokens[i:]
 
 
