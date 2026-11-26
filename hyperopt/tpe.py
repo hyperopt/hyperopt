@@ -6,7 +6,7 @@ import logging
 import time
 
 import numpy as np
-from scipy.special import erf
+from scipy.special import erf, erfc
 
 # from .base import Trials
 from . import pyll, rand
@@ -102,6 +102,16 @@ def normal_cdf(x, mu, sigma):
     return 0.5 * (1 + erf(z))
 
 
+def _normal_interval_probability(lower, upper, mu, sigma):
+    scale = np.maximum(np.sqrt(2) * sigma, EPS)
+    lower = (lower - mu) / scale
+    upper = (upper - mu) / scale
+    # Reflect right-tail intervals so neither CDF is rounded to one.
+    right = lower > 0
+    lower, upper = np.where(right, -upper, lower), np.where(right, -lower, upper)
+    return 0.5 * (erfc(-upper) - erfc(-lower))
+
+
 @scope.define
 def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
     def print_verbose(s, x):
@@ -136,7 +146,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
         p_accept = 1
     else:
         p_accept = np.sum(
-            weights * (normal_cdf(high, mus, sigmas) - normal_cdf(low, mus, sigmas))
+            weights * _normal_interval_probability(low, high, mus, sigmas)
         )
 
     if q is None:
@@ -157,10 +167,7 @@ def GMM1_lpdf(samples, weights, mus, sigmas, low=None, high=None, q=None):
                 lbound = samples - q / 2
             else:
                 lbound = np.maximum(samples - q / 2, low)
-            # -- two-stage addition is slightly more numerically accurate
-            inc_amt = w * normal_cdf(ubound, mu, sigma)
-            inc_amt -= w * normal_cdf(lbound, mu, sigma)
-            prob += inc_amt
+            prob += w * _normal_interval_probability(lbound, ubound, mu, sigma)
         rval = np.log(prob) - np.log(p_accept)
 
     if verbose:
