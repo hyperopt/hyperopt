@@ -616,23 +616,28 @@ def ap_split_trials(o_idxs, o_vals, l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF)
     only unique elements are returned, so the total number of returned elements might
     be lower than `len(o_vals)`
     """
-    o_idxs, o_vals, l_idxs, l_vals = list(
-        map(np.asarray, [o_idxs, o_vals, l_idxs, l_vals])
-    )
+    below_ids, above_ids = ap_split_trial_ids(l_idxs, l_vals, gamma, gamma_cap)
+    return ap_filter_trials(o_idxs, o_vals, below_ids, above_ids)
 
-    # XXX if this is working, refactor this sort for efficiency
 
+@scope.define_info(o_len=2)
+def ap_split_trial_ids(l_idxs, l_vals, gamma, gamma_cap=DEFAULT_LF):
+    """Partition trial IDs once for all observations in a posterior graph."""
+    l_idxs, l_vals = list(map(np.asarray, [l_idxs, l_vals]))
     # Splitting is done this way to cope with duplicate loss values.
     n_below = min(int(np.ceil(gamma * np.sqrt(len(l_vals)))), gamma_cap)
     l_order = np.argsort(l_vals)
+    return set(l_idxs[l_order[:n_below]]), set(l_idxs[l_order[n_below:]])
 
-    keep_idxs = set(l_idxs[l_order[:n_below]])
-    below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
 
-    keep_idxs = set(l_idxs[l_order[n_below:]])
-    above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
-
-    return np.asarray(below), np.asarray(above)
+@scope.define_info(o_len=2)
+def ap_filter_trials(o_idxs, o_vals, below_ids, above_ids):
+    """Select a parameter's observations without reordering them."""
+    o_idxs, o_vals = list(map(np.asarray, [o_idxs, o_vals]))
+    return (
+        np.asarray([v for i, v in zip(o_idxs, o_vals) if i in below_ids]),
+        np.asarray([v for i, v in zip(o_idxs, o_vals) if i in above_ids]),
+    )
 
 
 @scope.define
@@ -679,12 +684,15 @@ def build_posterior(
     # map prior RVs to observations
     obs_memo = {}
 
+    below_ids, above_ids = scope.ap_split_trial_ids(
+        obs_loss_idxs, obs_loss_vals, oloss_gamma
+    )
     for nid in prior_vals:
         # construct the leading args for each call to adaptive_parzen_sampler
         # which will permit the "adaptive parzen samplers" to adapt to the
         # correct samples.
-        obs_below, obs_above = scope.ap_split_trials(
-            obs_idxs[nid], obs_vals[nid], obs_loss_idxs, obs_loss_vals, oloss_gamma
+        obs_below, obs_above = scope.ap_filter_trials(
+            obs_idxs[nid], obs_vals[nid], below_ids, above_ids
         )
         obs_memo[prior_vals[nid]] = [obs_below, obs_above]
     for node in nodes:
