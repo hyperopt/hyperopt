@@ -220,7 +220,7 @@ def qlognormal_lpdf(x, mu, sigma, q):
 @scope.define
 def LGMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None, size=()):
     weights, mus, sigmas = list(map(np.asarray, (weights, mus, sigmas)))
-    n_samples = np.prod(size)
+    n_samples = int(np.prod(size))
     # n_components = len(weights)
     if low is None and high is None:
         active = np.argmax(rng.multinomial(1, weights, (n_samples,)), axis=1)
