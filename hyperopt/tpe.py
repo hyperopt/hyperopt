@@ -850,15 +850,6 @@ def suggest(
 
     """
 
-    t0 = time.time()
-    # use build_posterior_wrapper to create the pyll nodes
-    observed, observed_loss, posterior = build_posterior_wrapper(
-        domain, prior_weight, gamma
-    )
-    tt = time.time() - t0
-    if verbose:
-        logger.info("build_posterior_wrapper took %f seconds" % tt)
-
     # Loop over previous trials to collect best_docs and best_docs_loss
     best_docs = dict()
     best_docs_loss = dict()
@@ -897,6 +888,15 @@ def suggest(
     if len(docs) < n_startup_jobs:
         # N.B. THIS SEEDS THE RNG BASED ON THE new_id
         return rand.suggest(new_ids, domain, trials, seed)
+
+    t0 = time.time()
+    # use build_posterior_wrapper to create the pyll nodes
+    observed, observed_loss, posterior = build_posterior_wrapper(
+        domain, prior_weight, gamma
+    )
+    tt = time.time() - t0
+    if verbose:
+        logger.info("build_posterior_wrapper took %f seconds" % tt)
 
     # Sample and compute log-probability.
     first_new_id = new_ids[0]
