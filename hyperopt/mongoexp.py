@@ -1188,9 +1188,9 @@ class MongoCtrl(Ctrl):
 
 
 def exec_import(cmd_module, cmd):
-    worker_fn = None
-    exec(f"import {cmd_module}; worker_fn = {cmd}")
-    return worker_fn
+    namespace = {}
+    exec(f"import {cmd_module}; worker_fn = {cmd}", namespace)
+    return namespace["worker_fn"]
 
 
 def as_mongo_str(s):
