@@ -444,7 +444,12 @@ class Trials:
 
     def new_trial_ids(self, n):
         aa = len(self._ids)
-        rval = list(range(aa, aa + n))
+        rval = []
+        for _ in range(n):
+            while aa in self._ids:
+                aa += 1
+            rval.append(aa)
+            aa += 1
         self._ids.update(rval)
         return rval
 
