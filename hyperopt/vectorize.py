@@ -24,10 +24,19 @@ def vchoice_split(idxs, choices, n_options):
 @scope.define_pure
 def vchoice_merge(idxs, choices, *vals):
     rval = []
+    positions = {}
     assert len(idxs) == len(choices)
     for idx, ch in zip(idxs, choices):
-        vi, vv = vals[ch]
-        rval.append(vv[list(vi).index(idx)])
+        if ch not in positions:
+            vi, _ = vals[ch]
+            positions[ch] = {}
+            for position, branch_idx in enumerate(vi):
+                positions[ch].setdefault(branch_idx, position)
+        try:
+            position = positions[ch][idx]
+        except KeyError:
+            raise ValueError(f"{idx!r} is not in list") from None
+        rval.append(vals[ch][1][position])
     return rval
 
 
